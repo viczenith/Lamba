@@ -1,0 +1,232 @@
+{% extends 'superAdmin/base.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Super Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Company Statistics -->
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">
+                <i class="bi bi-building"></i> Total Companies
+            </div>
+            <div class="stat-value text-primary">
+                {{ total_companies|default:0 }}
+            </div>
+            <small class="text-muted">Registered on platform</small>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">
+                <i class="bi bi-check-circle"></i> Active Companies
+            </div>
+            <div class="stat-value text-success">
+                {{ active_companies|default:0 }}
+            </div>
+            <small class="text-muted">With paid subscriptions</small>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">
+                <i class="bi bi-hourglass-split"></i> Trial Companies
+            </div>
+            <div class="stat-value text-warning">
+                {{ trial_companies|default:0 }}
+            </div>
+            <small class="text-muted">In trial period</small>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">
+                <i class="bi bi-currency-exchange"></i> MRR
+            </div>
+            <div class="stat-value text-info">
+                ₦{{ mrr|floatformat:0|intcomma }}
+            </div>
+            <small class="text-muted">Monthly Recurring Revenue</small>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Recent Companies -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-building"></i> Recent Companies</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for company in recent_companies %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'superadmin:company_detail' company.id %}">
+                                        {{ company.company_name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if company.subscription_status == 'active' %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% elif company.subscription_status == 'trial' %}
+                                        <span class="badge bg-warning">Trial</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ company.subscription_status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ company.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No companies yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Onboardings -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> Pending Onboardings</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Progress</th>
+                                <th>Needs Help</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for onboarding in pending_onboardings %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'superadmin:company_detail' onboarding.company.id %}">
+                                        {{ onboarding.company.company_name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {{ onboarding.completion_percentage }}%"
+                                             aria-valuenow="{{ onboarding.completion_percentage }}" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            {{ onboarding.completion_percentage }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if onboarding.needs_help %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> Yes
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No pending onboardings</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Recent Activity -->
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-activity"></i> Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Admin</th>
+                                <th>Action</th>
+                                <th>Company</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.created_at|date:"M d, H:i" }}</td>
+                                <td>{{ log.admin_user|default:"System" }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ log.get_action_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if log.target_company %}
+                                        <a href="{% url 'superadmin:company_detail' log.target_company.id %}">
+                                            {{ log.target_company.company_name }}
+                                        </a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.description|truncatewords:10 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No recent activity</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if analytics %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <h6><i class="bi bi-info-circle"></i> Today's Analytics</h6>
+            <p class="mb-0">
+                <strong>{{ analytics.new_companies_today }}</strong> new companies registered |
+                <strong>{{ analytics.new_users_today }}</strong> new users |
+                <strong>{{ analytics.properties_sold_today }}</strong> properties sold |
+                <strong>₦{{ analytics.revenue_today|floatformat:0|intcomma }}</strong> revenue
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

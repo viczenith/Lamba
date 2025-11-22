@@ -1,6 +1,9 @@
 """
 Audit logging for tracking all significant actions.
 Records administrative actions, data changes, and security events.
+
+MIGRATION NOTE: For system-wide audit logging (superAdmin), use SystemAuditLog from superAdmin.models
+This file maintains company-specific audit logging for estateApp.
 """
 import logging
 import json
@@ -12,8 +15,99 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-# Import AuditLog from models to avoid duplicate
-from .models import AuditLog
+
+# NOTE: For system-wide platform audit logging, import from superAdmin.models
+# from superAdmin.models import SystemAuditLog
+
+
+class AuditLog(models.Model):
+    """
+    Model for storing audit logs.
+    Records all significant actions in the system.
+    """
+    
+    ACTION_CHOICES = [
+        ('CREATE', 'Create'),
+        ('UPDATE', 'Update'),
+        ('DELETE', 'Delete'),
+        ('READ', 'Read'),
+        ('LOGIN', 'Login'),
+        ('LOGOUT', 'Logout'),
+        ('PERMISSION_CHANGE', 'Permission Change'),
+        ('SUBSCRIPTION_CHANGE', 'Subscription Change'),
+        ('API_KEY_CREATED', 'API Key Created'),
+        ('API_KEY_REVOKED', 'API Key Revoked'),
+        ('EXPORT', 'Export'),
+        ('IMPORT', 'Import'),
+        ('BULK_OPERATION', 'Bulk Operation'),
+        ('SECURITY_EVENT', 'Security Event'),
+        ('PAYMENT', 'Payment'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+        ('PARTIAL', 'Partial'),
+    ]
+    
+    # Who performed the action
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_logs'
+    )
+    
+    # Company/tenant context
+    company = models.ForeignKey(
+        'estateApp.Company',
+        on_delete=models.CASCADE,
+        related_name='audit_logs'
+    )
+    
+    # What action was taken
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES, default='READ')
+    
+    # What object was affected (content type + ID)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+    object_id = models.PositiveIntegerField(null=True)
+    object_repr = models.CharField(max_length=255, blank=True)
+    
+    # Changes made
+    old_values = models.JSONField(default=dict, blank=True)
+    new_values = models.JSONField(default=dict, blank=True)
+    
+    # Status and result
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SUCCESS')
+    error_message = models.TextField(blank=True)
+    
+    # Request context
+    ip_address = models.GenericIPAddressField(null=True)
+    user_agent = models.TextField(blank=True)
+    request_path = models.CharField(max_length=500, blank=True)
+    request_method = models.CharField(max_length=10, blank=True)
+    
+    # Additional metadata
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', '-created_at']),
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['action', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.action} by {self.user} on {self.created_at}"
 
 
 class AuditLogger:
@@ -270,6 +364,57 @@ class AuditLogger:
                 'description': description,
                 'severity': severity,
             },
+            request=request,
+        )
+    
+    @staticmethod
+    def log_admin_access(user, action, resource, request=None):
+        """Log admin access (for tenant admin features)"""
+        company = getattr(user, 'company_profile', None) if user else None
+        
+        return AuditLogger.log_action(
+            action='READ',
+            user=user,
+            company=company,
+            object_repr=f"Admin Access: {resource}",
+            metadata={
+                'access_action': action,
+                'resource': resource,
+            },
+            request=request,
+        )
+    
+    @staticmethod
+    def log_unauthorized_access(user, action, resource, request=None, reason=''):
+        """Log unauthorized access attempts"""
+        company = getattr(user, 'company_profile', None) if user else None
+        
+        return AuditLogger.log_action(
+            action='SECURITY_EVENT',
+            user=user,
+            company=company,
+            status='FAILED',
+            object_repr=f"Unauthorized Access: {resource}",
+            metadata={
+                'access_action': action,
+                'resource': resource,
+                'reason': reason,
+            },
+            request=request,
+        )
+    
+    @staticmethod
+    def log_admin_action(user, action, resource, request=None, status='SUCCESS', details=None):
+        """Log admin actions (general purpose)"""
+        company = getattr(user, 'company_profile', None) if user else None
+        
+        return AuditLogger.log_action(
+            action=action.upper() if action else 'UPDATE',
+            user=user,
+            company=company,
+            status=status.upper() if status else 'SUCCESS',
+            object_repr=resource,
+            metadata=details or {},
             request=request,
         )
 

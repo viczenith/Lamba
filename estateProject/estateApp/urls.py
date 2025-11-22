@@ -6,11 +6,18 @@ from django.contrib.auth.views import LoginView, LogoutView
 
 
 urlpatterns = [
-    # path('login/', LoginView.as_view(template_name='login.html'), name='login'),
-
+    # Authentication URLs - Unified Login System with Tenant-Aware Routing
+    # Dynamic tenant-specific login route (must come before default login route)
+    path('<slug:login_slug>/login/', CustomLoginView.as_view(), name='tenant-login'),
     path('login/', CustomLoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
-    path('register/', company_registration, name='register'),
+    
+    # Registration URLs for different user types
+    path('register/', company_registration, name='register'),  # Company registration
+    path('client/register/', client_registration, name='client_register'),  # Client registration
+    path('marketer/register/', marketer_registration, name='marketer_register'),  # Marketer registration
+    # Note: AdminSupport users can ONLY be created by Company Admins (no public registration)
+    
     path('company-profile/', company_profile_view, name='company-profile'),
     path('company-profile/update/', company_profile_update, name='company-profile-update'),
     path('company-profile/admin/<int:user_id>/toggle-mute/', admin_toggle_mute, name='admin-toggle-mute'),

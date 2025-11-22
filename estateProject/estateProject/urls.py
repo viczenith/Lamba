@@ -7,9 +7,16 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from adminSupport import views as admin_support_views
 
 urlpatterns = [
+    # Django Admin
     path('admin/', admin.site.urls),
-    path('tenant-admin/', include('tenantAdmin.urls', namespace='tenant_admin')),
+    
+    # Super Admin - Master Tenant Management
+    path('super-admin/', include('superAdmin.urls', namespace='superadmin')),
+    
+    # Main App
     path('', include('estateApp.urls')),
+    
+    # Admin Support
     path('admin-support/', include(('adminSupport.urls', 'adminsupport'), namespace='adminsupport')),
     path('api/admin-support/client-chats/', admin_support_views.chat_list_clients_api, name='adminsupport_client_chats'),
     path('api/admin-support/marketer-chats/', admin_support_views.chat_list_marketers_api, name='adminsupport_marketer_chats'),
@@ -22,11 +29,14 @@ urlpatterns = [
     path('api/admin-support/custom-special-days/', admin_support_views.api_custom_special_days, name='adminsupport_custom_special_days'),
     path('api/admin-support/custom-special-days/<uuid:day_id>/', admin_support_views.api_custom_special_day_detail, name='adminsupport_custom_special_day_detail'),
     
+    # API Routes
     path('api/', include('estateApp.api_urls.api_urls')),
     path('api/', include('DRF.urls', namespace='drf')),
 ]
 
+# Static and media files
 urlpatterns += staticfiles_urlpatterns()
 
-if settings.MEDIA_URL:
+if settings.DEBUG or settings.MEDIA_URL:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

@@ -575,6 +575,12 @@ class CustomUser(AbstractUser):
         ('marketer', 'Marketer'),
         ('support', 'Support'),
     ]
+    
+    ADMIN_LEVEL_CHOICES = [
+        ('system', 'System Administrator'),  # Platform-level super admin
+        ('company', 'Company Administrator'),  # Company-level admin
+        ('none', 'No Admin Access'),  # Regular user
+    ]
 
     username = None 
     full_name = models.CharField(max_length=255, verbose_name="Full Name")
@@ -582,6 +588,20 @@ class CustomUser(AbstractUser):
     phone = models.CharField(max_length=15, verbose_name="Phone Number")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, verbose_name="Role", blank=True, null=True)
     company_profile = models.ForeignKey(Company, null=True, blank=True, on_delete=models.SET_NULL, related_name="users", verbose_name="Company")
+    
+    # Tenant Admin fields (for superAdmin access control)
+    is_system_admin = models.BooleanField(
+        default=False, 
+        verbose_name="Is System Administrator",
+        help_text="System admins can manage the entire platform across all companies"
+    )
+    admin_level = models.CharField(
+        max_length=20,
+        choices=ADMIN_LEVEL_CHOICES,
+        default='none',
+        verbose_name="Admin Level",
+        help_text="Defines the administrative access level: system (platform-wide), company (single company), or none"
+    )
     # marketer = models.ForeignKey(
     #     'self', 
     #     null=True, 
@@ -2114,7 +2134,9 @@ class Invoice(models.Model):
     )
     
     period_end = models.DateField(
-        verbose_name='Period End Date'
+        verbose_name='Period End Date',
+        null=True,  # Allow null for existing records
+        blank=True
     )
     
     amount = models.DecimalField(

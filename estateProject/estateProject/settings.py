@@ -49,6 +49,35 @@ if not ALLOWED_HOSTS:
 
 # Application definition
 
+# Security: Dynamic Admin URL (generated at startup)
+import secrets
+ADMIN_URL_SLUG = secrets.token_urlsafe(32)  # Generate random slug
+
+# Security: Rate Limiting Configuration
+SECURITY_RATE_LIMIT_LOGIN_ATTEMPTS = 5  # Max attempts
+SECURITY_RATE_LIMIT_LOGIN_WINDOW = 300  # 5 minutes
+SECURITY_RATE_LIMIT_LOCKOUT_DURATION = 900  # 15 minutes
+
+# Security: IP Whitelist for Super Admin (optional, empty = allow all)
+SUPERADMIN_IP_WHITELIST = []  # Example: ['127.0.0.1', '192.168.1.0/24']
+
+# Security: Session Settings
+SESSION_COOKIE_SECURE = True  # HTTPS only in production
+SESSION_COOKIE_HTTPONLY = True  # No JavaScript access
+SESSION_COOKIE_SAMESITE = 'Strict'  # CSRF protection
+SESSION_COOKIE_AGE = 3600  # 1 hour default
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Strict'
+
+# Security: Password Validation (Enhanced)
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 12}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -58,10 +87,16 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'channels',
+    
+    # Core Apps
     'estateApp',
     'adminSupport',
-    'tenantAdmin',
     'DRF',
+    
+    # Super Admin - Master Tenant Management
+    'superAdmin',
+    
+    # Third-party apps
     'widget_tweaks',
     'rest_framework',
     'rest_framework.authtoken',
@@ -88,6 +123,13 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Multi-Tenant Middleware (MUST be after authentication)
+    'superAdmin.middleware.TenantIsolationMiddleware',
+    'superAdmin.middleware.QuerysetIsolationMiddleware',
+    'superAdmin.middleware.APITenantMiddleware',
+    'superAdmin.middleware.SubscriptionEnforcementMiddleware',
+    'superAdmin.middleware.AuditLoggingMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -140,21 +182,21 @@ CHANNEL_LAYERS = {
 load_dotenv()
 
 # Database configuration
-DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
 
 # For local development, you can uncomment this to use SQLite
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 # If you need to use the old style PostgreSQL configuration, uncomment and modify this:
 # DATABASES = {
@@ -264,10 +306,17 @@ FIREBASE_DEFAULT_COLOR = os.environ.get('FIREBASE_DEFAULT_COLOR', '#075E54')
 FIREBASE_DEFAULT_CHANNEL_ID = os.environ.get('FIREBASE_DEFAULT_CHANNEL_ID', 'chat_messages')
 FIREBASE_DEFAULT_SOUND = os.environ.get('FIREBASE_DEFAULT_SOUND', 'default')
 
+# Payment Gateway Configuration
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY', '')
+PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY', '')
+
 # Redis Configuration
 # In production, set REDIS_URL in your environment variables
 # Example: rediss://default:password@host:port
-REDIS_URL = os.environ['REDIS_URL']  # Required in production
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')  # Default for local dev
 
 # Celery settings
 CELERY_BROKER_URL = f"{REDIS_URL}/0"

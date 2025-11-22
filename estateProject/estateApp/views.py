@@ -3811,8 +3811,35 @@ def user_profile(request):
 
 
 class CustomLoginView(LoginView):
+    """
+    Unified Login View for all user types:
+    - Company Admin (primary and secondary admins)
+    - Client
+    - Marketer
+    - AdminSupport
+    
+    Security Features:
+    - Honeypot field for bot protection
+    - Dynamic tenant slug support for multi-tenant isolation
+    - Client IP tracking and optional GeoIP lookup
+    - Rate limiting hooks (server-side enforcement recommended)
+    - CSRF protection (built-in Django)
+    """
     form_class = CustomAuthenticationForm
-    template_name = 'login.html'
+    template_name = 'auth/unified_login.html'
+
+    def get_context_data(self, **kwargs):
+        """
+        Inject security-related context into template:
+        - honeypot_field: name of hidden honeypot field for bot protection
+        - login_slug: optional dynamic tenant slug from URL kwargs
+        """
+        context = super().get_context_data(**kwargs)
+        # Provide honeypot field name; use settings value or default to 'honeypot'
+        context['honeypot_field'] = getattr(settings, 'HONEYPOT_FIELD_NAME', 'honeypot')
+        # Provide dynamic slug if present (from URL kwargs)
+        context['login_slug'] = self.kwargs.get('login_slug', None)
+        return context
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -3839,7 +3866,16 @@ class CustomLoginView(LoginView):
                     user.save(update_fields=['last_login_ip'])
         except Exception:
             pass
-        messages.success(self.request, "Login successful!")
+        
+        # Role-specific welcome messages
+        company_name = user.company_profile.company_name if user.company_profile else "your company"
+        role_messages = {
+            'admin': f"Welcome back to {company_name}!",
+            'client': f"Welcome back, {user.full_name}!",
+            'marketer': f"Welcome back, {user.full_name}!",
+            'support': f"Welcome back, {user.full_name}! {company_name}!"
+        }
+        messages.success(self.request, role_messages.get(user.role, "Login successful!"))
         return response
 
     def form_invalid(self, form):
@@ -3852,7 +3888,8 @@ class CustomLoginView(LoginView):
             return redirect_to
 
         user = self.request.user
-        if user.role == 'admin':
+        # Role-based routing (admin and secondary_admin both route to admin dashboard)
+        if user.role in ('admin', 'secondary_admin'):
             return reverse_lazy('admin-dashboard')
         elif user.role == 'client':
             return reverse_lazy('client-dashboard')
@@ -3866,7 +3903,10 @@ class CustomLoginView(LoginView):
 
 @csrf_protect
 def company_registration(request):
-    """Handle company registration and create primary admin account"""
+    """
+    Company Registration - Creates Company and Admin User
+    Companies become the "Company Admin" role with full management access
+    """
     if request.method == 'POST':
         try:
             # Extract form data
@@ -3892,7 +3932,7 @@ def company_registration(request):
 
             # Check if company already exists
             if Company.objects.filter(company_name=company_name).exists():
-                messages.error(request, "A company with this name already exists!")
+                messages.error(request, f"A company with the name '{company_name}' already exists!")
                 return redirect('login')
 
             if Company.objects.filter(registration_number=registration_number).exists():
@@ -3900,7 +3940,7 @@ def company_registration(request):
                 return redirect('login')
 
             if Company.objects.filter(email=email).exists():
-                messages.error(request, "This email is already registered!")
+                messages.error(request, "This company email is already registered!")
                 return redirect('login')
 
             # Check if user email already exists
@@ -3910,6 +3950,9 @@ def company_registration(request):
 
             # Create company with transaction
             with transaction.atomic():
+                # Calculate trial end date (14 days from now)
+                trial_end = timezone.now() + timedelta(days=14)
+                
                 # Create the company
                 company = Company.objects.create(
                     company_name=company_name,
@@ -3920,21 +3963,25 @@ def company_registration(request):
                     ceo_dob=ceo_dob,
                     email=email,
                     phone=phone,
-                    is_active=True
+                    is_active=True,
+                    subscription_status='trial',
+                    trial_ends_at=trial_end,
+                    subscription_tier='starter'  # Default tier
                 )
 
-                # Create the admin user
+                # Create the admin user (Company Admin)
                 admin_user = CustomUser.objects.create_user(
                     email=email,
                     full_name=ceo_name,
                     phone=phone,
                     password=password,
-                    role='admin',
+                    role='admin',  # Company Admin role
                     company_profile=company,
                     address=location,
                     date_of_birth=ceo_dob,
                     is_staff=True,
-                    is_superuser=True
+                    is_superuser=False,  # Not system admin, just company admin
+                    is_active=True
                 )
 
                 # Set additional fields
@@ -3943,36 +3990,226 @@ def company_registration(request):
 
                 messages.success(
                     request,
-                    f"🎉 Registration successful! Welcome {company_name}! You can now login with your credentials."
+                    f"🎉 Welcome to Lamba! {company_name} registered successfully! "
+                    f"Your 14-day free trial starts now. Login to access your dashboard."
                 )
                 
-                # Optionally send welcome email here
+                # Send welcome email
                 try:
                     send_mail(
-                        subject=f'Welcome to Real Estate Management System - {company_name}',
+                        subject=f'Welcome to Lamba Real Estate Management - {company_name}',
                         message=f'Dear {ceo_name},\n\n'
-                                f'Your company "{company_name}" has been successfully registered.\n'
-                                f'You can now login with your email: {email}\n\n'
-                                f'Thank you for choosing our platform!\n\n'
-                                f'Best regards,\nReal Estate Management Team',
+                                f'Congratulations! Your company "{company_name}" has been successfully registered on Lamba.\n\n'
+                                f'🎁 You now have a 14-day FREE TRIAL to explore all features!\n\n'
+                                f'Login Details:\n'
+                                f'Email: {email}\n'
+                                f'Dashboard: Company Admin Portal\n\n'
+                                f'What you can do:\n'
+                                f'✅ Manage clients and marketers\n'
+                                f'✅ Create and allocate properties\n'
+                                f'✅ Track commissions and payments\n'
+                                f'✅ Generate reports and analytics\n\n'
+                                f'Login now: https://lamba.com/login\n\n'
+                                f'Thank you for choosing Lamba!\n\n'
+                                f'Best regards,\n'
+                                f'The Lamba Team\n'
+                                f'Transforming Nigerian Real Estate',
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
                         fail_silently=True,
                     )
-                except Exception as e:
-                    # Email failure shouldn't stop registration
+                except Exception:
                     pass
 
                 return redirect('login')
 
         except IntegrityError as e:
-            messages.error(request, f"Database error: A record with this information already exists!")
+            messages.error(request, f"Registration failed: A record with this information already exists!")
             return redirect('login')
         except Exception as e:
             messages.error(request, f"An error occurred during registration: {str(e)}")
+            logger.error(f"Company registration error: {str(e)}")
             return redirect('login')
 
-    # GET request - show login page
+    # GET request - redirect to login page
+    return redirect('login')
+
+
+@csrf_protect
+def client_registration(request):
+    """
+    Client Self-Registration
+    Clients can register independently to manage their properties from multiple companies
+    """
+    if request.method == 'POST':
+        try:
+            # Extract form data
+            first_name = request.POST.get('first_name')
+            last_name = request.POST.get('last_name')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            password = request.POST.get('password')
+            confirm_password = request.POST.get('confirm_password')
+
+            # Validation
+            if password != confirm_password:
+                messages.error(request, "Passwords do not match!")
+                return redirect('login')
+
+            if len(password) < 8:
+                messages.error(request, "Password must be at least 8 characters long!")
+                return redirect('login')
+
+            # Check if user email already exists
+            if CustomUser.objects.filter(email=email).exists():
+                messages.error(request, "A user with this email already exists!")
+                return redirect('login')
+
+            # Create client user
+            with transaction.atomic():
+                client_user = CustomUser.objects.create_user(
+                    email=email,
+                    full_name=f"{first_name} {last_name}",
+                    phone=phone,
+                    password=password,
+                    role='client',
+                    company_profile=None,  # Clients are not bound to a company initially
+                    is_active=True,
+                    is_staff=False,
+                    is_superuser=False
+                )
+
+                messages.success(
+                    request,
+                    f"🎉 Welcome to Lamba, {first_name}! Your client account is ready. "
+                    f"Login to view and manage properties from all companies."
+                )
+                
+                # Send welcome email
+                try:
+                    send_mail(
+                        subject='Welcome to Lamba - Your Client Account is Ready!',
+                        message=f'Dear {first_name} {last_name},\n\n'
+                                f'Welcome to Lamba Real Estate Management System!\n\n'
+                                f'Your client account has been successfully created.\n\n'
+                                f'Login Details:\n'
+                                f'Email: {email}\n'
+                                f'Dashboard: Client Portal\n\n'
+                                f'What you can do:\n'
+                                f'✅ View all your properties in one place\n'
+                                f'✅ Track payment schedules\n'
+                                f'✅ Manage properties from multiple companies\n'
+                                f'✅ Download property documents\n\n'
+                                f'Login now: https://lamba.com/login\n\n'
+                                f'Thank you for choosing Lamba!\n\n'
+                                f'Best regards,\n'
+                                f'The Lamba Team',
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+
+                return redirect('login')
+
+        except Exception as e:
+            messages.error(request, f"An error occurred during registration: {str(e)}")
+            logger.error(f"Client registration error: {str(e)}")
+            return redirect('login')
+
+    # GET request - redirect to login page
+    return redirect('login')
+
+
+@csrf_protect
+def marketer_registration(request):
+    """
+    Marketer Self-Registration
+    Marketers can register to affiliate with multiple companies and manage commissions
+    """
+    if request.method == 'POST':
+        try:
+            # Extract form data
+            first_name = request.POST.get('first_name')
+            last_name = request.POST.get('last_name')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            experience = request.POST.get('experience')
+            password = request.POST.get('password')
+            confirm_password = request.POST.get('confirm_password')
+
+            # Validation
+            if password != confirm_password:
+                messages.error(request, "Passwords do not match!")
+                return redirect('login')
+
+            if len(password) < 8:
+                messages.error(request, "Password must be at least 8 characters long!")
+                return redirect('login')
+
+            # Check if user email already exists
+            if CustomUser.objects.filter(email=email).exists():
+                messages.error(request, "A user with this email already exists!")
+                return redirect('login')
+
+            # Create marketer user
+            with transaction.atomic():
+                marketer_user = CustomUser.objects.create_user(
+                    email=email,
+                    full_name=f"{first_name} {last_name}",
+                    phone=phone,
+                    password=password,
+                    role='marketer',
+                    company_profile=None,  # Marketers can work with multiple companies
+                    is_active=True,
+                    is_staff=False,
+                    is_superuser=False,
+                    # Store experience in a custom field if available
+                    # Or use the 'about' field temporarily
+                    about=f"Experience: {experience}"
+                )
+
+                messages.success(
+                    request,
+                    f"🎉 Welcome to Lamba, {first_name}! Your marketer account is ready. "
+                    f"Login to start affiliating with companies and earning commissions."
+                )
+                
+                # Send welcome email
+                try:
+                    send_mail(
+                        subject='Welcome to Lamba - Your Marketer Account is Active!',
+                        message=f'Dear {first_name} {last_name},\n\n'
+                                f'Welcome to Lamba Real Estate Management System!\n\n'
+                                f'Your marketer account has been successfully created.\n\n'
+                                f'Login Details:\n'
+                                f'Email: {email}\n'
+                                f'Dashboard: Marketer Portal\n\n'
+                                f'What you can do:\n'
+                                f'✅ Affiliate with multiple real estate companies\n'
+                                f'✅ Track your commissions in real-time\n'
+                                f'✅ Manage client referrals\n'
+                                f'✅ Access marketing materials and resources\n\n'
+                                f'Login now: https://lamba.com/login\n\n'
+                                f'Start earning today!\n\n'
+                                f'Best regards,\n'
+                                f'The Lamba Team',
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+
+                return redirect('login')
+
+        except Exception as e:
+            messages.error(request, f"An error occurred during registration: {str(e)}")
+            logger.error(f"Marketer registration error: {str(e)}")
+            return redirect('login')
+
+    # GET request - redirect to login page
     return redirect('login')
 
 

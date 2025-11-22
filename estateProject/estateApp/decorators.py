@@ -1,12 +1,29 @@
 """
-Advanced Permission Decorators for Tenant Admin Authentication
-Provides role-based and scope-based access control
+DEPRECATED: This file now imports from superAdmin.decorators
+All tenant admin decorators have been moved to superAdmin app for cleaner organization.
+
+Use: from superAdmin.decorators import require_system_admin, require_admin_level, etc.
 """
-from functools import wraps
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from rest_framework.response import Response
-from rest_framework import status
+# Import all decorators from superAdmin for backward compatibility
+from superAdmin.decorators import (
+    require_system_admin,
+    require_admin_level,
+    require_company_admin,
+    check_company_ownership,
+    audit_action,
+    require_superuser
+)
+
+__all__ = [
+    'require_system_admin',
+    'require_admin_level',
+    'require_company_admin',
+    'check_company_ownership',
+    'audit_action',
+    'require_superuser'
+]
+
+# Legacy code below - kept for reference but imports from superAdmin are preferred
 
 
 def require_system_admin(view_func):

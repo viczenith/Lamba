@@ -1,0 +1,26 @@
+{% extends 'superAdmin/base.html' %}
+
+{% block title %}Access Denied{% endblock %}
+{% block page_title %}Access Denied{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-shield-x text-danger" style="font-size: 5rem;"></i>
+                <h2 class="mt-4">Access Denied</h2>
+                <p class="text-muted mt-3">
+                    You don't have permission to access the Super Admin area.
+                    This section is restricted to platform administrators only.
+                </p>
+                <div class="mt-4">
+                    <a href="/" class="btn btn-primary">
+                        <i class="bi bi-house"></i> Go to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
