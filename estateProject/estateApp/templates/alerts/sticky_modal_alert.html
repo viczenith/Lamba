@@ -1,0 +1,303 @@
+<!-- Sticky Modal Alert - Critical, non-closable -->
+<!-- Used for: Critical alerts that require acknowledgement (Days 1-2 of trial) -->
+<!-- Dismissible: NO - User must acknowledge to proceed -->
+<!-- Behavior: Blocks UI, shows countdown, can only be acknowledged/acted upon -->
+
+<div class="alert-sticky-overlay alert-sticky-overlay-{{ alert.severity }}" 
+     id="alert-sticky-{{ alert.id }}"
+     data-alert-id="{{ alert.id }}"
+     data-alert-type="sticky"
+     style="display: none;"
+     role="alertdialog"
+     aria-modal="true"
+     aria-required="true">
+    
+    <div class="alert-sticky alert-sticky-{{ alert.severity }}">
+        <!-- Modal header with icon -->
+        <div class="alert-sticky-header">
+            <span class="alert-sticky-icon">
+                {% if alert.severity == 'critical' %}
+                    <i class="fas fa-exclamation-circle"></i>
+                {% elif alert.severity == 'urgent' %}
+                    <i class="fas fa-exclamation"></i>
+                {% else %}
+                    <i class="fas fa-bell"></i>
+                {% endif %}
+            </span>
+            <h2 class="alert-sticky-title">{{ alert.title|default:"Important Alert" }}</h2>
+        </div>
+
+        <!-- Modal body with prominent message -->
+        <div class="alert-sticky-body">
+            <p class="alert-sticky-message">{{ alert.message }}</p>
+            
+            {% if alert.details %}
+                <div class="alert-sticky-details">
+                    {{ alert.details }}
+                </div>
+            {% endif %}
+
+            <!-- Countdown timer -->
+            {% if alert.countdown %}
+                <div class="alert-sticky-countdown">
+                    <div class="countdown-label">
+                        {{ alert.countdown_label|default:"Important Deadline:" }}
+                    </div>
+                    <div class="countdown-timer" data-expire-date="{{ alert.expire_date }}">
+                        <span class="countdown-value">{{ alert.countdown }}</span>
+                    </div>
+                    <div class="countdown-warning">
+                        Action required before this date
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Modal footer - forced action -->
+        <div class="alert-sticky-footer">
+            {% if alert.action_url %}
+                <a href="{{ alert.action_url }}" class="alert-sticky-btn alert-sticky-btn-primary">
+                    {{ alert.action_label|default:"Take Required Action" }}
+                </a>
+            {% endif %}
+            <button class="alert-sticky-btn alert-sticky-btn-secondary"
+                    data-alert-id="{{ alert.id }}"
+                    onclick="acknowledgeAlert(this)">
+                {{ alert.acknowledge_label|default:"I Acknowledge" }}
+            </button>
+        </div>
+
+        <!-- Note: No close button - forces user interaction -->
+    </div>
+</div>
+
+<style scoped>
+    .alert-sticky-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        animation: fadeInDark 0.4s ease-out;
+    }
+
+    .alert-sticky-overlay-critical {
+        background-color: rgba(220, 53, 69, 0.5);
+    }
+
+    .alert-sticky-overlay-urgent {
+        background-color: rgba(200, 35, 51, 0.5);
+    }
+
+    .alert-sticky {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        max-width: 550px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: bounceIn 0.5s ease-out;
+        border-left: 6px solid;
+        border-top: 3px solid;
+    }
+
+    .alert-sticky-critical {
+        border-left-color: #dc3545;
+        border-top-color: #dc3545;
+    }
+
+    .alert-sticky-urgent {
+        border-left-color: #c82333;
+        border-top-color: #c82333;
+    }
+
+    .alert-sticky-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 24px 20px;
+        border-bottom: 2px solid #e9ecef;
+        background-color: #fff;
+    }
+
+    .alert-sticky-icon {
+        font-size: 32px;
+        flex-shrink: 0;
+        animation: pulse 2s infinite;
+    }
+
+    .alert-sticky-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #222;
+    }
+
+    .alert-sticky-body {
+        padding: 24px 20px;
+    }
+
+    .alert-sticky-message {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        color: #444;
+        line-height: 1.7;
+        font-weight: 500;
+    }
+
+    .alert-sticky-details {
+        background-color: #f8f9fa;
+        padding: 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #666;
+        margin: 16px 0;
+        border-left: 4px solid #999;
+        line-height: 1.6;
+    }
+
+    .alert-sticky-countdown {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%);
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        border: 2px solid #ffc107;
+    }
+
+    .countdown-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #856404;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+
+    .countdown-timer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .countdown-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #ff6b6b;
+        font-family: 'Courier New', monospace;
+    }
+
+    .countdown-warning {
+        font-size: 12px;
+        color: #856404;
+        margin-top: 8px;
+        text-align: center;
+        font-style: italic;
+    }
+
+    .alert-sticky-footer {
+        display: flex;
+        gap: 12px;
+        padding: 16px 20px;
+        border-top: 2px solid #e9ecef;
+        justify-content: flex-end;
+        background-color: #f8f9fa;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .alert-sticky-btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .alert-sticky-btn-primary {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .alert-sticky-btn-primary:hover {
+        background-color: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .alert-sticky-btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .alert-sticky-btn-secondary:hover {
+        background-color: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+
+    @keyframes fadeInDark {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.02);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .alert-sticky {
+            width: 95%;
+            max-height: 90vh;
+        }
+
+        .alert-sticky-header {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .alert-sticky-footer {
+            flex-direction: column-reverse;
+        }
+
+        .alert-sticky-btn {
+            width: 100%;
+        }
+
+        .countdown-value {
+            font-size: 24px;
+        }
+    }
+</style>

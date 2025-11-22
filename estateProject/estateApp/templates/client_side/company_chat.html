@@ -1,0 +1,253 @@
+{% extends 'client_base.html' %}
+{% load static %}
+
+{% block content %}
+<main id="main" class="main">
+  
+  <div class="pagetitle">
+    <h1><i class="bi bi-chat-dots"></i> Chat with {{ company.company_name }}</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% personalized_url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'my-client-profile' %}">My Profile</a></li>
+        <li class="breadcrumb-item active">Chat</li>
+      </ol>
+    </nav>
+  </div>
+
+  <section class="section">
+    <div class="row">
+      
+      <!-- Company Info Sidebar -->
+      <div class="col-lg-3 mb-4 mb-lg-0">
+        <div class="card sticky-top" style="top: 80px;">
+          <div class="card-body text-center">
+            {% if company.logo %}
+              <img src="{{ company.logo.url }}" 
+                   alt="{{ company.company_name }}" 
+                   class="rounded mb-3"
+                   style="width: 80px; height: 80px; object-fit: cover;">
+            {% else %}
+              <div class="bg-primary text-white rounded d-inline-flex align-items-center justify-content-center mb-3"
+                   style="width: 80px; height: 80px;">
+                <i class="bi bi-building-fill fs-1"></i>
+              </div>
+            {% endif %}
+            
+            <h5 class="mb-2">{{ company.company_name }}</h5>
+            <p class="text-muted small">{{ company.location }}</p>
+            
+            <hr>
+            
+            <div class="text-start small">
+              <p class="mb-2">
+                <i class="bi bi-envelope text-primary me-2"></i>
+                <a href="mailto:{{ company.email }}">{{ company.email }}</a>
+              </p>
+              <p class="mb-2">
+                <i class="bi bi-telephone text-success me-2"></i>
+                <a href="tel:{{ company.phone }}">{{ company.phone }}</a>
+              </p>
+              {% if company.office_address %}
+              <p class="mb-0">
+                <i class="bi bi-geo-alt text-danger me-2"></i>
+                {{ company.office_address }}
+              </p>
+              {% endif %}
+            </div>
+            
+            <hr>
+            
+            <div class="d-grid gap-2">
+              <a href="{% url 'my-client-profile' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Profile
+              </a>
+              <a href="{% personalized_url 'client-company-directory' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-buildings"></i> All Companies
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Chat Interface -->
+      <div class="col-lg-9">
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h5 class="mb-0">
+                  <i class="bi bi-chat-dots-fill me-2"></i>
+                  Support Chat
+                </h5>
+                <small>Chatting with {{ company.company_name }} support team</small>
+              </div>
+              {% if support_user %}
+              <div class="text-end">
+                <small class="d-block">Support Agent</small>
+                <strong>{{ support_user.full_name }}</strong>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="card-body p-0">
+            <!-- Chat Messages Container -->
+            <div id="chatMessages" class="chat-messages p-3" style="height: 500px; overflow-y: auto;">
+              {% for msg in conversation %}
+                {% include 'client_side/chat_message.html' %}
+              {% empty %}
+                <div class="text-center text-muted py-5">
+                  <i class="bi bi-chat-quote display-4"></i>
+                  <p class="mt-3">No messages yet. Start the conversation!</p>
+                </div>
+              {% endfor %}
+            </div>
+            
+            <!-- Message Input Form -->
+            <div class="border-top p-3 bg-light">
+              <form id="chatForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="input-group">
+                  <input type="text" 
+                         class="form-control" 
+                         id="messageContent" 
+                         name="message_content"
+                         placeholder="Type your message..." 
+                         autocomplete="off">
+                  <label for="fileInput" class="btn btn-outline-secondary" title="Attach file">
+                    <i class="bi bi-paperclip"></i>
+                  </label>
+                  <input type="file" id="fileInput" name="file" class="d-none">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send-fill"></i> Send
+                  </button>
+                </div>
+                <small class="text-muted d-block mt-1" id="fileInfo"></small>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </section>
+
+</main>
+
+<style>
+.chat-messages {
+  background: #f8f9fa;
+}
+
+.chat-message {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.chat-message.sent {
+  justify-content: flex-end;
+}
+
+.chat-message .message-bubble {
+  max-width: 70%;
+  padding: 10px 15px;
+  border-radius: 15px;
+  word-wrap: break-word;
+}
+
+.chat-message.received .message-bubble {
+  background: #fff;
+  border: 1px solid #dee2e6;
+}
+
+.chat-message.sent .message-bubble {
+  background: #0d6efd;
+  color: white;
+}
+
+.chat-message .message-time {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-top: 5px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const chatForm = document.getElementById('chatForm');
+  const messageContent = document.getElementById('messageContent');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const chatMessages = document.getElementById('chatMessages');
+  
+  // Scroll to bottom on load
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  
+  // File input handler
+  fileInput.addEventListener('change', function() {
+    if (this.files.length > 0) {
+      fileInfo.textContent = `File selected: ${this.files[0].name}`;
+    } else {
+      fileInfo.textContent = '';
+    }
+  });
+  
+  // Form submission
+  chatForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(chatForm);
+    
+    fetch(window.location.href, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Add new message to chat
+        chatMessages.insertAdjacentHTML('beforeend', data.message_html);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Clear form
+        messageContent.value = '';
+        fileInput.value = '';
+        fileInfo.textContent = '';
+      } else {
+        alert(data.error || 'Failed to send message');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Failed to send message');
+    });
+  });
+  
+  // Poll for new messages every 3 seconds
+  let lastMessageId = {{ conversation.last.id|default:0 }};
+  
+  setInterval(function() {
+    fetch(`${window.location.href}?last_msg=${lastMessageId}`, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.messages && data.messages.length > 0) {
+        chatMessages.insertAdjacentHTML('beforeend', data.messages_html);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        lastMessageId = data.messages[data.messages.length - 1].id;
+      }
+    })
+    .catch(error => console.error('Polling error:', error));
+  }, 3000);
+});
+</script>
+
+{% endblock %}

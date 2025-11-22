@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .button { display: inline-block; background-color: #667eea; color: white; padding: 12px 30px; border-radius: 4px; text-decoration: none; margin-top: 20px; font-weight: bold; }
+        .footer { background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>⏰ Trial Ending Soon</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ company.company_name }} Administrator,</p>
+            <p>Your free trial is ending in <strong>{{ days_remaining }} days</strong> ({{ trial_end_date|date:"M d, Y" }}).</p>
+            <p>To continue using Real Estate SaaS after your trial ends, please choose a subscription plan.</p>
+            <a href="{{ upgrade_url }}" class="button">Upgrade Now</a>
+            <p>Best regards,<br>Real Estate SaaS Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Real Estate SaaS. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

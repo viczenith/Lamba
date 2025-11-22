@@ -1,0 +1,399 @@
+{% load static %}
+<style>
+    @page { size: A4; margin: 15mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { 
+        font-family: 'Arial', 'Helvetica', sans-serif; 
+        font-size: 11px; 
+        color: #333;
+        line-height: 1.5;
+    }
+
+    .receipt-container { 
+        max-width: 750px;
+        margin: 0 auto; 
+        padding: 25px;
+        position: relative;
+    }
+
+    .watermark { 
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        font-size: 100px;
+        font-weight: 900;
+        color: rgba(0, 0, 0, 0.03);
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .content { position: relative; z-index: 1; }
+
+    /* Header */
+    .header { 
+        display: table;
+        width: 100%;
+        border-bottom: 3px solid #1a1a1a;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .logo { 
+        display: table-cell;
+        width: 100px;
+        vertical-align: middle;
+    }
+    
+    .logo img { 
+        max-height: 60px;
+        max-width: 90px;
+    }
+    
+    .company-info { 
+        display: table-cell;
+        text-align: center;
+        vertical-align: middle;
+        padding: 0 15px;
+    }
+    
+    .company-name { 
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 3px;
+        letter-spacing: 0.5px;
+    }
+    
+    .company-contact { 
+        display: table-cell;
+        width: 180px;
+        text-align: right;
+        font-size: 9px;
+        vertical-align: middle;
+        line-height: 1.4;
+    }
+
+    /* Title */
+    .receipt-title { 
+        text-align: center;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 20px 0;
+        letter-spacing: 1.5px;
+        padding: 8px;
+        background: #f5f5f5;
+        border-left: 4px solid #1a1a1a;
+    }
+
+    /* Info Grid */
+    .info-grid {
+        display: table;
+        width: 100%;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+    }
+
+    .info-row {
+        display: table-row;
+    }
+
+    .info-cell {
+        display: table-cell;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        width: 50%;
+    }
+
+    .info-cell:first-child {
+        border-right: 1px solid #f0f0f0;
+    }
+
+    .label {
+        font-weight: bold;
+        color: #555;
+        display: inline-block;
+        min-width: 120px;
+    }
+
+    .value {
+        color: #1a1a1a;
+    }
+
+    /* Property Section */
+    .property-section {
+        background: #f8f8f8;
+        padding: 15px;
+        margin: 20px 0;
+        border-left: 4px solid #1a1a1a;
+    }
+
+    .section-title {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .property-info {
+        margin-top: 8px;
+    }
+
+    /* Payment Table */
+    .payment-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        border: 1px solid #ddd;
+    }
+
+    .payment-table th {
+        background: #1a1a1a;
+        color: white;
+        padding: 10px 8px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .payment-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .payment-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .total-row {
+        background: #1a1a1a;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+    }
+
+    /* Amount Box */
+    .amount-box {
+        background: linear-gradient(135deg, #2c7a2e 0%, #1e5620 100%);
+        color: white;
+        text-align: center;
+        padding: 20px;
+        margin: 25px 0;
+        border-radius: 5px;
+    }
+
+    .amount-label {
+        font-size: 11px;
+        margin-bottom: 8px;
+        opacity: 0.9;
+        letter-spacing: 1px;
+    }
+
+    .amount-value {
+        font-size: 28px;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+
+    /* Signatures */
+    .signatures {
+        display: table;
+        width: 100%;
+        margin-top: 50px;
+    }
+
+    .signature-box {
+        display: table-cell;
+        width: 48%;
+        text-align: center;
+    }
+
+    .signature-img {
+        max-width: 90px;
+        height: auto;
+        margin-bottom: 5px;
+    }
+
+    .signature-line {
+        border-top: 2px solid #333;
+        margin: 0 auto;
+        width: 200px;
+    }
+
+    .signature-empty-line {
+        border-top: 2px solid #333;
+        margin: 40px auto 0;
+        width: 200px;
+    }
+
+    .signature-label {
+        margin-top: 8px;
+        font-size: 9px;
+        color: #555;
+        font-weight: bold;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
+        font-size: 8px;
+        color: #777;
+    }
+</style>
+
+<div class="receipt-container">
+    <div class="watermark">{{ company.company_name|upper|truncatewords:1 }}</div>
+    
+    <div class="content">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="{{ company.company_name }}">
+                {% else %}
+                    <img src="{% static 'assets/img/logo.png' %}" alt="Logo">
+                {% endif %}
+            </div>
+            <div class="company-info">
+                <div class="company-name">{{ company.company_name|upper }}</div>
+            </div>
+            <div class="company-contact">
+                {{ company.office_address|default:company.location }}<br>
+                {{ company.phone }} | {{ company.email }}
+            </div>
+        </div>
+
+        <!-- Title -->
+        <div class="receipt-title">PAYMENT RECEIPT</div>
+
+        <!-- Receipt Info -->
+        <div class="info-grid">
+            <div class="info-row">
+                <div class="info-cell">
+                    <span class="label">Receipt No:</span>
+                    <span class="value">
+                        {% if payment %}{{ payment.reference_code }}{% else %}{{ transaction.reference_code }}{% endif %}
+                    </span>
+                </div>
+                <div class="info-cell">
+                    <span class="label">Date:</span>
+                    <span class="value">
+                        {% if payment and payment.receipt_date %}
+                            {{ payment.receipt_date|date:"d M Y" }}
+                        {% else %}
+                            {{ transaction.transaction_date|date:"d M Y" }}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-cell">
+                    <span class="label">Client:</span>
+                    <span class="value">{{ transaction.client.full_name }}</span>
+                </div>
+                <div class="info-cell">
+                    <span class="label">Phone:</span>
+                    <span class="value">{{ transaction.client.phone|default:"N/A" }}</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-cell">
+                    <span class="label">Email:</span>
+                    <span class="value">{{ transaction.client.email|default:"N/A" }}</span>
+                </div>
+                <div class="info-cell">
+                    <span class="label">Payment Method:</span>
+                    <span class="value">
+                        {% if payment %}{{ payment.get_payment_method_display }}{% else %}{{ transaction.get_payment_method_display }}{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Property Details -->
+        <div class="property-section">
+            <div class="section-title">Property Information</div>
+            <div class="property-info">
+                <div style="margin-bottom: 5px;">
+                    <span class="label">Estate:</span> <span class="value">{{ transaction.allocation.estate.name }}</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <span class="label">Location:</span> <span class="value">{{ transaction.allocation.estate.location }}</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <span class="label">Plot Size:</span> <span class="value">{{ transaction.allocation.plot_size }}</span>
+                </div>
+                <div>
+                    <span class="label">Total Value:</span> <span class="value">₦{{ transaction.total_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Table -->
+        <table class="payment-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th style="text-align: center;">Date</th>
+                    <th style="text-align: right;">Amount (₦)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if payment %}
+                    {% for p in payments %}
+                    <tr>
+                        <td>{{ p.get_installment_display }} Installment Payment</td>
+                        <td style="text-align: center;">{{ p.payment_date|date:"d M Y" }}</td>
+                        <td style="text-align: right;">{{ p.amount_paid|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td>Full Payment for Property</td>
+                        <td style="text-align: center;">{{ transaction.transaction_date|date:"d M Y" }}</td>
+                        <td style="text-align: right;">{{ transaction.total_amount|floatformat:2 }}</td>
+                    </tr>
+                {% endif %}
+                <tr class="total-row">
+                    <td colspan="2" style="text-align: right;">TOTAL AMOUNT PAID:</td>
+                    <td style="text-align: right;">
+                        {% if payment %}{{ payments_total|floatformat:2 }}{% else %}{{ transaction.total_amount|floatformat:2 }}{% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Amount Highlight -->
+        <div class="amount-box">
+            <div class="amount-label">AMOUNT RECEIVED</div>
+            <div class="amount-value">
+                ₦{% if payment %}{{ payments_total|floatformat:2 }}{% else %}{{ transaction.total_amount|floatformat:2 }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="signatures">
+            <div class="signature-box">
+                <img src="{% static 'assets/img/signature.png' %}" alt="Signature" class="signature-img">
+                <div class="signature-line"></div>
+                <div class="signature-label">Authorized Signature</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-empty-line"></div>
+                <div class="signature-label">Client Signature</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            This is an official computer-generated receipt from {{ company.company_name }}.<br>
+            Please retain this document for your records.<br>
+            &copy; {% now "Y" %} {{ company.company_name }}. All rights reserved.
+        </div>
+    </div>
+</div>

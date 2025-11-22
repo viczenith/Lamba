@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .amount-box {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .amount-box .label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        .amount-box .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .info-box {
+            background-color: #f0f9ff;
+            border-left: 4px solid #11998e;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>✅ Payment Processed</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi {{ marketer.full_name }},</p>
+            
+            <p>Your commission payment has been successfully processed!</p>
+            
+            <div class="amount-box">
+                <div class="label">Amount Paid</div>
+                <div class="value">₦{{ amount|floatformat:0|intcomma }}</div>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>Payment Details:</strong></p>
+                <p>
+                    <strong>Company:</strong> {{ company.company_name }}<br>
+                    <strong>Payment Reference:</strong> {{ payment_reference }}<br>
+                    <strong>Bank:</strong> {{ bank_name }}<br>
+                    <strong>Status:</strong> <span style="color: #28a745;">Completed</span>
+                </p>
+            </div>
+            
+            <p>Please allow 2-3 business days for the funds to appear in your account. If you don't see the payment by then, please contact our support team with the payment reference provided above.</p>
+            
+            <p>Thank you for your continued partnership!</p>
+            
+            <p>Best regards,<br>{{ company.company_name }} Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>© {{ current_year|default:"2025" }} {{ company.company_name }}. All rights reserved.</p>
+            <p>You received this email because you received a payment from {{ company.company_name }}.</p>
+        </div>
+    </div>
+</body>
+</html>

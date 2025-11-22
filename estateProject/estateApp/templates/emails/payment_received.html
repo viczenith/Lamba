@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .invoice-section { background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .invoice-section table { width: 100%; border-collapse: collapse; }
+        .invoice-section th, .invoice-section td { padding: 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .invoice-section th { background-color: #e0e0e0; font-weight: bold; }
+        .footer { background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #11998e; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>✅ Payment Received</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ invoice.company.company_name }} Administrator,</p>
+            <p>Thank you! We have successfully received your payment.</p>
+            
+            <div class="invoice-section">
+                <table>
+                    <tr>
+                        <th>Invoice Number</th>
+                        <td>{{ invoice.invoice_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Amount Paid</th>
+                        <td>₦{{ amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Payment Date</th>
+                        <td>{{ payment_date|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Invoice Period</th>
+                        <td>{{ invoice.period_start|date:"M d, Y" }} - {{ invoice.period_end|date:"M d, Y" }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p>Your subscription remains active and in good standing. If you have any questions, please contact our support team.</p>
+            <p style="text-align: center;">
+                <a href="https://dashboard.example.com/invoices" class="button">View Invoice</a>
+            </p>
+            <p>Best regards,<br>Lamba Team</p>
+        </div>
+        <div class="footer">
+            <p>© {% now "Y" %} Lamba. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

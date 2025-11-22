@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Receipt</title>
+  <style>
+    :root{
+      --card-bg:#fff;
+      --page-bg:#f3f4f6;
+      --muted:#6b7280;
+      --accent:#0f172a;
+      --accent-2:#0ea5a4;
+      --border:#e6e7eb;
+      --max-width:720px;
+      --pad:20px;
+      --radius:8px;
+      --shadow: 0 4px 20px rgba(15,23,42,0.06);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace;
+      --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      font-family:var(--ui);
+      background:var(--page-bg);
+      color:var(--accent);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .wrap{
+      max-width:var(--max-width);
+      margin:28px auto;
+      padding:16px;
+    }
+
+    .receipt-card{
+      background:var(--card-bg);
+      padding:var(--pad);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      border:1px solid var(--border);
+    }
+
+    header.top{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .logo{
+      height:64px;
+      width:64px;
+      border-radius:8px;
+      background:linear-gradient(135deg,var(--accent-2),#7c3aed);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:white;
+      font-weight:700;
+      font-family:var(--mono);
+      box-shadow:0 6px 14px rgba(15,23,42,0.08);
+      flex-shrink:0;
+    }
+
+    .brand .company{
+      line-height:1;
+    }
+    .company h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:0.2px;
+    }
+    .company p{ margin:0; color:var(--muted); font-size:13px }
+
+    .meta{
+      text-align:right;
+      min-width:210px;
+    }
+    .meta .title{
+      font-size:16px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .meta .small{
+      color:var(--muted);
+      font-size:13px;
+      margin:2px 0;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+      margin-bottom:18px;
+    }
+
+    .box{
+      background:#fbfdff;
+      padding:12px;
+      border-radius:8px;
+      border:1px solid var(--border);
+    }
+
+    .box h3{ margin:0 0 8px 0; font-size:13px }
+    .box p{ margin:0; color:var(--muted); font-size:14px }
+
+    table.items{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:8px;
+      margin-bottom:8px;
+    }
+    table.items thead th{
+      text-align:left;
+      font-size:13px;
+      padding:8px 6px;
+      color:var(--muted);
+      border-bottom:1px dashed var(--border);
+    }
+    table.items tbody td{
+      padding:10px 6px;
+      vertical-align:middle;
+      font-size:14px;
+      border-bottom:1px solid #f3f4f6;
+    }
+    table.items tbody tr:last-child td{ border-bottom:0; }
+
+    .right{ text-align:right; }
+    .mono{ font-family:var(--mono); font-size:13px; color:var(--muted); }
+
+    .summary{
+      margin-top:14px;
+      display:flex;
+      justify-content:flex-end;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+
+    .totals{
+      width:320px;
+      border-radius:8px;
+      padding:12px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg,#ffffff,#fbfdff);
+    }
+    .totals .row{
+      display:flex;
+      justify-content:space-between;
+      font-size:14px;
+      margin:6px 0;
+      color:var(--muted);
+    }
+    .totals .row.total{
+      font-weight:700;
+      font-size:18px;
+      color:var(--accent);
+      border-top:1px dashed var(--border);
+      padding-top:8px;
+      margin-top:8px;
+    }
+
+    .payment{
+      margin-top:12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+    .payment .method{ font-weight:600; color:var(--accent-2) }
+    .payment .amount{ font-family:var(--mono); color:var(--accent); font-weight:700 }
+
+    footer.foot{
+      margin-top:18px;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .controls{
+      display:flex;
+      gap:8px;
+      margin-top:12px;
+    }
+    button.btn{
+      background:var(--accent-2);
+      color:white;
+      border:0;
+      padding:10px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+      box-shadow:0 6px 14px rgba(14,165,164,0.12);
+    }
+    button.btn.ghost{
+      background:transparent;
+      color:var(--accent);
+      border:1px solid var(--border);
+      box-shadow:none;
+    }
+
+    .qr{
+      display:inline-block;
+      width:92px;
+      height:92px;
+      background:linear-gradient(180deg,#f8fafc,#eef2ff);
+      border-radius:8px;
+      border:1px dashed var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:10px;
+      text-align:center;
+      padding:6px;
+    }
+
+    .amount-words{
+      font-size:13px;
+      color:var(--muted);
+      margin-top:8px;
+    }
+
+    /* PRINT STYLES */
+    @media print{
+      body{ background:white; }
+      .wrap{ margin:0; padding:0; max-width:100%; }
+      .receipt-card{ box-shadow:none; border:0; border-radius:0; padding:10px; }
+      .controls{ display:none; }
+      .qr{ page-break-inside:avoid; }
+    }
+
+    /* responsive tweak */
+    @media (max-width:640px){
+      .grid{ grid-template-columns:1fr; }
+      .meta{ text-align:left; }
+      .summary{ justify-content:flex-start; }
+      .totals{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="receipt-card" id="receipt">
+      <header class="top">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">FC</div>
+          <div class="company">
+            <h1>FesCode Company</h1>
+            <p>Official Receipt • 123 Business Street, Lagos</p>
+            <p class="mono">TIN: 123456789</p>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="title">RECEIPT</div>
+          <div class="small">Receipt #: <span id="receiptNo">—</span></div>
+          <div class="small">Date: <span id="date">—</span></div>
+          <div class="small">Cashier: <span id="cashier">—</span></div>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="box">
+          <h3>Bill To</h3>
+          <p id="clientName">John Doe</p>
+          <p id="clientAddress" class="mono">johndoe@example.com • +234 801 000 0000</p>
+        </div>
+
+        <div class="box">
+          <h3>Payment Info</h3>
+          <p>Method: <strong id="paymentMethod">Cash</strong></p>
+          <p class="mono">Transaction ID: <span id="txn">—</span></p>
+        </div>
+      </div>
+
+      <section>
+        <table class="items" aria-labelledby="itemsHeading">
+          <thead>
+            <tr>
+              <th style="width:50%">Description</th>
+              <th style="width:10%">Qty</th>
+              <th style="width:20%" class="right">Unit</th>
+              <th style="width:20%" class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            <!-- JS populates -->
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <div class="totals" aria-hidden="false">
+            <div class="row"><div>Subtotal</div><div class="right mono" id="subtotal">—</div></div>
+            <div class="row"><div>Tax (<span id="taxRate">0</span>%)</div><div class="right mono" id="tax">—</div></div>
+            <div class="row"><div>Discount</div><div class="right mono" id="discount">—</div></div>
+            <div class="row total"><div>Total</div><div class="right mono" id="total">—</div></div>
+            <div class="amount-words" id="amountWords"></div>
+
+            <div class="payment" style="margin-top:10px">
+              <div><span class="method" id="paymentDisplay">—</span></div>
+              <div><span class="amount" id="paidAmount">—</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;text-align:left">
+            <div>Thank you for your business.</div>
+            <div style="margin-top:6px;font-size:12px;color:var(--muted)">Goods sold are not returnable after 7 days unless faulty.</div>
+          </div>
+
+          <div style="text-align:right">
+            <div class="qr" aria-hidden="true">QR/Token<br/>(optional)</div>
+          </div>
+        </div>
+      </footer>
+
+      <div class="controls" role="group" aria-label="Receipt actions">
+        <button class="btn" id="printBtn">Print Receipt</button>
+        <button class="btn ghost" id="downloadBtn">Download as PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- SAMPLE DATA ----------
+    // Edit these values or replace with server-side data.
+    const receiptData = {
+      company: {
+        name: "FesCode Company",
+        address: "123 Business Street, Lagos",
+        tin: "123456789"
+      },
+      client: {
+        name: "Jane Smith",
+        contact: "janesmith@example.com • +234 802 000 0000"
+      },
+      cashier: "Victor G.",
+      paymentMethod: "Card",
+      txn: "TXN-20251121-0098",
+      taxRatePercent: 7.5, // percent (e.g. VAT)
+      discountValue: 0, // fixed currency discount (not percent)
+      items: [
+        { desc: "Web App Development (50% deposit)", qty: 1, unit: 150000.00 },
+        { desc: "Mobile App — Flutter (Design & Dev)", qty: 1, unit: 180000.00 },
+        { desc: "Maintenance (3 months)", qty: 3, unit: 15000.00 }
+      ],
+      currencySymbol: "₦"
+    };
+
+    // ---------- UTILS ----------
+    function formatMoney(n){
+      // format with 2 decimals and thousand separators
+      return n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+
+    // Number to words (English, up to billions). Small, clean implementation.
+    // Note: Handles integers only. We'll show full naira amount and kobo separately.
+    function numberToWords(n){
+      if (n === 0) return "zero";
+      const a = ['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+      const b = ['','', 'twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+      function chunkToWords(num){
+        let str = '';
+        if(num >= 100){
+          str += a[Math.floor(num/100)] + " hundred";
+          num = num % 100;
+          if(num) str += " ";
+        }
+        if(num >= 20){
+          str += b[Math.floor(num/10)];
+          if(num % 10) str += "-" + a[num % 10];
+        } else if(num > 0){
+          str += a[num];
+        }
+        return str;
+      }
+      const scales = ['', ' thousand', ' million', ' billion'];
+      let words = [];
+      let scale = 0;
+      while(n > 0){
+        const chunk = n % 1000;
+        if(chunk) words.unshift(chunkToWords(chunk) + scales[scale]);
+        n = Math.floor(n / 1000);
+        scale++;
+      }
+      return words.join(' ').trim();
+    }
+
+    // ---------- RENDER ----------
+    function renderReceipt(data){
+      // header/meta
+      document.getElementById('receiptNo').textContent = genReceiptNo();
+      document.getElementById('date').textContent = new Date().toLocaleString();
+      document.getElementById('cashier').textContent = data.cashier;
+      // client
+      document.getElementById('clientName').textContent = data.client.name;
+      document.getElementById('clientAddress').textContent = data.client.contact;
+      // payment
+      document.getElementById('paymentMethod').textContent = data.paymentMethod;
+      document.getElementById('paymentDisplay').textContent = data.paymentMethod;
+      document.getElementById('txn').textContent = data.txn;
+      // items
+      const tbody = document.getElementById('itemsBody');
+      tbody.innerHTML = "";
+      let subtotal = 0;
+      data.items.forEach(item => {
+        const amount = Number((item.qty * item.unit).toFixed(2));
+        subtotal += amount;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(item.desc)}</td>
+          <td class="right">${item.qty}</td>
+          <td class="right">${data.currencySymbol}${formatMoney(item.unit)}</td>
+          <td class="right">${data.currencySymbol}${formatMoney(amount)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      const tax = +(subtotal * (data.taxRatePercent/100));
+      const discount = +Number(data.discountValue || 0);
+      const total = +(subtotal + tax - discount);
+
+      document.getElementById('subtotal').textContent = data.currencySymbol + formatMoney(subtotal);
+      document.getElementById('taxRate').textContent = (+data.taxRatePercent).toFixed(2);
+      document.getElementById('tax').textContent = data.currencySymbol + formatMoney(tax);
+      document.getElementById('discount').textContent = data.currencySymbol + formatMoney(discount);
+      document.getElementById('total').textContent = data.currencySymbol + formatMoney(total);
+      document.getElementById('paidAmount').textContent = data.currencySymbol + formatMoney(total);
+
+      // words: split into integer (naira) and fraction (kobo)
+      const whole = Math.floor(total);
+      const fraction = Math.round((total - whole) * 100);
+      const words = numberToWords(whole) + " naira" + (fraction ? (" and " + fraction + "/100 kobo") : "");
+      document.getElementById('amountWords').textContent = words.charAt(0).toUpperCase() + words.slice(1) + ".";
+    }
+
+    // simple receipt number generator (YYYYMMDD-XXXX)
+    function genReceiptNo(){
+      const d = new Date();
+      const y = d.getFullYear().toString();
+      const m = String(d.getMonth() + 1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      const rnd = Math.floor(Math.random()*9000)+1000;
+      return `${y}${m}${day}-${rnd}`;
+    }
+
+    // small escape helper
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; });
+    }
+
+    // ---------- INTERACTIONS ----------
+    document.getElementById('printBtn').addEventListener('click', () => {
+      window.print();
+    });
+
+    // Download as PDF: We can't create a perfect server-style PDF here without libraries,
+    // but window.print() works. We provide a fallback using print if browser supports save as PDF.
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      // Trigger print dialog; user can choose "Save as PDF"
+      window.print();
+    });
+
+    // ---------- INIT ----------
+    renderReceipt(receiptData);
+
+    // If you want to dynamically update from server, call renderReceipt(newData);
+  </script>
+</body>
+</html>

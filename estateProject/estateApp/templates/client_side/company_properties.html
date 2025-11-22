@@ -1,0 +1,829 @@
+{% extends 'client_base.html' %}
+{% load static %}
+{% load humanize %}
+{% load personalized_urls %}
+
+{% block title %}{{ company.company_name }} - Properties{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .pagetitle {
+        animation: fadeInUp 0.6s ease-out;
+        margin-bottom: 30px;
+    }
+
+    .pagetitle h1 {
+        font-size: 32px;
+        font-weight: 700;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .card {
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.8s ease-out;
+        margin-bottom: 24px;
+    }
+
+    .card:hover {
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.12);
+    }
+
+    .company-header-card {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .company-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 16px;
+        object-fit: cover;
+        border: 3px solid rgba(102, 126, 234, 0.2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .company-logo-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 16px;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: 700;
+        color: white;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    }
+
+    .stat-card {
+        background: rgba(102, 126, 234, 0.05);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.6);
+        font-weight: 500;
+        margin-top: 5px;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+    }
+
+    .btn-action {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-receipt {
+        background: var(--success-gradient);
+        color: white;
+        box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+    }
+
+    .btn-receipt:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(17, 153, 142, 0.4);
+        color: white;
+    }
+
+    .btn-details {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-details:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .promo-badge {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 8px;
+        margin-left: 8px;
+    }
+
+    .back-button {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.2);
+        color: #667eea;
+        font-weight: 600;
+        padding: 10px 20px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
+    }
+
+    .back-button:hover {
+        background: var(--primary-gradient);
+        color: white;
+        border-color: transparent;
+    }
+
+    /* Appreciation Card Styles */
+    .appreciation-card {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .appreciation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(102, 126, 234, 0.15);
+    }
+
+    .appreciation-details {
+        background-color: rgba(245, 245, 247, 0.5);
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .appreciation-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+
+    .appreciation-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+        margin-top: 20px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 5px;
+        height: calc(100% - 10px);
+        width: 2px;
+        background: linear-gradient(180deg, #34c759 0%, #007aff 100%);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline-point {
+        position: absolute;
+        left: -30px;
+        top: 5px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        z-index: 2;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .timeline-content {
+        padding: 8px 0;
+    }
+
+    .timeline-date {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .timeline-value {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #1d1d1f;
+    }
+
+    .summary-box {
+        border-radius: 12px;
+        padding: 15px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .summary-box:hover {
+        transform: translateY(-3px);
+    }
+
+    .bg-light-success {
+        background-color: rgba(52, 199, 89, 0.1);
+    }
+
+    .bg-light-primary {
+        background-color: rgba(0, 122, 255, 0.1);
+    }
+
+    .bg-light-info {
+        background-color: rgba(90, 200, 250, 0.1);
+    }
+</style>
+
+<main id="main" class="main">
+    <div class="pagetitle">
+        <h1><i class="bi bi-building"></i> {{ company.company_name }}</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% personalized_url 'client-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% personalized_url 'client-company-directory' %}">Portfolio</a></li>
+                <li class="breadcrumb-item active">{{ company.company_name }}</li>
+            </ol>
+        </nav>
+    </div>
+    <section class="section">
+        <!-- Company Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card company-header-card">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-4">
+                            {% if company.logo and company.logo.name %}
+                                <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="company-logo me-3">
+                            {% else %}
+                                <div class="company-logo-placeholder me-3">
+                                    {{ company.company_name|first|upper }}
+                                </div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <h2 class="mb-2">{{ company.company_name }}</h2>
+                                <p class="text-muted mb-1">
+                                    <i class="bi bi-geo-alt-fill"></i> {{ company.location|default:"Location not specified" }}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    <i class="bi bi-envelope-fill"></i> {{ company.email }} | 
+                                    <i class="bi bi-telephone-fill"></i> {{ company.phone }}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="stat-card text-center">
+                                    <div class="stat-value">{{ total_properties }}</div>
+                                    <div class="stat-label">Properties Owned</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="stat-card text-center">
+                                    <div class="stat-value">₦{{ total_invested|floatformat:2 }}</div>
+                                    <div class="stat-label">Total Amount Used to Buy Properties</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Properties List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                        <h4 class="mb-0"><i class="bi bi-house-fill me-2"></i>My Properties</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if allocations %}
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Plot Number</th>
+                                            <th>Plot Size</th>
+                                            <th>Amount Used to Buy</th>
+                                            <th>Current Value</th>
+                                            <th>Payment Type</th>
+                                            <th>Purchased Date</th>
+                                            <th>Date Allocated</th>
+                                            <th>View Receipts</th>
+                                            <th>Plot Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for allocation in allocations %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>
+                                                <strong>
+                                                    {% if allocation.payment_type == 'part' and not allocation.plot_number %}
+                                                        <span class="badge bg-warning text-dark">Not Assigned</span>
+                                                    {% elif allocation.plot_number %}
+                                                        <span class="badge bg-success">{{ allocation.plot_number.number }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Not Assigned</span>
+                                                    {% endif %}
+                                                </strong>
+                                            </td>
+                                            <td>
+                                                {{ allocation.plot_size.size }} {{ allocation.plot_size.size_unit }}
+                                            </td>
+                                            <td>
+                                                {% if allocation.transactions.first %}
+                                                    <strong>₦{{ allocation.transactions.first.total_amount|default:"0.00"|floatformat:2 }}</strong>
+                                                {% else %}
+                                                    <strong>₦0.00</strong>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if allocation.transactions.first %}
+                                                    {% with transaction=allocation.transactions.first %}
+                                                        <strong class="text-success">₦{{ transaction.current_value|default:transaction.total_amount|floatformat:2 }}</strong>
+                                                        {% if transaction.is_promo %}
+                                                            <span class="promo-badge"><i class="bi bi-tag-fill"></i> PROMO</span>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <strong class="text-success">₦0.00</strong>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if allocation.payment_type == 'full' %}
+                                                    <span class="badge bg-success">Full Payment</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning text-dark">Part Payment</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ allocation.date_allocated|date:"M d, Y" }}</td>
+                                            <td>
+                                                {% if allocation.plot_number and allocation.plot_number.date_assigned %}
+                                                    {{ allocation.plot_number.date_assigned|date:"M d, Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if allocation.transactions.first %}
+                                                <button
+                                                    class="btn btn-sm btn-action btn-receipt"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#transactionDetailsModal"
+                                                    data-id="{{ allocation.transactions.first.id }}"
+                                                >
+                                                    <i class="bi bi-receipt"></i> View
+                                                </button>
+                                                {% else %}
+                                                <span class="text-muted">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if allocation.estate and allocation.plot_size %}
+                                                    <a href="{% url 'view-client-estate' allocation.estate.id allocation.plot_size.id %}" 
+                                                       class="btn btn-sm btn-action btn-details">
+                                                        <i class="bi bi-book"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info text-center">
+                                <i class="bi bi-info-circle display-6 mb-3"></i>
+                                <h5>No Properties Found</h5>
+                                <p class="mb-0">You don't have any properties from this company yet.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if is_independent_client %}
+        <!-- Email Tracking Info -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-success" style="border-radius: 12px; border: 1px solid rgba(17, 153, 142, 0.2); background: rgba(17, 153, 142, 0.05);">
+                    <h6><i class="bi bi-link-45deg"></i> Email-Based Property Linking</h6>
+                    <p class="mb-0">
+                        These properties are linked to your account via your email address. Any property allocated 
+                        with your email from any company will automatically appear in your portfolio.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Value Appreciation Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%); border-bottom: 1px solid rgba(17, 153, 142, 0.1);">
+                        <h4 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Property Value Appreciation</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-4">Detailed view of property value growth over time</p>
+                        
+                        <div class="row row-cols-1 row-cols-md-2 g-4">
+                            {% for transaction in transactions %}
+                            <div class="col">
+                                <div class="card appreciation-card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="card-title mb-0">
+                                                <i class="bi bi-building me-1 text-primary"></i>
+                                                {{ transaction.allocation.estate.name }}
+                                            </h6>
+                                            <span class="badge bg-light text-dark">{{ transaction.allocation.plot_size.size }} {{ transaction.allocation.plot_size.size_unit }}</span>
+                                        </div>
+                                        
+                                        <div class="appreciation-details mb-3">
+                                            <div class="appreciation-item d-flex justify-content-between">
+                                                <span>Purchase Price:</span>
+                                                <strong>₦{{ transaction.total_amount|floatformat:"2g" }}</strong>
+                                            </div>
+                                            <div class="appreciation-item d-flex justify-content-between">
+                                                <span>Current Value:</span>
+                                                <strong>₦{{ transaction.current_value|floatformat:"2g" }}</strong>
+                                            </div>
+                                            <div class="appreciation-item d-flex justify-content-between">
+                                                <span>Value Increase:</span>
+                                                <strong class="{% if transaction.appreciation >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                    {% if transaction.appreciation >= 0 %}+{% else %}-{% endif %}₦{{ transaction.abs_appreciation|floatformat:"2g" }}
+                                                </strong>
+                                            </div>
+                                            <div class="appreciation-item d-flex justify-content-between">
+                                                <span>Growth Rate:</span>
+                                                <strong class="{% if transaction.growth_rate >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                    {% if transaction.growth_rate >= 0 %}+{% endif %}{{ transaction.growth_rate|floatformat:"2" }}%
+                                                </strong>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="progress mb-1" style="height: 8px;">
+                                            <div class="progress-bar {% if transaction.growth_rate >= 0 %}bg-success{% else %}bg-danger{% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ transaction.abs_growth_rate|default:0 }}%;" 
+                                                aria-valuenow="{{ transaction.abs_growth_rate|default:0 }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between small text-muted mb-3">
+                                            <span>Purchase</span>
+                                            <span>Current</span>
+                                        </div>
+                                        
+                                        <div class="timeline">
+                                            <div class="timeline-item mb-3">
+                                                <div class="timeline-point bg-success"></div>
+                                                <div class="timeline-content">
+                                                    <span class="timeline-date">{{ transaction.transaction_date|date:"M Y" }}</span>
+                                                    <div class="timeline-value">₦{{ transaction.total_amount|floatformat:"2g" }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="timeline-item">
+                                                <div class="timeline-point bg-primary"></div>
+                                                <div class="timeline-content">
+                                                    <span class="timeline-date">Now</span>
+                                                    <div class="timeline-value">₦{{ transaction.current_value|floatformat:"2g" }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12">
+                                <div class="text-center py-5 text-muted">
+                                    <i class="bi bi-graph-up display-6"></i>
+                                    <p class="mt-3">No appreciation data available</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if transactions %}
+                        <div class="card mt-4" style="border: 1px solid rgba(102, 126, 234, 0.1); background: rgba(102, 126, 234, 0.02);">
+                            <div class="card-body">
+                                <h5 class="card-title text-center mb-4">Portfolio Summary</h5>
+                                <div class="row row-cols-1 row-cols-md-3 g-3 text-center">
+                                    <div class="col">
+                                        <div class="summary-box p-4 rounded h-100" style="background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.2);">
+                                            <div>
+                                                <i class="bi bi-arrow-up-right-circle fs-1 text-success mb-2"></i>
+                                                <div class="text-muted mb-1">Total Appreciation</div>
+                                                <strong class="text-success fs-4">+₦{{ appreciation_total|floatformat:"2g" }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="summary-box p-4 rounded h-100" style="background: rgba(0, 122, 255, 0.1); border: 1px solid rgba(0, 122, 255, 0.2);">
+                                            <div>
+                                                <i class="bi bi-percent fs-1 text-primary mb-2"></i>
+                                                <div class="text-muted mb-1">Average Growth</div>
+                                                <strong class="text-success fs-4">+{{ average_growth|floatformat:"2" }}%</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="summary-box p-4 rounded h-100" style="background: rgba(90, 200, 250, 0.1); border: 1px solid rgba(90, 200, 250, 0.2);">
+                                            <div>
+                                                <i class="bi bi-trophy-fill fs-1 text-info mb-2"></i>
+                                                <div class="text-muted mb-1">Highest Growth</div>
+                                                <strong class="fs-6">{{ highest_growth_property }}</strong>
+                                                <div><strong class="text-success">(+{{ highest_growth_rate|floatformat:"2" }}%)</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Transaction Details Modal -->
+    <div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius: 16px; border: none;">
+                <div class="modal-header" style="background: var(--success-gradient); color: white; border-radius: 16px 16px 0 0;">
+                    <h5 class="modal-title"><i class="bi bi-receipt"></i> Transaction Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><th>Estate</th><td id="td_estate"></td></tr>
+                                <tr><th>Plot Size</th><td id="td_plot_size"></td></tr>
+                                <tr><th>Date</th><td id="td_date"></td></tr>
+                                <tr><th>Amount</th><td id="td_amount"></td></tr>
+                                <tr><th>Type</th><td id="td_payment_type"></td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><th>Status</th><td id="td_status"></td></tr>
+                                <tr id="row_duration" style="display:none;"><th>Duration</th><td id="td_duration"></td></tr>
+                                <tr id="row_plan" style="display:none;"><th>Plan</th><td id="td_plan"></td></tr>
+                                <tr id="row_first" style="display:none;"><th>1st</th><td id="td_first"></td></tr>
+                                <tr id="row_second" style="display:none;"><th>2nd</th><td id="td_second"></td></tr>
+                                <tr id="row_third" style="display:none;"><th>3rd</th><td id="td_third"></td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="td_payment_history" class="mt-3">
+                        <h6>Payment Receipts</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Installment</th>
+                                        <th>Reference</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payment_history_body">
+                                    <!-- Payment records will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // Format currency helper
+    function formatCurrency(v) {
+        return '₦' + parseFloat(v || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    // Handle transaction modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const transactionModal = document.getElementById('transactionDetailsModal');
+        
+        transactionModal.addEventListener('show.bs.modal', function(e) {
+            const button = e.relatedTarget;
+            const id = button.getAttribute('data-id');
+            console.log('Transaction ID:', id);
+            
+            if (!id) {
+                alert('No transaction ID found');
+                return;
+            }
+            
+            // Clear previous data
+            document.querySelectorAll('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').forEach(el => el.textContent = '');
+            document.getElementById('payment_history_body').innerHTML = '';
+            document.querySelectorAll('[id^="row_"]').forEach(el => el.style.display = 'none');
+
+            // Fetch transaction details
+            fetch(`/transaction/${id}/details/`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to load transaction');
+                    return response.json();
+                })
+                .then(d => {
+                    console.log('Transaction data received:', d);
+                    // Basic info
+                    document.getElementById('td_estate').textContent = d.allocation.estate.name;
+                    document.getElementById('td_plot_size').textContent = d.allocation.plot_size;
+                    document.getElementById('td_date').textContent = d.transaction_date;
+                    document.getElementById('td_amount').textContent = formatCurrency(d.total_amount);
+
+                    // Payment Type badge
+                    const ptHtml = d.allocation.payment_type === 'part'
+                        ? '<span class="badge bg-warning text-dark">Part Payment</span>'
+                        : '<span class="badge bg-success">Full Payment</span>';
+                    document.getElementById('td_payment_type').innerHTML = ptHtml;
+
+                    // Status badge
+                    let statusHtml = '';
+                    switch(d.status) {
+                        case 'Paid Complete':
+                        case 'Fully Paid':
+                            statusHtml = '<span class="badge bg-success">' + d.status + '</span>';
+                            break;
+                        case 'Part Payment':
+                            statusHtml = '<span class="badge bg-warning text-dark">' + d.status + '</span>';
+                            break;
+                        case 'Overdue':
+                            statusHtml = '<span class="badge bg-danger">' + d.status + '</span>';
+                            break;
+                        default:
+                            statusHtml = '<span class="badge bg-secondary">' + d.status + '</span>';
+                    }
+                    document.getElementById('td_status').innerHTML = statusHtml;
+
+                    // If part-payment, show duration & installments
+                    if(d.allocation.payment_type === 'part') {
+                        let durText = '';
+                        if(d.payment_duration) {
+                            durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
+                        } else if(d.custom_duration) {
+                            durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
+                        }
+                        if(durText) {
+                            document.getElementById('td_duration').textContent = durText;
+                            document.getElementById('row_duration').style.display = '';
+                        }
+
+                        if(d.installment_plan) {
+                            const planText = d.installment_plan === 'custom'
+                                ? `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`
+                                : d.installment_plan.split('-').join('%, ') + '%';
+                            document.getElementById('td_plan').textContent = planText;
+                            document.getElementById('row_plan').style.display = '';
+                        }
+
+                        if(d.first_installment) {
+                            document.getElementById('td_first').textContent = formatCurrency(d.first_installment);
+                            document.getElementById('row_first').style.display = '';
+                        }
+                        if(d.second_installment) {
+                            document.getElementById('td_second').textContent = formatCurrency(d.second_installment);
+                            document.getElementById('row_second').style.display = '';
+                        }
+                        if(d.third_installment) {
+                            document.getElementById('td_third').textContent = formatCurrency(d.third_installment);
+                            document.getElementById('row_third').style.display = '';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Transaction details error:', error);
+                    alert('Error loading transaction details: ' + error.message);
+                });
+
+            // Fetch payment history
+            fetch("{% url 'ajax_payment_history' %}?transaction_id=" + id)
+                .then(response => {
+                    console.log('Payment history response status:', response.status);
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || 'Failed to load payment history');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(d => {
+                    console.log('Payment history data:', d);
+                    let html = '';
+                    if(d.payments && d.payments.length) {
+                        d.payments.forEach(p => {
+                            html += `<tr>
+                                <td>${p.date}</td>
+                                <td>${formatCurrency(p.amount)}</td>
+                                <td>${p.method}</td>
+                                <td>${p.installment}</td>
+                                <td><code>${p.reference || ''}</code></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-success view-receipt-btn" 
+                                            data-reference="${p.reference}">
+                                        <i class="bi bi-download"></i> Download
+                                    </button>
+                                </td>
+                            </tr>`;
+                        });
+                    } else {
+                        html = '<tr><td colspan="6" class="text-center text-muted">No payment history</td></tr>';
+                    }
+                    document.getElementById('payment_history_body').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Payment history error:', error);
+                    document.getElementById('payment_history_body').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading payment history: ' + error.message + '</td></tr>';
+                });
+        });
+
+        // Handle receipt download
+        document.addEventListener('click', function(e) {
+            if(e.target.closest('.view-receipt-btn')) {
+                const button = e.target.closest('.view-receipt-btn');
+                const reference = button.getAttribute('data-reference');
+                if(reference) {
+                    window.open(`/payment/receipt/${reference}/`, '_blank');
+                }
+            }
+        });
+    });
+</script>
+
+<style>
+    .modal-content {
+        animation: fadeInUp 0.3s ease-out;
+    }
+</style>
+{% endblock %}

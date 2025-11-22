@@ -1,0 +1,273 @@
+<!-- Closable Modal Alert - Important but dismissible -->
+<!-- Used for: Important warnings, action items (Days 3-5 of trial) -->
+<!-- Dismissible: YES - User can close. Shows again next day or if priority increases -->
+<!-- Behavior: Appears as overlay, blocks part of UI, can be dismissed -->
+
+<div class="alert-modal-overlay alert-modal-overlay-{{ alert.severity }}" 
+     id="alert-modal-{{ alert.id }}"
+     data-alert-id="{{ alert.id }}"
+     data-alert-type="modal"
+     style="display: none;"
+     role="alertdialog"
+     aria-modal="true">
+    
+    <div class="alert-modal alert-modal-{{ alert.severity }}">
+        <!-- Modal header -->
+        <div class="alert-modal-header">
+            <div class="alert-modal-title-group">
+                <span class="alert-modal-icon">
+                    {% if alert.severity == 'warning' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% elif alert.severity == 'critical' %}
+                        <i class="fas fa-times-circle"></i>
+                    {% elif alert.severity == 'urgent' %}
+                        <i class="fas fa-exclamation"></i>
+                    {% else %}
+                        <i class="fas fa-bell"></i>
+                    {% endif %}
+                </span>
+                <h3 class="alert-modal-title">{{ alert.title|default:alert.severity|title }}</h3>
+            </div>
+            <button class="alert-modal-close" 
+                    data-alert-id="{{ alert.id }}"
+                    onclick="dismissAlert(this)"
+                    aria-label="Close alert">
+                ✕
+            </button>
+        </div>
+
+        <!-- Modal body -->
+        <div class="alert-modal-body">
+            <p class="alert-modal-message">{{ alert.message }}</p>
+            {% if alert.details %}
+                <div class="alert-modal-details">
+                    {{ alert.details }}
+                </div>
+            {% endif %}
+            {% if alert.countdown %}
+                <div class="alert-modal-countdown">
+                    <strong>{{ alert.countdown_label|default:"Time remaining:" }}</strong>
+                    <span class="countdown-value" data-expire-date="{{ alert.expire_date }}">
+                        {{ alert.countdown }}
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Modal footer with actions -->
+        <div class="alert-modal-footer">
+            {% if alert.action_url %}
+                <a href="{{ alert.action_url }}" class="alert-modal-btn alert-modal-btn-primary">
+                    {{ alert.action_label|default:"Take Action" }}
+                </a>
+            {% endif %}
+            <button class="alert-modal-btn alert-modal-btn-secondary"
+                    data-alert-id="{{ alert.id }}"
+                    onclick="dismissAlert(this)">
+                {{ alert.dismiss_label|default:"Dismiss" }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<style scoped>
+    .alert-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    .alert-modal-overlay-warning {
+        background-color: rgba(255, 152, 0, 0.3);
+    }
+
+    .alert-modal-overlay-critical {
+        background-color: rgba(220, 53, 69, 0.3);
+    }
+
+    .alert-modal-overlay-urgent {
+        background-color: rgba(200, 35, 51, 0.3);
+    }
+
+    .alert-modal {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        animation: slideInUp 0.3s ease-out;
+        border-left: 5px solid;
+    }
+
+    .alert-modal-warning {
+        border-left-color: #ff9800;
+    }
+
+    .alert-modal-critical {
+        border-left-color: #dc3545;
+    }
+
+    .alert-modal-urgent {
+        border-left-color: #c82333;
+    }
+
+    .alert-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .alert-modal-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .alert-modal-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+
+    .alert-modal-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .alert-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+        transition: color 0.2s;
+        padding: 0;
+        margin-left: 12px;
+    }
+
+    .alert-modal-close:hover {
+        color: #333;
+    }
+
+    .alert-modal-body {
+        padding: 20px;
+    }
+
+    .alert-modal-message {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #555;
+        line-height: 1.6;
+    }
+
+    .alert-modal-details {
+        background-color: #f8f9fa;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #666;
+        margin-top: 12px;
+        border-left: 3px solid #999;
+    }
+
+    .alert-modal-countdown {
+        margin-top: 16px;
+        padding: 12px;
+        background-color: #fff3cd;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #856404;
+    }
+
+    .countdown-value {
+        font-weight: 600;
+        font-size: 16px;
+        display: inline-block;
+        margin-left: 8px;
+    }
+
+    .alert-modal-footer {
+        display: flex;
+        gap: 12px;
+        padding: 16px 20px;
+        border-top: 1px solid #e9ecef;
+        justify-content: flex-end;
+    }
+
+    .alert-modal-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .alert-modal-btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .alert-modal-btn-primary:hover {
+        background-color: #0056b3;
+        transform: translateY(-1px);
+    }
+
+    .alert-modal-btn-secondary {
+        background-color: #e9ecef;
+        color: #333;
+    }
+
+    .alert-modal-btn-secondary:hover {
+        background-color: #dee2e6;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideInUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .alert-modal {
+            width: 95%;
+            max-height: 90vh;
+        }
+
+        .alert-modal-footer {
+            flex-direction: column-reverse;
+        }
+
+        .alert-modal-btn {
+            width: 100%;
+        }
+    }
+</style>

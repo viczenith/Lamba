@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Admin Dashboard V2 - Enhanced System Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    {% load static %}
+    <style>
+        /* Enhanced version with advanced visualizations */
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --light: #f8fafc;
+            --dark: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .dashboard-header {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card-enhanced {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s;
+        }
+
+        .stat-card-enhanced:hover {
+            transform: translateY(-10px);
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .realtime-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .realtime-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .advanced-table {
+            background: white;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-2">Tenant Admin Dashboard V2</h1>
+                    <p class="text-muted mb-0">Advanced system monitoring and management</p>
+                </div>
+                <div class="realtime-indicator">
+                    <div class="realtime-dot"></div>
+                    <span>Real-time Data</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="metric-grid">
+            <div class="stat-card-enhanced">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-3 opacity-75">Total Companies</h6>
+                        <h2 class="mb-2" id="v2StatCompanies">0</h2>
+                        <small class="opacity-75">Across all platforms</small>
+                    </div>
+                    <i class="ri-building-line" style="font-size: 3rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+
+            <div class="stat-card-enhanced" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-3 opacity-75">Active Users</h6>
+                        <h2 class="mb-2" id="v2StatUsers">0</h2>
+                        <small class="opacity-75">Currently online</small>
+                    </div>
+                    <i class="ri-team-line" style="font-size: 3rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+
+            <div class="stat-card-enhanced" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-3 opacity-75">Total Revenue</h6>
+                        <h2 class="mb-2" id="v2StatRevenue">₦0</h2>
+                        <small class="opacity-75">This month</small>
+                    </div>
+                    <i class="ri-money-dollar-circle-line" style="font-size: 3rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+
+            <div class="stat-card-enhanced" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-3 opacity-75">System Health</h6>
+                        <h2 class="mb-2">99.9%</h2>
+                        <small class="opacity-75">Uptime</small>
+                    </div>
+                    <i class="ri-shield-check-line" style="font-size: 3rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="chart-card">
+                    <h4 class="mb-4">Revenue Analytics</h4>
+                    <div id="revenueChartV2" style="height: 350px;"></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <h4 class="mb-4">User Distribution</h4>
+                    <div id="userDistChart" style="height: 350px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="advanced-table">
+            <div class="table-header">
+                <h4 class="mb-0">Recent Transactions</h4>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Company</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTable">
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted">Loading transactions...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced dashboard V2 scripts
+        async function loadV2Stats() {
+            try {
+                const response = await fetch('/api/tenant-admin/dashboard-stats/');
+                const data = await response.json();
+                
+                document.getElementById('v2StatCompanies').textContent = data.total_companies || 0;
+                document.getElementById('v2StatUsers').textContent = data.total_users || 0;
+                document.getElementById('v2StatRevenue').textContent = '₦' + (data.total_revenue || 0).toLocaleString();
+                
+                // Initialize advanced charts
+                initAdvancedCharts(data);
+            } catch (error) {
+                console.error('Error loading V2 stats:', error);
+            }
+        }
+
+        function initAdvancedCharts(data) {
+            // ApexCharts configuration for enhanced visualizations
+            const revenueOptions = {
+                series: [{
+                    name: 'Revenue',
+                    data: [30, 40, 35, 50, 49, 60, 70, 91, 125]
+                }],
+                chart: {
+                    type: 'area',
+                    height: 350,
+                    toolbar: { show: false }
+                },
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth' },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.7,
+                        opacityTo: 0.2
+                    }
+                },
+                colors: ['#667eea']
+            };
+            
+            const revenueChart = new ApexCharts(document.querySelector("#revenueChartV2"), revenueOptions);
+            revenueChart.render();
+
+            // Donut chart for user distribution
+            const userDistOptions = {
+                series: [44, 55, 13, 33],
+                chart: {
+                    type: 'donut',
+                    height: 350
+                },
+                labels: ['Clients', 'Marketers', 'Admins', 'System Admins'],
+                colors: ['#667eea', '#764ba2', '#f093fb', '#f5576c']
+            };
+            
+            const userChart = new ApexCharts(document.querySelector("#userDistChart"), userDistOptions);
+            userChart.render();
+        }
+
+        // Load on page ready
+        document.addEventListener('DOMContentLoaded', loadV2Stats);
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadV2Stats, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .alert { background-color: #ffebee; border: 2px solid #d32f2f; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .invoice-section { background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .invoice-section table { width: 100%; border-collapse: collapse; }
+        .invoice-section th, .invoice-section td { padding: 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .invoice-section th { background-color: #e0e0e0; font-weight: bold; }
+        .footer { background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #d32f2f; color: white; text-decoration: none; border-radius: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>❌ Payment Failed - Manual Action Required</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ company.company_name }} Administrator,</p>
+            
+            <div class="alert">
+                <strong>⚠️ URGENT ACTION REQUIRED:</strong> We have attempted to process your payment multiple times without success. Your subscription is at risk of suspension. Please contact us or update your payment method immediately.
+            </div>
+            
+            <div class="invoice-section">
+                <table>
+                    <tr>
+                        <th>Invoice Number</th>
+                        <td>{{ invoice.invoice_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Amount Due</th>
+                        <td>₦{{ invoice.total_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Invoice Period</th>
+                        <td>{{ invoice.period_start|date:"M d, Y" }} - {{ invoice.period_end|date:"M d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td><strong style="color: #d32f2f;">Failed - Manual Payment Required</strong></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h3>Payment Options</h3>
+            <p>Please choose one of the following:</p>
+            <ul>
+                <li><strong>Update Payment Method:</strong> Use a different credit card or payment method</li>
+                <li><strong>Bank Transfer:</strong> Contact us for bank account details</li>
+                <li><strong>Wire Transfer:</strong> International payment option available</li>
+                <li><strong>Payment Plan:</strong> Request a custom payment arrangement</li>
+            </ul>
+            
+            <p style="text-align: center;">
+                <a href="https://dashboard.example.com/billing/payment-methods" class="button">Update Payment Method</a>
+                <a href="https://dashboard.example.com/support/ticket/new" class="button" style="background-color: #1976d2;">Contact Support</a>
+            </p>
+            
+            <h3>Important</h3>
+            <p>If payment is not received within 48 hours, your subscription will be automatically suspended. After 30 days, your account data may be archived or deleted.</p>
+            
+            <p><strong>Contact Our Billing Team Immediately:</strong><br>
+            📧 Email: billing@example.com<br>
+            📞 Phone: +1 (555) 123-4567<br>
+            💬 Chat: dashboard.example.com/support<br>
+            ⏰ Hours: Monday - Friday, 9 AM - 6 PM EST | Saturday 10 AM - 2 PM EST</p>
+            
+            <p>We're here to help and want to resolve this quickly.</p>
+            
+            <p>Best regards,<br>Lamba Billing Team</p>
+        </div>
+        <div class="footer">
+            <p>© {% now "Y" %} Lamba. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

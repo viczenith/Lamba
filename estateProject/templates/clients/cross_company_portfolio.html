@@ -1,0 +1,206 @@
+{% extends 'client_base.html' %}
+{% load static %}
+{% load humanize %}
+{% load personalized_urls %}
+
+{% block title %}My Cross-Company Portfolio{% endblock %}
+ 
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-1">My Property Portfolio</h3>
+                            <p class="text-muted mb-0">
+                                {% if is_independent_client %}
+                                    <span class="badge bg-success">Independent Client</span>
+                                    Viewing properties across all companies linked to: <strong>{{ client_email }}</strong>
+                                {% else %}
+                                    <span class="badge bg-primary">Company Client</span>
+                                    Viewing properties from your company
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <h4 class="mb-0">{{ total_properties }} Properties</h4>
+                            <p class="text-muted mb-0">From {{ total_companies }} Companies</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-2">Total Companies</h6>
+                    <h2 class="mb-0">{{ total_companies }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-2">Total Properties</h6>
+                    <h2 class="mb-0">{{ total_properties }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-2">Total Investment</h6>
+                    <h2 class="mb-0">₦{{ total_invested|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Companies List with Toggles -->
+    <div class="row">
+        <div class="col-12">
+            <h4 class="mb-3">Properties by Company</h4>
+            
+            {% if companies %}
+                {% for company_data in companies %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                {% if company_data.company.logo %}
+                                    <img src="{{ company_data.company.logo.url }}" alt="{{ company_data.company.company_name }}" 
+                                         class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;">
+                                {% else %}
+                                    <div class="bg-primary text-white rounded me-3 d-flex align-items-center justify-content-center" 
+                                         style="width: 50px; height: 50px;">
+                                        <i class="fas fa-building fa-2x"></i>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <h5 class="mb-0">{{ company_data.company.company_name }}</h5>
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-marker-alt"></i> {{ company_data.company.location }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-primary" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#company-{{ company_data.company.id }}" 
+                                        aria-expanded="false">
+                                    <i class="fas fa-eye"></i> View {{ company_data.property_count }} Properties
+                                    <span class="badge bg-white text-primary ms-2">₦{{ company_data.total_investment|floatformat:2 }}</span>
+                                </button>
+                                <a href="{% url 'personalized-client-company-properties' user_slug=request.user.slug company_id=company_data.company.id %}" 
+                                   class="btn btn-sm btn-outline-primary ms-2">
+                                    <i class="fas fa-external-link-alt"></i> Full View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Collapsible Properties List -->
+                    <div class="collapse" id="company-{{ company_data.company.id }}">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Estate</th>
+                                            <th>Plot #</th>
+                                            <th>Size</th>
+                                            <th>Investment</th>
+                                            <th>Payment Type</th>
+                                            <th>Date Allocated</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for property in company_data.properties %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if property.estate.estate_image %}
+                                                        <img src="{{ property.estate.estate_image.url }}" 
+                                                             alt="{{ property.estate.estate_name }}" 
+                                                             class="rounded me-2" 
+                                                             style="width: 40px; height: 40px; object-fit: cover;">
+                                                    {% endif %}
+                                                    <strong>{{ property.estate.estate_name }}</strong>
+                                                </div>
+                                            </td>
+                                            <td>{{ property.plot_number.number|default:"N/A" }}</td>
+                                            <td>{{ property.plot_size }}</td>
+                                            <td>₦{{ property.plot_size_unit.price|default:"0.00"|floatformat:2 }}</td>
+                                            <td>
+                                                {% if property.payment_type == 'full' %}
+                                                    <span class="badge bg-success">Full Payment</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">Part Payment</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ property.date_allocated|date:"M d, Y" }}</td>
+                                            <td>
+                                                <span class="badge bg-info">Active</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No properties found. Start investing with our partner companies!
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if is_independent_client %}
+    <!-- Info Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-success">
+                <h5><i class="fas fa-check-circle"></i> Cross-Company Portfolio Tracking</h5>
+                <p class="mb-0">
+                    Your properties are automatically tracked across all companies using your email address 
+                    (<strong>{{ client_email }}</strong>). Any property purchased with this email will appear here.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: none;
+}
+
+.card-header {
+    border-bottom: 2px solid #e9ecef;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+</style>
+{% endblock %}

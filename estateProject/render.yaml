@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: real-estate-backend
+    env: python
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install --no-cache-dir -r requirements.txt
+      python -c "import sys; print('Python Path:', sys.path)"
+      python -c "import pkg_resources; print('Installed Packages:', [d.project_name for d in pkg_resources.working_set])"
+      python -c "import dj_database_url; print('dj-database-url location:', dj_database_url.__file__)"
+      python manage.py check --deploy
+      python manage.py collectstatic --noinput
+    releaseCommand: |
+      echo "Running database migrations..."
+      python manage.py showmigrations
+      python manage.py migrate --no-input
+      echo "Migrations completed."
+    startCommand: gunicorn estateProject.wsgi:application --chdir estateProject --workers 3 --bind 0.0.0.0:$PORT
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: PYTHONUNBUFFERED
+        value: "True"
+      - key: DJANGO_SETTINGS_MODULE
+        value: estateProject.settings
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "real-estate-backend.onrender.com,localhost,127.0.0.1"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        fromParam: REDIS_URL
+      - key: CELERY_RESULT_BACKEND
+        fromParam: REDIS_URL
+    autoDeploy: true
+    healthCheckPath: /admin/
+    healthCheckTimeout: 120
+    staticPublishPath: staticfiles

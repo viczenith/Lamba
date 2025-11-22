@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .alert { background-color: #ffe5e5; border: 2px solid #d32f2f; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .invoice-section { background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .invoice-section table { width: 100%; border-collapse: collapse; }
+        .invoice-section th, .invoice-section td { padding: 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .invoice-section th { background-color: #e0e0e0; font-weight: bold; }
+        .footer { background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #d32f2f; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>⚠️ URGENT: Invoice Overdue</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ company.company_name }} Administrator,</p>
+            
+            <div class="alert">
+                <strong>⚠️ URGENT:</strong> Your invoice is now <strong>{{ days_overdue }} days overdue</strong>. Immediate payment is required to maintain your subscription.
+            </div>
+            
+            <div class="invoice-section">
+                <table>
+                    <tr>
+                        <th>Invoice Number</th>
+                        <td>{{ invoice.invoice_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Amount Due</th>
+                        <td>₦{{ invoice.total_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Due Date</th>
+                        <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Days Overdue</th>
+                        <td><strong style="color: #d32f2f;">{{ days_overdue }} days</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Current Status</th>
+                        <td>{{ invoice.get_status_display }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h3>Consequences of Non-Payment:</h3>
+            <ul>
+                <li>Subscription features may be restricted or disabled</li>
+                <li>Data access may be limited</li>
+                <li>API endpoints may become unavailable</li>
+                <li>Account may be suspended after 30 days</li>
+            </ul>
+            
+            <p style="text-align: center;">
+                <a href="https://dashboard.example.com/invoices/{{ invoice.id }}/pay" class="button">Pay Now</a>
+            </p>
+            
+            <p><strong>Need Help?</strong><br>
+            Contact us immediately: billing@example.com | +1 (555) 123-4567</p>
+            
+            <p>Best regards,<br>Lamba Billing Team</p>
+        </div>
+        <div class="footer">
+            <p>© {% now "Y" %} Lamba. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

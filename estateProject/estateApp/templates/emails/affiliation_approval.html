@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #764ba2;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .info-box {
+            background-color: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <div class="success-icon">✅</div>
+            <h1>Affiliation Approved!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi {{ marketer.full_name }},</p>
+            
+            <p>Great news! Your affiliation request with <strong>{{ company.company_name }}</strong> has been approved.</p>
+            
+            <div class="info-box">
+                <p><strong>Affiliation Details:</strong></p>
+                <p>
+                    <strong>Commission Rate:</strong> {{ commission_rate }}%<br>
+                    <strong>Company:</strong> {{ company.company_name }}<br>
+                    <strong>Status:</strong> <span style="color: #28a745;">Active</span>
+                </p>
+            </div>
+            
+            <p>You can now start selling properties for {{ company.company_name }} and earn commissions on each sale.</p>
+            
+            <p>You'll receive automatic notifications for:</p>
+            <ul>
+                <li>Property sales assignments</li>
+                <li>Commission calculations</li>
+                <li>Payment confirmations</li>
+                <li>Performance metrics</li>
+            </ul>
+            
+            {% if company.custom_domain %}
+            <p><a href="https://{{ company.custom_domain }}" class="button">Access Your Dashboard</a></p>
+            {% endif %}
+            
+            <p>If you have any questions, please contact the company directly.</p>
+            
+            <p>Best regards,<br>{{ company.company_name }} Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>© {{ current_year|default:"2025" }} {{ company.company_name }}. All rights reserved.</p>
+            <p>You received this email because you requested affiliation with {{ company.company_name }}.</p>
+        </div>
+    </div>
+</body>
+</html>

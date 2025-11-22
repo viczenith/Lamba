@@ -1,0 +1,171 @@
+<!-- Banner Alert - Dismissible info bar at top of page -->
+<!-- Used for: General information, reminders (Days 6-10 of trial) -->
+<!-- Dismissible: YES - User can close and won't see again until tomorrow -->
+
+<div class="alert-banner alert-banner-{{ alert.severity }}" 
+     id="alert-banner-{{ alert.id }}"
+     data-alert-id="{{ alert.id }}"
+     data-alert-type="banner"
+     role="alert">
+    
+    <div class="alert-banner-container">
+        <!-- Icon based on severity -->
+        <span class="alert-banner-icon">
+            {% if alert.severity == 'info' %}
+                <i class="fas fa-info-circle"></i>
+            {% elif alert.severity == 'warning' %}
+                <i class="fas fa-exclamation-triangle"></i>
+            {% elif alert.severity == 'critical' %}
+                <i class="fas fa-times-circle"></i>
+            {% else %}
+                <i class="fas fa-bell"></i>
+            {% endif %}
+        </span>
+
+        <!-- Alert message -->
+        <div class="alert-banner-content">
+            <p class="alert-banner-message">{{ alert.message }}</p>
+            {% if alert.details %}
+                <small class="alert-banner-details">{{ alert.details }}</small>
+            {% endif %}
+        </div>
+
+        <!-- Action buttons -->
+        <div class="alert-banner-actions">
+            {% if alert.action_url %}
+                <a href="{{ alert.action_url }}" class="alert-banner-btn-primary">
+                    {{ alert.action_label|default:"Take Action" }}
+                </a>
+            {% endif %}
+            <button class="alert-banner-btn-dismiss" 
+                    data-alert-id="{{ alert.id }}"
+                    onclick="dismissAlert(this)">
+                ✕
+            </button>
+        </div>
+    </div>
+</div>
+
+<style scoped>
+    .alert-banner {
+        position: relative;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        border-left: 4px solid;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-size: 14px;
+        animation: slideInDown 0.3s ease-out;
+    }
+
+    .alert-banner-info {
+        border-left-color: #0056b3;
+        background-color: #e7f3ff;
+        color: #004085;
+    }
+
+    .alert-banner-warning {
+        border-left-color: #ff9800;
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .alert-banner-critical {
+        border-left-color: #dc3545;
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .alert-banner-urgent {
+        border-left-color: #c82333;
+        background-color: #f5c2c7;
+        color: #842029;
+    }
+
+    .alert-banner-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .alert-banner-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .alert-banner-content {
+        flex: 1;
+    }
+
+    .alert-banner-message {
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .alert-banner-details {
+        display: block;
+        margin-top: 4px;
+        opacity: 0.85;
+    }
+
+    .alert-banner-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+        align-items: center;
+    }
+
+    .alert-banner-btn-primary {
+        padding: 6px 12px;
+        background-color: rgba(0, 0, 0, 0.1);
+        color: inherit;
+        text-decoration: none;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: 500;
+        transition: background-color 0.2s;
+        white-space: nowrap;
+    }
+
+    .alert-banner-btn-primary:hover {
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .alert-banner-btn-dismiss {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+
+    .alert-banner-btn-dismiss:hover {
+        opacity: 1;
+    }
+
+    @keyframes slideInDown {
+        from {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .alert-banner-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .alert-banner-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+</style>

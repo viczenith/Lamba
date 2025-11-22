@@ -1,0 +1,116 @@
+/* Tenant Admin Custom Styles */
+
+:root {
+    --tenant-primary: #2563eb;
+    --tenant-primary-dark: #1e40af;
+    --tenant-secondary: #8b5cf6;
+    --tenant-success: #10b981;
+    --tenant-danger: #ef4444;
+    --tenant-warning: #f59e0b;
+    --tenant-info: #3b82f6;
+}
+
+.tenant-admin-container {
+    background: #f1f5f9;
+    min-height: 100vh;
+}
+
+.stat-card-hover {
+    transition: all 0.3s ease;
+}
+
+.stat-card-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: #64748b;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.activity-icon.create {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--tenant-success);
+}
+
+.activity-icon.update {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--tenant-info);
+}
+
+.activity-icon.delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--tenant-danger);
+}
+
+/* Table Styles */
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead {
+    background: var(--tenant-primary);
+    color: white;
+}
+
+.table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Badge Styles */
+.badge-status {
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--tenant-success);
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--tenant-warning);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--tenant-danger);
+}
+
+/* Loading Spinner */
+.spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.spinner-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+}
