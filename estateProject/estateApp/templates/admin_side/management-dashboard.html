@@ -1393,7 +1393,7 @@
     <h1 class="text-color">Sales Performance Analytics</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'admin-dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">Dashboard</a></li>
         <li class="breadcrumb-item active">Sales Analytics</li>
       </ol>
     </nav>

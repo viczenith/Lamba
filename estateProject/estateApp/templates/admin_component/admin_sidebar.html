@@ -8,7 +8,7 @@
     </li>
     
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'admin-dashboard' %}">
+      <a class="nav-link" href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">
         <div class="nav-link-icon">
           <i class="fas fa-tachometer-alt"></i>
         </div>
@@ -23,7 +23,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'client' %}">
+      <a class="nav-link" href="{% url 'client' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-users"></i>
         </div>
@@ -33,7 +33,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'marketer-list' %}">
+      <a class="nav-link" href="{% url 'marketer-list' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-user-tie"></i>
         </div>
@@ -43,7 +43,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'user-registration' %}">
+      <a class="nav-link" href="{% url 'user-registration' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-user-plus"></i>
         </div>
@@ -58,7 +58,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'add-estate' %}">
+      <a class="nav-link" href="{% url 'add-estate' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-plus-circle"></i>
         </div>
@@ -68,7 +68,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'view-estate' %}">
+      <a class="nav-link" href="{% url 'view-estate' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-eye"></i>
         </div>
@@ -78,7 +78,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'add-estate-plot' %}">
+      <a class="nav-link" href="{% url 'add-estate-plot' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-map-pin"></i>
         </div>
@@ -88,7 +88,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'plot-allocation' %}">
+      <a class="nav-link" href="{% url 'plot-allocation' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-map-marked-alt"></i>
         </div>
@@ -103,7 +103,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'add-plotnumber' %}">
+      <a class="nav-link" href="{% url 'add-plotnumber' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-hashtag"></i>
         </div>
@@ -113,7 +113,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'add-plotsize' %}">
+      <a class="nav-link" href="{% url 'add-plotsize' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-ruler-combined"></i>
         </div>
@@ -128,7 +128,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'admin_client_chat_list' %}">
+      <a class="nav-link" href="{% url 'admin_client_chat_list' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-comment-dots"></i>
         </div>
@@ -157,7 +157,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'management-dashboard' %}">
+      <a class="nav-link" href="{% url 'tenant-management' company_slug=request.company.slug %}">
         <div class="nav-link-icon">
           <i class="fas fa-chart-line"></i>
         </div>

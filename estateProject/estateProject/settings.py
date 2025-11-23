@@ -124,12 +124,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
-    # Multi-Tenant Middleware (MUST be after authentication)
-    'superAdmin.middleware.TenantIsolationMiddleware',
-    'superAdmin.middleware.QuerysetIsolationMiddleware',
-    'superAdmin.middleware.APITenantMiddleware',
-    'superAdmin.middleware.SubscriptionEnforcementMiddleware',
-    'superAdmin.middleware.AuditLoggingMiddleware',
+    # ENHANCED Multi-Tenant Middleware (MUST be after authentication)
+    # These layers provide automatic query interception + security enforcement
+    'superAdmin.enhanced_middleware.EnhancedTenantIsolationMiddleware',  # Auto-detects tenant, sets context
+    'superAdmin.enhanced_middleware.TenantValidationMiddleware',          # Validates tenant context
+    'superAdmin.enhanced_middleware.SubscriptionEnforcementMiddleware',   # Plan limit enforcement
+    'superAdmin.enhanced_middleware.AuditLoggingMiddleware',              # Compliance audit trail
+    'superAdmin.enhanced_middleware.SecurityHeadersMiddleware',           # XSS/MIME/clickjacking protection
 ]
 
 CORS_ALLOWED_ORIGINS = [

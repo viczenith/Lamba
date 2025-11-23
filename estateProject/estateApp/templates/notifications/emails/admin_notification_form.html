@@ -525,7 +525,7 @@
         <h1><i class="bi bi-bell"></i> Send Notifications</h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'admin-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">Home</a></li>
                 <li class="breadcrumb-item active">Send Notifications</li>
             </ol>
         </nav>

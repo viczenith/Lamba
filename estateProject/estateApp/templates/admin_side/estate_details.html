@@ -663,7 +663,7 @@
       <h1>{{ estate.name }}</h1>
       <nav>
         <ol class="breadcrumb">
-          <li class="breadcrumb-item"><a href="{% url 'admin-dashboard' %}">Home</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">Home</a></li>
           <li class="breadcrumb-item"><a href="{% url 'view-allocated-plot' id=estate.id %}">Allocated Plots</a></li>
           <li class="breadcrumb-item active">Estate Details</li>
         </ol>

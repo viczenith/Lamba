@@ -757,7 +757,7 @@
     <h1><i class="bi bi-chat-dots"></i> Chat with {{ client.full_name }}{% if is_marketer %} <span style="font-size:14px;opacity:0.7;">(Marketer)</span>{% endif %}</h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'admin-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">Home</a></li>
                 <li class="breadcrumb-item"><a href="{% url 'admin_client_chat_list' %}">Chat List</a></li>
                 <li class="breadcrumb-item active">Chat</li>
             </ol>

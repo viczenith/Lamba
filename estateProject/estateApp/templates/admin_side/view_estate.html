@@ -901,7 +901,7 @@
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item text-color">
-          <a href="{% url 'admin-dashboard' %}">
+          <a href="{% url 'tenant-dashboard' company_slug=request.company.slug %}">
             <i class="fas fa-home"></i> Home
           </a>
         </li>

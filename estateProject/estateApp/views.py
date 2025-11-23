@@ -129,6 +129,9 @@ def add_plotsize(request):
     from .models import PlotSize, PlotSizeUnits, Estate
     from django.db.models import Count, Q
     
+    # SECURITY: Get company context for data isolation
+    company = getattr(request, 'company', None)
+    
     if request.method == 'POST':
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             action = request.POST.get('action', 'add')
@@ -139,12 +142,12 @@ def add_plotsize(request):
                 if not size:
                     return JsonResponse({'success': False, 'message': 'Plot size is required'})
                 
-                # Check if plot size already exists
-                if PlotSize.objects.filter(size__iexact=size).exists():
-                    return JsonResponse({'success': False, 'message': f'Plot size "{size}" already exists'})
+                # SECURITY: Check if plot size already exists for THIS company only
+                if PlotSize.objects.filter(size__iexact=size, company=company).exists():
+                    return JsonResponse({'success': False, 'message': f'Plot size "{size}" already exists for your company'})
                 
                 try:
-                    PlotSize.objects.create(size=size)
+                    PlotSize.objects.create(size=size, company=company)  # SECURITY: Bind to company
                     return JsonResponse({'success': True, 'message': f'Plot size "{size}" added successfully!'})
                 except Exception as e:
                     return JsonResponse({'success': False, 'message': str(e)})
@@ -157,11 +160,12 @@ def add_plotsize(request):
                     return JsonResponse({'success': False, 'message': 'New plot size is required'})
                 
                 try:
-                    plot_size = PlotSize.objects.get(id=plot_size_id)
+                    # SECURITY: Only get plot sizes from THIS company
+                    plot_size = PlotSize.objects.get(id=plot_size_id, company=company)
                     old_size = plot_size.size
                     
-                    # Check if new size already exists (excluding current)
-                    if PlotSize.objects.filter(size__iexact=new_size).exclude(id=plot_size_id).exists():
+                    # SECURITY: Check if new size already exists in THIS company (excluding current)
+                    if PlotSize.objects.filter(size__iexact=new_size, company=company).exclude(id=plot_size_id).exists():
                         return JsonResponse({'success': False, 'message': f'Plot size "{new_size}" already exists'})
                     
                     # Update the plot size
@@ -173,13 +177,13 @@ def add_plotsize(request):
                         'message': f'Plot size updated from "{old_size}" to "{new_size}" across all estates and allocations!'
                     })
                 except PlotSize.DoesNotExist:
-                    return JsonResponse({'success': False, 'message': 'Plot size not found'})
+                    return JsonResponse({'success': False, 'message': 'Plot size not found or does not belong to your company'})
                 except Exception as e:
                     return JsonResponse({'success': False, 'message': str(e)})
     
-    # Annotate plot sizes with estate count and estate names
+    # SECURITY: Annotate plot sizes with estate count - ONLY for THIS company
     plot_sizes_data = []
-    for plot_size in PlotSize.objects.all().order_by('size'):
+    for plot_size in PlotSize.objects.filter(company=company).order_by('size'):
         # Count estates using this plot size through PlotSizeUnits
         estate_count = PlotSizeUnits.objects.filter(plot_size=plot_size).values('estate_plot__estate').distinct().count()
         
@@ -205,6 +209,9 @@ def add_plotnumber(request):
     from .models import PlotNumber, PlotAllocation
     from .ws_utils import broadcast_user_notification
     
+    # SECURITY: Get company context for data isolation
+    company = getattr(request, 'company', None)
+    
     if request.method == 'POST':
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             action = request.POST.get('action', 'add')
@@ -215,12 +222,12 @@ def add_plotnumber(request):
                 if not number:
                     return JsonResponse({'success': False, 'message': 'Plot number is required'})
                 
-                # Check if plot number already exists
-                if PlotNumber.objects.filter(number__iexact=number).exists():
-                    return JsonResponse({'success': False, 'message': f'Plot number "{number}" already exists'})
+                # SECURITY: Check if plot number already exists for THIS company only
+                if PlotNumber.objects.filter(number__iexact=number, company=company).exists():
+                    return JsonResponse({'success': False, 'message': f'Plot number "{number}" already exists for your company'})
                 
                 try:
-                    PlotNumber.objects.create(number=number)
+                    PlotNumber.objects.create(number=number, company=company)  # SECURITY: Bind to company
                     return JsonResponse({'success': True, 'message': f'Plot number "{number}" added successfully!'})
                 except Exception as e:
                     return JsonResponse({'success': False, 'message': str(e)})
@@ -233,11 +240,12 @@ def add_plotnumber(request):
                     return JsonResponse({'success': False, 'message': 'New plot number is required'})
                 
                 try:
-                    plot_number = PlotNumber.objects.get(id=plot_number_id)
+                    # SECURITY: Only get plot numbers from THIS company
+                    plot_number = PlotNumber.objects.get(id=plot_number_id, company=company)
                     old_number = plot_number.number
                     
-                    # Check if new number already exists (excluding current)
-                    if PlotNumber.objects.filter(number__iexact=new_number).exclude(id=plot_number_id).exists():
+                    # SECURITY: Check if new number already exists in THIS company (excluding current)
+                    if PlotNumber.objects.filter(number__iexact=new_number, company=company).exclude(id=plot_number_id).exists():
                         return JsonResponse({'success': False, 'message': f'Plot number "{new_number}" already exists'})
                     
                     # Update the plot number
@@ -249,13 +257,13 @@ def add_plotnumber(request):
                         'message': f'Plot number updated from "{old_number}" to "{new_number}" across all estates and client allocations!'
                     })
                 except PlotNumber.DoesNotExist:
-                    return JsonResponse({'success': False, 'message': 'Plot number not found'})
+                    return JsonResponse({'success': False, 'message': 'Plot number not found or does not belong to your company'})
                 except Exception as e:
                     return JsonResponse({'success': False, 'message': str(e)})
     
-    # Annotate plot numbers with allocation data (client and estate info)
+    # SECURITY: Annotate plot numbers with allocation data - ONLY for THIS company
     plot_numbers_data = []
-    for plot_number in PlotNumber.objects.all().order_by('number'):
+    for plot_number in PlotNumber.objects.filter(company=company).order_by('number'):
         # Get all allocations for this plot number
         allocations = PlotAllocation.objects.filter(
             plot_number=plot_number
@@ -286,9 +294,13 @@ def delete_plotsize(request, pk):
     from django.http import JsonResponse
     from .models import PlotSize, PlotSizeUnits
     
+    # SECURITY: Get company context
+    company = getattr(request, 'company', None)
+    
     if request.method == 'POST':
         try:
-            plot_size = PlotSize.objects.get(id=pk)
+            # SECURITY: Only allow deleting company's own plot sizes
+            plot_size = PlotSize.objects.get(id=pk, company=company)
             size_name = plot_size.size
             
             # Check if plot size is assigned to any estate
@@ -314,9 +326,13 @@ def delete_plotnumber(request, pk):
     from django.http import JsonResponse
     from .models import PlotNumber, PlotAllocation
     
+    # SECURITY: Get company context
+    company = getattr(request, 'company', None)
+    
     if request.method == 'POST':
         try:
-            plot_number = PlotNumber.objects.get(id=pk)
+            # SECURITY: Only allow deleting company's own plot numbers
+            plot_number = PlotNumber.objects.get(id=pk, company=company)
             number_name = plot_number.number
             
             # Check if plot number is allocated to any client/estate
@@ -357,12 +373,14 @@ def management_dashboard(request):
 
 
 def estate_allocation_data(request):
+    # SECURITY: Filter by company to prevent cross-tenant data access
+    company = request.user.company_profile
     estates = []
     allocated_data = []
     reserved_data = []
     total_data = []
     
-    for estate in Estate.objects.all():
+    for estate in Estate.objects.filter(company=company):
         total_allocated = 0
         total_reserved = 0
         
@@ -390,7 +408,9 @@ def get_allocated_plots(request):
 
 def user_registration(request):
     # Fetch all users with the 'marketer' role
-    marketers = CustomUser.objects.filter(role='marketer')
+    # SECURITY: Filter by company to prevent cross-company data leakage
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    marketers = CustomUser.objects.filter(role='marketer', **company_filter)
 
     if request.method == 'POST':
         # Extract form data
@@ -501,7 +521,8 @@ def user_registration(request):
 # ESTATE FUNCTIONS
 @login_required
 def view_estate(request):
-    estates = Estate.objects.all().order_by('-date_added')
+    company = request.user.company_profile
+    estates = Estate.objects.filter(company=company).order_by('-date_added')
     context = {
         'estates': estates,  # Changed key from estate_plots to estates
     }
@@ -510,8 +531,9 @@ def view_estate(request):
 
 @login_required
 def update_estate(request, pk):
-    # Fetch the estate instance or return a 404 if not found
-    estate = get_object_or_404(Estate, pk=pk)
+    # SECURITY: Fetch only company's estate to prevent cross-tenant access
+    company = request.user.company_profile
+    estate = get_object_or_404(Estate, pk=pk, company=company)
 
     if request.method == "POST":
         # Retrieve updated values from the form
@@ -547,7 +569,9 @@ def update_estate(request, pk):
 @login_required
 def delete_estate(request, pk):
     """Delete an estate and return a success message on the same page."""
-    estate = get_object_or_404(Estate, pk=pk)
+    # SECURITY: Only allow deletion of company's own estates
+    company = request.user.company_profile
+    estate = get_object_or_404(Estate, pk=pk, company=company)
     if request.method == "POST":
         estate.delete()
         messages.success(request, "Estate deleted successfully!")
@@ -558,6 +582,8 @@ def delete_estate(request, pk):
 @csrf_exempt
 def add_estate(request):
     if request.method == "POST":
+        # SECURITY: Auto-assign company to prevent cross-tenant data creation
+        company = request.user.company_profile
         # Handle form submission and save the estate
         estate_name = request.POST.get('name')
         estate_location = request.POST.get('location')
@@ -566,6 +592,7 @@ def add_estate(request):
         
         # Create the Estate instance and save it
         estate = Estate.objects.create(
+            company=company,
             name=estate_name,
             location=estate_location,
             estate_size=estate_size,
@@ -628,8 +655,10 @@ def plot_allocation(request):
         return redirect('plot-allocation')
     else:
         # GET request handling
-        clients = CustomUser.objects.filter(role='client')
-        estates = Estate.objects.all()
+        # SECURITY: Filter by company to prevent cross-tenant data exposure
+        company = request.user.company_profile
+        clients = CustomUser.objects.filter(role='client', company_profile=company)
+        estates = Estate.objects.filter(company=company)
         context = {
             'clients': clients,
             'estates': estates,
@@ -737,11 +766,16 @@ def update_allocated_plot(request):
 
         try:
             if allocation_id:
-                allocation = PlotAllocation.objects.get(id=allocation_id)
+                # SECURITY: Verify company ownership of allocation
+                company = request.user.company_profile
+                allocation = PlotAllocation.objects.get(
+                    id=allocation_id,
+                    estate__company=company
+                )
 
                 # Assign new values
                 allocation.client = User.objects.get(id=client_id)
-                allocation.estate = Estate.objects.get(id=estate_id)
+                allocation.estate = Estate.objects.get(id=estate_id, company=company)
                 allocation.plot_size_unit = PlotSizeUnits.objects.get(id=plot_size_unit_id)
                 allocation.plot_size = allocation.plot_size_unit.plot_size
                 allocation.payment_type = payment_type
@@ -749,7 +783,9 @@ def update_allocated_plot(request):
                 if payment_type == 'full':
                     if not plot_number_id:
                         raise ValueError("Plot number is required for full payment")
-                    allocation.plot_number = PlotNumber.objects.get(id=plot_number_id)
+                    # SECURITY: Only get plot numbers from this company
+                    company = getattr(request, 'company', None)
+                    allocation.plot_number = PlotNumber.objects.get(id=plot_number_id, company=company)
                 else:
                     allocation.plot_number = None
 
@@ -773,7 +809,12 @@ def update_allocated_plot(request):
     allocation_id = request.GET.get('allocation_id')
     if allocation_id:
         try:
-            allocation = PlotAllocation.objects.get(id=allocation_id)
+            # SECURITY: Verify company ownership
+            company = request.user.company_profile
+            allocation = PlotAllocation.objects.get(
+                id=allocation_id,
+                estate__company=company
+            )
         except PlotAllocation.DoesNotExist:
             messages.error(request, "Allocation not found.")
 
@@ -794,7 +835,9 @@ def update_allocated_plot(request):
             qs = qs.filter(full_alloc_count__lt=F('total_units'))
         plot_size_units = qs.distinct()
 
-        plot_numbers = PlotNumber.objects.filter(estates__estate=allocation.estate).distinct()
+        # SECURITY: Only show plot numbers from this company
+        company = getattr(request, 'company', None)
+        plot_numbers = PlotNumber.objects.filter(estates__estate=allocation.estate, company=company).distinct()
     else:
         plot_size_units = []
         plot_numbers = []
@@ -825,8 +868,14 @@ def get_allocated_plot(request, allocation_id):
 def delete_allocation(request):
     if request.method == 'POST':
         try:
+            # SECURITY: Verify company ownership before deletion
+            company = request.user.company_profile
             allocation_id = json.loads(request.body).get('allocation_id')
-            allocation = get_object_or_404(PlotAllocation, id=allocation_id)
+            allocation = get_object_or_404(
+                PlotAllocation,
+                id=allocation_id,
+                estate__company=company
+            )
             
             # Store related objects before deletion
             plot_size_unit = allocation.plot_size_unit
@@ -852,14 +901,16 @@ def delete_allocation(request):
     return JsonResponse({'success': False, 'error': 'Invalid request'})
 
 def download_allocations(request):
+    # SECURITY: Filter allocations by company to prevent cross-tenant data access
+    company = request.user.company_profile
     estate_id = request.GET.get('estate_id')
     
-    allocations = PlotAllocation.objects.all()
+    allocations = PlotAllocation.objects.filter(estate__company=company)
     estate_name = "All_Estates"
 
     if estate_id:
         try:
-            estate = Estate.objects.get(id=estate_id)
+            estate = Estate.objects.get(id=estate_id, company=company)
             estate_name = estate.name.replace(" ", "_")  # Replace spaces with underscores for filename
             allocations = allocations.filter(estate=estate)
         except Estate.DoesNotExist:
@@ -892,12 +943,15 @@ def download_allocations(request):
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 @login_required
 def view_allocated_plot(request, id):
+    # SECURITY: Get company context
+    company = getattr(request, 'company', None)
+    
     estate = get_object_or_404(
         Estate.objects.prefetch_related(
             Prefetch('estate_plots',
                 queryset=EstatePlot.objects.prefetch_related(
                     Prefetch('plot_numbers', 
-                        queryset=PlotNumber.objects.prefetch_related('plotallocation_set')
+                        queryset=PlotNumber.objects.filter(company=company).prefetch_related('plotallocation_set')
                     ),
                     Prefetch('plotsizeunits', 
                         queryset=PlotSizeUnits.objects.select_related('plot_size')
@@ -917,14 +971,21 @@ def view_allocated_plot(request, id):
 @login_required
 def delete_estate_plots(request):
     if request.method == 'POST':
+        # SECURITY: Verify company ownership before deleting
+        company = request.user.company_profile
         selected_ids = request.POST.getlist('selected')
-        EstatePlot.objects.filter(id__in=selected_ids).delete()
+        EstatePlot.objects.filter(
+            id__in=selected_ids,
+            estate__company=company
+        ).delete()
         return redirect('estate_plot_list')
 
 @login_required
 def edit_estate_plot(request, id):
     estate_plot = get_object_or_404(EstatePlot, id=id)
-    plot_sizes = PlotSize.objects.all()
+    # SECURITY: Only show company's plot sizes
+    company = getattr(request, 'company', None)
+    plot_sizes = PlotSize.objects.filter(company=company)
 
     if request.method == 'POST':
         selected_plot_sizes = request.POST.getlist('plot_sizes[]')
@@ -1129,14 +1190,17 @@ def add_estate_plot(request):
             
             for allocated_id in allocated_plot_numbers:
                 if allocated_id not in new_plot_numbers:
-                    allocated_plot = PlotNumber.objects.get(id=allocated_id)
+                    # SECURITY: Only get plot numbers from this company
+                    company = getattr(request, 'company', None)
+                    allocated_plot = PlotNumber.objects.get(id=allocated_id, company=company)
                     return JsonResponse({
                         'error': f'PLOT NUMBER {allocated_plot.number} IS ALREADY ALLOCATED AND CANNOT BE REMOVED'
                     }, status=400)
 
-            # Update plot numbers
+            # Update plot numbers - SECURITY: Only add plot numbers from this company
             estate_plot.plot_numbers.clear()
-            estate_plot.plot_numbers.add(*PlotNumber.objects.filter(id__in=new_plot_numbers))
+            company = getattr(request, 'company', None)
+            estate_plot.plot_numbers.add(*PlotNumber.objects.filter(id__in=new_plot_numbers, company=company))
 
             # Update or create plot size units
             for size_id, new_units in new_plot_size_units.items():
@@ -1177,12 +1241,15 @@ def add_estate_plot(request):
             }, status=400)
 
     # GET request handling
+    # SECURITY: Get company context
+    company = getattr(request, 'company', None)
+    
     allocated_plot_ids = list(EstatePlot.objects.exclude(plot_numbers=None)
                               .values_list('plot_numbers', flat=True).distinct())
     return render(request, 'admin_side/estate-plot.html', {
         'estates': Estate.objects.all(),
-        'plot_sizes': PlotSize.objects.all(),
-        'plot_numbers': PlotNumber.objects.all(),
+        'plot_sizes': PlotSize.objects.filter(company=company),
+        'plot_numbers': PlotNumber.objects.filter(company=company),
         'allocated_plot_ids': allocated_plot_ids,
     })
 
@@ -1290,9 +1357,13 @@ def add_floor_plan(request):
     estate_id = request.GET.get('estate_id')
     estate = get_object_or_404(Estate, id=estate_id)
     
-    # Get plot sizes available for this estate
+    # SECURITY: Get company context
+    company = getattr(request, 'company', None)
+    
+    # Get plot sizes available for this estate - ONLY from this company
     plot_sizes = PlotSize.objects.filter(
-        plotsizeunits__estate_plot__estate=estate
+        plotsizeunits__estate_plot__estate=estate,
+        company=company
     ).distinct()
 
     if request.method == "POST":
@@ -1302,9 +1373,9 @@ def add_floor_plan(request):
         plan_title = request.POST.get('plan_title')
 
         try:
-            plot_size = PlotSize.objects.get(id=plot_size_id)
-            
-            # Create a new floor plan (multiple floor plans per estate/plot size are allowed)
+            # SECURITY: Only get plot sizes from this company
+            company = getattr(request, 'company', None)
+            plot_size = PlotSize.objects.get(id=plot_size_id, company=company)
             EstateFloorPlan.objects.create(
                 estate=estate,
                 plot_size=plot_size,
@@ -1328,8 +1399,11 @@ def add_floor_plan(request):
 
 
 def get_plot_sizes_for_floor_plan(request, estate_id):
+    # SECURITY: Only get plot sizes from this company
+    company = getattr(request, 'company', None)
     plot_sizes = PlotSize.objects.filter(
-        plotsizeunits__estate_plot__estate_id=estate_id
+        plotsizeunits__estate_plot__estate_id=estate_id,
+        company=company
     ).distinct().values('id', 'size')
     
     return JsonResponse(list(plot_sizes), safe=False)
@@ -1380,9 +1454,9 @@ def add_prototypes(request):
         description = request.POST.get('description', '')
 
         try:
-            plot_size = PlotSize.objects.get(id=plot_size_id)
-            
-            # Create an estate prototype (using the correct model and field names)
+            # SECURITY: Only get plot sizes from this company
+            company = getattr(request, 'company', None)
+            plot_size = PlotSize.objects.get(id=plot_size_id, company=company)
             EstatePrototype.objects.create(
                 estate=estate,
                 plot_size=plot_size,
@@ -1586,7 +1660,9 @@ def add_progress_status(request):
 @login_required
 def marketer_list(request):
     # Use MarketerUser model to access the 'clients' reverse relationship
-    marketers = MarketerUser.objects.all().annotate(
+    # SECURITY: Filter by company to prevent cross-company data leakage
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    marketers = MarketerUser.objects.filter(**company_filter).annotate(
         client_count=Count('clients', filter=Q(clients__is_deleted=False))
     )
     return render(request, 'admin_side/marketer_list.html', {'marketers': marketers})
@@ -2262,9 +2338,12 @@ def admin_delete_admin(request, user_id: int):
 @login_required
 def admin_client_chat_list(request):
     # Get all clients who have sent at least one message (to ANY admin)
+    # SECURITY: Filter by company to prevent cross-company data leakage
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
     clients = CustomUser.objects.filter(
         role='client',
-        sent_messages__isnull=False
+        sent_messages__isnull=False,
+        **company_filter
     ).distinct().annotate(
         last_message=Max('sent_messages__date_sent')
     ).order_by('-last_message')
@@ -2278,9 +2357,11 @@ def admin_client_chat_list(request):
         ).count()
     
     # Marketers section: fetch marketers with any messages
+    # SECURITY: Filter by company
     marketers = CustomUser.objects.filter(
         role='marketer',
-        sent_messages__isnull=False
+        sent_messages__isnull=False,
+        **company_filter
     ).distinct().annotate(
         last_message=Max('sent_messages__date_sent')
     ).order_by('-last_message')
@@ -2433,7 +2514,9 @@ def search_marketers_api(request):
 @login_required
 def client(request):
     # Get all clients with their assigned marketers using select_related for optimization
-    clients = ClientUser.objects.filter(role='client').select_related('assigned_marketer').order_by('-date_registered')
+    # SECURITY: Filter by company to prevent cross-company data leakage
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    clients = ClientUser.objects.filter(role='client', **company_filter).select_related('assigned_marketer').order_by('-date_registered')
     return render(request, 'admin_side/client.html', {'clients' : clients})
 
 

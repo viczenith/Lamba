@@ -1208,25 +1208,28 @@ class Message(models.Model):
 # ADD ESTATE
 
 class PlotSize(models.Model):
-    """Defines the available plot sizes"""
-    size = models.CharField(max_length=50, unique=True, verbose_name="Plot Size")
+    """Defines the available plot sizes - company scoped"""
+    company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='plot_sizes', null=True, blank=True, help_text="Company that owns this plot size")
+    size = models.CharField(max_length=50, verbose_name="Plot Size")
 
     class Meta:
         verbose_name = "Plot Size"
         verbose_name_plural = "Plot Sizes"
+        unique_together = ('company', 'size')  # SECURITY: Unique per company, not globally
 
     def __str__(self):
         return self.size
 
 
 class PlotNumber(models.Model):
-    """Each plot within an estate has a unique number"""
-    number = models.CharField(max_length=50, unique=True, verbose_name="Plot Number")
+    """Each plot within an estate has a unique number - company scoped"""
+    company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='plot_numbers', null=True, blank=True, help_text="Company that owns this plot number")
+    number = models.CharField(max_length=50, verbose_name="Plot Number")
 
     class Meta:
         verbose_name = "Plot Number"
         verbose_name_plural = "Plot Numbers"
-
+        unique_together = ('company', 'number')  # SECURITY: Unique per company, not globally
 
     def __str__(self):
         return self.number
@@ -1951,6 +1954,8 @@ class Transaction(models.Model):
         (3, 'Third'),
     ]
 
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='transactions', null=True, blank=True)
     client = models.ForeignKey(ClientUser, on_delete=models.PROTECT, related_name='transactions')
     allocation = models.ForeignKey(PlotAllocation, on_delete=models.PROTECT, related_name='transactions')
     marketer = models.ForeignKey(MarketerUser, on_delete=models.PROTECT, null=True, blank=True)
@@ -2114,6 +2119,8 @@ class PaymentRecord(models.Model):
     PAYMENT_METHODS = Transaction.PAYMENT_METHODS
     INSTALLMENT_CHOICES = Transaction.INSTALLMENT_CHOICES
 
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='payment_records', null=True, blank=True)
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='payment_records')
     installment = models.PositiveSmallIntegerField(choices=INSTALLMENT_CHOICES, null=True, blank=True)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2)
@@ -2253,6 +2260,14 @@ class PropertyPrice(models.Model):
     """
     Current pricing record for an estate + specific plot‐size unit.
     """
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company     = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="property_prices",
+        null=True,
+        blank=True
+    )
     estate      = models.ForeignKey(
         Estate,
         on_delete=models.CASCADE,
