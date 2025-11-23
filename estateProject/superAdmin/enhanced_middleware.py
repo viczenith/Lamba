@@ -309,7 +309,7 @@ class AuditLoggingMiddleware(MiddlewareMixin):
             return response
         
         try:
-            from estateApp.isolation import AuditLog
+            from estateApp.isolation import IsolationAuditLog
             
             company = getattr(request, 'company', None)
             
@@ -324,7 +324,7 @@ class AuditLoggingMiddleware(MiddlewareMixin):
             action = action_map.get(request.method, 'other')
             
             # Create audit log
-            AuditLog.objects.create(
+            IsolationAuditLog.objects.create(
                 company=company,
                 user=request.user,
                 action=action,
@@ -367,13 +367,14 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         response['X-XSS-Protection'] = '1; mode=block'
         
         # Content Security Policy
+        # Allow common CDNs/fonts used by the UI (jsDelivr, cdnjs, Google Fonts)
         response['Content-Security-Policy'] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; "
-            "font-src 'self'; "
-            "connect-src 'self'; "
+            "default-src 'self' https:; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+            "connect-src 'self' https:; "
             "frame-ancestors 'none';"
         )
         

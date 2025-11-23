@@ -42,7 +42,9 @@ urlpatterns = [
     # path('login/', CustomLoginView.as_view(), name="login-here"),
 
     # ⚠️ DEPRECATED: Use /<company-slug>/dashboard/ instead
-    # path('admin_dashboard/', admin_dashboard, name="admin-dashboard"),
+    # Keep a simple redirect route named 'admin-dashboard' for backward compatibility
+    # Many templates still call {% url 'admin-dashboard' %} — point it to the tenant-aware redirect.
+    path('admin_dashboard/', redirect_admin_dashboard_to_tenant, name="admin-dashboard"),
     path('estate-allocation-data/', estate_allocation_data, name='estate_allocation_data'),
     
     # path('client_profile', client_profile, name='client-profile'),
@@ -143,6 +145,13 @@ urlpatterns = [
     path('chat-admin/client-chats/', admin_client_chat_list, name='admin_client_chat_list'),
     path('api/search-clients/', search_clients_api, name='search_clients_api'),
     path('api/search-marketers/', search_marketers_api, name='search_marketers_api'),
+    
+    # Cross-company user discovery and management
+    path('api/search-existing-users/', search_existing_users_api, name='search_existing_users_api'),
+    path('api/add-existing-user-to-company/', add_existing_user_to_company, name='add_existing_user_to_company'),
+    
+    # Client cross-company portfolio
+    path('client-dashboard-cross-company/', client_dashboard_cross_company, name='client_dashboard_cross_company'),
     
     path('chat_unread_count/', chat_unread_count, name='chat_unread_count'),
     path('message/<int:message_id>/', message_detail, name='message_detail'),

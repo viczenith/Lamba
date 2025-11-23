@@ -371,10 +371,10 @@ class TenantDataValidator:
         return True
 
 
-class AuditLog(models.Model):
+class IsolationAuditLog(models.Model):
     """
-    Security audit log for all tenant-related actions
-    Tracks every cross-tenant access attempt
+    Security audit log for all tenant-related isolation actions
+    Tracks every cross-tenant access attempt and isolation boundary violations
     """
     
     ACTIONS = [
@@ -389,13 +389,13 @@ class AuditLog(models.Model):
     company = models.ForeignKey(
         'Company',
         on_delete=models.CASCADE,
-        related_name='audit_logs'
+        related_name='isolation_audit_logs'
     )
     user = models.ForeignKey(
         'CustomUser',
         on_delete=models.SET_NULL,
         null=True,
-        related_name='audit_logs'
+        related_name='isolation_audit_logs'
     )
     action = models.CharField(max_length=20, choices=ACTIONS)
     model_name = models.CharField(max_length=100)

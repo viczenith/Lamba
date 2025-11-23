@@ -1249,6 +1249,9 @@ class Estate(models.Model):
     estate_size = models.CharField(max_length=255, verbose_name="Estate Size")
     title_deed = models.CharField(max_length=255, choices=TITLE_DEED_CHOICES, verbose_name="Title Deed")
     date_added = models.DateTimeField(default=timezone.now, verbose_name="Date Added")
+    # SECURITY: Link each estate to a company for multi-tenant isolation.
+    # Make nullable to avoid migration issues for legacy data; set when available.
+    company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='estates', null=True, blank=True, help_text="Company that owns this estate")
 
 
     class Meta:

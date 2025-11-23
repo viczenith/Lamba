@@ -1124,7 +1124,9 @@ def add_estate_plot(request):
             if not estate_id:
                 return JsonResponse({'error': 'Please select an estate'}, status=400)
             
-            estate = get_object_or_404(Estate, id=estate_id)
+            # SECURITY: Verify company ownership of estate
+            company = request.user.company_profile
+            estate = get_object_or_404(Estate, id=estate_id, company=company)
             new_plot_numbers = request.POST.getlist('plot_numbers[]', [])
             new_selected_plot_sizes = request.POST.getlist('plot_sizes[]', [])
 
@@ -1728,7 +1730,7 @@ def admin_marketer_profile(request, pk):
         MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str)
         .first()
     )
     if at and at.target_amount:
@@ -1743,14 +1745,19 @@ def admin_marketer_profile(request, pk):
 
     # — Build leaderboard —
     sales_data = []
-    for m in MarketerUser.objects.all():
+    # SECURITY: Filter by company to prevent cross-tenant leakage
+    company = getattr(request, 'company', None) or request.user.company_profile
+    company_marketers = MarketerUser.objects.filter(company=company) if company else MarketerUser.objects.none()
+    
+    for m in company_marketers:
         year_sales = Transaction.objects.filter(
             marketer=m,
+            company=company,
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
             or
             MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
         )
@@ -2203,9 +2210,10 @@ def company_profile_view(request):
     try:
         from adminSupport.models import StaffRoster, StaffMember
         staff_roster = StaffRoster.objects.select_related('user').all()[:50]
-        staff_members = StaffMember.objects.all()[:50]
-        staff_roster_count = StaffRoster.objects.count()
-        staff_members_count = StaffMember.objects.count()
+        # SECURITY: Filter staff by company
+        staff_members = StaffMember.objects.filter(company=company)[:50]
+        staff_roster_count = StaffRoster.objects.filter(company=company).count()
+        staff_members_count = StaffMember.objects.filter(company=company).count()
     except Exception:
         staff_roster = []
         staff_members = []
@@ -2281,7 +2289,9 @@ def admin_toggle_mute(request, user_id: int):
         return JsonResponse({'ok': False, 'error': "You can't mute your own account."}, status=400)
 
     try:
-        target = CustomUser.objects.get(id=user_id)
+        # SECURITY: Verify user belongs to same company
+        company = request.user.company_profile
+        target = CustomUser.objects.get(id=user_id, company_profile=company)
     except CustomUser.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
 
@@ -2293,9 +2303,9 @@ def admin_toggle_mute(request, user_id: int):
         # Fallback to toggle behavior
         desired = 'mute' if target.is_active else 'unmute'
 
-    # Prevent locking out all admins (must leave at least one active admin)
+    # Prevent locking out all admins (must leave at least one active admin in company)
     if target.role == 'admin' and desired == 'mute' and target.is_active:
-        remaining_active = CustomUser.objects.filter(role='admin', is_active=True).exclude(id=target.id).count()
+        remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot mute the last active admin.'}, status=400)
 
@@ -2318,16 +2328,18 @@ def admin_delete_admin(request, user_id: int):
         return JsonResponse({'ok': False, 'error': "You can't delete your own account."}, status=400)
 
     try:
-        target = CustomUser.objects.get(id=user_id)
+        # SECURITY: Verify user belongs to same company
+        company = request.user.company_profile
+        target = CustomUser.objects.get(id=user_id, company_profile=company)
     except CustomUser.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
 
     if target.role not in ('admin', 'support'):
         return JsonResponse({'ok': False, 'error': 'Action allowed only on admin/support users'}, status=400)
 
-    # Ensure at least one other active admin remains
+    # Ensure at least one other active admin remains in company
     if target.role == 'admin':
-        remaining_active = CustomUser.objects.filter(role='admin', is_active=True).exclude(id=target.id).count()
+        remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the last active admin.'}, status=400)
 
@@ -2466,11 +2478,15 @@ def search_clients_api(request):
         return JsonResponse({'clients': []})
     
     # Search clients by name or email
+    # SECURITY: Filter clients by company to prevent cross-tenant data exposure
+    company = request.user.company_profile
     clients = CustomUser.objects.filter(
         role='client',
+        company_profile=company,
         full_name__icontains=query
     ) | CustomUser.objects.filter(
         role='client',
+        company_profile=company,
         email__icontains=query
     )
     
@@ -2495,11 +2511,15 @@ def search_marketers_api(request):
     if len(query) < 2:
         return JsonResponse({'marketers': []})
 
+    # SECURITY: Filter marketers by company to prevent cross-tenant data exposure
+    company = request.user.company_profile
     marketers = CustomUser.objects.filter(
         role='marketer',
+        company_profile=company,
         full_name__icontains=query
     ) | CustomUser.objects.filter(
         role='marketer',
+        company_profile=company,
         email__icontains=query
     )
 
@@ -2514,6 +2534,226 @@ def search_marketers_api(request):
         })
 
     return JsonResponse({'marketers': marketers_data})
+
+
+# ============================================================================
+# CROSS-COMPANY USER DISCOVERY AND ADDITION
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+def search_existing_users_api(request):
+    """
+    API endpoint for company admins to search for existing users (registered via signup)
+    to add them to their company roster.
+    
+    Searches globally across all users with role='client' or 'marketer'
+    who have NOT been assigned to this company yet.
+    
+    Query params:
+    - q: email or name to search
+    - role: 'client' or 'marketer' (required)
+    """
+    query = request.GET.get('q', '').strip()
+    role = request.GET.get('role', '').strip()
+    
+    if not role or role not in ['client', 'marketer']:
+        return JsonResponse({'error': 'Invalid role'}, status=400)
+    
+    if len(query) < 2:
+        return JsonResponse({'users': []})
+    
+    # Get current company
+    company = request.user.company_profile
+    if not company:
+        return JsonResponse({'error': 'User not assigned to any company'}, status=403)
+    
+    # Search for users matching query (email or name)
+    # Find users NOT YET in this company
+    users = CustomUser.objects.filter(
+        role=role,
+        is_active=True,
+        is_deleted=False
+    ).filter(
+        Q(email__icontains=query) | Q(full_name__icontains=query)
+    ).exclude(
+        company_profile=company  # Exclude users already in this company
+    ).distinct()[:20]
+    
+    users_data = []
+    for user in users:
+        users_data.append({
+            'id': user.id,
+            'email': user.email,
+            'full_name': user.full_name,
+            'phone': user.phone,
+            'date_registered': user.date_registered.strftime('%Y-%m-%d %H:%M'),
+            'is_already_in_company': user.company_profile is not None,
+            'current_company': user.company_profile.company_name if user.company_profile else 'None',
+        })
+    
+    return JsonResponse({'users': users_data})
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_existing_user_to_company(request):
+    """
+    Add an already-registered user (from signup or another company) to current company.
+    
+    POST params:
+    - user_id: ID of user to add
+    - marketer_id: (Optional, only for client role) ID of marketer to assign
+    
+    User becomes part of this company without replacing their existing company relationships.
+    """
+    import json
+    
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'User not assigned to any company'}, status=403)
+        
+        # Check if user is admin
+        if request.user.role != 'admin':
+            return JsonResponse({'error': 'Only admins can add users to company'}, status=403)
+        
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        marketer_id = data.get('marketer_id')
+        
+        if not user_id:
+            return JsonResponse({'error': 'user_id required'}, status=400)
+        
+        with transaction.atomic():
+            # Get the user
+            user = CustomUser.objects.get(id=user_id, is_active=True, is_deleted=False)
+            
+            # Check if user already in this company
+            if user.company_profile and user.company_profile.id == company.id:
+                return JsonResponse({
+                    'error': 'User already belongs to this company'
+                }, status=400)
+            
+            # For clients, ensure marketer assignment
+            if user.role == 'client':
+                if not marketer_id:
+                    return JsonResponse({
+                        'error': 'Marketer assignment required for client users'
+                    }, status=400)
+                
+                try:
+                    marketer = CustomUser.objects.get(
+                        id=marketer_id,
+                        role='marketer',
+                        company_profile=company
+                    )
+                    user.assigned_marketer = marketer
+                except CustomUser.DoesNotExist:
+                    return JsonResponse({
+                        'error': 'Selected marketer not found in company'
+                    }, status=404)
+            
+            # Add user to company
+            # If user has no company yet (from signup), set it
+            # If user already has a company, they still get added (they can be in multiple companies)
+            if not user.company_profile:
+                user.company_profile = company
+            
+            user.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'{user.full_name} ({user.role}) successfully added to {company.company_name}',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'full_name': user.full_name,
+                    'role': user.role,
+                    'company': company.company_name
+                }
+            })
+    
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        logger.error(f'Error adding user to company: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================================================
+# CLIENT CROSS-COMPANY PORTFOLIO SUPPORT
+# ============================================================================
+
+@login_required
+def client_dashboard_cross_company(request):
+    """
+    Client dashboard showing all properties across all companies the client is registered with.
+    
+    Features:
+    - Display all properties from all companies
+    - Company toggle to filter by specific company
+    - Show company list in profile
+    """
+    user = request.user
+    
+    # Get all companies this client is registered with
+    # A client can have:
+    # 1. Primary company_profile (from when added to company)
+    # 2. Multiple company relationships via portfolios/transactions
+    
+    # Find all estates client has properties in
+    client_estates = Estate.objects.filter(
+        transaction__client=user
+    ).distinct().select_related('company').order_by('company', '-date_added')
+    
+    # Get unique companies from these estates
+    client_companies = set()
+    for estate in client_estates:
+        if estate.company:
+            client_companies.add(estate.company)
+    
+    # Also check if user has direct company_profile
+    if user.company_profile:
+        client_companies.add(user.company_profile)
+    
+    client_companies = sorted(list(client_companies), key=lambda x: x.company_name)
+    
+    # Get selected company from request (for filtering)
+    selected_company_id = request.GET.get('company_id')
+    
+    # Fetch transactions/properties for this client
+    if selected_company_id:
+        try:
+            selected_company = Company.objects.get(id=selected_company_id)
+            # Verify client is in this company
+            if selected_company not in client_companies:
+                selected_company = None
+        except Company.DoesNotExist:
+            selected_company = None
+    else:
+        selected_company = None
+    
+    # Get client's transactions/properties
+    transactions = Transaction.objects.filter(client=user).select_related(
+        'estate',
+        'estate__company',
+        'assigned_unit'
+    ).order_by('-date_added')
+    
+    if selected_company:
+        transactions = transactions.filter(estate__company=selected_company)
+    
+    # Prepare context
+    context = {
+        'client': user,
+        'transactions': transactions,
+        'client_companies': client_companies,
+        'selected_company': selected_company,
+        'total_companies': len(client_companies),
+    }
+    
+    return render(request, 'client_side/dashboard_cross_company.html', context)
 
     
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -2535,7 +2775,9 @@ def client_soft_delete(request, pk):
     """Soft delete a client"""
     import json
     try:
-        client = CustomUser.objects.get(pk=pk, role='client')
+        # SECURITY: Verify client belongs to same company
+        company = request.user.company_profile
+        client = CustomUser.objects.get(pk=pk, role='client', company_profile=company)
         
         # Get deletion reasons from request
         data = json.loads(request.body)
@@ -2568,7 +2810,9 @@ def client_soft_delete(request, pk):
 def client_restore(request, pk):
     """Restore a soft-deleted client"""
     try:
-        client = CustomUser.objects.get(pk=pk, role='client')
+        # SECURITY: Verify client belongs to same company
+        company = request.user.company_profile
+        client = CustomUser.objects.get(pk=pk, role='client', company_profile=company)
         
         # Restore the client
         client.is_deleted = False
@@ -2598,7 +2842,9 @@ def marketer_soft_delete(request, pk):
     """Soft delete a marketer"""
     import json
     try:
-        marketer = CustomUser.objects.get(pk=pk, role='marketer')
+        # SECURITY: Verify marketer belongs to same company
+        company = request.user.company_profile
+        marketer = CustomUser.objects.get(pk=pk, role='marketer', company_profile=company)
         
         # Get deletion reasons from request
         data = json.loads(request.body)
@@ -2631,7 +2877,9 @@ def marketer_soft_delete(request, pk):
 def marketer_restore(request, pk):
     """Restore a soft-deleted marketer"""
     try:
-        marketer = CustomUser.objects.get(pk=pk, role='marketer')
+        # SECURITY: Verify marketer belongs to same company
+        company = request.user.company_profile
+        marketer = CustomUser.objects.get(pk=pk, role='marketer', company_profile=company)
         
         # Restore the marketer
         marketer.is_deleted = False
@@ -2991,12 +3239,16 @@ class PromotionListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         today = timezone.localdate()
+        # SECURITY: Filter promotions by company
+        company = self.request.user.company_profile
         
         ctx['active_promotions'] = PromotionalOffer.objects.filter(
-            start__lte=today, end__gte=today
+            company=company, start__lte=today, end__gte=today
         ).order_by('-created_at')[:3]
 
-        ctx['past_promotions'] = PromotionalOffer.objects.filter(end__lt=today).order_by('-end')[:12]
+        ctx['past_promotions'] = PromotionalOffer.objects.filter(
+            company=company, end__lt=today
+        ).order_by('-end')[:12]
 
         ctx['current_filter'] = self.request.GET.get('filter', 'all').lower()
         
@@ -3339,7 +3591,9 @@ def my_client_profile(request):
 @login_required
 def client_new_property_request(request):
     
-    estates = Estate.objects.all()
+    # SECURITY: Filter estates by company
+    company = request.user.company_profile
+    estates = Estate.objects.filter(company=company)
     context = {
         "estates": estates,
     }
@@ -3432,7 +3686,9 @@ def chat_view(request):
 @login_required
 def view_all_requests(request):
     # Retrieve all property requests
-    property_requests = PropertyRequest.objects.all()
+    # SECURITY: Filter property requests by company
+    company = request.user.company_profile
+    property_requests = PropertyRequest.objects.filter(company=company)
     return render(request, 'client_side/requests_table.html', {'requests': property_requests})
 
 
@@ -3618,7 +3874,7 @@ def marketer_profile(request):
         MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str)
         .first()
     )
     if at and at.target_amount:
@@ -3633,14 +3889,19 @@ def marketer_profile(request):
 
     # — Build leaderboard —
     sales_data = []
-    for m in MarketerUser.objects.all():
+    # SECURITY: Filter by company to prevent cross-tenant leakage  
+    company = request.user.company_profile
+    company_marketers = MarketerUser.objects.filter(company=company) if company else MarketerUser.objects.none()
+    
+    for m in company_marketers:
         year_sales = Transaction.objects.filter(
             marketer=m,
+            company=company,
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
             or
             MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
         )
@@ -5204,10 +5465,13 @@ class PerformanceDataAPI(View):
         response_data    = []
         record_payloads  = []
 
-        for marketer in MarketerUser.objects.all():
+        # SECURITY: Filter by company to prevent cross-tenant leakage
+        company = request.user.company_profile
+        for marketer in MarketerUser.objects.filter(company=company):
             # transactions in period
             txns = Transaction.objects.filter(
                 marketer=marketer,
+                company=company,
                 transaction_date__range=(start_date, end_date)
             )
             closed_deals  = txns.count()
