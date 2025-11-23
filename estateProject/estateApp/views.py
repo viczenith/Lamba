@@ -843,8 +843,8 @@ def update_allocated_plot(request):
         plot_numbers = []
 
     context = {
-        'clients': User.objects.filter(role='client'),
-        'estates': Estate.objects.all(),
+        'clients': User.objects.filter(role='client', company_profile=company),
+        'estates': Estate.objects.filter(company=company),
         'allocation': allocation,
         'plot_size_units': plot_size_units,
         'plot_numbers': plot_numbers,
@@ -853,7 +853,13 @@ def update_allocated_plot(request):
 
 
 def get_allocated_plot(request, allocation_id):
-    allocation = get_object_or_404(PlotAllocation, id=allocation_id)
+    # SECURITY: Verify company ownership before returning data
+    company = request.user.company_profile
+    allocation = get_object_or_404(
+        PlotAllocation,
+        id=allocation_id,
+        estate__company=company
+    )
     data = {
         'client_id': allocation.client.id,
         'estate_id': allocation.estate.id,
@@ -1051,8 +1057,10 @@ def edit_estate_plot(request, id):
 
 def download_estate_pdf(request, estate_id):
     # Fetch estate details and allocations
-    estate = Estate.objects.get(id=estate_id)
-    allocations = PlotAllocation.objects.filter(estate_id=estate_id)
+    # SECURITY: Verify company ownership of estate before generating PDF
+    company = request.user.company_profile
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
+    allocations = PlotAllocation.objects.filter(estate=estate)
 
     # Create response object
     response = HttpResponse(content_type='application/pdf')
@@ -1247,7 +1255,7 @@ def add_estate_plot(request):
     allocated_plot_ids = list(EstatePlot.objects.exclude(plot_numbers=None)
                               .values_list('plot_numbers', flat=True).distinct())
     return render(request, 'admin_side/estate-plot.html', {
-        'estates': Estate.objects.all(),
+        'estates': Estate.objects.filter(company=company),
         'plot_sizes': PlotSize.objects.filter(company=company),
         'plot_numbers': PlotNumber.objects.filter(company=company),
         'allocated_plot_ids': allocated_plot_ids,
@@ -2169,26 +2177,27 @@ def company_profile_view(request):
 
     company = getattr(user, 'company_profile', None)
 
+    # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
-    total_clients = CustomUser.objects.filter(role='client').count()
-    total_marketers = CustomUser.objects.filter(role='marketer').count()
+    total_clients = CustomUser.objects.filter(role='client', company_profile=company).count()
+    total_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).count()
 
     # Estates and allocations
-    total_estates = Estate.objects.count() if 'Estate' in globals() else 0
-    total_full_allocations = PlotAllocation.objects.filter(payment_type='full').count() if 'PlotAllocation' in globals() else 0
-    total_part_allocations = PlotAllocation.objects.filter(payment_type='part').count() if 'PlotAllocation' in globals() else 0
+    total_estates = Estate.objects.filter(company=company).count() if 'Estate' in globals() else 0
+    total_full_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='full').count() if 'PlotAllocation' in globals() else 0
+    total_part_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='part').count() if 'PlotAllocation' in globals() else 0
 
     # Registered users
-    registered_users = CustomUser.objects.filter(is_active=True).order_by('-date_joined')[:20]
+    registered_users = CustomUser.objects.filter(is_active=True, company_profile=company).order_by('-date_joined')[:20]
 
     # Active vs Inactive app users (active = last_login within 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
-    active_users_count = CustomUser.objects.filter(last_login__gte=thirty_days_ago, is_active=True).count()
-    inactive_users_count = CustomUser.objects.filter(Q(last_login__lt=thirty_days_ago) | Q(last_login__isnull=True), is_active=True).count()
+    active_users_count = CustomUser.objects.filter(last_login__gte=thirty_days_ago, is_active=True, company_profile=company).count()
+    inactive_users_count = CustomUser.objects.filter(Q(last_login__lt=thirty_days_ago) | Q(last_login__isnull=True), is_active=True, company_profile=company).count()
 
     # Admin and Support users
-    admin_users = CustomUser.objects.filter(role='admin').order_by('-date_joined')
-    support_users = CustomUser.objects.filter(role='support').order_by('-date_joined')
+    admin_users = CustomUser.objects.filter(role='admin', company_profile=company).order_by('-date_joined')
+    support_users = CustomUser.objects.filter(role='support', company_profile=company).order_by('-date_joined')
 
     # AdminSupport tables if available
     try:
@@ -2799,7 +2808,9 @@ class EstateListView(ListView):
     paginate_by = 12
 
     def get_queryset(self):
-        qs = Estate.objects.all().prefetch_related(
+        # SECURITY: Filter estates by company
+        company = self.request.user.company_profile
+        qs = Estate.objects.filter(company=company).prefetch_related(
             "property_prices",
             "promotional_offers",
             "estate_plots__plotsizeunits"
@@ -2811,9 +2822,10 @@ class EstateListView(ListView):
         return qs
 
     def get_plots_json(self, estate_id):
-
+        # SECURITY: Verify company ownership before returning estate data
+        company = self.request.user.company_profile
         try:
-            estate = Estate.objects.prefetch_related(
+            estate = Estate.objects.filter(company=company).prefetch_related(
                 Prefetch('estate_plots__plotsizeunits__plot_size'),
                 Prefetch('promotional_offers'),
                 Prefetch('property_prices', queryset=PropertyPrice.objects.select_related('plot_unit__plot_size'))
@@ -2965,7 +2977,9 @@ class PromotionListView(ListView):
     paginate_by = 8
 
     def get_queryset(self):
-        qs = PromotionalOffer.objects.all().prefetch_related("estates").order_by("-created_at")
+        # SECURITY: Filter promotions by company
+        company = self.request.user.company_profile
+        qs = PromotionalOffer.objects.filter(company=company).prefetch_related("estates").order_by("-created_at")
         today = timezone.localdate()
         flt = self.request.GET.get('filter', '').lower()
         if flt == 'active':

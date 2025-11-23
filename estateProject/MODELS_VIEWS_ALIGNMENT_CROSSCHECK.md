@@ -928,7 +928,7 @@ allocation = PlotAllocation.objects.get(id=allocation_id, estate__company=compan
 - [ ] ✅ IsolationAuditLog - DONE
 - [ ] Verify all tenant models inherit isolation mixin
 
----
+--- 
 
 ## 📝 RECOMMENDATIONS
 

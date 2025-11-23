@@ -1717,7 +1717,7 @@ class UserDeviceToken(models.Model):
         on_delete=models.CASCADE,
         related_name='device_tokens'
     )
-    token = models.CharField(max_length=255, unique=True)
+    token = models.CharField(max_length=255)
     platform = models.CharField(max_length=20, choices=Platform.choices)
     app_version = models.CharField(max_length=32, blank=True)
     device_model = models.CharField(max_length=64, blank=True)
@@ -1728,6 +1728,7 @@ class UserDeviceToken(models.Model):
     class Meta:
         verbose_name = 'User Device Token'
         verbose_name_plural = 'User Device Tokens'
+        unique_together = ('user', 'token')
         indexes = [
             models.Index(fields=['user', 'platform']),
             models.Index(fields=['is_active']),
@@ -1992,6 +1993,10 @@ class Transaction(models.Model):
                 raise ValidationError("Installment percentages must sum to 100%")
 
     def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from allocation's estate
+        if not self.company_id and self.allocation and self.allocation.estate:
+            self.company = self.allocation.estate.company
+        
         if not self.reference_code:
             prefix = "NLP"
             date_str = timezone.now().strftime("%Y%m%d")
@@ -2139,6 +2144,10 @@ class PaymentRecord(models.Model):
     receipt_number = models.CharField(max_length=50, null=True, blank=True)
 
     def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from transaction's allocation
+        if not self.company_id and self.transaction and self.transaction.allocation:
+            self.company = self.transaction.allocation.estate.company
+        
         if not self.reference_code:
             prefix = "NLP"
             date = timezone.now().strftime("%Y%m%d")
@@ -2308,6 +2317,12 @@ class PropertyPrice(models.Model):
     class Meta:
         unique_together = ("estate", "plot_unit")
         ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from estate
+        if not self.company_id and self.estate:
+            self.company = self.estate.company
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.estate.name} | {self.plot_unit.plot_size.size} → ₦{self.current:,}"
