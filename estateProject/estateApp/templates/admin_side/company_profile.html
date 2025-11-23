@@ -8,7 +8,7 @@
         <h1>Company Console</h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'admin-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.user.company_profile.slug %}">Home</a></li>
                 <li class="breadcrumb-item active">Console</li>
             </ol>
         </nav>
@@ -39,6 +39,11 @@
         <ul class="nav nav-tabs" id="companyTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="billing-tab" data-bs-toggle="tab" data-bs-target="#billing" type="button" role="tab">
+                    <i class="bi bi-credit-card me-1"></i>Subscription & Billing
+                </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">Users</button>
@@ -455,14 +460,1090 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Subscription & Billing -->
+            <div class="tab-pane fade" id="billing" role="tabpanel" aria-labelledby="billing-tab">
+                <div class="row g-3">
+                    <!-- Premium Subscription Status Card -->
+                    <div class="col-lg-12">
+                        <div class="card border-0 shadow-lg subscription-premium-card">
+                            <!-- Header with Advanced Gradient Green -->
+                            <div class="subscription-header-premium">
+                                <div class="subscription-header-glow"></div>
+                                <div class="d-flex justify-content-between align-items-center position-relative z-1">
+                                    <div class="subscription-header-content">
+                                        <h5 class="mb-0 subscription-title">
+                                            <i class="bi bi-credit-card me-2"></i>Subscription Management
+                                        </h5>
+                                        <small class="subscription-subtitle">Manage your plan, billing & features</small>
+                                    </div>
+                                    <div class="subscription-status-badge">
+                                        {% if subscription %}
+                                            <div class="status-indicator active">
+                                                <span class="status-pulse"></span>
+                                                <span class="status-text">{{ subscription.get_current_status|upper }}</span>
+                                            </div>
+                                        {% else %}
+                                            <div class="status-indicator inactive">
+                                                <span class="status-pulse"></span>
+                                                <span class="status-text">No Subscription</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="card-body subscription-body-premium">
+                                {% if subscription %}
+                                    <!-- Current Plan Card - Premium Display -->
+                                    <div class="current-plan-section mb-4">
+                                        <div class="row g-3">
+                                            <!-- Plan Information -->
+                                            <div class="col-lg-4">
+                                                <div class="plan-info-card">
+                                                    <div class="plan-icon-wrapper">
+                                                        <i class="bi bi-rocket-takeoff"></i>
+                                                    </div>
+                                                    <div class="plan-details">
+                                                        <small class="plan-label">Current Plan</small>
+                                                        <h4 class="plan-name">{{ subscription.subscription_plan.name }}</h4>
+                                                        <div class="plan-pricing">
+                                                            <span class="currency">₦</span><span class="amount">{{ subscription.amount|floatformat:0|intcomma }}</span>
+                                                            <small class="period">/month</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="plan-checkmark">
+                                                        <i class="bi bi-check-circle-fill"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Timeline & Dates -->
+                                            <div class="col-lg-4">
+                                                <div class="timeline-card">
+                                                    <small class="timeline-label">Subscription Period</small>
+                                                    <div class="timeline-dates">
+                                                        <div class="date-row start">
+                                                            <span class="date-icon"><i class="bi bi-calendar-check"></i></span>
+                                                            <div>
+                                                                <small>Started</small>
+                                                                <div class="fw-bold">{{ subscription.subscription_starts_at|date:'M d, Y' }}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="timeline-connector"></div>
+                                                        <div class="date-row end">
+                                                            <span class="date-icon"><i class="bi bi-calendar-x"></i></span>
+                                                            <div>
+                                                                <small>Expires</small>
+                                                                <div class="fw-bold">{{ subscription.subscription_ends_at|date:'M d, Y' }}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Days Remaining Counter -->
+                                            <div class="col-lg-4">
+                                                <div class="days-remaining-card">
+                                                    <small class="remaining-label">Days Remaining</small>
+                                                    <div class="days-counter">
+                                                        <span class="counter-value">{{ subscription.days_remaining|default:0 }}</span>
+                                                        <span class="counter-unit">days</span>
+                                                    </div>
+                                                    <div class="progress-bar-premium">
+                                                        {% widthratio subscription.days_remaining 365 100 as days_percentage %}
+                                                        <div class="progress-fill" data-width="{{ days_percentage }}"></div>
+                                                    </div>
+                                                    <small class="remaining-text">
+                                                        {% if subscription.days_remaining > 30 %}
+                                                            <span class="badge bg-success">Active & Valid</span>
+                                                        {% elif subscription.days_remaining > 7 %}
+                                                            <span class="badge bg-warning">Renew Soon</span>
+                                                        {% else %}
+                                                            <span class="badge bg-danger">Expiring Soon</span>
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Payment Method Section -->
+                                    <div class="payment-section mb-4">
+                                        <h6 class="section-title">Payment Details</h6>
+                                        <div class="payment-info-grid">
+                                            <div class="payment-info-item">
+                                                <small class="info-label">Payment Method</small>
+                                                <div class="info-value">
+                                                    {% if subscription.payment_method == 'stripe' %}
+                                                        <i class="bi bi-credit-card text-primary"></i> Stripe
+                                                    {% elif subscription.payment_method == 'paystack' %}
+                                                        <i class="bi bi-wallet2 text-info"></i> Paystack
+                                                    {% else %}
+                                                        {{ subscription.payment_method|upper }}
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% if subscription.transaction_id %}
+                                            <div class="payment-info-item">
+                                                <small class="info-label">Transaction ID</small>
+                                                <div class="info-value mono">{{ subscription.transaction_id|truncatechars:20 }}</div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <!-- Status Alerts -->
+                                    {% if subscription.is_in_grace_period %}
+                                        <div class="alert alert-danger alert-premium mb-4">
+                                            <div class="alert-icon"><i class="bi bi-exclamation-circle-fill"></i></div>
+                                            <div class="alert-content">
+                                                <strong>⚠️ Grace Period Active</strong><br>
+                                                <small>Your subscription has expired. Limited access available for 7 days. Renew now to restore full features.</small>
+                                            </div>
+                                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#renewSubscriptionModal">
+                                                Renew Now
+                                            </button>
+                                        </div>
+                                    {% elif subscription.warning_level %}
+                                        <div class="alert alert-warning alert-premium mb-4">
+                                            <div class="alert-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                                            <div class="alert-content">
+                                                <strong>📢 Subscription Expiring Soon</strong><br>
+                                                <small>Your subscription expires in {{ subscription.days_remaining }} days. Renew to maintain uninterrupted access.</small>
+                                            </div>
+                                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#renewSubscriptionModal">
+                                                Renew
+                                            </button>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-success alert-premium mb-4">
+                                            <div class="alert-icon"><i class="bi bi-check-circle-fill"></i></div>
+                                            <div class="alert-content">
+                                                <strong>✓ Subscription Active</strong><br>
+                                                <small>Your subscription is active and all features are available.</small>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    <!-- Action Buttons -->
+                                    <div class="action-buttons-section">
+                                        <h6 class="section-title mb-3">Quick Actions</h6>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button class="btn btn-premium btn-upgrade" data-bs-toggle="modal" data-bs-target="#upgradePlanModal">
+                                                <i class="bi bi-arrow-up-right me-2"></i>
+                                                <span>Upgrade Plan</span>
+                                            </button>
+                                            <button class="btn btn-premium btn-renew" data-bs-toggle="modal" data-bs-target="#renewSubscriptionModal">
+                                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                                <span>Renew Subscription</span>
+                                            </button>
+                                            <button class="btn btn-outline-premium" onclick="showBillingHistory()">
+                                                <i class="bi bi-receipt me-2"></i>
+                                                <span>Billing History</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                {% else %}
+                                    <!-- No Subscription State -->
+                                    <div class="no-subscription-state">
+                                        <div class="no-subscription-icon">
+                                            <i class="bi bi-inbox"></i>
+                                        </div>
+                                        <h5>No Active Subscription</h5>
+                                        <p class="text-muted">Start your journey by selecting a plan that fits your business needs. Choose from our carefully crafted tiers with features tailored to your growth.</p>
+                                        <button class="btn btn-premium btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#selectPlanModal">
+                                            <i class="bi bi-sparkles me-2"></i>
+                                            <span>Explore Plans & Get Started</span>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Subscription CSS -->
+                        <style>
+                            /* Premium Subscription Card Styles */
+                            .subscription-premium-card {
+                                border-radius: 16px;
+                                overflow: hidden;
+                            }
+
+                            .subscription-header-premium {
+                                position: relative;
+                                padding: 30px;
+                                background: linear-gradient(135deg, #0f7c3a 0%, #15a34a 25%, #22c55e 50%, #84cc16 75%, #bfdbfe 100%);
+                                color: white;
+                                overflow: hidden;
+                            }
+
+                            .subscription-header-glow {
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%);
+                                animation: glow-pulse 3s ease-in-out infinite;
+                            }
+
+                            @keyframes glow-pulse {
+                                0%, 100% { opacity: 1; }
+                                50% { opacity: 0.7; }
+                            }
+
+                            .subscription-header-content {
+                                flex: 1;
+                            }
+
+                            .subscription-title {
+                                font-size: 1.5rem;
+                                font-weight: 700;
+                                letter-spacing: -0.5px;
+                            }
+
+                            .subscription-subtitle {
+                                opacity: 0.95;
+                                display: block;
+                                margin-top: 4px;
+                            }
+
+                            .subscription-status-badge {
+                                text-align: right;
+                            }
+
+                            .status-indicator {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 8px;
+                                padding: 8px 16px;
+                                background: rgba(255,255,255,0.2);
+                                border-radius: 20px;
+                                backdrop-filter: blur(10px);
+                            }
+
+                            .status-indicator.active .status-pulse {
+                                background: #4ade80;
+                                box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+                            }
+
+                            .status-indicator.inactive .status-pulse {
+                                background: #ef4444;
+                                box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+                            }
+
+                            .status-pulse {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 50%;
+                                animation: pulse-animation 2s ease-in-out infinite;
+                            }
+
+                            @keyframes pulse-animation {
+                                0%, 100% { transform: scale(1); opacity: 1; }
+                                50% { transform: scale(1.2); opacity: 0.8; }
+                            }
+
+                            .status-text {
+                                font-size: 0.85rem;
+                                font-weight: 600;
+                            }
+
+                            /* Body Styles */
+                            .subscription-body-premium {
+                                padding: 30px;
+                                background: linear-gradient(to bottom, #ffffff 0%, #f0fdf4 100%);
+                            }
+
+                            .current-plan-section {
+                                background: white;
+                                border-radius: 12px;
+                                padding: 20px;
+                                border: 1px solid #dcfce7;
+                            }
+
+                            .plan-info-card {
+                                background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+                                border: 2px solid #bbf7d0;
+                                border-radius: 12px;
+                                padding: 20px;
+                                position: relative;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 16px;
+                                transition: all 0.3s ease;
+                            }
+
+                            .plan-info-card:hover {
+                                transform: translateY(-4px);
+                                box-shadow: 0 12px 24px rgba(34, 197, 94, 0.15);
+                            }
+
+                            .plan-icon-wrapper {
+                                font-size: 2.5rem;
+                                color: #16a34a;
+                                animation: icon-float 3s ease-in-out infinite;
+                            }
+
+                            @keyframes icon-float {
+                                0%, 100% { transform: translateY(0); }
+                                50% { transform: translateY(-8px); }
+                            }
+
+                            .plan-details {
+                                flex: 1;
+                            }
+
+                            .plan-label {
+                                display: block;
+                                color: #65a30d;
+                                font-weight: 600;
+                                margin-bottom: 4px;
+                            }
+
+                            .plan-name {
+                                color: #15a34a;
+                                font-weight: 700;
+                                margin: 0;
+                            }
+
+                            .plan-pricing {
+                                display: flex;
+                                align-items: baseline;
+                                gap: 2px;
+                                margin-top: 8px;
+                            }
+
+                            .plan-pricing .currency {
+                                font-size: 1.2rem;
+                                color: #059669;
+                            }
+
+                            .plan-pricing .amount {
+                                font-size: 1.8rem;
+                                font-weight: 700;
+                                color: #0f7c3a;
+                            }
+
+                            .plan-pricing .period {
+                                color: #6b7280;
+                                margin-left: 4px;
+                            }
+
+                            .plan-checkmark {
+                                position: absolute;
+                                top: 12px;
+                                right: 12px;
+                                font-size: 1.8rem;
+                                color: #22c55e;
+                            }
+
+                            /* Timeline Card */
+                            .timeline-card {
+                                background: white;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 12px;
+                                padding: 20px;
+                            }
+
+                            .timeline-label {
+                                display: block;
+                                color: #6b7280;
+                                font-weight: 600;
+                                margin-bottom: 16px;
+                            }
+
+                            .timeline-dates {
+                                position: relative;
+                            }
+
+                            .date-row {
+                                display: flex;
+                                gap: 12px;
+                                padding: 12px;
+                                border-radius: 8px;
+                            }
+
+                            .date-row.start {
+                                background: #f3f4f6;
+                            }
+
+                            .date-row.end {
+                                background: #fef2f2;
+                            }
+
+                            .date-icon {
+                                font-size: 1.2rem;
+                                display: flex;
+                                align-items: center;
+                                min-width: 24px;
+                            }
+
+                            .date-row.start .date-icon {
+                                color: #16a34a;
+                            }
+
+                            .date-row.end .date-icon {
+                                color: #dc2626;
+                            }
+
+                            .date-row small {
+                                display: block;
+                                color: #6b7280;
+                                font-size: 0.75rem;
+                            }
+
+                            .timeline-connector {
+                                width: 2px;
+                                height: 16px;
+                                background: linear-gradient(to bottom, #16a34a, #dc2626);
+                                margin: 4px auto;
+                            }
+
+                            /* Days Remaining Card */
+                            .days-remaining-card {
+                                background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+                                border: 2px solid #bbf7d0;
+                                border-radius: 12px;
+                                padding: 20px;
+                                text-align: center;
+                            }
+
+                            .remaining-label {
+                                display: block;
+                                color: #65a30d;
+                                font-weight: 600;
+                                margin-bottom: 12px;
+                            }
+
+                            .days-counter {
+                                margin-bottom: 16px;
+                            }
+
+                            .counter-value {
+                                display: block;
+                                font-size: 2.5rem;
+                                font-weight: 700;
+                                color: #15a34a;
+                            }
+
+                            .counter-unit {
+                                display: block;
+                                color: #6b7280;
+                                font-size: 0.9rem;
+                            }
+
+                            .progress-bar-premium {
+                                height: 6px;
+                                background: #e5e7eb;
+                                border-radius: 3px;
+                                overflow: hidden;
+                                margin-bottom: 12px;
+                            }
+
+                            .progress-fill {
+                                height: 100%;
+                                background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+                                transition: width 0.3s ease;
+                            }
+
+                            /* Payment Section */
+                            .payment-section {
+                                background: white;
+                                border-radius: 12px;
+                                padding: 20px;
+                                border: 1px solid #e5e7eb;
+                            }
+
+                            .section-title {
+                                color: #1f2937;
+                                font-weight: 600;
+                                margin-bottom: 16px;
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            }
+
+                            .payment-info-grid {
+                                display: grid;
+                                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                gap: 16px;
+                            }
+
+                            .payment-info-item {
+                                background: #f9fafb;
+                                border-radius: 8px;
+                                padding: 12px;
+                            }
+
+                            .info-label {
+                                display: block;
+                                color: #6b7280;
+                                font-weight: 500;
+                                margin-bottom: 6px;
+                            }
+
+                            .info-value {
+                                font-weight: 600;
+                                color: #1f2937;
+                            }
+
+                            .info-value.mono {
+                                font-family: 'Courier New', monospace;
+                                font-size: 0.9rem;
+                            }
+
+                            /* Alert Styles */
+                            .alert-premium {
+                                background: white;
+                                border-left: 4px solid;
+                                border-radius: 8px;
+                                padding: 16px;
+                                display: flex;
+                                align-items: center;
+                                gap: 16px;
+                            }
+
+                            .alert-premium.alert-danger {
+                                border-left-color: #dc2626;
+                                background: #fef2f2;
+                            }
+
+                            .alert-premium.alert-warning {
+                                border-left-color: #f59e0b;
+                                background: #fffbeb;
+                            }
+
+                            .alert-premium.alert-success {
+                                border-left-color: #16a34a;
+                                background: #f0fdf4;
+                            }
+
+                            .alert-icon {
+                                font-size: 1.5rem;
+                                flex-shrink: 0;
+                            }
+
+                            .alert-premium.alert-danger .alert-icon { color: #dc2626; }
+                            .alert-premium.alert-warning .alert-icon { color: #f59e0b; }
+                            .alert-premium.alert-success .alert-icon { color: #16a34a; }
+
+                            .alert-content {
+                                flex: 1;
+                            }
+
+                            .alert-content strong {
+                                display: block;
+                                margin-bottom: 4px;
+                            }
+
+                            .alert-content small {
+                                color: #6b7280;
+                            }
+
+                            /* Action Buttons */
+                            .action-buttons-section {
+                                background: white;
+                                border-radius: 12px;
+                                padding: 20px;
+                                border: 1px solid #e5e7eb;
+                            }
+
+                            .btn-premium {
+                                position: relative;
+                                overflow: hidden;
+                                border: none;
+                                font-weight: 600;
+                                border-radius: 8px;
+                                padding: 10px 20px;
+                                transition: all 0.3s ease;
+                            }
+
+                            .btn-premium::before {
+                                content: '';
+                                position: absolute;
+                                top: 0;
+                                left: -100%;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(255,255,255,0.2);
+                                transition: left 0.3s ease;
+                            }
+
+                            .btn-premium:hover::before {
+                                left: 100%;
+                            }
+
+                            .btn-upgrade {
+                                background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+                                color: white;
+                            }
+
+                            .btn-upgrade:hover {
+                                transform: translateY(-2px);
+                                box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3);
+                                color: white;
+                            }
+
+                            .btn-renew {
+                                background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+                                color: white;
+                            }
+
+                            .btn-renew:hover {
+                                transform: translateY(-2px);
+                                box-shadow: 0 8px 16px rgba(6, 182, 212, 0.3);
+                                color: white;
+                            }
+
+                            .btn-outline-premium {
+                                border: 2px solid #22c55e;
+                                color: #16a34a;
+                                background: white;
+                            }
+
+                            .btn-outline-premium:hover {
+                                background: #f0fdf4;
+                                border-color: #16a34a;
+                                color: #15a34a;
+                            }
+
+                            /* No Subscription State */
+                            .no-subscription-state {
+                                text-align: center;
+                                padding: 40px 20px;
+                            }
+
+                            .no-subscription-icon {
+                                font-size: 3rem;
+                                color: #d1d5db;
+                                margin-bottom: 16px;
+                            }
+
+                            .no-subscription-state h5 {
+                                color: #1f2937;
+                                margin-bottom: 12px;
+                            }
+
+                            .no-subscription-state p {
+                                max-width: 400px;
+                                margin: 0 auto 24px;
+                            }
+
+                            .btn-primary {
+                                background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+                                border: none;
+                            }
+
+                            .btn-primary:hover {
+                                background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+                            }
+
+                            /* Responsive */
+                            @media (max-width: 768px) {
+                                .subscription-header-premium {
+                                    padding: 20px;
+                                }
+
+                                .subscription-title {
+                                    font-size: 1.2rem;
+                                }
+
+                                .plan-pricing .amount {
+                                    font-size: 1.5rem;
+                                }
+
+                                .payment-info-grid {
+                                    grid-template-columns: 1fr;
+                                }
+
+                                .d-flex.gap-2 {
+                                    flex-direction: column;
+                                }
+
+                                .d-flex.gap-2 .btn {
+                                    width: 100%;
+                                }
+                            }
+                        </style>
+                    </div>
+
+                    <!-- Feature Access Matrix (if subscribed) -->
+                    {% if subscription %}
+                    <div class="col-lg-6">
+                        <div class="card h-100 features-card">
+                            <div class="card-header bg-white border-bottom">
+                                <strong><i class="bi bi-star me-2" style="color: #f59e0b;"></i>Features Included</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex flex-column gap-3">
+                                    <div class="feature-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-house me-2" style="color: #3b82f6;"></i>Create Properties</span>
+                                            <span class="badge bg-success"><i class="bi bi-check-lg"></i> Enabled</span>
+                                        </div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-people me-2" style="color: #06b6d4;"></i>Manage Users</span>
+                                            <span class="badge bg-success"><i class="bi bi-check-lg"></i> Enabled</span>
+                                        </div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-bar-chart me-2" style="color: #f59e0b;"></i>View Analytics</span>
+                                            {% if subscription.subscription_plan.name == 'Free' %}
+                                                <span class="badge bg-secondary"><i class="bi bi-x-lg"></i> Disabled</span>
+                                            {% else %}
+                                                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Enabled</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-person-badge me-2" style="color: #22c55e;"></i>Create Marketers</span>
+                                            {% if subscription.subscription_plan.name in 'Starter,Free' %}
+                                                <span class="badge bg-secondary"><i class="bi bi-x-lg"></i> Disabled</span>
+                                            {% else %}
+                                                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Enabled</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usage Metrics -->
+                    <div class="col-lg-6">
+                        <div class="card h-100 usage-metrics-card">
+                            <div class="card-header bg-white border-bottom">
+                                <strong><i class="bi bi-graph-up me-2" style="color: #16a34a;"></i>Usage Metrics</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="metric-item properties-metric">
+                                            <div class="metric-value">{{ total_properties|default:0 }}</div>
+                                            <small class="metric-label">Properties</small>
+                                            <i class="metric-icon bi bi-house"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-item clients-metric">
+                                            <div class="metric-value">{{ total_clients|default:0 }}</div>
+                                            <small class="metric-label">Clients</small>
+                                            <i class="metric-icon bi bi-people"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-item marketers-metric">
+                                            <div class="metric-value">{{ total_marketers|default:0 }}</div>
+                                            <small class="metric-label">Marketers</small>
+                                            <i class="metric-icon bi bi-person-badge"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="metric-item allocations-metric">
+                                            <div class="metric-value">{{ total_allocations|default:0 }}</div>
+                                            <small class="metric-label">Allocations</small>
+                                            <i class="metric-icon bi bi-check2-square"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        .features-card .feature-item {
+                            padding: 12px 0;
+                            border-bottom: 1px solid #e5e7eb;
+                            transition: all 0.3s ease;
+                        }
+
+                        .features-card .feature-item:last-child {
+                            border-bottom: none;
+                        }
+
+                        .features-card .feature-item:hover {
+                            padding-left: 8px;
+                            background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+                        }
+
+                        .features-card .badge {
+                            font-size: 0.8rem;
+                            padding: 6px 12px;
+                        }
+
+                        .usage-metrics-card .metric-item {
+                            position: relative;
+                            border-radius: 12px;
+                            padding: 16px 12px;
+                            text-align: center;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 8px;
+                            border: 2px solid #e5e7eb;
+                            transition: all 0.3s ease;
+                            overflow: hidden;
+                        }
+
+                        .usage-metrics-card .metric-item::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
+                            opacity: 0;
+                            transition: opacity 0.3s ease;
+                            z-index: 0;
+                        }
+
+                        .usage-metrics-card .metric-item:hover {
+                            transform: translateY(-4px);
+                            border-color: #22c55e;
+                            box-shadow: 0 8px 16px rgba(34, 197, 94, 0.15);
+                        }
+
+                        .usage-metrics-card .metric-item:hover::before {
+                            opacity: 1;
+                        }
+
+                        .metric-value {
+                            font-size: 2rem;
+                            font-weight: 700;
+                            position: relative;
+                            z-index: 1;
+                        }
+
+                        .metric-label {
+                            font-size: 0.85rem;
+                            color: #6b7280;
+                            position: relative;
+                            z-index: 1;
+                        }
+
+                        .metric-icon {
+                            font-size: 1.5rem;
+                            position: absolute;
+                            top: 8px;
+                            right: 8px;
+                            opacity: 0.2;
+                        }
+
+                        .properties-metric .metric-value { color: #3b82f6; }
+                        .properties-metric .metric-icon { color: #3b82f6; }
+
+                        .clients-metric .metric-value { color: #06b6d4; }
+                        .clients-metric .metric-icon { color: #06b6d4; }
+
+                        .marketers-metric .metric-value { color: #22c55e; }
+                        .marketers-metric .metric-icon { color: #22c55e; }
+
+                        .allocations-metric .metric-value { color: #f59e0b; }
+                        .allocations-metric .metric-icon { color: #f59e0b; }
+                    </style>
+                    {% endif %}
+
+                    <!-- Billing History -->
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <strong><i class="bi bi-receipt me-2"></i>Recent Transactions</strong>
+                                <span class="badge bg-info">Latest 10</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for transaction in billing_history %}
+                                        <tr>
+                                            <td>{{ transaction.created_at|date:'M d, Y H:i' }}</td>
+                                            <td>
+                                                {% if transaction.transaction_type == 'charge' %}
+                                                    <span class="badge bg-danger">Charge</span>
+                                                {% elif transaction.transaction_type == 'refund' %}
+                                                    <span class="badge bg-success">Refund</span>
+                                                {% elif transaction.transaction_type == 'upgrade' %}
+                                                    <span class="badge bg-primary">Upgrade</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ transaction.transaction_type|upper }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ transaction.description|default:'—' }}</td>
+                                            <td class="fw-bold">₦{{ transaction.amount|floatformat:2|intcomma }}</td>
+                                            <td>
+                                                <span class="badge bg-success">Completed</span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="5" class="text-center text-muted py-3">No transactions yet.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="text-end mt-3">
-            <a href="{% url 'admin-dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+            <a href="{% url 'tenant-dashboard' company_slug=request.user.company_profile.slug %}" class="btn btn-outline-secondary">Back to Dashboard</a>
         </div>
     </div>
 
-    <!-- Edit Company Modal -->
+    <!-- ===== SUBSCRIPTION & BILLING MODALS ===== -->
+
+    <!-- Select Plan Modal -->
+    <div class="modal fade" id="selectPlanModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-star me-2"></i>Choose Your Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3" id="plansContainer">
+                        <!-- Plans will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upgrade Plan Modal -->
+    <div class="modal fade" id="upgradePlanModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-up-right me-2"></i>Upgrade Your Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Current Plan:</strong> <span id="currentPlanName">Loading...</span>
+                    </div>
+                    <div class="row g-3" id="upgradePlansContainer">
+                        <!-- Upgrade plans will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Renew Subscription Modal -->
+    <div class="modal fade" id="renewSubscriptionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-clockwise me-2"></i>Renew Your Subscription</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="renewSubscriptionForm">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Current Plan</label>
+                            <div class="p-3 bg-light border rounded">
+                                <strong id="renewPlanName">Loading...</strong>
+                                <div class="text-muted small">Monthly subscription</div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Renewal Amount</label>
+                            <div class="p-3 bg-light border rounded">
+                                <h5 class="mb-0">₦<span id="renewAmount">0</span></h5>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method</label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="">Select payment method...</option>
+                                <option value="stripe">Credit Card (Stripe)</option>
+                                <option value="paystack">Paystack (Bank Transfer, Card, Mobile Money)</option>
+                            </select>
+                        </div>
+                        <div class="alert d-none" id="renewFeedback"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-credit-card me-1"></i> Proceed to Payment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-credit-card me-2"></i>Complete Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="paymentForm">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <div class="mb-3 p-3 bg-light border rounded">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Plan:</span>
+                                <strong id="paymentPlan">—</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Amount:</span>
+                                <strong id="paymentAmount">₦0</strong>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-2">
+                                <span>Total:</span>
+                                <h6 class="mb-0" id="paymentTotal">₦0</h6>
+                            </div>
+                        </div>
+                        <div id="stripePaymentContainer" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Card Details</label>
+                                <div id="cardElement" class="form-control p-3" style="height: 40px; padding-top: 10px !important;"></div>
+                                <div id="cardErrors" class="text-danger small mt-2"></div>
+                            </div>
+                        </div>
+                        <div id="paystackPaymentContainer" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                You will be redirected to Paystack to complete your payment securely.
+                            </div>
+                        </div>
+                        <div class="alert d-none" id="paymentFeedback"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="paymentSubmitBtn">
+                            <i class="bi bi-check-circle me-1"></i> Pay Now
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== END SUBSCRIPTION & BILLING MODALS ===== -->
+
     <div class="modal fade" id="editCompanyModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
@@ -535,6 +1616,17 @@
 </main>
 
 <script>
+    // Initialize progress bar widths
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressFills = document.querySelectorAll('.progress-fill');
+        progressFills.forEach(fill => {
+            const width = fill.getAttribute('data-width');
+            if (width) {
+                fill.style.width = width + '%';
+            }
+        });
+    });
+
     (function() {
         const form = document.getElementById('companyEditForm');
         if (!form) return;
@@ -697,5 +1789,251 @@
             });
         })();
 </script>
+
+<!-- Subscription & Billing JavaScript -->
+<script>
+    // Fetch and display available plans
+    async function loadPlans(targetContainer, isUpgrade = false) {
+        try {
+            const response = await fetch('/api/subscription/plans/');
+            const data = await response.json();
+            let html = '';
+            
+            const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
+            
+            data.plans.forEach(plan => {
+                // Skip current plan in upgrade view
+                if (isUpgrade && plan.name === currentPlan) return;
+                
+                const isCurrentPlan = plan.name === currentPlan;
+                const badgeClass = isCurrentPlan ? 'bg-primary' : 'bg-outline-primary';
+                
+                html += `
+                    <div class="col-md-6">
+                        <div class="card h-100 border-2 plan-card" data-plan-id="${plan.id}" data-plan-name="${plan.name}" data-plan-price="${plan.price}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h5 class="card-title">${plan.name}</h5>
+                                    ${isCurrentPlan ? '<span class="badge bg-primary">Current</span>' : ''}
+                                </div>
+                                <div class="h4 text-primary mb-3">₦${plan.price.toLocaleString('en-NG')}/mo</div>
+                                <ul class="list-unstyled mb-3">
+                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Properties:</strong> ${plan.properties_limit}</li>
+                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Users:</strong> ${plan.users_limit}</li>
+                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Marketers:</strong> ${plan.marketers_limit}</li>
+                                    <li class="mb-2">
+                                        <i class="bi ${plan.has_analytics ? 'bi-check-circle text-success' : 'bi-x-circle text-secondary'} me-2"></i>
+                                        <strong>Analytics:</strong> ${plan.has_analytics ? 'Yes' : 'No'}
+                                    </li>
+                                </ul>
+                                <button type="button" class="btn btn-${isCurrentPlan ? 'outline-secondary' : 'primary'} w-100 select-plan-btn" 
+                                        data-plan-name="${plan.name}" data-plan-price="${plan.price}" 
+                                        ${isCurrentPlan ? 'disabled' : ''}>
+                                    ${isCurrentPlan ? 'Current Plan' : 'Select Plan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById(targetContainer).innerHTML = html;
+            
+            // Attach event listeners to plan selection buttons
+            document.querySelectorAll('.select-plan-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const planName = this.getAttribute('data-plan-name');
+                    const planPrice = this.getAttribute('data-plan-price');
+                    selectPlan(planName, planPrice);
+                });
+            });
+        } catch (error) {
+            console.error('Error loading plans:', error);
+            document.getElementById(targetContainer).innerHTML = '<div class="alert alert-danger">Failed to load plans.</div>';
+        }
+    }
+
+    // Handle plan selection
+    function selectPlan(planName, planPrice) {
+        const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
+        
+        if (currentPlan && currentPlan !== planName) {
+            // Upgrade flow
+            showUpgradeConfirmation(planName, planPrice);
+        } else if (!currentPlan) {
+            // New subscription flow
+            showPaymentModal(planName, planPrice);
+        }
+    }
+
+    // Show upgrade confirmation
+    function showUpgradeConfirmation(newPlan, newPrice) {
+        const currentPrice = '{{ subscription.amount|default:0 }}';
+        const priceDifference = newPrice - currentPrice;
+        
+        const confirmContent = `
+            <div class="card">
+                <div class="card-body">
+                    <p><strong>Current Plan:</strong> {{ subscription.subscription_plan.name|default:"-" }} (₦${currentPrice}/mo)</p>
+                    <p><strong>New Plan:</strong> ${newPlan} (₦${newPrice}/mo)</p>
+                    <div class="alert alert-info">
+                        <strong>Price Change:</strong> ${priceDifference > 0 ? '+' : ''}₦${Math.abs(priceDifference).toLocaleString('en-NG')}/mo
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show in payment modal
+        document.getElementById('paymentPlan').textContent = `${newPlan} (Upgrade)`;
+        document.getElementById('paymentAmount').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
+        document.getElementById('paymentTotal').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
+        
+        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        paymentModal.show();
+    }
+
+    // Show payment modal
+    function showPaymentModal(planName, planPrice) {
+        document.getElementById('paymentPlan').textContent = planName;
+        document.getElementById('paymentAmount').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
+        document.getElementById('paymentTotal').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
+        
+        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        paymentModal.show();
+    }
+
+    // Load plans when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPlans('plansContainer', false);
+        loadPlans('upgradePlansContainer', true);
+        
+        // Load current subscription data
+        loadCurrentSubscription();
+    });
+
+    // Load current subscription data
+    async function loadCurrentSubscription() {
+        try {
+            const response = await fetch('/api/subscription/status/');
+            const data = await response.json();
+            
+            if (data.subscription) {
+                document.getElementById('currentPlanName').textContent = data.subscription.plan_name;
+                document.getElementById('renewPlanName').textContent = data.subscription.plan_name;
+                document.getElementById('renewAmount').textContent = data.subscription.amount.toLocaleString('en-NG');
+            }
+        } catch (error) {
+            console.error('Error loading subscription:', error);
+        }
+    }
+
+    // Handle renewal form submission
+    document.getElementById('renewSubscriptionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const paymentMethod = this.querySelector('select[name="payment_method"]').value;
+        const feedback = document.getElementById('renewFeedback');
+        feedback.classList.add('d-none');
+        
+        if (!paymentMethod) {
+            feedback.classList.remove('d-none', 'alert-success');
+            feedback.classList.add('alert-warning');
+            feedback.textContent = 'Please select a payment method.';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/subscription/renew/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({ payment_method: paymentMethod })
+            });
+            
+            const data = await response.json();
+            
+            if (data.ok) {
+                feedback.classList.remove('d-none', 'alert-danger');
+                feedback.classList.add('alert-success');
+                feedback.textContent = 'Proceeding to payment...';
+                
+                // Close modal and show payment modal
+                bootstrap.Modal.getInstance(document.getElementById('renewSubscriptionModal')).hide();
+                
+                // Show payment modal with Stripe/Paystack form
+                document.getElementById('paymentPlan').textContent = '{{ subscription.subscription_plan.name|default:"-" }}';
+                document.getElementById('paymentAmount').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
+                document.getElementById('paymentTotal').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
+                
+                // Show appropriate payment container
+                document.getElementById('stripePaymentContainer').style.display = paymentMethod === 'stripe' ? 'block' : 'none';
+                document.getElementById('paystackPaymentContainer').style.display = paymentMethod === 'paystack' ? 'block' : 'none';
+                
+                const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+                paymentModal.show();
+            } else {
+                feedback.classList.remove('d-none', 'alert-success');
+                feedback.classList.add('alert-danger');
+                feedback.textContent = data.error || 'Failed to initiate renewal.';
+            }
+        } catch (error) {
+            feedback.classList.remove('d-none', 'alert-success');
+            feedback.classList.add('alert-danger');
+            feedback.textContent = 'Network error. Please try again.';
+        }
+    });
+
+    // Handle payment form submission
+    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const paymentMethod = document.querySelector('.payment-method-active')?.value || 'stripe';
+        const feedback = document.getElementById('paymentFeedback');
+        feedback.classList.add('d-none');
+        
+        try {
+            const response = await fetch('/api/subscription/payment/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    payment_method: paymentMethod,
+                    plan_name: document.getElementById('paymentPlan').textContent
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.ok) {
+                feedback.classList.remove('d-none', 'alert-danger');
+                feedback.classList.add('alert-success');
+                feedback.textContent = 'Payment successful! Redirecting...';
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                feedback.classList.remove('d-none', 'alert-success');
+                feedback.classList.add('alert-danger');
+                feedback.textContent = data.error || 'Payment failed.';
+            }
+        } catch (error) {
+            feedback.classList.remove('d-none', 'alert-success');
+            feedback.classList.add('alert-danger');
+            feedback.textContent = 'Network error. Please try again.';
+        }
+    });
+
+    // Show billing history
+    function showBillingHistory() {
+        document.querySelector('a[data-bs-target="#billing"]').click();
+    }
+</script>
+
+</main>
 {% endblock %}
 

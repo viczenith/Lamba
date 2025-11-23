@@ -9,7 +9,7 @@ This document describes the complete restructuring of the Real Estate Management
 3. **Marketers** can affiliate with multiple companies and earn commissions
 4. **Super Admins** have master control over the entire platform
 
----
+--- 
 
 ## 🏗️ Architecture Overview
 

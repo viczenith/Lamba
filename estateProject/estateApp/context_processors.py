@@ -129,8 +129,11 @@ def dashboard_url(request):
         return {'home_url': reverse('login')}
     
     role = getattr(request.user, 'role', None)
-    if role == 'admin':
-        url = reverse('admin-dashboard')
+    company = getattr(request.user, 'company_profile', None)
+    
+    # ✅ Use new tenant-aware routes (Facebook-style)
+    if role == 'admin' and company:
+        url = reverse('tenant-dashboard', kwargs={'company_slug': company.slug})
     elif role == 'client':
         url = reverse('client-dashboard')
     elif role == 'marketer':

@@ -30,7 +30,7 @@
         .form-control:focus,.form-select:focus{box-shadow:0 0 0 4px rgba(102,126,234,0.08);border-color:#667eea;background:#fff;outline:none}
         .form-control::placeholder{color:#94a3b8}
         .btn-login,.btn-register{width:100%;height:48px;border-radius:12px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:0;color:#fff;font-weight:700;font-size:1rem;cursor:pointer;transition:all .3s ease;box-shadow:0 10px 25px rgba(102,126,234,0.3);letter-spacing:.5px}
-        .btn-login:hover,.btn-register:hover{transform:translateY(-2px);box-shadow:0 15px 35px rgba(102,126,234,0.4)}
+        .btn-login:hover,.btn-register:hover{transform:translateY(-2px);box-shadow:0 15px 35px rgba(102,126,234,0.4); color: white;}
         .btn-login:active,.btn-register:active{transform:translateY(0)}
         .btn-login.loading,.btn-register.loading{opacity:.7;pointer-events:none}
         .btn-secondary-action{background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border:none;color:#fff;padding:.65rem 1.25rem;border-radius:12px;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .3s;width:100%;margin-top:1rem;box-shadow:0 8px 25px rgba(17,153,142,.3);letter-spacing:.3px}
@@ -63,14 +63,28 @@
         .radio-option input{position:absolute;opacity:0;cursor:pointer}
         .radio-label{display:flex;align-items:center;justify-content:center;padding:1rem;border:2px solid #e6edf6;border-radius:12px;cursor:pointer;transition:all .3s;background:#f8fafc;font-weight:600;color:#475569}
         .radio-option input:checked+.radio-label{border-color:#667eea;background:linear-gradient(135deg,rgba(102,126,234,.1) 0%,rgba(118,75,162,.05) 100%);color:#667eea}
-        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .3s ease-out}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .3s ease-out;padding:20px}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .modal-content{background:#fff;border-radius:20px;padding:2rem;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease-out;position:relative;max-width:420px;width:100%}
+        .modal-content{background:#fff;border-radius:20px;padding:2rem;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease-out;position:relative;max-width:500px;width:100%}
+        @media(min-width:992px){.card-container{max-width:720px}.modal-content{max-width:700px;padding:2.5rem}}
+        @media(min-width:1200px){.card-container{max-width:850px}.modal-content{max-width:850px;padding:2.5rem}}
+        @media(min-width:1400px){.card-container{max-width:900px}.modal-content{max-width:900px;padding:2.5rem}}
+        .form-error{color:#dc2626;font-size:.85rem;margin-top:.5rem;margin-left:50px;display:none;animation:shake .3s ease-in-out}
+        .form-error.show{display:block}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        .btn-login.spinning,.btn-register.spinning{pointer-events:none;opacity:.8}
+        .btn-login.spinning::after,.btn-register.spinning::after{content:'';position:absolute;width:16px;height:16px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;top:50%;left:50%;margin:-8px 0 0 -8px}
+        .radio-description{font-size:.8rem;color:#64748b;margin-top:.25rem;font-style:italic}
         .modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;color:#94a3b8;cursor:pointer;transition:color .3s}
         .modal-close:hover{color:#667eea}
         .modal-header{text-align:center;margin-bottom:1.5rem;border-bottom:1px solid #e6edf6;padding-bottom:1rem}
         .modal-header h2{font-size:1.5rem;margin:0;color:#0f172a;font-weight:800}
-        @media(max-width:576px){.card-container{padding:1.75rem}.form-row{grid-template-columns:1fr}.radio-group{flex-direction:column}.modal-content{border-radius:16px;max-width:95vw}}
+        /* Subscription Plan Radio Styling */
+        input[name="subscription_tier"]{cursor:pointer !important}
+        input[name="subscription_tier"]:checked+label{border-color:#667eea !important;background:linear-gradient(135deg,rgba(102,126,234,.12) 0%,rgba(118,75,162,.06) 100%) !important;transform:scale(1.02);box-shadow:0 6px 20px rgba(102,126,234,.2) !important}
+        input[name="subscription_tier"]:checked+label div:first-child{color:#667eea !important}
+        input[name="subscription_tier"]:hover+label{border-color:#a5b4fc;background:rgba(102,126,234,.03)}
+        @media(max-width:576px){.card-container{padding:1.75rem}.form-row{grid-template-columns:1fr}.radio-group{flex-direction:column}.modal-content{border-radius:16px;max-width:95vw}.modal-header h2{font-size:1.25rem}.form-row-custom{grid-template-columns:1fr}.modal-overlay{padding:10px}.password-eye{right:8px;padding:4px}}
     </style>
 </head>
 <body>
@@ -121,7 +135,7 @@
                         <input class="form-check-input" type="checkbox" id="id_remember_me" name="remember_me">
                         <label class="form-check-label" for="id_remember_me">Remember me</label>
                     </div>
-                    <a class="forgot" href="#">Forgot password?</a>
+                    <a class="forgot" href="{% url 'password_reset' %}">Forgot password?</a>
                 </div>
 
                 <button class="btn btn-login" type="submit" id="loginBtn">Sign in <i class="fas fa-arrow-right" style="margin-left:.5rem"></i></button>
@@ -160,6 +174,7 @@
                     <label class="form-label">Company Name</label>
                     <i class="fas fa-building input-icon"></i>
                     <input type="text" class="form-control" name="company_name" placeholder="Your Company Ltd" required>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="form-row">
@@ -167,11 +182,13 @@
                         <label class="form-label">Registration Number</label>
                         <i class="fas fa-hashtag input-icon"></i>
                         <input type="text" class="form-control" name="registration_number" placeholder="RC123456" required>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Registration Date</label>
                         <i class="fas fa-calendar input-icon"></i>
                         <input type="date" class="form-control" name="registration_date" required>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
@@ -179,18 +196,27 @@
                     <label class="form-label">Company Location</label>
                     <i class="fas fa-map-marker-alt input-icon"></i>
                     <input type="text" class="form-control" name="location" placeholder="Lagos, Nigeria" required>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="form-row">
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">CEO Full Name</label>
                         <i class="fas fa-user-tie input-icon"></i>
-                        <input type="text" class="form-control" name="ceo_name" placeholder="John Doe" required>
+                        <input type="text" class="form-control" name="ceo_name" placeholder="Akor Victor" required>
+                        <small style="color:#64748b;display:block;margin-top:.25rem;font-size:.8rem;font-style:italic">
+                            <i class="fas fa-info-circle"></i> Register the CEO with highest company stake. Add others in company profile.
+                        </small>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">CEO Date of Birth</label>
                         <i class="fas fa-birthday-cake input-icon"></i>
                         <input type="date" class="form-control" name="ceo_dob" required>
+                        <small style="color:#64748b;display:block;margin-top:.25rem;font-size:.8rem;font-style:italic">
+                            <i class="fas fa-info-circle"></i> Used for company verification and legal compliance.
+                        </small>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
@@ -199,76 +225,143 @@
                         <label class="form-label">Company Email</label>
                         <i class="fas fa-envelope input-icon"></i>
                         <input type="email" class="form-control" name="email" placeholder="info@company.com" required>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Company Phone</label>
                         <i class="fas fa-phone input-icon"></i>
                         <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
-                <!-- SECONDARY ADMIN SECTION -->
+                <!-- SUBSCRIPTION PLAN SECTION -->
+                <div style="background:linear-gradient(135deg,rgba(17,153,142,.08) 0%,rgba(56,239,125,.03) 100%);padding:1.5rem;border-radius:12px;border:2px solid rgba(17,153,142,.15);margin-bottom:1.5rem">
+                    <h4 style="color:#11998e;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem">
+                        <i class="fas fa-crown"></i> Choose Your Plan
+                    </h4>
+                    <p style="color:#64748b;font-size:.85rem;margin-bottom:1.5rem">
+                        <i class="fas fa-gift" style="color:#10b981;margin-right:.5rem"></i>All plans include 14 days FREE TRIAL
+                    </p>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
+                        <!-- Starter Plan -->
+                        <div style="position:relative">
+                            <input type="radio" name="subscription_tier" id="planStarter" value="starter" checked style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
+                            <label for="planStarter" style="display:block;padding:1.25rem;border:2px solid #e6edf6;border-radius:10px;cursor:pointer;transition:all .3s;background:#f8fafc;text-align:center;height:100%">
+                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem">
+                                    <i class="fas fa-rocket" style="color:#667eea;margin-right:.5rem"></i>Starter
+                                </div>
+                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">For Small Companies</div>
+                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦70,000<span style="font-size:.8rem">/mo</span></div>
+                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦700,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
+                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>2 Estate Properties</li>
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>30 Allocations</li>
+                                    <li><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>30 Clients & 20 Affiliates</li>
+                                </ul>
+                            </label>
+                        </div>
+
+                        <!-- Professional Plan -->
+                        <div style="position:relative">
+                            <input type="radio" name="subscription_tier" id="planProfessional" value="professional" style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
+                            <label for="planProfessional" style="display:block;padding:1.25rem;border:3px solid #667eea;border-radius:10px;cursor:pointer;transition:all .3s;background:linear-gradient(135deg,rgba(102,126,234,.08) 0%,rgba(118,75,162,.03) 100%);text-align:center;box-shadow:0 4px 15px rgba(102,126,234,.15);height:100%;position:relative">
+                                <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#667eea;color:white;padding:.4rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;white-space:nowrap">⭐ PREFERRED PLAN</div>
+                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem;margin-top:.5rem">
+                                    <i class="fas fa-star" style="color:#667eea;margin-right:.5rem"></i>Professional
+                                </div>
+                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">For Growing Companies</div>
+                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦100,000<span style="font-size:.8rem">/mo</span></div>
+                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦1,000,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
+                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>5 Estate Properties</li>
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>80 Allocations</li>
+                                    <li><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>80 Clients & 30 Affiliates</li>
+                                </ul>
+                            </label>
+                        </div>
+
+                        <!-- Enterprise Plan -->
+                        <div style="position:relative">
+                            <input type="radio" name="subscription_tier" id="planEnterprise" value="enterprise" style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
+                            <label for="planEnterprise" style="display:block;padding:1.25rem;border:2px solid #e6edf6;border-radius:10px;cursor:pointer;transition:all .3s;background:#f8fafc;text-align:center;height:100%">
+                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem">
+                                    <i class="fas fa-crown" style="color:#667eea;margin-right:.5rem"></i>Enterprise
+                                </div>
+                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">Preferred Package Plan</div>
+                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦150,000<span style="font-size:.8rem">/mo</span></div>
+                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦1,500,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
+                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Estate Properties</li>
+                                    <li style="margin-bottom:.35rem"><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Allocations</li>
+                                    <li><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Clients & Affiliates</li>
+                                </ul>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADMINISTRATOR SECTION -->
                 <div style="background:linear-gradient(135deg,rgba(102,126,234,.08) 0%,rgba(118,75,162,.03) 100%);padding:1.5rem;border-radius:12px;border:2px solid rgba(102,126,234,.15);margin-bottom:1.5rem">
                     <h4 style="color:#667eea;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem">
-                        <i class="fas fa-user-shield"></i> Secondary Administrator Details
+                        <i class="fas fa-user-shield"></i> Administrator Details
                     </h4>
                     <p style="color:#64748b;font-size:.85rem;margin-bottom:1rem">
-                        Designate a secondary admin to manage your company's system
+                        Designate an administrator to manage your company's system
                     </p>
 
                     <div class="form-row">
                         <div class="mb-3" style="position:relative">
-                            <label class="form-label">Secondary Admin Email</label>
+                            <label class="form-label">Admin Email</label>
                             <i class="fas fa-envelope input-icon"></i>
                             <input type="email" class="form-control" name="secondary_admin_email" placeholder="admin@company.com" required>
+                            <div class="form-error"></div>
                         </div>
                         <div class="mb-3" style="position:relative">
-                            <label class="form-label">Secondary Admin Phone</label>
+                            <label class="form-label">Admin Phone</label>
                             <i class="fas fa-phone input-icon"></i>
                             <input type="tel" class="form-control" name="secondary_admin_phone" placeholder="+234 xxx xxx xxxx" required>
+                            <div class="form-error"></div>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="mb-3" style="position:relative">
-                            <label class="form-label">Secondary Admin Full Name</label>
+                            <label class="form-label">Admin Full Name</label>
                             <i class="fas fa-user input-icon"></i>
-                            <input type="text" class="form-control" name="secondary_admin_name" placeholder="Admin Name" required>
+                            <input type="text" class="form-control" name="secondary_admin_name" placeholder="Akor Victor" required>
+                            <div class="form-error"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="mb-3" style="position:relative">
+                            <label class="form-label">Admin Password</label>
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" class="form-control" id="secondaryAdminPassword" name="secondary_admin_password" placeholder="Min. 8 characters" required>
+                            <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'secondaryAdminPassword')">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                            <div class="form-error"></div>
+                        </div>
+                        <div class="mb-3" style="position:relative">
+                            <label class="form-label">Confirm Password</label>
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" class="form-control" id="secondaryAdminConfirmPassword" name="secondary_admin_confirm_password" placeholder="Re-enter password" required>
+                            <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'secondaryAdminConfirmPassword')">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                            <div class="form-error"></div>
                         </div>
                     </div>
                 </div>
-
-                <div class="form-row">
-                    <div class="mb-3" style="position:relative">
-                        <label class="form-label">Primary Admin Password</label>
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" class="form-control" id="companyPassword" name="password" placeholder="Min. 8 characters" required>
-                        <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'companyPassword')">
-                            <i class="fas fa-eye-slash"></i>
-                        </button>
-                    </div>
-                    <div class="mb-3" style="position:relative">
-                        <label class="form-label">Confirm Password</label>
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" class="form-control" id="companyConfirmPassword" name="confirm_password" placeholder="Re-enter password" required>
-                        <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'companyConfirmPassword')">
-                            <i class="fas fa-eye-slash"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div style="background:linear-gradient(135deg,rgba(17,153,142,.08) 0%,rgba(56,239,125,.03) 100%);padding:1rem;border-radius:12px;border:2px solid rgba(17,153,142,.15);margin-bottom:1.5rem">
-                    <p style="color:#059669;font-size:.85rem;margin:0">
-                        <i class="fas fa-shield-check"></i> Both primary and secondary admin can manage the system. Only these credentials can login.
-                    </p>
-                </div>
-
                 <button type="submit" class="btn btn-register" id="companyBtn">
                     <i class="fas fa-building"></i> Create Company Account
                 </button>
             </form>
         </div>
-    </div>
+    </div> 
 
     <!-- ACCOUNT TYPE SELECTION MODAL -->
     <div id="accountTypeModal" class="modal-overlay hidden" onclick="if(event.target.id==='accountTypeModal') closeAccountTypeModal()">
@@ -286,6 +379,7 @@
                         <div style="text-align:center">
                             <i class="fas fa-user" style="font-size:1.5rem;display:block;margin-bottom:.5rem;color:#667eea"></i>
                             <span>Client</span>
+                            <div class="radio-description">Manage all your purchased properties from different companies</div>
                         </div>
                     </label>
                 </div>
@@ -295,6 +389,7 @@
                         <div style="text-align:center">
                             <i class="fas fa-handshake" style="font-size:1.5rem;display:block;margin-bottom:.5rem;color:#667eea"></i>
                             <span>Affiliate/Marketer</span>
+                            <div class="radio-description">Track all your companies affiliate records in your account</div>
                         </div>
                     </label>
                 </div>
@@ -320,15 +415,21 @@
                 <input type="hidden" name="registration_type" value="client">
 
                 <div class="form-row">
-                    <div class="mb-3" style="position:relative">
-                        <label class="form-label">First Name</label>
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" class="form-control" name="first_name" placeholder="John" required>
+                    <div class="form-group">
+                        <div class="mb-3" style="position:relative">
+                            <label class="form-label">First Name</label>
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-control" name="first_name" placeholder="Akor" required>
+                            <div class="form-error"></div>
+                        </div>
                     </div>
-                    <div class="mb-3" style="position:relative">
-                        <label class="form-label">Last Name</label>
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" class="form-control" name="last_name" placeholder="Doe" required>
+                    <div class="form-group">
+                        <div class="mb-3" style="position:relative">
+                            <label class="form-label">Last Name</label>
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-control" name="last_name" placeholder="Victor" required>
+                            <div class="form-error"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -352,6 +453,7 @@
                         <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'clientPassword')">
                             <i class="fas fa-eye-slash"></i>
                         </button>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Confirm Password</label>
@@ -360,6 +462,7 @@
                         <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'clientConfirmPassword')">
                             <i class="fas fa-eye-slash"></i>
                         </button>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
@@ -387,12 +490,14 @@
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">First Name</label>
                         <i class="fas fa-user-tie input-icon"></i>
-                        <input type="text" class="form-control" name="first_name" placeholder="John" required>
+                        <input type="text" class="form-control" name="first_name" placeholder="Akor" required>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Last Name</label>
                         <i class="fas fa-user-tie input-icon"></i>
-                        <input type="text" class="form-control" name="last_name" placeholder="Doe" required>
+                        <input type="text" class="form-control" name="last_name" placeholder="Victor" required>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
@@ -400,12 +505,14 @@
                     <label class="form-label">Email Address</label>
                     <i class="fas fa-envelope input-icon"></i>
                     <input type="email" class="form-control" name="email" placeholder="your.email@example.com" required>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="mb-3" style="position:relative">
                     <label class="form-label">Phone Number</label>
                     <i class="fas fa-phone input-icon"></i>
                     <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="mb-3" style="position:relative">
@@ -418,6 +525,7 @@
                         <option value="3-5">3-5 years</option>
                         <option value="5+">5+ years</option>
                     </select>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="form-row">
@@ -428,6 +536,7 @@
                         <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'marketerPassword')">
                             <i class="fas fa-eye-slash"></i>
                         </button>
+                        <div class="form-error"></div>
                     </div>
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Confirm Password</label>
@@ -436,6 +545,7 @@
                         <button type="button" class="password-eye" onclick="togglePasswordVisibility(this, 'marketerConfirmPassword')">
                             <i class="fas fa-eye-slash"></i>
                         </button>
+                        <div class="form-error"></div>
                     </div>
                 </div>
 
@@ -448,6 +558,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Password Visibility Toggle
+        function togglePasswordVisibility(button, inputId){
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+            if(input.type==='password'){
+                input.type='text';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                button.style.color='#667eea';
+            }else{
+                input.type='password';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                button.style.color='#94a3b8';
+            }
+        }
+
         // Modal Management Functions
         function showCompanyModal(){closeAccountTypeModal();document.getElementById('companyModal').classList.remove('hidden');}
         function closeCompanyModal(){document.getElementById('companyModal').classList.add('hidden');}
@@ -462,52 +589,182 @@
             if(accountType==='client'){showClientModal();}else{showMarketerModal();}
         }
 
-        // Login Form Throttle
+        // Login Form Throttle & Remember Me
         (function(){
             const form=document.getElementById('loginForm');
             const btn=document.getElementById('loginBtn');
             let attempts=0;
             const MAX_ATTEMPTS=6;
             const LOCK_MS=2*60*1000;
+            let submissionTimeout;
+            
+            // Load remembered email if exists
+            const rememberMeCheckbox = form.querySelector('input[name="remember_me"]');
+            const emailField = form.querySelector('input[name="username"]');
+            const rememberKey = 'lamba_remember_email';
+            
+            if(localStorage.getItem(rememberKey)){
+                emailField.value = localStorage.getItem(rememberKey);
+                if(rememberMeCheckbox) rememberMeCheckbox.checked = true;
+            }
+            
+            // Function to re-enable button
+            function reEnableButton() {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.classList.remove('spinning');
+                btn.innerHTML='Sign in <i class="fas fa-arrow-right" style="margin-left:.5rem"></i>';
+            }
+            
             form.addEventListener('submit',function(e){
                 attempts+=1;
+                
+                // Handle Remember Me
+                if(rememberMeCheckbox && rememberMeCheckbox.checked){
+                    localStorage.setItem(rememberKey, emailField.value);
+                }else{
+                    localStorage.removeItem(rememberKey);
+                }
+                
                 if(attempts>=MAX_ATTEMPTS){
                     e.preventDefault();
                     btn.disabled=true;
-                    btn.classList.add('loading');
-                    btn.innerText='Too many attempts. Try again later.';
+                    btn.classList.add('spinning');
+                    btn.innerHTML='Too many attempts. Try again later.';
                     setTimeout(()=>{
                         attempts=0;
-                        btn.disabled=false;
-                        btn.innerHTML='Sign in <i class="fas fa-arrow-right" style="margin-left:.5rem"></i>';
-                        btn.classList.remove('loading');
+                        reEnableButton();
                     },LOCK_MS);
                     return false;
                 }
-                btn.classList.add('loading');
+                // Start spinner and disable button
+                console.debug('Login submit handler: attempts=', attempts);
+                btn.classList.add('spinning');
                 btn.disabled=true;
+                
+                // Set timeout to auto-re-enable button if page doesn't redirect in 15 seconds
+                // This handles cases where server returns error or network is slow
+                submissionTimeout = setTimeout(function() {
+                    if(!btn.disabled) return; // Already re-enabled
+                    reEnableButton();
+                }, 15000);
             });
+            
+            // Re-enable button if there are errors shown on page load
+            window.addEventListener('load', function() {
+                clearTimeout(submissionTimeout);
+                if(form.querySelector('.alert-danger') || form.querySelector('.form-error.show')) {
+                    reEnableButton();
+                }
+            });
+            
+            // Also check on DOM ready
+            if(document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    if(form.querySelector('.alert-danger') || form.querySelector('.form-error.show')) {
+                        reEnableButton();
+                    }
+                });
+            } else {
+                // DOM is already ready
+                if(form.querySelector('.alert-danger') || form.querySelector('.form-error.show')) {
+                    reEnableButton();
+                }
+            }
         })();
 
-        // Form Validation and Submission
-        document.querySelectorAll('form').forEach(form=>{
-            form.addEventListener('submit',function(e){
-                const passwordField=this.querySelector('input[name="password"]');
-                const confirmField=this.querySelector('input[name="confirm_password"]');
-                if(confirmField){
-                    if(passwordField.value!==confirmField.value){
-                        e.preventDefault();
-                        alert('Passwords do not match!');
-                        return false;
+        // Form Validation and Submission with Inline Error Display
+        // NOTE: exclude the main login form from this generic validator to avoid conflicting
+        // submit handlers. The login form has its own throttling/submit logic above.
+        document.querySelectorAll('form:not(#loginForm)').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+                const formInputs = this.querySelectorAll('input:not([type="hidden"]), select');
+
+                // Clear all previous errors
+                this.querySelectorAll('.form-error').forEach(err => {
+                    err.classList.remove('show');
+                    err.innerHTML = '';
+                });
+
+                // Validate each field
+                formInputs.forEach(field => {
+                    if (!field.value.trim() && field.name !== 'registration_type') {
+                        isValid = false;
+                        const errorDiv = field.parentElement.querySelector('.form-error');
+                        if (errorDiv) {
+                            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> This field is required`;
+                            errorDiv.classList.add('show');
+                        }
                     }
-                    if(passwordField.value.length<8){
-                        e.preventDefault();
-                        alert('Password must be at least 8 characters long!');
-                        return false;
+                });
+
+                // Validate passwords
+                const passwordField = this.querySelector('input[name="password"]');
+                const confirmField = this.querySelector('input[name="confirm_password"]');
+                const secondaryAdminPasswordField = this.querySelector('input[name="secondary_admin_password"]');
+                const secondaryAdminConfirmField = this.querySelector('input[name="secondary_admin_confirm_password"]');
+
+                // Check primary admin password if it exists (old field name)
+                if (passwordField) {
+                    if (passwordField.value.length > 0 && passwordField.value.length < 8) {
+                        isValid = false;
+                        const errorDiv = passwordField.parentElement.querySelector('.form-error');
+                        if (errorDiv) {
+                            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> Password must be at least 8 characters`;
+                            errorDiv.classList.add('show');
+                        }
                     }
                 }
-                const btn=this.querySelector('[type="submit"]');
-                if(btn){btn.classList.add('loading');}
+
+                if (confirmField && passwordField) {
+                    if (confirmField.value && passwordField.value && passwordField.value !== confirmField.value) {
+                        isValid = false;
+                        const errorDiv = confirmField.parentElement.querySelector('.form-error');
+                        if (errorDiv) {
+                            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> Passwords do not match`;
+                            errorDiv.classList.add('show');
+                        }
+                    }
+                }
+
+                // Check admin password if it exists (new field name in administrator section)
+                if (secondaryAdminPasswordField) {
+                    if (secondaryAdminPasswordField.value.length > 0 && secondaryAdminPasswordField.value.length < 8) {
+                        isValid = false;
+                        const errorDiv = secondaryAdminPasswordField.parentElement.querySelector('.form-error');
+                        if (errorDiv) {
+                            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> Password must be at least 8 characters`;
+                            errorDiv.classList.add('show');
+                        }
+                    }
+                }
+
+                if (secondaryAdminConfirmField && secondaryAdminPasswordField) {
+                    if (secondaryAdminConfirmField.value && secondaryAdminPasswordField.value && secondaryAdminPasswordField.value !== secondaryAdminConfirmField.value) {
+                        isValid = false;
+                        const errorDiv = secondaryAdminConfirmField.parentElement.querySelector('.form-error');
+                        if (errorDiv) {
+                            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> Passwords do not match`;
+                            errorDiv.classList.add('show');
+                        }
+                    }
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Add spinning animation to submit button
+                const btn = this.querySelector('[type="submit"]');
+                if (btn) {
+                    btn.classList.add('spinning');
+                    btn.disabled = true;
+                }
+
+                // Store form reference for later message display
+                window.lastSubmittedForm = this;
             });
         });
 
@@ -533,6 +790,136 @@
                 closeMarketerModal();
             }
         });
+
+        // Modal Success/Error Message Handler with 3-Second Delay
+        // Only attach modal-specific handlers to forms inside modals to avoid intercepting the main login form
+        document.querySelectorAll('.modal-overlay form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                // Get the parent modal
+                let modal = this.closest('.modal-overlay');
+                if (!modal) return; // Not a modal form, skip delay logic
+
+                // Add intercept for form submission to show message in modal
+                const originalAction = form.action;
+                const originalMethod = form.method;
+
+                // Prevent default form submission to handle it via fetch for better control
+                if (modal && !form.hasAttribute('data-delay-handled')) {
+                    form.setAttribute('data-delay-handled', 'true');
+
+                    form.addEventListener('submit', function(submitEvent) {
+                        // Only intercept if this is a modal form
+                        if (!this.closest('.modal-overlay')) return;
+
+                        // Collect form data
+                        const formData = new FormData(this);
+
+                        // Disable submit button
+                        const btn = this.querySelector('[type="submit"]');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.classList.add('spinning');
+                        }
+
+                        // Send request
+                        fetch(originalAction, {
+                            method: originalMethod || 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => {
+                            // Check if response is successful (2xx status)
+                            if (response.ok) {
+                                // Show success message in modal
+                                const messageDiv = document.createElement('div');
+                                messageDiv.className = 'modal-message success';
+                                messageDiv.innerHTML = `
+                                    <i class="fas fa-check-circle" style="color:#11998e;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                    <h4 style="color:#11998e;margin:.5rem 0">Account Created Successfully!</h4>
+                                    <p style="color:#64748b;font-size:.9rem">Redirecting you to login...</p>
+                                `;
+                                messageDiv.style.cssText = `
+                                    text-align: center; 
+                                    padding: 2rem; 
+                                    animation: slideIn 0.3s ease-out;
+                                    border-top: 3px solid #11998e;
+                                `;
+
+                                // Insert at top of modal content
+                                const modalContent = modal.querySelector('.modal-content');
+                                modalContent.insertBefore(messageDiv, modalContent.firstChild);
+
+                                // Hide form
+                                form.style.display = 'none';
+
+                                // Wait 3 seconds then redirect or close
+                                setTimeout(() => {
+                                    // Check if there's a redirect URL in response
+                                    window.location.href = response.url || originalAction;
+                                }, 3000);
+                            } else {
+                                // Show error message in modal
+                                const messageDiv = document.createElement('div');
+                                messageDiv.className = 'modal-message error';
+                                messageDiv.innerHTML = `
+                                    <i class="fas fa-times-circle" style="color:#ef4444;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                    <h4 style="color:#ef4444;margin:.5rem 0">Registration Failed</h4>
+                                    <p style="color:#64748b;font-size:.9rem">Please check your information and try again</p>
+                                `;
+                                messageDiv.style.cssText = `
+                                    text-align: center; 
+                                    padding: 2rem; 
+                                    animation: slideIn 0.3s ease-out;
+                                    border-top: 3px solid #ef4444;
+                                    margin-bottom: 1rem;
+                                `;
+
+                                // Insert at top of modal content
+                                const modalContent = modal.querySelector('.modal-content');
+                                modalContent.insertBefore(messageDiv, modalContent.firstChild);
+
+                                // Re-enable submit button
+                                if (btn) {
+                                    btn.disabled = false;
+                                    btn.classList.remove('spinning');
+                                }
+
+                                // Auto-remove message after 5 seconds
+                                setTimeout(() => {
+                                    messageDiv.style.animation = 'slideOut 0.3s ease-out';
+                                    setTimeout(() => messageDiv.remove(), 300);
+                                }, 5000);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Form submission error:', error);
+                            // Allow default form submission on error
+                            submitEvent.target.submit();
+                        });
+
+                        submitEvent.preventDefault();
+                        return false;
+                    }, { once: true });
+                }
+            });
+        });
+
+        // Slide animation for modal messages
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes slideIn {
+                from { transform: translateY(-10px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateY(0); opacity: 1; }
+                to { transform: translateY(-10px); opacity: 0; }
+            }
+            .modal-message { animation: slideIn 0.3s ease-out; }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

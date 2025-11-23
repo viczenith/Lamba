@@ -2,6 +2,7 @@
 """Create subscription plans for multi-tenant SaaS"""
 import os
 import django
+from decimal import Decimal
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'estateProject.settings')
 django.setup()
@@ -12,68 +13,82 @@ from estateApp.models import SubscriptionPlan
 starter, created = SubscriptionPlan.objects.get_or_create(
     tier='starter',
     defaults={
-        'name': 'Starter Plan',
-        'description': 'Perfect for small real estate companies just getting started',
-        'monthly_price': 15000,
-        'annual_price': 162000,  # 10% discount
-        'max_plots': 50,
+        'name': 'Starter',
+        'description': 'For Small Companies - Perfect for companies just getting started',
+        'monthly_price': Decimal('70000.00'),
+        'annual_price': Decimal('700000.00'),
+        'max_plots': 2,
         'max_agents': 1,
         'max_api_calls_daily': 1000,
         'features': {
-            'reports': True,
-            'bulk_import': False,
-            'api_access': False,
-            'custom_domain': False,
-            'priority_support': False
+            'estate_properties': 2,
+            'allocations': 30,
+            'clients': 30,
+            'affiliates': 20,
+            'api_access': True,
+            'basic_analytics': True,
+            'email_support': True,
         }
     }
 )
-print(f"{'✅ Created' if created else '⚠️  Exists'}: {starter.name} - ₦{starter.monthly_price:,.2f}/month")
+print(f"{'✅ Created' if created else '⚠️  Updated'}: {starter.name} - ₦{starter.monthly_price:,.0f}/month")
+print(f"   Annual: ₦{starter.annual_price:,.0f} (Save 2 months!)")
+print(f"   • 2 Estate Properties • 30 Allocations • 30 Clients & 20 Affiliates\n")
 
 # Create Professional Plan
 professional, created = SubscriptionPlan.objects.get_or_create(
     tier='professional',
     defaults={
-        'name': 'Professional Plan',
-        'description': 'For growing companies managing multiple properties',
-        'monthly_price': 45000,
-        'annual_price': 486000,  # 10% discount
-        'max_plots': 500,
+        'name': 'Professional',
+        'description': 'For Growing Companies - Popular choice for expanding businesses',
+        'monthly_price': Decimal('100000.00'),
+        'annual_price': Decimal('1000000.00'),
+        'max_plots': 5,
         'max_agents': 10,
         'max_api_calls_daily': 10000,
         'features': {
-            'reports': True,
-            'bulk_import': True,
+            'estate_properties': 5,
+            'allocations': 80,
+            'clients': 80,
+            'affiliates': 30,
             'api_access': True,
-            'custom_domain': False,
-            'priority_support': True
+            'advanced_analytics': True,
+            'priority_support': True,
+            'custom_branding': True,
         }
     }
 )
-print(f"{'✅ Created' if created else '⚠️  Exists'}: {professional.name} - ₦{professional.monthly_price:,.2f}/month")
+print(f"{'✅ Created' if created else '⚠️  Updated'}: {professional.name} - ₦{professional.monthly_price:,.0f}/month")
+print(f"   Annual: ₦{professional.annual_price:,.0f} (Save 2 months!)")
+print(f"   • 5 Estate Properties • 80 Allocations • 80 Clients & 30 Affiliates\n")
 
 # Create Enterprise Plan
 enterprise, created = SubscriptionPlan.objects.get_or_create(
     tier='enterprise',
     defaults={
-        'name': 'Enterprise Plan',
-        'description': 'For large companies with unlimited needs',
-        'monthly_price': 100000,
-        'annual_price': 1080000,  # 10% discount
-        'max_plots': 999999,  # Unlimited
-        'max_agents': 999999,  # Unlimited
-        'max_api_calls_daily': 100000,
+        'name': 'Enterprise',
+        'description': 'Preferred Package Plan for Large Organizations',
+        'monthly_price': Decimal('150000.00'),
+        'annual_price': Decimal('1500000.00'),
+        'max_plots': 999999,
+        'max_agents': 999999,
+        'max_api_calls_daily': 999999,
         'features': {
-            'reports': True,
-            'bulk_import': True,
+            'estate_properties': 'unlimited',
+            'allocations': 'unlimited',
+            'clients': 'unlimited',
+            'affiliates': 'unlimited',
             'api_access': True,
-            'custom_domain': True,
-            'priority_support': True,
-            'dedicated_account_manager': True,
-            'white_label': True
+            'advanced_analytics': True,
+            'dedicated_support': True,
+            'custom_branding': True,
+            'sso_integration': True,
+            'multi_currency': True,
         }
     }
 )
-print(f"{'✅ Created' if created else '⚠️  Exists'}: {enterprise.name} - ₦{enterprise.monthly_price:,.2f}/month")
+print(f"{'✅ Created' if created else '⚠️  Updated'}: {enterprise.name} - ₦{enterprise.monthly_price:,.0f}/month")
+print(f"   Annual: ₦{enterprise.annual_price:,.0f} (Save 2 months!)")
+print(f"   • Unlimited Properties • Unlimited Allocations • Unlimited Clients & Affiliates\n")
 
-print("\n✅ All subscription plans are ready!")
+print("✅ All subscription plans are configured correctly!")

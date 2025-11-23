@@ -32,6 +32,15 @@ class Company(models.Model):
     
     # Core fields
     company_name = models.CharField(max_length=255, unique=True, verbose_name="Company Name")
+    slug = models.SlugField(
+        max_length=255, 
+        unique=True, 
+        db_index=True,
+        null=True,
+        blank=True,
+        verbose_name="Company Slug (Tenancy ID)",
+        help_text="Unique identifier for multi-tenant routing and isolation"
+    )
     registration_number = models.CharField(max_length=100, unique=True, verbose_name="Registration Number")
     registration_date = models.DateField(verbose_name="Company Registration Date")
     location = models.CharField(max_length=255, verbose_name="Company Location")
@@ -61,6 +70,30 @@ class Company(models.Model):
     max_plots = models.PositiveIntegerField(default=50, verbose_name="Max Plots Allowed")
     max_agents = models.PositiveIntegerField(default=1, verbose_name="Max Agents Allowed")
     max_api_calls_daily = models.PositiveIntegerField(default=1000, verbose_name="Max API Calls Per Day")
+    
+    # API call tracking (SaaS usage metrics)
+    api_calls_today = models.PositiveIntegerField(default=0, verbose_name="API Calls Today")
+    api_calls_reset_at = models.DateTimeField(null=True, blank=True, verbose_name="API Calls Reset At")
+    
+    # Current usage counts
+    current_plots_count = models.PositiveIntegerField(default=0, verbose_name="Current Plots Count")
+    current_agents_count = models.PositiveIntegerField(default=0, verbose_name="Current Agents Count")
+    
+    # Subscription dates
+    subscription_started_at = models.DateTimeField(null=True, blank=True, verbose_name="Subscription Started At")
+    subscription_renewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Subscription Last Renewed At")
+    
+    # Features and read-only mode
+    features_available = models.JSONField(default=list, blank=True, verbose_name="Available Features")
+    is_read_only_mode = models.BooleanField(default=False, verbose_name="Read-Only Mode")
+    grace_period_ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Grace Period Ends At")
+    data_deletion_date = models.DateTimeField(null=True, blank=True, verbose_name="Data Deletion Date")
+    
+    # Billing and receipts
+    receipt_counter = models.PositiveIntegerField(default=1, verbose_name="Receipt Counter")
+    cashier_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Cashier Name")
+    cashier_signature = models.ImageField(upload_to='cashier_signatures/', blank=True, null=True, verbose_name="Cashier Signature")
+    office_address = models.TextField(blank=True, null=True, verbose_name="Office Address")
     
     # Customization
     custom_domain = models.CharField(
@@ -110,6 +143,45 @@ class Company(models.Model):
     def __str__(self):
         return self.company_name
     
+    def save(self, *args, **kwargs):
+        """Auto-generate unique slug from company_name for tenancy isolation"""
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.company_name)
+            slug = base_slug
+            counter = 1
+            
+            # Ensure slug is unique
+            while Company.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            self.slug = slug
+        
+        # Sync company limits based on subscription tier
+        self.sync_plan_limits()
+        
+        super().save(*args, **kwargs)
+    
+    def sync_plan_limits(self):
+        """Synchronize company limits based on subscription tier and plan"""
+        try:
+            plan = SubscriptionPlan.objects.get(tier=self.subscription_tier)
+            self.max_plots = plan.max_plots
+            self.max_agents = plan.max_agents
+            self.max_api_calls_daily = plan.max_api_calls_daily
+        except SubscriptionPlan.DoesNotExist:
+            # Default limits if plan doesn't exist
+            tier_limits = {
+                'starter': {'max_plots': 2, 'max_agents': 1, 'max_api_calls_daily': 1000},
+                'professional': {'max_plots': 5, 'max_agents': 10, 'max_api_calls_daily': 10000},
+                'enterprise': {'max_plots': 999999, 'max_agents': 999999, 'max_api_calls_daily': 999999},
+            }
+            limits = tier_limits.get(self.subscription_tier, tier_limits['starter'])
+            self.max_plots = limits['max_plots']
+            self.max_agents = limits['max_agents']
+            self.max_api_calls_daily = limits['max_api_calls_daily']
+    
     def is_trial_active(self):
         """Check if trial period is still active"""
         if self.subscription_status == 'trial' and self.trial_ends_at:
@@ -127,6 +199,138 @@ class Company(models.Model):
         from estateApp.models import EstatePlot
         current_plots = EstatePlot.objects.filter(estate__company=self).count()
         return current_plots < self.max_plots
+    
+    def get_subscription_plan(self):
+        """Get the SubscriptionPlan object for this company"""
+        try:
+            return SubscriptionPlan.objects.get(tier=self.subscription_tier)
+        except SubscriptionPlan.DoesNotExist:
+            return None
+    
+    def get_feature_limits(self):
+        """Get current feature limits for this company's subscription tier"""
+        plan = self.get_subscription_plan()
+        if plan:
+            return {
+                'estate_properties': plan.features.get('estate_properties', 'unlimited'),
+                'allocations': plan.features.get('allocations', 'unlimited'),
+                'clients': plan.features.get('clients', 'unlimited'),
+                'affiliates': plan.features.get('affiliates', 'unlimited'),
+                'max_plots': plan.max_plots,
+                'max_agents': plan.max_agents,
+                'max_api_calls_daily': plan.max_api_calls_daily,
+            }
+        # Fallback defaults
+        return {
+            'estate_properties': self.max_plots,
+            'allocations': self.max_api_calls_daily,
+            'clients': 'unlimited',
+            'affiliates': 'unlimited',
+            'max_plots': self.max_plots,
+            'max_agents': self.max_agents,
+            'max_api_calls_daily': self.max_api_calls_daily,
+        }
+    
+    def can_add_client(self):
+        """Check if company can add more clients"""
+        limits = self.get_feature_limits()
+        if limits['clients'] == 'unlimited':
+            return True, "Unlimited clients available"
+        
+        from estateApp.models import ClientUser
+        current_clients = ClientUser.objects.filter(
+            company_profile=self
+        ).count()
+        
+        limit = limits['clients']
+        if isinstance(limit, str):
+            return True, f"Unlimited clients available"
+        
+        if current_clients >= limit:
+            return False, f"Client limit ({limit}) reached for {self.subscription_tier} plan"
+        return True, f"Can add {limit - current_clients} more clients"
+    
+    def can_add_affiliate(self):
+        """Check if company can add more affiliate/marketers"""
+        limits = self.get_feature_limits()
+        if limits['affiliates'] == 'unlimited':
+            return True, "Unlimited affiliates available"
+        
+        current_affiliates = self.marketer_affiliations.filter(
+            status='active'
+        ).count()
+        
+        limit = limits['affiliates']
+        if isinstance(limit, str):
+            return True, "Unlimited affiliates available"
+        
+        if current_affiliates >= limit:
+            return False, f"Affiliate limit ({limit}) reached for {self.subscription_tier} plan"
+        return True, f"Can add {limit - current_affiliates} more affiliates"
+    
+    def can_create_allocation(self):
+        """Check if company can create more plot allocations"""
+        limits = self.get_feature_limits()
+        if limits['allocations'] == 'unlimited':
+            return True, "Unlimited allocations available"
+        
+        try:
+            current_allocations = PlotAllocation.objects.filter(
+                plot_size_unit__estate_plot__estate__isnull=False
+            ).count()
+        except:
+            current_allocations = 0
+        
+        limit = limits['allocations']
+        if isinstance(limit, str):
+            return True, "Unlimited allocations available"
+        
+        if current_allocations >= limit:
+            return False, f"Allocation limit ({limit}) reached for {self.subscription_tier} plan"
+        return True, f"Can create {limit - current_allocations} more allocations"
+    
+    def can_create_estate(self):
+        """Check if company can create more estates"""
+        limits = self.get_feature_limits()
+        if limits['estate_properties'] == 'unlimited':
+            return True, "Unlimited estate properties available"
+        
+        current_estates = Estate.objects.filter(company=self).count()
+        
+        limit = limits['estate_properties']
+        if isinstance(limit, str):
+            return True, "Unlimited estate properties available"
+        
+        if current_estates >= limit:
+            return False, f"Estate limit ({limit}) reached for {self.subscription_tier} plan"
+        return True, f"Can create {limit - current_estates} more estates"
+    
+    def get_usage_stats(self):
+        """Get current usage statistics for the company"""
+        from estateApp.models import PlotAllocation, ClientUser
+        
+        try:
+            allocations = PlotAllocation.objects.filter(
+                plot_size_unit__estate_plot__estate__isnull=False
+            ).count()
+        except:
+            allocations = 0
+        
+        try:
+            clients = ClientUser.objects.filter(company_profile=self).count()
+        except:
+            clients = 0
+        
+        try:
+            affiliates = self.marketer_affiliations.filter(status='active').count()
+        except:
+            affiliates = 0
+        
+        return {
+            'allocations': allocations,
+            'clients': clients,
+            'affiliates': affiliates,
+        }
 
 
 class AppMetrics(models.Model):
@@ -149,6 +353,66 @@ class AppMetrics(models.Model):
     @property
     def total_downloads(self) -> int:
         return int((self.android_downloads or 0) + (self.ios_downloads or 0))
+
+
+class SubscriptionPlan(models.Model):
+    """Subscription plans for SaaS tier pricing"""
+    TIER_CHOICES = [
+        ('starter', 'Starter'),
+        ('professional', 'Professional'),
+        ('enterprise', 'Enterprise'),
+    ]
+    
+    tier = models.CharField(
+        max_length=20,
+        choices=TIER_CHOICES,
+        unique=True,
+        verbose_name="Subscription Tier"
+    )
+    name = models.CharField(max_length=100, verbose_name="Plan Name")
+    description = models.TextField(blank=True, help_text="Marketing description for this plan", verbose_name="Plan Description")
+    
+    # Pricing
+    monthly_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Price in Nigerian Naira",
+        verbose_name="Monthly Price (₦)"
+    )
+    annual_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional annual billing price with discount",
+        verbose_name="Annual Price (₦)"
+    )
+    
+    # Limits
+    max_plots = models.IntegerField(default=50, help_text="Maximum number of property listings", verbose_name="Maximum Plots")
+    max_agents = models.IntegerField(default=1, help_text="Maximum number of team members", verbose_name="Maximum Agents")
+    max_api_calls_daily = models.IntegerField(default=1000, help_text="Maximum API calls per 24 hours", verbose_name="Daily API Calls")
+    
+    # Features JSON (e.g., {"advanced_analytics": true, "api_access": true})
+    features = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text="JSON object of feature names and descriptions",
+        verbose_name="Plan Features"
+    )
+    
+    # Status
+    is_active = models.BooleanField(default=True, help_text="Can companies subscribe to this plan?", verbose_name="Is Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Subscription Plan"
+        verbose_name_plural = "Subscription Plans"
+        ordering = ['tier']
+    
+    def __str__(self):
+        return f"{self.name} - ₦{self.monthly_price}/month"
 
 
 class MarketerAffiliation(models.Model):

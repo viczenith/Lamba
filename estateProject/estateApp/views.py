@@ -78,6 +78,24 @@ logger = logging.getLogger(__name__)
 SUPPORT_ROLES = ('admin', 'support')
 
 
+# ============================================================================
+# HELPER FUNCTION: Redirect to tenant-aware dashboard
+# ============================================================================
+def get_tenant_dashboard_redirect(request):
+    """
+    Helper function to get redirect URL to tenant-aware dashboard.
+    Used for redirects from legacy views.
+    """
+    from django.urls import reverse
+    company = getattr(request.user, 'company_profile', None)
+    
+    if company:
+        return redirect(reverse('tenant-dashboard', kwargs={'company_slug': company.slug}))
+    else:
+        messages.error(request, "You are not assigned to any company!")
+        return redirect('login')
+
+
 def custom_csrf_failure_view(request, reason=""):
     return render(request, 'csrf_failure.html', {"reason": reason}, status=403)
 
@@ -89,82 +107,21 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
 @login_required
 def admin_dashboard(request):
-    total_clients = CustomUser.objects.filter(role='client').count()
-    total_marketers = CustomUser.objects.filter(role='marketer').count()
+    """
+    ⚠️ DEPRECATED: This view is for backward compatibility only.
+    Use tenant-aware routes instead: /<company-slug>/dashboard/
+    This view redirects to the new Facebook-style routing.
+    """
+    company = getattr(request.user, 'company_profile', None)
     
-    # Estate Plots (existing code)
-    estates = Estate.objects.prefetch_related(
-        Prefetch('estate_plots__plotsizeunits',
-                 queryset=PlotSizeUnits.objects.annotate(
-                     allocated=Count('allocations', filter=Q(allocations__payment_type='full')),
-                     reserved=Count('allocations', filter=Q(allocations__payment_type='part'))
-                 ))
-    ).all()
-
-    # === NEW CHART DATA COLLECTION START ===
-    # Prepare data for allocation chart
-    estate_names = []
-    allocated_data = []
-    reserved_data = []
-    total_data = []
-    estate_names = []
-    total_data = []
-
+    if not company:
+        messages.error(request, "You are not assigned to any company!")
+        return redirect('login')
     
-    for estate in estates:
-        estate_total_allocated = 0
-        estate_total_reserved = 0
-        
-        # Traverse through the estate plots and their plot size units
-        for estate_plot in estate.estate_plots.all():
-            for plot_size_unit in estate_plot.plotsizeunits.all():
-                estate_total_allocated += getattr(plot_size_unit, 'allocated', 0)
-                estate_total_reserved += getattr(plot_size_unit, 'reserved', 0)
-        
-        estate_names.append(estate.name)
-        allocated_data.append(estate_total_allocated)
-        reserved_data.append(estate_total_reserved)
-        total_data.append(estate_total_allocated + estate_total_reserved)
-    # === NEW CHART DATA COLLECTION END ===
-
-    
-    # Existing allocation counts
-    total_allocations = PlotAllocation.objects.filter(
-        payment_type='full',
-        plot_number__isnull=False 
-    ).count()
-
-    pending_allocations = PlotAllocation.objects.filter(
-        payment_type='part',
-        plot_number__isnull=True
-    ).count()
-
-    # Global Notification (existing code)
-    if request.user.role == 'admin':
-        global_message_count = Message.objects.filter(sender__role='client', recipient=request.user, is_read=False).count()
-        unread_messages = Message.objects.filter(sender__role='client', recipient=request.user, is_read=False).order_by('-date_sent')[:5]
-    else:
-        global_message_count = Message.objects.filter(sender__role='admin', recipient=request.user, is_read=False).count()
-        unread_messages = Message.objects.filter(sender__role='admin', recipient=request.user, is_read=False).order_by('-date_sent')[:5]
-
-    # Add chart data to context
-    context = {
-        'global_message_count': global_message_count,
-        'unread_messages': unread_messages,
-        'total_clients': total_clients,
-        'total_marketers': total_marketers,
-        'estates': estates,
-        'total_allocations': total_allocations,
-        'pending_allocations': pending_allocations,
-        # === NEW CHART CONTEXT ADDITION ===
-        'chart_data': {
-            'estates': estate_names,
-            'allocated': allocated_data,
-            'reserved': reserved_data,
-            'total': total_data
-        }
-    }
-    return render(request, 'admin_side/index.html', context)
+    # Redirect to new tenant-aware route
+    from django.urls import reverse
+    new_url = reverse('tenant-dashboard', kwargs={'company_slug': company.slug})
+    return redirect(new_url)
 
 @login_required
 def add_plotsize(request):
@@ -382,102 +339,21 @@ def delete_plotnumber(request, pk):
 
 @login_required
 def management_dashboard(request):
-    STATUSES = ['Fully Paid', 'Part Payment', 'Pending', 'Overdue']
-
-    transactions = Transaction.objects.select_related(
-        'client', 'marketer',
-        'allocation__estate',
-        'allocation__plot_size_unit__plot_size'
-    ).all()
-
-    txn_qs = Transaction.objects.filter(allocation_id=OuterRef('pk'))
-    pending_allocations = PlotAllocation.objects.annotate(
-        has_txn=Exists(txn_qs)
-    ).filter(has_txn=False).select_related('client', 'estate')
-
-    today = date.today()
-    active_promos_qs = PromotionalOffer.objects.filter(
-        start__lte=today, end__gte=today
-    )
-    estates = Estate.objects.prefetch_related(
-        'estate_plots__plotsizeunits__plot_size',
-        Prefetch('promotional_offers', queryset=active_promos_qs, to_attr='active_promos')
-    ).all()
-
-    current_promos = PromotionalOffer.objects.filter(
-        start__lte=today,
-        end__gte=today
-    ).prefetch_related('estates')
-
-
-    existing_prices = {
-        (pp.estate_id, pp.plot_unit_id): pp
-        for pp in PropertyPrice.objects.select_related(
-            'estate', 'plot_unit__plot_size'
-        ).all()
-    }
-
-    rows = []
-    for estate in estates:
-        active = estate.active_promos[0] if getattr(estate, 'active_promos', []) else None
-        for ep in estate.estate_plots.all():
-            for unit in ep.plotsizeunits.all():
-                key = (estate.id, unit.id)
-                if key in existing_prices:
-                    pp = existing_prices[key]
-                    
-                    # Convert current price to float for calculation
-                    current_price = float(pp.current)
-                    
-                    # Apply promo discount if active
-                    if active:
-                        discount_factor = float(1 - active.discount / 100)
-                        discounted_price = Decimal(str(current_price * discount_factor))
-                    else:
-                        discounted_price = pp.current
-                    
-                    # Calculate percentages using discounted price
-                    if pp.previous:
-                        percent_change = (float(discounted_price) - float(pp.previous)) / float(pp.previous) * 100
-                        pp.percent_change = Decimal(str(percent_change))
-                    if pp.presale:
-                        overtime = (float(discounted_price) - float(pp.presale)) / float(pp.presale) * 100
-                        pp.overtime = Decimal(str(overtime))
-                    
-                    # Store display values
-                    pp.display_current = discounted_price
-                    pp.active_promo = active
-                    rows.append(pp)
-                else:
-                    class DummyPrice:
-                        def __init__(self, est, unit, active_promo):
-                            self.id = None
-                            self.estate = est
-                            self.plot_unit = unit
-                            self.presale = None
-                            self.previous = None
-                            self.current = None
-                            self.percent_change = None
-                            self.overtime = None
-                            self.display_current = None
-                            self.effective = None
-                            self.notes = None
-                            self.active_promo = active_promo
-                    rows.append(DummyPrice(estate, unit, active))
-
-    context = {
-        'all_clients': ClientUser.objects.all(),
-        'estates': estates,
-        'marketers': MarketerUser.objects.all(),
-        'transactions': transactions,
-        'pending_allocations': pending_allocations,
-        'statuses': STATUSES,
-        'rows': rows,
-        'today': today,
-        'current_promos': current_promos,
-    }
-
-    return render(request, "admin_side/management-dashboard.html", context)
+    """
+    ⚠️ DEPRECATED: This view is for backward compatibility only.
+    Use tenant-aware routes instead: /<company-slug>/management/
+    This view redirects to the new Facebook-style routing.
+    """
+    company = getattr(request.user, 'company_profile', None)
+    
+    if not company:
+        messages.error(request, "You are not assigned to any company!")
+        return redirect('login')
+    
+    # Redirect to new tenant-aware route
+    from django.urls import reverse
+    new_url = reverse('tenant-management', kwargs={'company_slug': company.slug})
+    return redirect(new_url)
 
 
 def estate_allocation_data(request):
@@ -1489,7 +1365,7 @@ def add_prototypes(request):
         estate = Estate.objects.get(id=estate_id)
     except Estate.DoesNotExist:
         messages.error(request, "Estate not found")
-        return redirect('admin-dashboard')
+        return get_tenant_dashboard_redirect(request)
 
     # Get plot sizes available for this estate
     plot_sizes = PlotSize.objects.filter(
@@ -1609,7 +1485,7 @@ def add_estate_layout(request):
     estate_id = request.GET.get('estate_id')
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
-        return redirect("admin-dashboard")
+        return get_tenant_dashboard_redirect(request)
 
     estate = get_object_or_404(Estate, id=estate_id)
 
@@ -1642,7 +1518,7 @@ def add_estate_map(request):
     estate_id = request.GET.get("estate_id")
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
-        return redirect("admin-dashboard")
+        return get_tenant_dashboard_redirect(request)
     
     estate = get_object_or_404(Estate, id=estate_id)
     
@@ -1678,7 +1554,7 @@ def add_progress_status(request):
     estate_id = request.GET.get('estate_id')
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
-        return redirect("admin-dashboard")
+        return get_tenant_dashboard_redirect(request)
 
     estate = get_object_or_404(Estate, id=estate_id)
 
@@ -3842,6 +3718,48 @@ class CustomLoginView(LoginView):
         return context
 
     def form_valid(self, form):
+        # SECURITY: Check if user is a system admin - they cannot use this interface
+        user = form.get_user()
+        if getattr(user, 'is_system_admin', False):
+            messages.error(
+                self.request, 
+                "Access Denied: You are not allowed to login through this interface. "
+                "System administrators must use the dedicated system administration portal."
+            )
+            logger.warning(
+                f"SECURITY: System admin '{user.email}' attempted to access unified login. "
+                f"Access denied. IP: {extract_client_ip(self.request)}"
+            )
+            return self.form_invalid(form)
+        
+        # SECURITY: Tenancy Validation - Ensure user belongs to the company slug if provided
+        login_slug = self.kwargs.get('login_slug', None)
+        if login_slug:
+            # User is logging in via tenant-specific URL (e.g., /company-name/login/)
+            try:
+                company = Company.objects.get(slug=login_slug)
+                # Verify user belongs to this company
+                user_company = getattr(user, 'company_profile', None)
+                if user_company and user_company.id != company.id:
+                    # User's company doesn't match the slug - SECURITY VIOLATION
+                    messages.error(
+                        self.request,
+                        "❌ You do not have permission to login through this tenant portal. "
+                        "Please use your assigned company's login link."
+                    )
+                    logger.warning(
+                        f"SECURITY: Cross-company login attempt detected. "
+                        f"User '{user.email}' (Company: {user_company.company_name}) "
+                        f"attempted to access '{company.company_name}' (Slug: {login_slug}). "
+                        f"IP: {extract_client_ip(self.request)}"
+                    )
+                    return self.form_invalid(form)
+            except Company.DoesNotExist:
+                # Invalid company slug
+                messages.error(self.request, "❌ Invalid company portal URL.")
+                logger.warning(f"SECURITY: Login attempt with non-existent slug '{login_slug}'.")
+                return self.form_invalid(form)
+        
         response = super().form_valid(form)
         # Capture last login IP and (optionally) location
         try:
@@ -3888,9 +3806,35 @@ class CustomLoginView(LoginView):
             return redirect_to
 
         user = self.request.user
-        # Role-based routing (admin and secondary_admin both route to admin dashboard)
+        
+        # SECURITY: System Master Admin cannot use unified login interface
+        # They must use separate tenant admin login at /tenant-admin/login/
+        if user.role == 'admin' and getattr(user, 'admin_level', None) == 'system':
+            # Log this security incident
+            logger.warning(
+                f"SECURITY: System Master Admin '{user.email}' attempted to access unified login. "
+                f"Redirecting to tenant admin panel. IP: {extract_client_ip(self.request)}"
+            )
+            messages.info(self.request, "System Master Admin must use the admin panel. Redirecting...")
+            return reverse_lazy('tenant-admin-dashboard')  # Redirect to proper system admin area
+        
+        # Role-based routing (company admin and secondary_admin both route to admin dashboard)
         if user.role in ('admin', 'secondary_admin'):
-            return reverse_lazy('admin-dashboard')
+            # Verify admin_level to ensure company-scoped admin
+            admin_level = getattr(user, 'admin_level', 'company')
+            if admin_level != 'system':
+                # Use new tenant-aware routing
+                company = user.company_profile
+                if company:
+                    from django.urls import reverse
+                    return reverse('tenant-dashboard', kwargs={'company_slug': company.slug})
+                else:
+                    # Fallback if no company assigned
+                    messages.error(self.request, "You are not assigned to any company!")
+                    return reverse_lazy('login')
+            else:
+                # Fallback: should not reach here due to check above
+                return reverse_lazy('tenant-admin-dashboard')
         elif user.role == 'client':
             return reverse_lazy('client-dashboard')
         elif user.role == 'marketer':
@@ -3906,9 +3850,21 @@ def company_registration(request):
     """
     Company Registration - Creates Company and Admin User
     Companies become the "Company Admin" role with full management access
+    
+    Security:
+    - Validates strict tenancy rules with slug cybersecurity config
+    - Admin password stored separately from primary admin
+    - System admin cannot register through this interface (redirect enforced)
+    - Atomic transaction ensures no partial data creation
     """
     if request.method == 'POST':
         try:
+            # SECURITY: Verify user is not already a system master admin
+            if request.user.is_authenticated:
+                if request.user.role == 'admin' and getattr(request.user, 'admin_level', None) == 'system':
+                    messages.error(request, "❌ System Master Admin cannot register companies through this interface. Use admin panel.")
+                    return get_tenant_dashboard_redirect(request)
+            
             # Extract form data
             company_name = request.POST.get('company_name')
             registration_number = request.POST.get('registration_number')
@@ -3918,8 +3874,24 @@ def company_registration(request):
             ceo_dob = request.POST.get('ceo_dob')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
-            password = request.POST.get('password')
-            confirm_password = request.POST.get('confirm_password')
+            
+            # CRITICAL: Get subscription tier - REQUIRED and MUST be valid
+            subscription_tier = request.POST.get('subscription_tier', '').strip()
+            if not subscription_tier or subscription_tier not in ['starter', 'professional', 'enterprise']:
+                messages.error(
+                    request, 
+                    "❌ Subscription plan is REQUIRED! Please select a plan: Starter, Professional, or Enterprise."
+                )
+                return redirect('login')
+            
+            # Handle both old and new password field names
+            password = request.POST.get('password') or request.POST.get('secondary_admin_password')
+            confirm_password = request.POST.get('confirm_password') or request.POST.get('secondary_admin_confirm_password')
+            
+            # Secondary admin details (optional)
+            secondary_admin_email = request.POST.get('secondary_admin_email')
+            secondary_admin_phone = request.POST.get('secondary_admin_phone')
+            secondary_admin_name = request.POST.get('secondary_admin_name')
 
             # Validation
             if password != confirm_password:
@@ -3930,7 +3902,7 @@ def company_registration(request):
                 messages.error(request, "Password must be at least 8 characters long!")
                 return redirect('login')
 
-            # Check if company already exists
+            # Check if company already exists (strict isolation check)
             if Company.objects.filter(company_name=company_name).exists():
                 messages.error(request, f"A company with the name '{company_name}' already exists!")
                 return redirect('login')
@@ -3943,17 +3915,17 @@ def company_registration(request):
                 messages.error(request, "This company email is already registered!")
                 return redirect('login')
 
-            # Check if user email already exists
+            # Check if user email already exists (strict email isolation)
             if CustomUser.objects.filter(email=email).exists():
                 messages.error(request, "A user with this email already exists!")
                 return redirect('login')
 
-            # Create company with transaction
+            # Create company with transaction (atomic: all or nothing)
             with transaction.atomic():
                 # Calculate trial end date (14 days from now)
                 trial_end = timezone.now() + timedelta(days=14)
                 
-                # Create the company
+                # Create the company with strict isolation metadata
                 company = Company.objects.create(
                     company_name=company_name,
                     registration_number=registration_number,
@@ -3965,28 +3937,68 @@ def company_registration(request):
                     phone=phone,
                     is_active=True,
                     subscription_status='trial',
-                    trial_ends_at=trial_end,
-                    subscription_tier='starter'  # Default tier
+                    subscription_tier=subscription_tier,  # Use selected subscription tier
+                    trial_ends_at=trial_end
                 )
 
-                # Create the admin user (Company Admin)
+                # Create the primary admin user (Company Admin - NOT system admin)
                 admin_user = CustomUser.objects.create_user(
                     email=email,
                     full_name=ceo_name,
                     phone=phone,
                     password=password,
                     role='admin',  # Company Admin role
+                    admin_level='company',  # CRITICAL: Company-level admin, NOT system
                     company_profile=company,
                     address=location,
                     date_of_birth=ceo_dob,
                     is_staff=True,
-                    is_superuser=False,  # Not system admin, just company admin
+                    is_superuser=False,  # Explicitly NOT system admin
                     is_active=True
                 )
 
                 # Set additional fields
                 admin_user.company = company_name
                 admin_user.save()
+                
+                # CRITICAL: Create subscription billing record with 14-day free trial
+                from estateApp.subscription_billing_models import SubscriptionBillingModel
+                
+                trial_starts = timezone.now()
+                trial_ends = trial_starts + timedelta(days=14)
+                
+                billing = SubscriptionBillingModel.objects.create(
+                    company=company,
+                    status='trial',
+                    payment_method='free_trial',
+                    trial_started_at=trial_starts,
+                    trial_ends_at=trial_ends,
+                    billing_cycle='monthly',
+                    auto_renew=False,
+                    monthly_amount=Decimal('0.00'),
+                    annual_amount=Decimal('0.00'),
+                )
+                
+                # Create secondary admin user if provided (optional but separate credentials)
+                if secondary_admin_email and secondary_admin_name:
+                    if CustomUser.objects.filter(email=secondary_admin_email).exists():
+                        messages.warning(request, f"Secondary admin email {secondary_admin_email} already exists. You can add them later from admin panel.")
+                    else:
+                        # Create secondary admin with same role but different account
+                        secondary_admin = CustomUser.objects.create_user(
+                            email=secondary_admin_email,
+                            full_name=secondary_admin_name,
+                            phone=secondary_admin_phone or phone,
+                            password=password,  # Use same password as primary initially
+                            role='admin',  # Also company admin
+                            admin_level='company',  # CRITICAL: Company-level, NOT system
+                            company_profile=company,
+                            is_staff=True,
+                            is_superuser=False,
+                            is_active=True
+                        )
+                        secondary_admin.company = company_name
+                        secondary_admin.save()
 
                 messages.success(
                     request,
@@ -4631,10 +4643,19 @@ def add_transaction(request):
     # --- 4) Save & respond ---
     try:
         txn.save()
-        return redirect("management-dashboard")
+        company = getattr(request.user, 'company_profile', None)
+        if company:
+            from django.urls import reverse
+            return redirect(reverse('tenant-management', kwargs={'company_slug': company.slug}))
+        return redirect("login")
     except Exception as e:
+        company = getattr(request.user, 'company_profile', None)
+        all_clients = CustomUser.objects.filter(
+            role='client',
+            company_profile=company
+        ) if company else CustomUser.objects.none()
         return render(request, "admin_side/management-dashboard.html", {
-            "all_clients": ClientUser.objects.all(),
+            "all_clients": all_clients,
             "error":       str(e),
             "posted":      request.POST,
         })

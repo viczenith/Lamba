@@ -2,7 +2,15 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import *
-from django.contrib.auth.views import LoginView, LogoutView
+from .tenant_views import (
+    tenant_admin_dashboard,
+    tenant_management_dashboard,
+    tenant_user_management,
+    tenant_company_settings,
+    redirect_admin_dashboard_to_tenant,
+    redirect_management_to_tenant,
+)
+from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 
 
 urlpatterns = [
@@ -11,6 +19,12 @@ urlpatterns = [
     path('<slug:login_slug>/login/', CustomLoginView.as_view(), name='tenant-login'),
     path('login/', CustomLoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
+    
+    # Password Reset URLs (Django built-in)
+    path('password-reset/', PasswordResetView.as_view(template_name='auth/password_reset.html'), name='password_reset'),
+    path('password-reset/done/', PasswordResetDoneView.as_view(template_name='auth/password_reset_done.html'), name='password_reset_done'),
+    path('password-reset/<uidb64>/<token>/', PasswordResetConfirmView.as_view(template_name='auth/password_reset_confirm.html'), name='password_reset_confirm'),
+    path('password-reset/complete/', PasswordResetCompleteView.as_view(template_name='auth/password_reset_complete.html'), name='password_reset_complete'),
     
     # Registration URLs for different user types
     path('register/', company_registration, name='register'),  # Company registration
@@ -27,12 +41,14 @@ urlpatterns = [
     path('', login_required(HomeView.as_view()), name="home"),
     # path('login/', CustomLoginView.as_view(), name="login-here"),
 
-    path('admin_dashboard/', admin_dashboard, name="admin-dashboard"),
+    # ⚠️ DEPRECATED: Use /<company-slug>/dashboard/ instead
+    # path('admin_dashboard/', admin_dashboard, name="admin-dashboard"),
     path('estate-allocation-data/', estate_allocation_data, name='estate_allocation_data'),
     
     # path('client_profile', client_profile, name='client-profile'),
     path('client_profile/<int:pk>/', client_profile, name='client-profile'),
-    path('management-dashboard', management_dashboard, name='management-dashboard'),
+    # ⚠️ DEPRECATED: Use /<company-slug>/management/ instead
+    # path('management-dashboard', management_dashboard, name='management-dashboard'),
     path('add-plotsize', add_plotsize, name='add-plotsize'),
     path('add-plotnumber', add_plotnumber, name='add-plotnumber'),
     path('delete-plotsize/<int:pk>/', delete_plotsize, name='delete-plotsize'),
@@ -258,5 +274,67 @@ urlpatterns = [
     # # MESSAGING AND BIRTHDAY.
         
 ]
+
+# ============================================================================
+# FACEBOOK-STYLE DYNAMIC TENANT-AWARE ROUTING
+# ============================================================================
+# Add secure, tenant-scoped routes with company slug in URL
+# Pattern: /<company-slug>/<page>/
+# Example: /lamba-real-homes/dashboard/, /property-plus/users/
+#
+# BENEFITS:
+#   ✅ Clear tenant identification in URL
+#   ✅ User-friendly and SEO-friendly
+#   ✅ Security: Cannot access other company's data
+#   ✅ Company context auto-injected in view
+#   ✅ Automatic 403 Forbidden for unauthorized access
+#   ✅ Backward compatibility: old routes redirect to new
+#
+tenant_patterns = [
+    # Dynamic tenant-aware dashboard (replaces /admin_dashboard/)
+    path(
+        '<slug:company_slug>/dashboard/',
+        tenant_admin_dashboard,
+        name='tenant-dashboard'
+    ),
+    
+    # Dynamic tenant-aware management dashboard (replaces /management-dashboard/)
+    path(
+        '<slug:company_slug>/management/',
+        tenant_management_dashboard,
+        name='tenant-management'
+    ),
+    
+    # Dynamic tenant-aware user management (new feature)
+    path(
+        '<slug:company_slug>/users/',
+        tenant_user_management,
+        name='tenant-users'
+    ),
+    
+    # Dynamic tenant-aware company settings (new feature)
+    path(
+        '<slug:company_slug>/settings/',
+        tenant_company_settings,
+        name='tenant-settings'
+    ),
+    
+    # Backward compatibility redirects (old routes → new routes)
+    path(
+        'admin_dashboard/',
+        redirect_admin_dashboard_to_tenant,
+        name='admin-dashboard-redirect'
+    ),
+    
+    path(
+        'management-dashboard/',
+        redirect_management_to_tenant,
+        name='management-dashboard-redirect'
+    ),
+]
+
+# Add tenant patterns to main urlpatterns
+urlpatterns += tenant_patterns
+        
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

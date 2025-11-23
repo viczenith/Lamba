@@ -864,7 +864,7 @@ def get_company(request):
 - [ ] Configure email backend
 
 ### Production Deployment
-
+ 
 1. **Database Migration**
    ```bash
    python manage.py migrate estateApp
