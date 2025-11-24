@@ -379,7 +379,7 @@
                                                         <span class="text-muted">Master admin (protected)</span>
                                                     {% elif master_admin_id and request.user.id == master_admin_id %}
                                                         <button class="btn btn-sm btn-outline-primary me-2" data-action="edit-user" data-user-id="{{ a.id }}" data-user-type="admin" data-user-name="{{ a.full_name }}" data-user-email="{{ a.email }}" data-user-phone="{{ a.phone|default:'' }}" data-user-address="{{ a.address|default:'' }}">
-                                                            <i class="bi bi-pencil"></i> Edit
+                                                            <i class="bi bi-pencil"></i> Update
                                                         </button>
                                                         <button class="btn btn-sm btn-outline-warning me-2" data-action="toggle-mute" data-user-id="{{ a.id }}" data-current="{{ a.is_active|yesno:'active,muted' }}">
                                                             {% if a.is_active %}<i class="bi bi-volume-mute"></i> Mute{% else %}<i class="bi bi-volume-up"></i> Unmute{% endif %}
@@ -2736,11 +2736,21 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="editNewPassword" class="form-label">New Password</label>
-                                <input type="password" class="form-control" id="editNewPassword" name="new_password">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="editNewPassword" name="new_password">
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">
+                                        <i class="bi bi-eye" id="newPasswordIcon"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="editConfirmPassword" class="form-label">Confirm New Password</label>
-                                <input type="password" class="form-control" id="editConfirmPassword" name="confirm_password">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="editConfirmPassword" name="confirm_password">
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                        <i class="bi bi-eye" id="confirmPasswordIcon"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -2753,7 +2763,12 @@
                         </div>
                         <div class="col-12">
                             <label for="masterAdminPassword" class="form-label">Your Master Admin Password</label>
-                            <input type="password" class="form-control" id="masterAdminPassword" name="master_admin_password" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="masterAdminPassword" name="master_admin_password" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleMasterPassword">
+                                    <i class="bi bi-eye" id="masterPasswordIcon"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">Enter your current password to authorize this change.</small>
                         </div>
                         {% endif %}
@@ -2774,5 +2789,48 @@
 </main>
 
     <script>
+    // Password visibility toggle for edit modal
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle for new password field
+        const toggleNewPassword = document.getElementById('toggleNewPassword');
+        const editNewPassword = document.getElementById('editNewPassword');
+        const newPasswordIcon = document.getElementById('newPasswordIcon');
+        
+        if (toggleNewPassword && editNewPassword && newPasswordIcon) {
+            toggleNewPassword.addEventListener('click', function() {
+                const type = editNewPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                editNewPassword.setAttribute('type', type);
+                newPasswordIcon.className = type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+            });
+        }
+        
+        // Toggle for confirm password field
+        const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+        const editConfirmPassword = document.getElementById('editConfirmPassword');
+        const confirmPasswordIcon = document.getElementById('confirmPasswordIcon');
+        
+        if (toggleConfirmPassword && editConfirmPassword && confirmPasswordIcon) {
+            toggleConfirmPassword.addEventListener('click', function() {
+                const type = editConfirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                editConfirmPassword.setAttribute('type', type);
+                confirmPasswordIcon.className = type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+            });
+        }
+        
+        // Toggle for master admin password field
+        const toggleMasterPassword = document.getElementById('toggleMasterPassword');
+        const masterAdminPassword = document.getElementById('masterAdminPassword');
+        const masterPasswordIcon = document.getElementById('masterPasswordIcon');
+        
+        if (toggleMasterPassword && masterAdminPassword && masterPasswordIcon) {
+            toggleMasterPassword.addEventListener('click', function() {
+                const type = masterAdminPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                masterAdminPassword.setAttribute('type', type);
+                masterPasswordIcon.className = type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+            });
+        }
+    });
+    </script>
+
 {% endblock %}
 
