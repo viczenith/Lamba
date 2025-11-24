@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>{% block title %}FesCode - {% endblock %}</title>
+  <title>{% block title %}{% if request.user.is_authenticated and request.user.company_profile and request.user.company_profile.company_name %}{{ request.user.company_profile.company_name }} - Lamba {% else %}Lamba{% endif %}{% endblock %}</title>
   <meta name="description" content="">
   <meta name="keywords" content="">
 

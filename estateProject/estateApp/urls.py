@@ -34,8 +34,12 @@ urlpatterns = [
     
     path('company-profile/', company_profile_view, name='company-profile'),
     path('company-profile/update/', company_profile_update, name='company-profile-update'),
+    path('company-profile/ceo/<int:ceo_id>/delete/', delete_company_ceo, name='company-ceo-delete'),
     path('company-profile/admin/<int:user_id>/toggle-mute/', admin_toggle_mute, name='admin-toggle-mute'),
     path('company-profile/admin/<int:user_id>/delete/', admin_delete_admin, name='admin-delete-admin'),
+
+
+    path('company-profile/verify-master-password/', verify_master_password, name='verify-master-password'),
 
 
     path('', login_required(HomeView.as_view()), name="home"),

@@ -14,7 +14,81 @@
         </nav>
     </div>
 
-    <div class="container py-3">
+    <!-- Password Verification Modal -->
+    <div class="modal fade" id="passwordModal" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #22c55e 0%, #0f7c3a 100%); color: white; border: none; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%);"></div>
+                    <div style="position: relative; z-index: 1;">
+                        <h5 class="modal-title" id="passwordModalLabel" style="font-weight: 700; letter-spacing: -0.5px;">
+                            <i class="bi bi-shield-lock-fill me-2" style="font-size: 1.2rem;"></i>Master Admin Verification
+                        </h5>
+                        <small style="opacity: 0.95; display: block; margin-top: 4px;">Secure access to company profile</small>
+                    </div>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #22c55e 0%, #0f7c3a 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3);">
+                            <i class="bi bi-shield-lock-fill" style="font-size: 28px; color: white;"></i>
+                        </div>
+                        <p class="mb-4" style="color: #374151; font-size: 1.1rem; line-height: 1.5;">Please enter the master admin password to access the company profile.</p>
+                    </div>
+                    <form id="passwordForm">
+                        <div class="mb-3">
+                            <label for="masterPassword" class="form-label fw-semibold" style="color: #1f2937;">Master Admin Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control form-control-lg border-end-0" id="masterPassword" name="password" required style="border-radius: 8px 0 0 8px; border: 2px solid #e5e7eb; border-right: none; padding: 12px 16px; font-size: 1rem;">
+                                <button type="button" class="btn btn-outline-secondary border-start-0" id="togglePassword" style="border-radius: 0 8px 8px 0; border: 2px solid #e5e7eb; border-left: none; background: white;">
+                                    <i class="bi bi-eye" id="passwordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="passwordError" class="alert alert-danger d-none border-0" role="alert" style="border-radius: 8px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); color: #dc2626;">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <span id="errorText"></span>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 p-4" style="background: #f8fafc;">
+                    <button type="button" class="btn btn-primary btn-lg px-4" id="verifyBtn" style="background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); border: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); transition: all 0.3s ease;">
+                        <i class="bi bi-check-circle-fill me-2"></i>Verify Access
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blur overlay for modal background -->
+    <style>
+        #passwordModal.show {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        #passwordModal .modal-backdrop {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        #passwordModal .form-control:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+
+        #passwordModal .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        #passwordModal #togglePassword:hover {
+            background: #f8fafc !important;
+            border-color: #22c55e !important;
+            color: #16a34a !important;
+        }
+    </style>
+
+    <div class="container py-3" id="protectedContent">
         <div class="d-flex align-items-center justify-content-between mb-3">
             <div class="d-flex align-items-center">
                 <div class="me-3" style="width:64px;height:64px;border-radius:12px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center">
@@ -31,7 +105,7 @@
             </div>
             <div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editCompanyModal">
-                    <i class="bi bi-pencil-square me-1"></i> Edit Company Details
+                    <i class="bi bi-pencil-square me-1"></i> Update Company Details
                 </button>
             </div>
         </div>
@@ -46,10 +120,15 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">Users</button>
+                <button class="nav-link" id="user-registration-tab" data-bs-toggle="tab" data-bs-target="#user-registration" type="button" role="tab">
+                    <i class="bi bi-person-plus me-1"></i>Register Admins
+                </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="admins-tab" data-bs-toggle="tab" data-bs-target="#admins" type="button" role="tab">Admins</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">Users</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="support-tab" data-bs-toggle="tab" data-bs-target="#support" type="button" role="tab">AdminSupport</button>
@@ -101,13 +180,32 @@
                                         </div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-sm-6">
-                                            <div class="text-muted small">CEO Name</div>
-                                            <div class="fw-semibold">{{ company.ceo_name }}</div>
-                                        </div>
-                                        <div class="col-sm-6">
-                                            <div class="text-muted small">CEO Date of Birth</div>
-                                            <div class="fw-semibold">{{ company.ceo_dob|date:'M d, Y' }}</div>
+                                        <div class="col-12">
+                                            <div class="text-muted small">Chief Executive Officers</div>
+                                            <div class="mt-2">
+                                                {% if company and company.ceos.all %}
+                                                    {% for ceo in company.ceos.all %}
+                                                            {% if ceo.is_primary %}
+                                                                    <div class="d-inline-block me-2 mb-1">
+                                                                        <span class="ceo-tag primary-ceo" title="Master CEO">
+                                                                            <i class="bi bi-award-fill me-1" aria-hidden="true"></i>
+                                                                            <span class="ceo-name">{{ ceo.name }}</span>
+                                                                            <span class="ceo-role ms-2">Master CEO</span><br>
+                                                                        </span>
+                                                                    </div>
+                                                            {% else %}
+                                                                <div class="d-inline-block me-2 mb-1">
+                                                                    <span class="ceo-tag other-ceo" title="Additional CEO">
+                                                                        <i class="bi bi-person-fill me-1" aria-hidden="true"></i>
+                                                                        <span class="ceo-name">{{ ceo.name }}</span>
+                                                                    </span>
+                                                                </div>
+                                                            {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <div class="fw-semibold">{{ company.ceo_name }}</div>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                     </div>
                                 {% else %}
@@ -246,7 +344,12 @@
                             <tbody>
                                 {% for a in admin_users %}
                                 <tr>
-                                    <td>{{ a.full_name }}</td>
+                                    <td>
+                                        {{ a.full_name }}
+                                        {% if master_admin_id and a.id == master_admin_id %}
+                                            <span class="badge bg-warning text-dark ms-2" title="Master admin">Master admin</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ a.email }}</td>
                                     <td>{{ a.phone|default:'-' }}</td>
                                                 <td>{{ a.date_joined|date:'M d, Y' }}</td>
@@ -268,7 +371,9 @@
                                                     {% endif %}
                                                 </td>
                                                 <td class="text-end">
-                                                    {% if request.user.id != a.id %}
+                                                    {% if master_admin_id and a.id == master_admin_id %}
+                                                        <span class="text-muted">Master admin (protected)</span>
+                                                    {% elif request.user.id != a.id %}
                                                         <button class="btn btn-sm btn-outline-warning me-2" data-action="toggle-mute" data-user-id="{{ a.id }}" data-current="{{ a.is_active|yesno:'active,muted' }}">
                                                             {% if a.is_active %}<i class="bi bi-volume-mute"></i> Mute{% else %}<i class="bi bi-volume-up"></i> Unmute{% endif %}
                                                         </button>
@@ -1400,6 +1505,8 @@
                     </div>
                 </div>
             </div>
+
+            {% include 'admin_side/company_user_registration.html' %}
         </div>
 
         <div class="text-end mt-3">
@@ -1556,14 +1663,19 @@
                         {% csrf_token %}
                         {% if company %}
                         <div class="row g-3">
+                            <div class="col-12">
+                                <small class="text-muted">Use this form to update company details. You can add additional CEOs below.</small>
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label">Company Name</label>
-                                <input type="text" name="company_name" class="form-control" value="{{ company.company_name }}" required>
+                                <input type="text" name="company_name" class="form-control form-control-lg" value="{{ company.company_name }}" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Registration Number</label>
                                 <input type="text" name="registration_number" class="form-control" value="{{ company.registration_number }}" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label">Registration Date</label>
                                 <input type="date" name="registration_date" class="form-control" value="{{ company.registration_date|date:'Y-m-d' }}" required>
@@ -1572,14 +1684,58 @@
                                 <label class="form-label">Location</label>
                                 <input type="text" name="location" class="form-control" value="{{ company.location }}" required>
                             </div>
+
+                            <div class="col-12">
+                                <hr>
+                                <h6 class="mb-2">Chief Executive Officers</h6>
+                            </div>
+
+                            <!-- Primary CEO (existing during signup) -->
                             <div class="col-md-6">
-                                <label class="form-label">CEO Name</label>
-                                <input type="text" name="ceo_name" class="form-control" value="{{ company.ceo_name }}" required>
+                                <label class="form-label">CEO Name <span class="ceo-tag ms-2" style="font-size: 10px;">Master CEO</span></label>
+                                {% if company and company.ceos.all %}
+                                    {% with primary=company.ceos.all.0 %}
+                                        <input type="text" name="primary_ceo_name" class="form-control" value="{{ primary.name }}" required>
+                                    {% endwith %}
+                                {% else %}
+                                    <input type="text" name="primary_ceo_name" class="form-control" value="{{ company.ceo_name }}">
+                                {% endif %}
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">CEO Date of Birth</label>
-                                <input type="date" name="ceo_dob" class="form-control" value="{{ company.ceo_dob|date:'Y-m-d' }}" required>
+                                {% if company and company.ceos.all %}
+                                    {% with primary=company.ceos.all.0 %}
+                                        <input type="date" name="primary_ceo_dob" class="form-control" value="{{ primary.dob|date:'Y-m-d' }}">
+                                    {% endwith %}
+                                {% else %}
+                                    <input type="date" name="primary_ceo_dob" class="form-control" value="{{ company.ceo_dob|date:'Y-m-d' }}">
+                                {% endif %}
                             </div>
+
+                            <!-- Dynamic additional CEOs container -->
+                            <div class="col-12">
+                                <div id="additionalCeoList">
+                                    {% if company and company.ceos.all %}
+                                        {% for ceo in company.ceos.all|slice:"1:" %}
+                                            <div class="row g-2 mb-2 ceo-item" data-ceo-id="{{ ceo.id }}" data-ceo-name="{{ ceo.name }}">
+                                                <div class="col-md-5">
+                                                    <input type="text" name="other_ceo_name[]" class="form-control" value="{{ ceo.name }}" placeholder="Additional CEO name">
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="date" name="other_ceo_dob[]" class="form-control" value="{{ ceo.dob|date:'Y-m-d' }}">
+                                                </div>
+                                                <div class="col-md-2 d-flex align-items-center">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-ceo-btn">Remove</button>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                                <div class="mt-2">
+                                    <button type="button" id="addCeoBtn" class="btn btn-outline-success btn-sm"><i class="bi bi-plus-lg me-1"></i> Add More CEOs</button>
+                                </div>
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label">Email</label>
                                 <input type="email" name="email" class="form-control" value="{{ company.email }}" required>
@@ -1592,12 +1748,7 @@
                                 <label class="form-label">Logo</label>
                                 <input type="file" name="logo" class="form-control" accept="image/*">
                             </div>
-                            <div class="col-md-6 d-flex align-items-end">
-                                <div class="form-check mt-3">
-                                    <input class="form-check-input" type="checkbox" name="is_active" id="is_active" {% if company.is_active %}checked{% endif %}>
-                                    <label class="form-check-label" for="is_active">Active</label>
-                                </div>
-                            </div>
+
                         </div>
                         {% else %}
                             <div class="alert alert-info">No company record to edit.</div>
@@ -1606,7 +1757,11 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save changes</button>
+                        <button type="submit" class="btn btn-success d-flex align-items-center" id="companySaveBtn">
+                            <span id="companySaveSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-check2-circle me-1"></i>
+                            <span id="companySaveText">Save changes</span>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -1614,6 +1769,26 @@
     </div>
 
 </main>
+
+<!-- Modal: Confirm remove additional CEO -->
+<div class="modal fade" id="removeCeoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Remove Additional CEO</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="removeCeoText">Are you sure?</p>
+                <div class="alert d-none" id="removeCeoFeedback"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRemoveCeoBtn">Remove</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     // Initialize progress bar widths
@@ -1631,16 +1806,118 @@
         const form = document.getElementById('companyEditForm');
         if (!form) return;
 
+        // Dynamic CEOs: add / remove additional CEO input rows
+        const additionalCeoList = document.getElementById('additionalCeoList');
+        const addCeoBtn = document.getElementById('addCeoBtn');
+
+        function createCeoRow(name = '', dob = '') {
+            const row = document.createElement('div');
+            row.className = 'row g-2 mb-2 ceo-item';
+            row.innerHTML = `
+                <div class="col-md-5">
+                    <input type="text" name="other_ceo_name[]" class="form-control" value="${name}" placeholder="Additional CEO name">
+                </div>
+                <div class="col-md-5">
+                    <input type="date" name="other_ceo_dob[]" class="form-control" value="${dob}">
+                </div>
+                <div class="col-md-2 d-flex align-items-center">
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-ceo-btn">Remove</button>
+                </div>
+            `;
+            return row;
+        }
+
+        if (addCeoBtn) {
+            addCeoBtn.addEventListener('click', function() {
+                const row = createCeoRow();
+                additionalCeoList.appendChild(row);
+            });
+        }
+
+        // Delegate remove: open a Bootstrap modal for confirmation and perform AJAX delete when needed
+        if (additionalCeoList) {
+            let pendingCeoItem = null;
+
+            additionalCeoList.addEventListener('click', function(e) {
+                const btn = e.target.closest('.remove-ceo-btn');
+                if (!btn) return;
+                const item = btn.closest('.ceo-item');
+                if (!item) return;
+
+                pendingCeoItem = item;
+                const ceoName = item.getAttribute('data-ceo-name') || (item.querySelector('input[name="other_ceo_name[]"]')?.value || '').trim();
+                const modal = document.getElementById('removeCeoModal');
+                modal.querySelector('#removeCeoText').textContent = ceoName
+                    ? `Remove additional CEO "${ceoName}"? This will remove the entry from the form.`
+                    : 'Remove this additional CEO entry? This will remove the entry from the form.';
+                const bs = new bootstrap.Modal(modal);
+                bs.show();
+            });
+
+            // Confirm button handler
+            document.addEventListener('click', async function(e) {
+                const btn = e.target.closest('#confirmRemoveCeoBtn');
+                if (!btn) return;
+                const modalEl = document.getElementById('removeCeoModal');
+                const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                const feedback = modalEl.querySelector('#removeCeoFeedback');
+                feedback.classList.add('d-none');
+
+                if (!pendingCeoItem) {
+                    bsModal.hide();
+                    return;
+                }
+
+                const ceoId = pendingCeoItem.getAttribute('data-ceo-id');
+                // If saved (has id), call delete endpoint; otherwise just remove from DOM
+                if (!ceoId) {
+                    pendingCeoItem.remove();
+                    pendingCeoItem = null;
+                    bsModal.hide();
+                    return;
+                }
+
+                // Do AJAX POST to delete endpoint
+                const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+                const url = `{% url 'company-ceo-delete' ceo_id=0 %}`.replace('/0/', `/${ceoId}/`);
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData });
+                    const data = await res.json();
+                    if (data.ok) {
+                        pendingCeoItem.remove();
+                        pendingCeoItem = null;
+                        bsModal.hide();
+                    } else {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.add('alert-danger');
+                        feedback.textContent = data.error || 'Failed to remove CEO';
+                    }
+                } catch (err) {
+                    feedback.classList.remove('d-none');
+                    feedback.classList.add('alert-danger');
+                    feedback.textContent = 'Network or server error. Please try again.';
+                }
+            });
+        }
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             const url = '{% url "company-profile-update" %}';
             const feedback = document.getElementById('companyEditFeedback');
+            const saveBtn = document.getElementById('companySaveBtn');
+            const spinner = document.getElementById('companySaveSpinner');
+            const saveText = document.getElementById('companySaveText');
 
             const formData = new FormData(form);
-            // Normalize checkbox
-            if (!form.querySelector('input[name="is_active"]').checked) {
-                // send unchecked as empty; Django treats absence as False for BooleanField when binding instance
-            }
+
+            // Show spinner and disable button
+            if (spinner) spinner.classList.remove('d-none');
+            if (saveBtn) saveBtn.disabled = true;
+            if (saveText) saveText.textContent = 'Saving...';
+
             try {
                 const res = await fetch(url, {
                     method: 'POST',
@@ -1664,11 +1941,18 @@
                     } else {
                         feedback.textContent = data.error || 'Update failed';
                     }
+                    // Hide spinner and re-enable
+                    if (spinner) spinner.classList.add('d-none');
+                    if (saveBtn) saveBtn.disabled = false;
+                    if (saveText) saveText.textContent = 'Save changes';
                 }
             } catch (err) {
                 feedback.classList.remove('d-none');
                 feedback.classList.add('alert-danger');
                 feedback.textContent = 'Network or server error. Please try again.';
+                if (spinner) spinner.classList.add('d-none');
+                if (saveBtn) saveBtn.disabled = false;
+                if (saveText) saveText.textContent = 'Save changes';
             }
         });
     })();
@@ -1789,6 +2073,69 @@
             });
         })();
 </script>
+
+<style>
+    /* CEO tag: visually distinct from badges */
+    .ceo-tag {
+        display: inline-block;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        box-shadow: 0 6px 18px rgba(16,185,129,0.18);
+        font-size: 0.95rem;
+    }
+
+    .ceo-tag .ceo-role {
+        background: rgba(255,255,255,0.15);
+        color: rgba(255,255,255,0.95);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.7rem;
+        vertical-align: middle;
+    }
+
+    .ceo-tag .bi-award-fill {
+        font-size: 0.9rem;
+        vertical-align: -2px;
+    }
+
+    .master-badge {
+        background: #fbbf24;
+        color: #1f2937;
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+    /* Primary CEO variant (keeps green look) */
+    .ceo-tag.primary-ceo {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #fff;
+        box-shadow: 0 6px 18px rgba(16,185,129,0.18);
+    }
+
+    /* Other CEO variant: pill with softer purple/blue gradient */
+    .ceo-tag.other-ceo {
+        background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        box-shadow: 0 6px 14px rgba(99,102,241,0.12);
+        font-size: 0.9rem;
+    }
+
+    .ceo-tag.other-ceo .bi-person-fill {
+        font-size: 0.9rem;
+        vertical-align: -2px;
+    }
+
+    /* Slight spacing for CEO name inside pill */
+    .ceo-tag .ceo-name { vertical-align: middle; }
+</style>
 
 <!-- Subscription & Billing JavaScript -->
 <script>
@@ -2032,7 +2379,190 @@
     function showBillingHistory() {
         document.querySelector('a[data-bs-target="#billing"]').click();
     }
+
+    // Password verification modal with session timeout
+    document.addEventListener('DOMContentLoaded', function() {
+        const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+
+        // Session timeout configuration
+        const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const WARNING_TIME = 1 * 60 * 1000; // Show warning 1 minute before timeout
+        let sessionTimer;
+        let warningTimer;
+        let isModalShown = false;
+
+        // Function to show password modal
+        function showPasswordModal() {
+            if (!isModalShown) {
+                document.getElementById('protectedContent').style.display = 'none';
+                passwordModal.show();
+                isModalShown = true;
+            }
+        }
+
+        // Function to show session warning
+        function showSessionWarning() {
+            document.getElementById('sessionWarning').style.display = 'block';
+        }
+
+        // Function to hide session warning
+        function hideSessionWarning() {
+            document.getElementById('sessionWarning').style.display = 'none';
+        }
+
+        // Function to extend session (global function for onclick)
+        window.extendSession = function() {
+            hideSessionWarning();
+            resetSessionTimer();
+        };
+
+        // Function to reset session timer
+        function resetSessionTimer() {
+            clearTimeout(sessionTimer);
+            clearTimeout(warningTimer);
+            hideSessionWarning();
+            
+            // Set warning timer (4 minutes from now)
+            warningTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT - WARNING_TIME);
+            // Set session timeout (5 minutes from now)
+            sessionTimer = setTimeout(showPasswordModal, SESSION_TIMEOUT);
+        }
+
+        // Function to handle user activity
+        function handleUserActivity() {
+            // If modal is already shown, don't reset timer
+            if (isModalShown) return;
+
+            hideSessionWarning();
+            resetSessionTimer();
+        }
+
+        // Start session timer on page load
+        resetSessionTimer();
+
+        // Listen for user activity events
+        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        activityEvents.forEach(event => {
+            document.addEventListener(event, handleUserActivity, true);
+        });
+
+        // Password visibility toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('masterPassword');
+        const passwordIcon = document.getElementById('passwordIcon');
+
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+
+            // Toggle icon
+            if (type === 'password') {
+                passwordIcon.className = 'bi bi-eye';
+            } else {
+                passwordIcon.className = 'bi bi-eye-slash';
+            }
+        });
+
+        document.getElementById('verifyBtn').addEventListener('click', async function() {
+            const password = document.getElementById('masterPassword').value;
+            const errorDiv = document.getElementById('passwordError');
+            const errorText = document.getElementById('errorText');
+
+            errorDiv.classList.add('d-none');
+            errorText.textContent = '';
+
+            if (!password) {
+                errorText.textContent = 'Please enter the password.';
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+
+            // Show loading state
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verifying...';
+
+            try {
+                const response = await fetch('{% url "verify-master-password" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: new URLSearchParams({ password: password })
+                });
+
+                const data = await response.json();
+
+                if (data.ok) {
+                    // Success animation
+                    this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Access Granted!';
+                    this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
+
+                    setTimeout(() => {
+                        passwordModal.hide();
+                        document.getElementById('protectedContent').style.display = 'block';
+                        isModalShown = false; // Reset modal state
+                        hideSessionWarning(); // Hide any warning
+                        resetSessionTimer(); // Restart session timer
+                    }, 1000);
+                } else {
+                    // Reset button
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
+
+                    errorText.textContent = data.error || 'Invalid password.';
+                    errorDiv.classList.remove('d-none');
+
+                    // Shake animation for error
+                    passwordInput.style.animation = 'shake 0.5s ease-in-out';
+                    setTimeout(() => {
+                        passwordInput.style.animation = '';
+                    }, 500);
+                }
+            } catch (error) {
+                // Reset button
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
+
+                errorText.textContent = 'Network error. Please try again.';
+                errorDiv.classList.remove('d-none');
+            }
+        });
+
+        // Cleanup timers when page unloads
+        window.addEventListener('beforeunload', function() {
+            clearTimeout(sessionTimer);
+            clearTimeout(warningTimer);
+        });
+
+    // Add shake animation CSS
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    `;
+    document.head.appendChild(style);
 </script>
+
+</div> <!-- End of protectedContent -->
+
+    <!-- Session Timeout Warning -->
+    <div class="alert alert-warning alert-dismissible fade show position-fixed" id="sessionWarning" style="display: none; top: 20px; right: 20px; z-index: 1050; min-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-clock-history me-2" style="font-size: 1.2rem;"></i>
+            <div>
+                <strong>Session Expiring Soon</strong>
+                <div class="small">Your session will expire in 1 minute due to inactivity.</div>
+            </div>
+        </div>
+        <button type="button" class="btn-close" onclick="extendSession()" aria-label="Extend session"></button>
+    </div>
 
 </main>
 {% endblock %}

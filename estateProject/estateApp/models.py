@@ -337,7 +337,6 @@ class AppMetrics(models.Model):
     """Simple per-company mobile app metrics."""
     PLATFORM_ANDROID = 'android'
     PLATFORM_IOS = 'ios'
-
     company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name='app_metrics')
     android_downloads = models.PositiveIntegerField(default=0)
     ios_downloads = models.PositiveIntegerField(default=0)
@@ -353,6 +352,24 @@ class AppMetrics(models.Model):
     @property
     def total_downloads(self) -> int:
         return int((self.android_downloads or 0) + (self.ios_downloads or 0))
+
+
+class CompanyCeo(models.Model):
+    """Holds CEO records for a company. Supports multiple CEOs with one primary."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='ceos')
+    name = models.CharField(max_length=255, verbose_name="CEO Name")
+    dob = models.DateField(null=True, blank=True, verbose_name="Date of Birth")
+    is_primary = models.BooleanField(default=False, verbose_name="Is Primary CEO")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Company CEO"
+        verbose_name_plural = "Company CEOs"
+        ordering = ['-is_primary', '-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({'Primary' if self.is_primary else 'Secondary'}) - {self.company.company_name}"
 
 
 class SubscriptionPlan(models.Model):

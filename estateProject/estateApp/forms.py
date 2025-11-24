@@ -81,6 +81,9 @@ class NotificationForm(forms.ModelForm):
 
 # COMPANY PROFILE EDIT FORM
 class CompanyForm(forms.ModelForm):
+    # Make legacy CEO fields optional at the form level so modal can manage CEOs separately
+    ceo_name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    ceo_dob = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
     class Meta:
         model = Company
         fields = [

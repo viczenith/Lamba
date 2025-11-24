@@ -141,6 +141,15 @@ class CompanyAdmin(admin.ModelAdmin):
         return request.user.is_superuser
 
 
+@admin.register(CompanyCeo)
+class CompanyCeoAdmin(admin.ModelAdmin):
+    list_display = ('name', 'company', 'is_primary', 'dob', 'created_at')
+    list_filter = ('is_primary', 'company')
+    search_fields = ('name', 'company__company_name')
+    ordering = ('-is_primary', '-created_at')
+    readonly_fields = ('created_at', 'updated_at')
+
+
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     list_display = ('full_name', 'email', 'phone', 'role', 'date_registered', 'company', 'job', 'country')

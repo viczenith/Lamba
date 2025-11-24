@@ -4,9 +4,24 @@
 <header id="header" class="header fixed-top d-flex align-items-center" data-theme="light">
 
   <div class="d-flex align-items-center justify-content-between">
-    <a href="{{ home_url }}" class="logo d-flex align-items-center">
-      <img src="{% static 'assets/img/logo.png' %}" alt="">
-    </a>
+    <div class="logo d-flex align-items-center">
+      {# Show company logo when available; otherwise show a placeholder prompting upload. Each branch contains its own link to avoid nested anchors. #}
+      {% if request.user.is_authenticated and request.user.company_profile %}
+        {% with company=request.user.company_profile %}
+          {% if company.logo %}
+            <a href="{{ home_url }}">
+              <img src="{{ company.logo|versioned_file }}" alt="{{ company.company_name }} Logo">
+            </a>
+          {% else %}
+            <a href="{% url 'company-profile' %}" title="Upload your company logo">
+              <img src="{{ 'assets/img/logo.png'|versioned_static }}" alt="Upload company logo" class="placeholder-logo">
+            </a>
+          {% endif %}
+        {% endwith %}
+      {% else %}
+        <a href="{{ home_url }}"><img src="{{ 'assets/img/logo.png'|versioned_static }}" alt=""></a>
+      {% endif %}
+    </div>
     <i class="bi bi-list toggle-sidebar-btn"></i>
   </div><!-- End Logo -->
 
@@ -286,8 +301,13 @@
     }
 
     .logo img {
-      height: 40px;
-      transition: all 0.3s ease;
+      height: auto;                 /* allow height to scale */
+      max-height: 40px;            /* constrain maximum height in header */
+      width: auto;                 /* preserve aspect ratio */
+      max-width: 100%;             /* don't overflow container */
+      object-fit: contain;         /* keep image contained and not cropped */
+      transition: all 0.15s ease;
+      display: block;
     }
 
     .logo span {
@@ -448,6 +468,14 @@
         margin: 0 0.25rem;
         font-size: 1.1rem;
       }
+      /* slightly reduce logo max-height on small screens */
+      .logo img {
+        max-height: 32px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo img { max-height: 26px; }
     }
   </style>
 

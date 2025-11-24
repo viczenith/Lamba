@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import login, authenticate
+
 from .forms import *
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -413,6 +414,7 @@ def user_registration(request):
     marketers = CustomUser.objects.filter(role='marketer', **company_filter)
 
     if request.method == 'POST':
+        source = request.POST.get('source', 'admin_registration')
         # Extract form data
         full_name = request.POST.get('name')
         address = request.POST.get('address')
@@ -430,14 +432,20 @@ def user_registration(request):
                     marketer = CustomUser.objects.get(id=marketer_id)
                 except CustomUser.DoesNotExist:
                     messages.error(request, f"Marketer with ID {marketer_id} does not exist.")
-                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+                    if source == 'company_profile':
+                        return redirect('company-profile')
+                    else:
+                        return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
         
         date_of_birth = request.POST.get('date_of_birth')
         
         # Validate the email (check if it's already registered)
         if CustomUser.objects.filter(email=email).exists():
             messages.error(request, f"Email {email} is already registered.")
-            return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+            if source == 'company_profile':
+                return redirect('company-profile')
+            else:
+                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
         
         # Use the provided password or generate one
         password = request.POST.get('password')
@@ -452,6 +460,7 @@ def user_registration(request):
                 phone=phone,
                 date_of_birth=date_of_birth,
                 country=country,
+                company_profile=request.company,  # Set company profile for admin users
                 is_staff=True,  # Admins are staff, but not superusers
             )
             admin_user.set_password(password)
@@ -463,13 +472,19 @@ def user_registration(request):
             marketer_id = request.POST.get('marketer')
             if not marketer_id:
                 messages.error(request, "Please assign a marketer to this client. Marketer assignment is required.")
-                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+                if source == 'company_profile':
+                    return redirect('company-profile')
+                else:
+                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
             
             try:
                 assigned_marketer = MarketerUser.objects.get(id=marketer_id)
             except MarketerUser.DoesNotExist:
                 messages.error(request, f"Selected marketer does not exist. Please select a valid marketer.")
-                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+                if source == 'company_profile':
+                    return redirect('company-profile')
+                else:
+                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
             
             # Save to ClientUser table
             client_user = ClientUser(
@@ -479,7 +494,8 @@ def user_registration(request):
                 phone=phone,
                 date_of_birth=date_of_birth,
                 country=country,
-                assigned_marketer=assigned_marketer
+                assigned_marketer=assigned_marketer,
+                company_profile=request.company  # Set company profile for client users
             )
             client_user.set_password(password)
             client_user.save()
@@ -494,6 +510,7 @@ def user_registration(request):
                 phone=phone,
                 date_of_birth=date_of_birth,
                 country=country,
+                company_profile=request.company  # Set company profile for marketer users
             )
             marketer_user.set_password(password)
             marketer_user.save()
@@ -507,13 +524,17 @@ def user_registration(request):
                 phone=phone,
                 date_of_birth=date_of_birth,
                 country=country,
+                company_profile=request.company,  # Set company profile for support users
             )
             support_user.set_password(password)
             support_user.save()
             messages.success(request, f"Support User, <strong>{full_name}</strong> has been successfully registered!")
 
         
-        return redirect('user-registration')
+        if source == 'company_profile':
+            return redirect('company-profile')
+        else:
+            return redirect('user-registration')
 
     return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
 
@@ -1736,6 +1757,7 @@ def admin_marketer_profile(request, pk):
     if at and at.target_amount:
         total_year_sales = Transaction.objects.filter(
             marketer=marketer,
+            company=company,
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         performance['yearly_target_achievement'] = min(
@@ -2203,7 +2225,20 @@ def company_profile_view(request):
     inactive_users_count = CustomUser.objects.filter(Q(last_login__lt=thirty_days_ago) | Q(last_login__isnull=True), is_active=True, company_profile=company).count()
 
     # Admin and Support users
-    admin_users = CustomUser.objects.filter(role='admin', company_profile=company).order_by('-date_joined')
+    # Determine master admin first
+    master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+    master_admin_id = master_admin.id if master_admin else None
+    
+    # Order admin_users with master admin first, then by date_joined
+    from django.db.models import Case, When, Value, IntegerField
+    admin_users = CustomUser.objects.filter(role='admin', company_profile=company).annotate(
+        is_master=Case(
+            When(id=master_admin_id, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ).order_by('-is_master', '-date_joined')
+    
     support_users = CustomUser.objects.filter(role='support', company_profile=company).order_by('-date_joined')
 
     # AdminSupport tables if available
@@ -2251,8 +2286,33 @@ def company_profile_view(request):
         'staff_members_count': staff_members_count,
         'app_metrics': app_metrics,
         'total_downloads': total_downloads,
+        'master_admin_id': master_admin_id,
     }
     return render(request, 'admin_side/company_profile.html', context)
+
+
+@login_required
+@require_POST
+def verify_master_password(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Unauthorized'})
+
+    password = request.POST.get('password')
+    if not password:
+        return JsonResponse({'ok': False, 'error': 'Password required'})
+
+    company = request.user.company_profile
+    if not company:
+        return JsonResponse({'ok': False, 'error': 'No company'})
+
+    master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+    if not master_admin:
+        return JsonResponse({'ok': False, 'error': 'No master admin'})
+
+    if master_admin.check_password(password):
+        return JsonResponse({'ok': True})
+    else:
+        return JsonResponse({'ok': False, 'error': 'Invalid password'})
 
 
 @login_required
@@ -2269,13 +2329,119 @@ def company_profile_update(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Invalid method'}, status=405)
 
-    form = CompanyForm(request.POST, request.FILES, instance=company)
+    # Copy POST to avoid validation failures on legacy CEO fields if modal uses separate CEO inputs
+    post_data = request.POST.copy()
+    # Remove legacy model fields so form will keep instance values when not provided
+    for fld in ('ceo_name', 'ceo_dob'):
+        if fld in post_data:
+            post_data.pop(fld)
+
+    form = CompanyForm(post_data, request.FILES, instance=company)
     if form.is_valid():
-        form.save()
+        # Save without committing so we can avoid overwriting legacy CEO fields
+        # with None when the modal doesn't submit them.
+        orig_ceo_name = company.ceo_name
+        orig_ceo_dob = company.ceo_dob
+        # If legacy dob missing but we have CompanyCeo records (backfilled), use primary CEO dob
+        try:
+            if not orig_ceo_dob and company.ceos.exists():
+                primary = company.ceos.filter(is_primary=True).first() or company.ceos.first()
+                if primary and getattr(primary, 'dob', None):
+                    orig_ceo_dob = primary.dob
+        except Exception:
+            pass
+        company_instance = form.save(commit=False)
+
+        # If the form didn't provide legacy CEO values, preserve existing ones
+        # (be permissive: check the instance values after save(commit=False))
+        if not getattr(company_instance, 'ceo_name', None) and orig_ceo_name:
+            company_instance.ceo_name = orig_ceo_name
+        if not getattr(company_instance, 'ceo_dob', None) and orig_ceo_dob:
+            company_instance.ceo_dob = orig_ceo_dob
+
+        company_instance.save()
+        company = company_instance
+
+        # Persist CEO entries (primary + additional) if provided by the modal
+        try:
+            with transaction.atomic():
+                # Backfill legacy CEO fields into CompanyCeo if no records exist
+                if not company.ceos.exists() and (company.ceo_name or company.ceo_dob):
+                    CompanyCeo.objects.create(
+                        company=company,
+                        name=company.ceo_name or '',
+                        dob=company.ceo_dob,
+                        is_primary=True
+                    )
+
+                # Read primary CEO inputs
+                primary_name = (request.POST.get('primary_ceo_name') or '').strip()
+                primary_dob_raw = (request.POST.get('primary_ceo_dob') or '').strip()
+                primary_dob = parse_date(primary_dob_raw) if primary_dob_raw else None
+
+                other_names = request.POST.getlist('other_ceo_name[]') or request.POST.getlist('other_ceo_name')
+                other_dobs = request.POST.getlist('other_ceo_dob[]') or request.POST.getlist('other_ceo_dob')
+
+                # Build new CEO set if any input was provided
+                ceo_entries = []
+                if primary_name:
+                    ceo_entries.append({'name': primary_name, 'dob': primary_dob, 'is_primary': True})
+
+                for idx, nm in enumerate(other_names or []):
+                    name = (nm or '').strip()
+                    if not name:
+                        continue
+                    dob_raw = other_dobs[idx] if idx < len(other_dobs) else ''
+                    dob = parse_date(dob_raw) if dob_raw else None
+                    ceo_entries.append({'name': name, 'dob': dob, 'is_primary': False})
+
+                if ceo_entries:
+                    # Replace existing CEO records for this company with submitted set
+                    CompanyCeo.objects.filter(company=company).delete()
+                    objs = [CompanyCeo(company=company, name=e['name'], dob=e['dob'], is_primary=e['is_primary']) for e in ceo_entries]
+                    CompanyCeo.objects.bulk_create(objs)
+
+        except Exception as e:
+            logger.exception('Failed saving company CEOs')
+            return JsonResponse({'ok': False, 'error': 'Failed saving CEOs: ' + str(e)}, status=500)
+
         # minimal payload for re-rendering snippet on client side if desired
         return JsonResponse({'ok': True, 'message': 'Company details updated successfully.'})
     else:
         return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def delete_company_ceo(request, ceo_id: int):
+    """Delete a single CompanyCeo row via AJAX.
+
+    - Only company admins may delete.
+    - CEO must belong to the request user's company.
+    - Primary CEOs are protected from deletion.
+    """
+    user = request.user
+    if getattr(user, 'role', None) != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+
+    company = getattr(user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'ok': False, 'error': 'No linked company'}, status=400)
+
+    try:
+        ceo = CompanyCeo.objects.get(id=ceo_id, company=company)
+    except CompanyCeo.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'CEO not found'}, status=404)
+
+    if ceo.is_primary:
+        return JsonResponse({'ok': False, 'error': 'Cannot delete primary CEO'}, status=400)
+
+    try:
+        ceo.delete()
+        return JsonResponse({'ok': True, 'message': 'CEO removed'})
+    except Exception as e:
+        logger.exception('Failed deleting CompanyCeo %s', ceo_id)
+        return JsonResponse({'ok': False, 'error': 'Failed to delete CEO'}, status=500)
 
 
 @login_required
@@ -2308,6 +2474,22 @@ def admin_toggle_mute(request, user_id: int):
         remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot mute the last active admin.'}, status=400)
+
+    # Prevent muting the Master admin (company-registered primary admin)
+    try:
+        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        if master_admin and target.id == master_admin.id:
+            return JsonResponse({'ok': False, 'error': 'Cannot mute the Master admin.'}, status=400)
+    except Exception:
+        pass
+
+    # Prevent muting the master admin (company-registered primary admin)
+    try:
+        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        if master_admin and target.id == master_admin.id:
+            return JsonResponse({'ok': False, 'error': 'Cannot mute the Master admin.'}, status=400)
+    except Exception:
+        pass
 
     target.is_active = (desired == 'unmute')
     if desired == 'unmute':
@@ -2342,6 +2524,22 @@ def admin_delete_admin(request, user_id: int):
         remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the last active admin.'}, status=400)
+
+    # Prevent deleting the Master admin (company-registered primary admin)
+    try:
+        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        if master_admin and target.id == master_admin.id:
+            return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin.'}, status=400)
+    except Exception:
+        pass
+
+    # Protect Master admin from deletion
+    try:
+        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        if master_admin and target.id == master_admin.id:
+            return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin account.'}, status=400)
+    except Exception:
+        pass
 
     reason = request.POST.get('reason', '').strip()
 
@@ -3730,9 +3928,9 @@ def marketer_dashboard(request):
     user = request.user
 
     # 1) Totals
-    total_transactions = Transaction.objects.filter(marketer=user).count()
-    total_estates_sold = Transaction.objects.filter(marketer=user, allocation__payment_type='full').count()
-    number_clients = ClientUser.objects.filter(assigned_marketer=user).count()
+    total_transactions = Transaction.objects.filter(marketer=user, company=user.company_profile).count()
+    total_estates_sold = Transaction.objects.filter(marketer=user, allocation__payment_type='full', company=user.company_profile).count()
+    number_clients = ClientUser.objects.filter(assigned_marketer=user, company_profile=user.company_profile).count()
 
     # Helper to build a list of (label, transaction_count, estate_count, new_client_count)
     def build_series(start, step, buckets, date_field='transaction_date'):
@@ -3753,6 +3951,7 @@ def marketer_dashboard(request):
             # transactions in window
             tx_qs = Transaction.objects.filter(
                 marketer=user,
+                company=user.company_profile,
                 **{f"{date_field}__gte": window_start},
                 **{f"{date_field}__lt": window_end}
             )
@@ -3765,6 +3964,7 @@ def marketer_dashboard(request):
             # new clients assigned in this window
             cli_qs = ClientUser.objects.filter(
                 assigned_marketer=user,
+                company_profile=user.company_profile,
                 date_registered__gte=window_start,
                 date_registered__lt=window_end
             )
@@ -3792,7 +3992,7 @@ def marketer_dashboard(request):
     yearly_labels, yearly_tx, yearly_est, yearly_cli = build_series(yearly_start, yearly_step, 5)
 
     # All-Time: monthly buckets from first transaction month until now
-    first_tx = Transaction.objects.filter(marketer=user).order_by('transaction_date').first()
+    first_tx = Transaction.objects.filter(marketer=user, company=user.company_profile).order_by('transaction_date').first()
     if first_tx:
         first_month = first_tx.transaction_date.replace(day=1)
     else:
@@ -3834,7 +4034,8 @@ def marketer_profile(request):
 
 
     lifetime_closed_deals = Transaction.objects.filter(
-        marketer=marketer
+        marketer=marketer,
+        company=marketer.company_profile
     ).count()
 
     lifetime_commission = MarketerPerformanceRecord.objects.filter(
@@ -3880,6 +4081,7 @@ def marketer_profile(request):
     if at and at.target_amount:
         total_year_sales = Transaction.objects.filter(
             marketer=marketer,
+            company=company,
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         performance['yearly_target_achievement'] = min(

@@ -1,6 +1,4 @@
-{% extends 'admin_base.html' %}
 {% load static %}
-{% block content %}
 
 <!-- Include Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
@@ -650,306 +648,166 @@
     }
 </style>
 
-  <main id="main" class="main">
 
-    <div class="pagetitle">
-      <h1>Admin User Registration</h1>
-      <nav>
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item"><a href="{% url 'dashboard' %}"><i class="fas fa-home"></i> Home</a></li>
-          <li class="breadcrumb-item active">Admin User Registration</li>
-        </ol>
-      </nav>
-    </div><!-- End Page Title -->
-
-    <section class="section">
-      <div class="row">
-        <div class="col-lg-12">
-          <div class="registration-wrapper">
-            
-            <div class="form-header">
+<div class="tab-pane fade" id="user-registration" role="tabpanel" aria-labelledby="user-registration-tab">
+  <div class="company-user-reg">
+    <main class="main">
+      <section class="section">
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="registration-wrapper my-3">
+              <div class="form-header">
                 <h2>Create New User Account</h2>
                 <p>Fill in the details below to register a new user in the system</p>
-            </div>
-    
-            <div class="form-container">
-                <form action="#" method="POST" id="registrationForm">
-                    {% csrf_token %}
-                    <input type="hidden" name="source" value="admin_registration">
+              </div>
 
-                    {% if messages %}
-                        <div class="alert-container">
-                            {% for message in messages %}
-                                <div class="alert alert-success" role="alert">
-                                    {{ message | safe }}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                
-                    <!-- Personal Information Section -->
-                    <div class="form-grid">
-                        <!-- Full Name -->
-                        <div class="form-group">
-                            <label for="name">
-                                <i class="fas fa-user"></i> Full Name
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-user input-icon"></i>
-                                <input type="text" class="form-control" id="name" name="name" 
-                                    placeholder="Victor Godwin" required
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Enter the user's full name">
-                            </div>
-                        </div>
-                
-                        <!-- Email Address -->
-                        <div class="form-group">
-                            <label for="email">
-                                <i class="fas fa-envelope"></i> Email Address
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-envelope input-icon"></i>
-                                <input type="email" class="form-control" id="email" name="email" 
-                                    placeholder="victor.godwin@example.com" required
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Enter the user's email address">
-                            </div>
-                        </div>
+              <div class="form-container">
+                <form action="{% url 'user-registration' %}" method="POST" id="registrationForm">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="company_profile">
+
+                  {% if messages %}
+                  <div class="alert-container">
+                    {% for message in messages %}
+                    <div class="alert alert-success" role="alert">
+                      {{ message | safe }}
                     </div>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
 
-                    <div class="form-grid">
-                        <!-- Phone Number -->
-                        <div class="form-group">
-                            <label for="phone">
-                                <i class="fas fa-phone"></i> Phone Number
-                            </label>
-                            <div class="input-wrapper">
-                                <input type="tel" id="phone" name="phone" class="form-control" 
-                                    placeholder="Enter phone number" required
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Enter the phone number with country code">
-                            </div>
-                        </div>
-
-                        <!-- Date of Birth -->
-                        <div class="form-group">
-                            <label for="date_of_birth">
-                                <i class="fas fa-calendar"></i> Date of Birth
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-calendar input-icon"></i>
-                                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Select the user's date of birth">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Country of Residence -->
-                    <div class="form-grid full-width">
-                        <div class="form-group">
-                            <label for="country">
-                                <i class="fas fa-globe-americas"></i> Country of Residence
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-globe-americas input-icon"></i>
-                                <select class="form-control" id="country" name="country" required
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Select the user's country of residence">
-                                    <option value="">Select Country</option>
-                                    <option value="Nigeria">Nigeria</option>
-                                    <option value="United States">United States</option>
-                                    <option value="United Kingdom">United Kingdom</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Australia">Australia</option>
-                                    <option value="South Africa">South Africa</option>
-                                    <option value="Ghana">Ghana</option>
-                                    <option value="Kenya">Kenya</option>
-                                    <option value="India">India</option>
-                                    <option value="Germany">Germany</option>
-                                    <option value="France">France</option>
-                                    <option value="Italy">Italy</option>
-                                    <option value="Spain">Spain</option>
-                                    <option value="Netherlands">Netherlands</option>
-                                    <option value="Belgium">Belgium</option>
-                                    <option value="Switzerland">Switzerland</option>
-                                    <option value="Sweden">Sweden</option>
-                                    <option value="Norway">Norway</option>
-                                    <option value="Denmark">Denmark</option>
-                                    <option value="Finland">Finland</option>
-                                    <option value="Portugal">Portugal</option>
-                                    <option value="Austria">Austria</option>
-                                    <option value="Ireland">Ireland</option>
-                                    <option value="New Zealand">New Zealand</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="United Arab Emirates">United Arab Emirates</option>
-                                    <option value="Saudi Arabia">Saudi Arabia</option>
-                                    <option value="Qatar">Qatar</option>
-                                    <option value="Egypt">Egypt</option>
-                                    <option value="Morocco">Morocco</option>
-                                    <option value="Tunisia">Tunisia</option>
-                                    <option value="Algeria">Algeria</option>
-                                    <option value="Ethiopia">Ethiopia</option>
-                                    <option value="Tanzania">Tanzania</option>
-                                    <option value="Uganda">Uganda</option>
-                                    <option value="Rwanda">Rwanda</option>
-                                    <option value="Botswana">Botswana</option>
-                                    <option value="Zimbabwe">Zimbabwe</option>
-                                    <option value="Zambia">Zambia</option>
-                                    <option value="Namibia">Namibia</option>
-                                    <option value="Mozambique">Mozambique</option>
-                                    <option value="Senegal">Senegal</option>
-                                    <option value="Ivory Coast">Ivory Coast</option>
-                                    <option value="Cameroon">Cameroon</option>
-                                    <option value="Angola">Angola</option>
-                                    <option value="Brazil">Brazil</option>
-                                    <option value="Mexico">Mexico</option>
-                                    <option value="Argentina">Argentina</option>
-                                    <option value="Chile">Chile</option>
-                                    <option value="Colombia">Colombia</option>
-                                    <option value="Peru">Peru</option>
-                                    <option value="Venezuela">Venezuela</option>
-                                    <option value="China">China</option>
-                                    <option value="Japan">Japan</option>
-                                    <option value="South Korea">South Korea</option>
-                                    <option value="Thailand">Thailand</option>
-                                    <option value="Vietnam">Vietnam</option>
-                                    <option value="Philippines">Philippines</option>
-                                    <option value="Indonesia">Indonesia</option>
-                                    <option value="Pakistan">Pakistan</option>
-                                    <option value="Bangladesh">Bangladesh</option>
-                                    <option value="Sri Lanka">Sri Lanka</option>
-                                    <option value="Turkey">Turkey</option>
-                                    <option value="Israel">Israel</option>
-                                    <option value="Lebanon">Lebanon</option>
-                                    <option value="Jordan">Jordan</option>
-                                    <option value="Kuwait">Kuwait</option>
-                                    <option value="Bahrain">Bahrain</option>
-                                    <option value="Oman">Oman</option>
-                                    <option value="Poland">Poland</option>
-                                    <option value="Czech Republic">Czech Republic</option>
-                                    <option value="Hungary">Hungary</option>
-                                    <option value="Romania">Romania</option>
-                                    <option value="Greece">Greece</option>
-                                    <option value="Croatia">Croatia</option>
-                                    <option value="Serbia">Serbia</option>
-                                    <option value="Bulgaria">Bulgaria</option>
-                                    <option value="Slovakia">Slovakia</option>
-                                    <option value="Slovenia">Slovenia</option>
-                                    <option value="Lithuania">Lithuania</option>
-                                    <option value="Latvia">Latvia</option>
-                                    <option value="Estonia">Estonia</option>
-                                    <option value="Iceland">Iceland</option>
-                                    <option value="Luxembourg">Luxembourg</option>
-                                    <option value="Malta">Malta</option>
-                                    <option value="Cyprus">Cyprus</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Residential Address -->
-                    <div class="form-grid full-width">
-                        <div class="form-group">
-                            <label for="address">
-                                <i class="fas fa-map-marker-alt"></i> Residential Address
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-map-marker-alt input-icon"></i>
-                                <input type="text" class="form-control" id="address" name="address" 
-                                    placeholder="123 Main Street, City, State" required
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Enter the complete residential address">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Password Field -->
-                    <div class="form-grid full-width">
-                        <div class="form-group">
-                            <label for="password">
-                                <i class="fas fa-key"></i> Generated Password
-                            </label>
-                            <div class="input-wrapper password-field-wrapper">
-                                <i class="fas fa-key input-icon"></i>
-                                <input type="text" class="form-control" id="password" name="password" 
-                                    placeholder="Auto-generated password will appear here" readonly
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Password will be automatically generated based on the user's name">
-                                <span class="password-badge">Auto-Generated</span>
-                                <button type="button" class="copy-password-btn" id="copyPasswordBtn" 
-                                    onclick="copyPassword()" 
-                                    data-bs-toggle="tooltip" data-bs-placement="top" 
-                                    title="Copy password to clipboard">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Role Selection -->
+                  <div class="form-grid">
                     <div class="form-group">
-                        <label>
-                            <i class="fas fa-user-tag"></i> Select User Role
-                        </label>
-                        <div class="role-selector">
-                            <div>
-                                <input type="radio" class="role-card" id="role-client" name="role" value="client" required>
-                                <label for="role-client" class="role-card-label">
-                                    <i class="fas fa-user-tie"></i>
-                                    <span>Client</span>
-                                </label>
-                            </div>
-                            <div>
-                                <input type="radio" class="role-card" id="role-marketer" name="role" value="marketer">
-                                <label for="role-marketer" class="role-card-label">
-                                    <i class="fas fa-briefcase"></i>
-                                    <span>Marketer</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                
-                    <!-- Marketer Dropdown (only visible if role is Client) -->
-                    <div class="dropdown-container" id="marketer-dropdown">
-                        <div class="form-group">
-                            <label for="marketer">
-                                <i class="fas fa-user-check"></i> Assign Marketer
-                                <span class="text-danger" id="marketer-required-indicator" hidden>*</span>
-                            </label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-user-check input-icon"></i>
-                                <select class="form-control" id="marketer" name="marketer">
-                                    <option value="">Select a Marketer (Required)</option>
-                                    {% for marketer in marketers %}
-                                        <option value="{{ marketer.id }}">{{ marketer.full_name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> Every client must be assigned to a marketer
-                            </small>
-                        </div>
+                      <label for="name">
+                        <i class="fas fa-user"></i> Full Name
+                      </label>
+                      <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="Victor Godwin" required data-bs-toggle="tooltip" data-bs-placement="top" title="Enter the user's full name">
+                      </div>
                     </div>
 
-                    <!-- Submit Button -->
-                    <button type="submit" class="btn-custom">
-                        <span>Register User</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                
+                    <div class="form-group">
+                      <label for="email">
+                        <i class="fas fa-envelope"></i> Email Address
+                      </label>
+                      <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" class="form-control" id="email" name="email" placeholder="victor.godwin@example.com" required data-bs-toggle="tooltip" data-bs-placement="top" title="Enter the user's email address">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <label for="phone">
+                        <i class="fas fa-phone"></i> Phone Number
+                      </label>
+                      <div class="input-wrapper">
+                        <input type="tel" id="phone" name="phone" class="form-control" placeholder="Enter phone number" required data-bs-toggle="tooltip" data-bs-placement="top" title="Enter the phone number with country code">
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="date_of_birth">
+                        <i class="fas fa-calendar"></i> Date of Birth
+                      </label>
+                      <div class="input-wrapper">
+                        <i class="fas fa-calendar input-icon"></i>
+                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" data-bs-toggle="tooltip" data-bs-placement="top" title="Select the user's date of birth">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-grid full-width">
+                    <div class="form-group">
+                      <label for="country">
+                        <i class="fas fa-globe-americas"></i> Country of Residence
+                      </label>
+                      <div class="input-wrapper">
+                        <i class="fas fa-globe-americas input-icon"></i>
+                        <select class="form-control" id="country" name="country" required data-bs-toggle="tooltip" data-bs-placement="top" title="Select the user's country of residence">
+                          <option value="">Select Country</option>
+                          <option value="Nigeria">Nigeria</option>
+                          <option value="United States">United States</option>
+                          <option value="United Kingdom">United Kingdom</option>
+                          <option value="Canada">Canada</option>
+                          <option value="Australia">Australia</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-grid full-width">
+                    <div class="form-group">
+                      <label for="address">
+                        <i class="fas fa-map-marker-alt"></i> Residential Address
+                      </label>
+                      <div class="input-wrapper">
+                        <i class="fas fa-map-marker-alt input-icon"></i>
+                        <input type="text" class="form-control" id="address" name="address" placeholder="123 Main Street, City, State" required data-bs-toggle="tooltip" data-bs-placement="top" title="Enter the complete residential address">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-grid full-width">
+                    <div class="form-group">
+                      <label for="password">
+                        <i class="fas fa-key"></i> Generated Password
+                      </label>
+                      <div class="input-wrapper password-field-wrapper">
+                        <i class="fas fa-key input-icon"></i>
+                        <input type="text" class="form-control" id="password" name="password" placeholder="Auto-generated password will appear here" readonly data-bs-toggle="tooltip" data-bs-placement="top" title="Password will be automatically generated based on the user's name">
+                        <span class="password-badge">Auto-Generated</span>
+                        <button type="button" class="copy-password-btn" id="copyPasswordBtn" onclick="copyPassword()" data-bs-toggle="tooltip" data-bs-placement="top" title="Copy password to clipboard">
+                          <i class="fas fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <i class="fas fa-user-tag"></i> Select User Role
+                    </label>
+                    <div class="role-selector">
+                      <div>
+                        <input type="radio" class="role-card" id="role-admin" name="role" value="admin" required>
+                        <label for="role-admin" class="role-card-label">
+                          <i class="fas fa-user-shield"></i>
+                          <span>Admin</span>
+                        </label>
+                      </div>
+                      <div>
+                        <input type="radio" class="role-card" id="role-support" name="role" value="support">
+                        <label for="role-support" class="role-card-label">
+                          <i class="fas fa-headset"></i>
+                          <span>Admin Support</span>
+                        </label>
+                      </div>
+                      <!-- Client and Marketer roles removed as requested -->
+                    </div>
+                  </div>
+
+                  <!-- Marketer dropdown removed -->
+
+                  <button type="submit" class="btn-custom">
+                    <span>Register User</span>
+                    <i class="fas fa-arrow-right"></i>
+                  </button>
+
                 </form>
-                
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
+  </div>
+</div>
 
-    <script>
+<script>
         // ==================== COPY PASSWORD FUNCTION ====================
         function copyPassword() {
             const passwordField = document.getElementById('password');
@@ -1128,12 +986,7 @@
                 this.parentElement.style.transform = 'scale(1)';
             });
         });
-    </script>
+</script>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-
-  </main>
-
-{% endblock %}
-
+<!-- Bootstrap 5 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
