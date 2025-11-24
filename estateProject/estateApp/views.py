@@ -431,7 +431,10 @@ def user_registration(request):
                 try:
                     marketer = CustomUser.objects.get(id=marketer_id)
                 except CustomUser.DoesNotExist:
-                    messages.error(request, f"Marketer with ID {marketer_id} does not exist.")
+                    error_msg = f"Marketer with ID {marketer_id} does not exist."
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg})
+                    messages.error(request, error_msg)
                     if source == 'company_profile':
                         return redirect('company-profile')
                     else:
@@ -441,7 +444,10 @@ def user_registration(request):
         
         # Validate the email (check if it's already registered)
         if CustomUser.objects.filter(email=email).exists():
-            messages.error(request, f"Email {email} is already registered.")
+            error_msg = f"Email {email} is already registered."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': error_msg})
+            messages.error(request, error_msg)
             if source == 'company_profile':
                 return redirect('company-profile')
             else:
@@ -465,13 +471,16 @@ def user_registration(request):
             )
             admin_user.set_password(password)
             admin_user.save()
-            messages.success(request, f"<strong>{full_name}</strong> has been successfully registered as <strong>Admin User</strong>!")
+            success_msg = f"<strong>{full_name}</strong> has been successfully registered as <strong>Admin User</strong>!"
         
         elif role == 'client':
             # Validate marketer assignment - REQUIRED for clients
             marketer_id = request.POST.get('marketer')
             if not marketer_id:
-                messages.error(request, "Please assign a marketer to this client. Marketer assignment is required.")
+                error_msg = "Please assign a marketer to this client. Marketer assignment is required."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': error_msg})
+                messages.error(request, error_msg)
                 if source == 'company_profile':
                     return redirect('company-profile')
                 else:
@@ -480,7 +489,10 @@ def user_registration(request):
             try:
                 assigned_marketer = MarketerUser.objects.get(id=marketer_id)
             except MarketerUser.DoesNotExist:
-                messages.error(request, f"Selected marketer does not exist. Please select a valid marketer.")
+                error_msg = f"Selected marketer does not exist. Please select a valid marketer."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': error_msg})
+                messages.error(request, error_msg)
                 if source == 'company_profile':
                     return redirect('company-profile')
                 else:
@@ -499,7 +511,7 @@ def user_registration(request):
             )
             client_user.set_password(password)
             client_user.save()
-            messages.success(request, f"<strong>{full_name}</strong> has been successfully registered and assigned to <strong>{assigned_marketer.full_name}!</strong>")
+            success_msg = f"<strong>{full_name}</strong> has been successfully registered and assigned to <strong>{assigned_marketer.full_name}!</strong>"
         
         elif role == 'marketer':
             # Save to MarketerUser table
@@ -514,7 +526,7 @@ def user_registration(request):
             )
             marketer_user.set_password(password)
             marketer_user.save()
-            messages.success(request, f"Marketer, <strong>{full_name}</strong> has been successfully registered!")
+            success_msg = f"Marketer, <strong>{full_name}</strong> has been successfully registered!"
 
         elif role == 'support':
             support_user = SupportUser(
@@ -528,9 +540,12 @@ def user_registration(request):
             )
             support_user.set_password(password)
             support_user.save()
-            messages.success(request, f"Support User, <strong>{full_name}</strong> has been successfully registered!")
+            success_msg = f"Support User, <strong>{full_name}</strong> has been successfully registered!"
 
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': success_msg})
         
+        messages.success(request, success_msg)
         if source == 'company_profile':
             return redirect('company-profile')
         else:
@@ -2220,18 +2235,20 @@ def company_profile_view(request):
     registered_users = CustomUser.objects.filter(is_active=True, company_profile=company).order_by('-date_joined')[:20]
 
     # Active vs Inactive app users (active = last_login within 30 days)
+    from django.utils import timezone
+    from datetime import timedelta
     thirty_days_ago = timezone.now() - timedelta(days=30)
     active_users_count = CustomUser.objects.filter(last_login__gte=thirty_days_ago, is_active=True, company_profile=company).count()
     inactive_users_count = CustomUser.objects.filter(Q(last_login__lt=thirty_days_ago) | Q(last_login__isnull=True), is_active=True, company_profile=company).count()
 
     # Admin and Support users
     # Determine master admin first
-    master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
     master_admin_id = master_admin.id if master_admin else None
     
     # Order admin_users with master admin first, then by date_joined
     from django.db.models import Case, When, Value, IntegerField
-    admin_users = CustomUser.objects.filter(role='admin', company_profile=company).annotate(
+    admin_users = AdminUser.objects.filter(company_profile=company).annotate(
         is_master=Case(
             When(id=master_admin_id, then=Value(1)),
             default=Value(0),
@@ -2239,7 +2256,16 @@ def company_profile_view(request):
         )
     ).order_by('-is_master', '-date_joined')
     
-    support_users = CustomUser.objects.filter(role='support', company_profile=company).order_by('-date_joined')
+    support_users = SupportUser.objects.filter(company_profile=company).order_by('-date_joined')
+
+    # Calculate status for support users based on last_login (inactive if > 5 days)
+    for user in support_users:
+        if user.last_login:
+            days_since_login = (timezone.now() - user.last_login).days
+            user.status_display = "Not Active" if days_since_login > 5 else ("Active" if user.is_active else "Muted")
+        else:
+            # No login record, consider inactive
+            user.status_display = "Not Active"
 
     # AdminSupport tables if available
     try:
@@ -2305,7 +2331,7 @@ def verify_master_password(request):
     if not company:
         return JsonResponse({'ok': False, 'error': 'No company'})
 
-    master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
     if not master_admin:
         return JsonResponse({'ok': False, 'error': 'No master admin'})
 
@@ -2457,8 +2483,14 @@ def admin_toggle_mute(request, user_id: int):
     try:
         # SECURITY: Verify user belongs to same company
         company = request.user.company_profile
-        target = CustomUser.objects.get(id=user_id, company_profile=company)
-    except CustomUser.DoesNotExist:
+        try:
+            target = AdminUser.objects.get(id=user_id, company_profile=company)
+        except AdminUser.DoesNotExist:
+            try:
+                target = SupportUser.objects.get(id=user_id, company_profile=company)
+            except SupportUser.DoesNotExist:
+                return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
+    except Exception:
         return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
 
     if target.role not in ('admin', 'support'):
@@ -2471,13 +2503,13 @@ def admin_toggle_mute(request, user_id: int):
 
     # Prevent locking out all admins (must leave at least one active admin in company)
     if target.role == 'admin' and desired == 'mute' and target.is_active:
-        remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
+        remaining_active = AdminUser.objects.filter(is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot mute the last active admin.'}, status=400)
 
     # Prevent muting the Master admin (company-registered primary admin)
     try:
-        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
         if master_admin and target.id == master_admin.id:
             return JsonResponse({'ok': False, 'error': 'Cannot mute the Master admin.'}, status=400)
     except Exception:
@@ -2485,7 +2517,7 @@ def admin_toggle_mute(request, user_id: int):
 
     # Prevent muting the master admin (company-registered primary admin)
     try:
-        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
         if master_admin and target.id == master_admin.id:
             return JsonResponse({'ok': False, 'error': 'Cannot mute the Master admin.'}, status=400)
     except Exception:
@@ -2512,8 +2544,14 @@ def admin_delete_admin(request, user_id: int):
     try:
         # SECURITY: Verify user belongs to same company
         company = request.user.company_profile
-        target = CustomUser.objects.get(id=user_id, company_profile=company)
-    except CustomUser.DoesNotExist:
+        try:
+            target = AdminUser.objects.get(id=user_id, company_profile=company)
+        except AdminUser.DoesNotExist:
+            try:
+                target = SupportUser.objects.get(id=user_id, company_profile=company)
+            except SupportUser.DoesNotExist:
+                return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
+    except Exception:
         return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
 
     if target.role not in ('admin', 'support'):
@@ -2521,13 +2559,13 @@ def admin_delete_admin(request, user_id: int):
 
     # Ensure at least one other active admin remains in company
     if target.role == 'admin':
-        remaining_active = CustomUser.objects.filter(role='admin', is_active=True, company_profile=company).exclude(id=target.id).count()
+        remaining_active = AdminUser.objects.filter(is_active=True, company_profile=company).exclude(id=target.id).count()
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the last active admin.'}, status=400)
 
     # Prevent deleting the Master admin (company-registered primary admin)
     try:
-        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
         if master_admin and target.id == master_admin.id:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin.'}, status=400)
     except Exception:
@@ -2535,7 +2573,7 @@ def admin_delete_admin(request, user_id: int):
 
     # Protect Master admin from deletion
     try:
-        master_admin = CustomUser.objects.filter(role='admin', company_profile=company).order_by('date_joined').first()
+        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
         if master_admin and target.id == master_admin.id:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin account.'}, status=400)
     except Exception:
@@ -7183,3 +7221,178 @@ def property_price_detail(request, pk):
 
 # MESSAGING AND BIRTHDAY.
 
+
+@login_required
+def edit_admin_user(request, user_id):
+    """
+    AJAX endpoint to edit admin/support user details and password.
+    Only master admin can edit other admins/support users.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        # Get the target user - try AdminUser first, then SupportUser
+        try:
+            target = AdminUser.objects.get(id=user_id)
+        except AdminUser.DoesNotExist:
+            try:
+                target = SupportUser.objects.get(id=user_id)
+            except SupportUser.DoesNotExist:
+                return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
+
+        # Security checks
+        current_user = request.user
+        if current_user.admin_level != 'system':
+            return JsonResponse({'ok': False, 'error': 'Only master admin can edit users'}, status=403)
+
+        # Validate master admin password
+        master_password = request.POST.get('master_admin_password', '').strip()
+        if not master_password:
+            return JsonResponse({'ok': False, 'error': 'Master admin password is required'}, status=400)
+        
+        if not current_user.check_password(master_password):
+            return JsonResponse({'ok': False, 'error': 'Invalid master admin password'}, status=403)
+
+        # Cannot Update master admin
+        if target.admin_level == 'system':
+            return JsonResponse({'ok': False, 'error': 'Cannot Update master admin'}, status=403)
+
+        # Must be same company
+        if target.company_profile != current_user.company_profile:
+            return JsonResponse({'ok': False, 'error': 'Cannot Update users from different company'}, status=403)
+
+        # Get form data
+        full_name = request.POST.get('full_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        address = request.POST.get('address', '').strip()
+        new_password = request.POST.get('new_password', '').strip()
+
+        # Validate required fields
+        if not full_name or not email:
+            return JsonResponse({'ok': False, 'error': 'Full name and email are required'}, status=400)
+
+        # Check email uniqueness conditionally
+        if target.role in ['admin', 'support']:
+            # For admin/support, allow duplicate emails only if not master admin
+            existing = CustomUser.objects.filter(email=email).exclude(id=target.id)
+            if existing.exists():
+                master_admin = existing.filter(admin_level='system').first()
+                if master_admin:
+                    return JsonResponse({'ok': False, 'error': 'Email already used by master admin'}, status=400)
+        else:
+            # For other roles, enforce strict uniqueness
+            if CustomUser.objects.filter(email=email).exclude(id=target.id).exists():
+                return JsonResponse({'ok': False, 'error': 'Email already exists'}, status=400)
+
+        # Update user details
+        target.full_name = full_name
+        target.email = email
+        target.phone = phone
+        target.address = address
+
+        if new_password:
+            target.set_password(new_password)
+
+        target.save()
+
+        return JsonResponse({
+            'ok': True,
+            'message': f'{target.role.title()} user updated successfully',
+            'user': {
+                'id': target.id,
+                'full_name': target.full_name,
+                'email': target.email,
+                'phone': target.phone,
+                'address': target.address,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f'Error editing admin user: {str(e)}')
+        return JsonResponse({'ok': False, 'error': 'Internal server error'}, status=500)
+
+
+@login_required
+def edit_support_user(request, user_id):
+    """
+    AJAX endpoint to edit support user details and password.
+    Only master admin can edit support users.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        # Get the target user - use SupportUser model directly
+        target = get_object_or_404(SupportUser, id=user_id)
+
+        # Security checks
+        current_user = request.user
+        if current_user.admin_level != 'system':
+            return JsonResponse({'ok': False, 'error': 'Only master admin can edit users'}, status=403)
+
+        # Validate master admin password
+        master_password = request.POST.get('master_admin_password', '').strip()
+        if not master_password:
+            return JsonResponse({'ok': False, 'error': 'Master admin password is required'}, status=400)
+        
+        if not current_user.check_password(master_password):
+            return JsonResponse({'ok': False, 'error': 'Invalid master admin password'}, status=403)
+
+        # Must be same company
+        if target.company_profile != current_user.company_profile:
+            return JsonResponse({'ok': False, 'error': 'Cannot edit users from different company'}, status=403)
+
+        # Get form data
+        full_name = request.POST.get('full_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        address = request.POST.get('address', '').strip()
+        new_password = request.POST.get('new_password', '').strip()
+
+        # Validate required fields
+        if not full_name or not email:
+            return JsonResponse({'ok': False, 'error': 'Full name and email are required'}, status=400)
+
+        # Check email uniqueness conditionally
+        if target.role in ['admin', 'support']:
+            # For admin/support, allow duplicate emails only if not master admin
+            existing = CustomUser.objects.filter(email=email).exclude(id=target.id)
+            if existing.exists():
+                master_admin = existing.filter(admin_level='system').first()
+                if master_admin:
+                    return JsonResponse({'ok': False, 'error': 'Email already used by master admin'}, status=400)
+        else:
+            # For other roles, enforce strict uniqueness
+            if CustomUser.objects.filter(email=email).exclude(id=target.id).exists():
+                return JsonResponse({'ok': False, 'error': 'Email already exists'}, status=400)
+
+        # Update user details
+        target.full_name = full_name
+        target.email = email
+        target.phone = phone
+        target.address = address
+
+        if new_password:
+            target.set_password(new_password)
+
+        target.save()
+
+        return JsonResponse({
+            'ok': True,
+            'message': 'Support user updated successfully',
+            'user': {
+                'id': target.id,
+                'full_name': target.full_name,
+                'email': target.email,
+                'phone': target.phone,
+                'address': target.address,
+            }
+        })
+
+    except SupportUser.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        logger.error(f'Error editing support user: {str(e)}')
+        return JsonResponse({'ok': False, 'error': 'Internal server error'}, status=500)

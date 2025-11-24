@@ -15,6 +15,40 @@ from django.db.models import Sum, Count, IntegerField, DecimalField, F, Q
 from django.db.models.functions import Coalesce
 
 
+class CompanyAwareManager(models.Manager):
+    """
+    Custom manager that automatically filters querysets by current company.
+    Prevents accidental data leaks from cross-company queries.
+    """
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        
+        # Get current company from thread-local storage via middleware
+        try:
+            from estateApp.middleware import get_current_company
+            company = get_current_company()
+        except ImportError:
+            company = None
+        
+        # If company is set (and not super admin), filter by company
+        if company:
+            # Check if the model has a direct company field
+            if hasattr(self.model, 'company'):
+                return qs.filter(company=company)
+            # Special handling for Payment model (company via invoice)
+            elif self.model.__name__ == 'Payment':
+                return qs.filter(invoice__company=company)
+            # Special handling for models that should not be filtered by company
+            # (e.g., Message, Notification - these might be global or filtered differently)
+            elif self.model.__name__ in ['Message', 'Notification', 'UserNotification', 'PropertyRequest']:
+                # These models don't have company fields and may need different filtering logic
+                # For now, return unfiltered queryset (but this should be reviewed for security)
+                return qs
+        
+        return qs
+
+
 class Company(models.Model):
     """Company model for multi-tenant system"""
     SUBSCRIPTION_TIERS = [
@@ -893,7 +927,7 @@ class CustomUser(AbstractUser):
     # )
     date_of_birth = models.DateField(null=True, blank=True, verbose_name="Date of Birth")
     date_registered = models.DateTimeField(default=timezone.now, verbose_name="Date Registered")
-    email = models.EmailField(unique=True, verbose_name="Email Address")
+    email = models.EmailField(verbose_name="Email Address")
 
 
     # profile fields
@@ -945,6 +979,27 @@ class CustomUser(AbstractUser):
         if not self.last_name:
             self.last_name = self.last_name or ""
         super().save(*args, **kwargs)
+
+    def clean(self):
+        # Ensure company is set for admin/support roles
+        if self.role in ['admin', 'support'] and not self.company_profile:
+            raise ValidationError("Company is required for admin/support roles.")
+        
+        # For admin/support roles (not system admin), allow duplicate emails within company, but unique per role per email per company
+        if self.role in ['admin', 'support'] and self.admin_level != 'system':
+            # Check for existing users with same email in same company
+            existing = CustomUser.objects.filter(
+                email=self.email,
+                company_profile=self.company_profile,
+                role__in=['admin', 'support']
+            ).exclude(pk=self.pk)
+            if existing.filter(role=self.role).exists():
+                raise ValidationError(f"Cannot create multiple {self.role} accounts with the same email in the same company.")
+            # Allow if different role or none
+        else:
+            # For other roles or system admin, enforce unique email globally
+            if CustomUser.objects.filter(email=self.email).exclude(pk=self.pk).exists():
+                raise ValidationError("A user with this email address already exists.")
 
 class AdminUser(CustomUser):
     class Meta:
@@ -1229,6 +1284,10 @@ class PlotSize(models.Model):
     company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='plot_sizes', null=True, blank=True, help_text="Company that owns this plot size")
     size = models.CharField(max_length=50, verbose_name="Plot Size")
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         verbose_name = "Plot Size"
         verbose_name_plural = "Plot Sizes"
@@ -1242,6 +1301,10 @@ class PlotNumber(models.Model):
     """Each plot within an estate has a unique number - company scoped"""
     company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='plot_numbers', null=True, blank=True, help_text="Company that owns this plot number")
     number = models.CharField(max_length=50, verbose_name="Plot Number")
+
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
 
     class Meta:
         verbose_name = "Plot Number"
@@ -1270,6 +1333,9 @@ class Estate(models.Model):
     # Make nullable to avoid migration issues for legacy data; set when available.
     company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='estates', null=True, blank=True, help_text="Company that owns this estate")
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
 
     class Meta:
         verbose_name = "Estate"
@@ -1999,6 +2065,10 @@ class Transaction(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         ordering = ['-transaction_date']
 
@@ -2162,6 +2232,10 @@ class PaymentRecord(models.Model):
     receipt_generated = models.BooleanField(default=False)
     receipt_date = models.DateTimeField(null=True, blank=True)
     receipt_number = models.CharField(max_length=50, null=True, blank=True)
+
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
 
     def save(self, *args, **kwargs):
         # SECURITY: Auto-populate company from transaction's allocation
@@ -2334,6 +2408,10 @@ class PropertyPrice(models.Model):
         help_text="When this record was created"
     )
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         unique_together = ("estate", "plot_unit")
         ordering = ["-created_at"]
@@ -2501,7 +2579,11 @@ class Invoice(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         verbose_name = 'Invoice'
         verbose_name_plural = 'Invoices'
@@ -2629,6 +2711,10 @@ class Payment(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # Use CompanyAwareManager for automatic tenant isolation (via invoice.company)
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         verbose_name = 'Payment'
         verbose_name_plural = 'Payments'

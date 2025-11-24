@@ -104,7 +104,7 @@
                 </div>
             </div>
             <div>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editCompanyModal">
+                <button class="btn btn-primary" style="background: linear-gradient(135deg, #00d084 0%, #00b894 100%);" data-bs-toggle="modal" data-bs-target="#editCompanyModal">
                     <i class="bi bi-pencil-square me-1"></i> Update Company Details
                 </button>
             </div>
@@ -364,16 +364,23 @@
                                                         {% endif %}
                                                     </td>
                                                 <td>
-                                                    {% if a.is_active %}
-                                                        <span class="badge bg-success">Active</span>
+                                                    {% if a.last_login %}
+                                                        {% if a.is_active %}
+                                                            <span class="badge bg-success">Active</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Muted</span>
+                                                        {% endif %}
                                                     {% else %}
-                                                        <span class="badge bg-secondary">Muted</span>
+                                                        <span class="badge bg-warning">NOT ACTIVE</span>
                                                     {% endif %}
                                                 </td>
                                                 <td class="text-end">
                                                     {% if master_admin_id and a.id == master_admin_id %}
                                                         <span class="text-muted">Master admin (protected)</span>
-                                                    {% elif request.user.id != a.id %}
+                                                    {% elif master_admin_id and request.user.id == master_admin_id %}
+                                                        <button class="btn btn-sm btn-outline-primary me-2" data-action="edit-user" data-user-id="{{ a.id }}" data-user-type="admin" data-user-name="{{ a.full_name }}" data-user-email="{{ a.email }}" data-user-phone="{{ a.phone|default:'' }}" data-user-address="{{ a.address|default:'' }}">
+                                                            <i class="bi bi-pencil"></i> Edit
+                                                        </button>
                                                         <button class="btn btn-sm btn-outline-warning me-2" data-action="toggle-mute" data-user-id="{{ a.id }}" data-current="{{ a.is_active|yesno:'active,muted' }}">
                                                             {% if a.is_active %}<i class="bi bi-volume-mute"></i> Mute{% else %}<i class="bi bi-volume-up"></i> Unmute{% endif %}
                                                         </button>
@@ -381,12 +388,12 @@
                                                             <i class="bi bi-trash"></i> Delete
                                                         </button>
                                                     {% else %}
-                                                        <span class="text-muted">—</span>
+                                                        <span class="text-muted">Only master admin can Update</span>
                                                     {% endif %}
                                                 </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted">No admin users found.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted">No admin users found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -430,14 +437,19 @@
                                                         {% endif %}
                                                     </td>
                                             <td>
-                                                {% if s.is_active %}
+                                                {% if s.status_display == "Active" %}
                                                     <span class="badge bg-success">Active</span>
+                                                {% elif s.status_display == "Not Active" %}
+                                                    <span class="badge bg-secondary">Not Active</span>
                                                 {% else %}
-                                                    <span class="badge bg-secondary">Muted</span>
+                                                    <span class="badge bg-warning">{{ s.status_display }}</span>
                                                 {% endif %}
                                             </td>
                                             <td class="text-end">
-                                                {% if request.user.id != s.id %}
+                                                {% if master_admin_id and request.user.id == master_admin_id %}
+                                                    <button class="btn btn-sm btn-outline-primary me-2" data-action="edit-user" data-user-id="{{ s.id }}" data-user-type="support" data-user-name="{{ s.full_name }}" data-user-email="{{ s.email }}" data-user-phone="{{ s.phone|default:'' }}" data-user-address="{{ s.address|default:'' }}">
+                                                        <i class="bi bi-pencil"></i> Update
+                                                    </button>
                                                     <button class="btn btn-sm btn-outline-warning me-2" data-action="toggle-mute" data-user-id="{{ s.id }}" data-current="{{ s.is_active|yesno:'active,muted' }}">
                                                         {% if s.is_active %}<i class="bi bi-volume-mute"></i> Mute{% else %}<i class="bi bi-volume-up"></i> Unmute{% endif %}
                                                     </button>
@@ -445,12 +457,12 @@
                                                         <i class="bi bi-trash"></i> Delete
                                                     </button>
                                                 {% else %}
-                                                    <span class="text-muted">—</span>
+                                                    <span class="text-muted">Only master admin can Update</span>
                                                 {% endif %}
                                             </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted">No support users found.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted">No support users found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -1768,789 +1780,911 @@
         </div>
     </div>
 
-</main>
 
-<!-- Modal: Confirm remove additional CEO -->
-<div class="modal fade" id="removeCeoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Remove Additional CEO</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="removeCeoText">Are you sure?</p>
-                <div class="alert d-none" id="removeCeoFeedback"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmRemoveCeoBtn">Remove</button>
+
+    <!-- Modal: Confirm remove additional CEO -->
+    <div class="modal fade" id="removeCeoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Remove Additional CEO</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="removeCeoText">Are you sure?</p>
+                    <div class="alert d-none" id="removeCeoFeedback"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmRemoveCeoBtn">Remove</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    // Initialize progress bar widths
-    document.addEventListener('DOMContentLoaded', function() {
-        const progressFills = document.querySelectorAll('.progress-fill');
-        progressFills.forEach(fill => {
-            const width = fill.getAttribute('data-width');
-            if (width) {
-                fill.style.width = width + '%';
-            }
+    <script>
+        // Initialize progress bar widths
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressFills = document.querySelectorAll('.progress-fill');
+            progressFills.forEach(fill => {
+                const width = fill.getAttribute('data-width');
+                if (width) {
+                    fill.style.width = width + '%';
+                }
+            });
         });
-    });
 
-    (function() {
-        const form = document.getElementById('companyEditForm');
-        if (!form) return;
+        (function() {
+            const form = document.getElementById('companyEditForm');
+            if (!form) return;
 
-        // Dynamic CEOs: add / remove additional CEO input rows
-        const additionalCeoList = document.getElementById('additionalCeoList');
-        const addCeoBtn = document.getElementById('addCeoBtn');
+            // Dynamic CEOs: add / remove additional CEO input rows
+            const additionalCeoList = document.getElementById('additionalCeoList');
+            const addCeoBtn = document.getElementById('addCeoBtn');
 
-        function createCeoRow(name = '', dob = '') {
-            const row = document.createElement('div');
-            row.className = 'row g-2 mb-2 ceo-item';
-            row.innerHTML = `
-                <div class="col-md-5">
-                    <input type="text" name="other_ceo_name[]" class="form-control" value="${name}" placeholder="Additional CEO name">
-                </div>
-                <div class="col-md-5">
-                    <input type="date" name="other_ceo_dob[]" class="form-control" value="${dob}">
-                </div>
-                <div class="col-md-2 d-flex align-items-center">
-                    <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-ceo-btn">Remove</button>
-                </div>
-            `;
-            return row;
-        }
+            function createCeoRow(name = '', dob = '') {
+                const row = document.createElement('div');
+                row.className = 'row g-2 mb-2 ceo-item';
+                row.innerHTML = `
+                    <div class="col-md-5">
+                        <input type="text" name="other_ceo_name[]" class="form-control" value="${name}" placeholder="Additional CEO name">
+                    </div>
+                    <div class="col-md-5">
+                        <input type="date" name="other_ceo_dob[]" class="form-control" value="${dob}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-ceo-btn">Remove</button>
+                    </div>
+                `;
+                return row;
+            }
 
-        if (addCeoBtn) {
-            addCeoBtn.addEventListener('click', function() {
-                const row = createCeoRow();
-                additionalCeoList.appendChild(row);
-            });
-        }
+            if (addCeoBtn) {
+                addCeoBtn.addEventListener('click', function() {
+                    const row = createCeoRow();
+                    additionalCeoList.appendChild(row);
+                });
+            }
 
-        // Delegate remove: open a Bootstrap modal for confirmation and perform AJAX delete when needed
-        if (additionalCeoList) {
-            let pendingCeoItem = null;
+            // Delegate remove: open a Bootstrap modal for confirmation and perform AJAX delete when needed
+            if (additionalCeoList) {
+                let pendingCeoItem = null;
 
-            additionalCeoList.addEventListener('click', function(e) {
-                const btn = e.target.closest('.remove-ceo-btn');
-                if (!btn) return;
-                const item = btn.closest('.ceo-item');
-                if (!item) return;
+                additionalCeoList.addEventListener('click', function(e) {
+                    const btn = e.target.closest('.remove-ceo-btn');
+                    if (!btn) return;
+                    const item = btn.closest('.ceo-item');
+                    if (!item) return;
 
-                pendingCeoItem = item;
-                const ceoName = item.getAttribute('data-ceo-name') || (item.querySelector('input[name="other_ceo_name[]"]')?.value || '').trim();
-                const modal = document.getElementById('removeCeoModal');
-                modal.querySelector('#removeCeoText').textContent = ceoName
-                    ? `Remove additional CEO "${ceoName}"? This will remove the entry from the form.`
-                    : 'Remove this additional CEO entry? This will remove the entry from the form.';
-                const bs = new bootstrap.Modal(modal);
-                bs.show();
-            });
+                    pendingCeoItem = item;
+                    const ceoName = item.getAttribute('data-ceo-name') || (item.querySelector('input[name="other_ceo_name[]"]')?.value || '').trim();
+                    const modal = document.getElementById('removeCeoModal');
+                    modal.querySelector('#removeCeoText').textContent = ceoName
+                        ? `Remove additional CEO "${ceoName}"? This will remove the entry from the form.`
+                        : 'Remove this additional CEO entry? This will remove the entry from the form.';
+                    const bs = new bootstrap.Modal(modal);
+                    bs.show();
+                });
 
-            // Confirm button handler
-            document.addEventListener('click', async function(e) {
-                const btn = e.target.closest('#confirmRemoveCeoBtn');
-                if (!btn) return;
-                const modalEl = document.getElementById('removeCeoModal');
-                const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-                const feedback = modalEl.querySelector('#removeCeoFeedback');
-                feedback.classList.add('d-none');
+                // Confirm button handler
+                document.addEventListener('click', async function(e) {
+                    const btn = e.target.closest('#confirmRemoveCeoBtn');
+                    if (!btn) return;
+                    const modalEl = document.getElementById('removeCeoModal');
+                    const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    const feedback = modalEl.querySelector('#removeCeoFeedback');
+                    feedback.classList.add('d-none');
 
-                if (!pendingCeoItem) {
-                    bsModal.hide();
-                    return;
-                }
+                    if (!pendingCeoItem) {
+                        bsModal.hide();
+                        return;
+                    }
 
-                const ceoId = pendingCeoItem.getAttribute('data-ceo-id');
-                // If saved (has id), call delete endpoint; otherwise just remove from DOM
-                if (!ceoId) {
-                    pendingCeoItem.remove();
-                    pendingCeoItem = null;
-                    bsModal.hide();
-                    return;
-                }
-
-                // Do AJAX POST to delete endpoint
-                const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
-                const url = `{% url 'company-ceo-delete' ceo_id=0 %}`.replace('/0/', `/${ceoId}/`);
-                const formData = new FormData();
-                formData.append('csrfmiddlewaretoken', csrfToken);
-
-                try {
-                    const res = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData });
-                    const data = await res.json();
-                    if (data.ok) {
+                    const ceoId = pendingCeoItem.getAttribute('data-ceo-id');
+                    // If saved (has id), call delete endpoint; otherwise just remove from DOM
+                    if (!ceoId) {
                         pendingCeoItem.remove();
                         pendingCeoItem = null;
                         bsModal.hide();
-                    } else {
+                        return;
+                    }
+
+                    // Do AJAX POST to delete endpoint
+                    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+                    const url = `{% url 'company-ceo-delete' ceo_id=0 %}`.replace('/0/', `/${ceoId}/`);
+                    const formData = new FormData();
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+
+                    try {
+                        const res = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData });
+                        const data = await res.json();
+                        if (data.ok) {
+                            pendingCeoItem.remove();
+                            pendingCeoItem = null;
+                            bsModal.hide();
+                        } else {
+                            feedback.classList.remove('d-none');
+                            feedback.classList.add('alert-danger');
+                            feedback.textContent = data.error || 'Failed to remove CEO';
+                        }
+                    } catch (err) {
                         feedback.classList.remove('d-none');
                         feedback.classList.add('alert-danger');
-                        feedback.textContent = data.error || 'Failed to remove CEO';
+                        feedback.textContent = 'Network or server error. Please try again.';
+                    }
+                });
+            }
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const url = '{% url "company-profile-update" %}';
+                const feedback = document.getElementById('companyEditFeedback');
+                const saveBtn = document.getElementById('companySaveBtn');
+                const spinner = document.getElementById('companySaveSpinner');
+                const saveText = document.getElementById('companySaveText');
+
+                const formData = new FormData(form);
+
+                // Show spinner and disable button
+                if (spinner) spinner.classList.remove('d-none');
+                if (saveBtn) saveBtn.disabled = true;
+                if (saveText) saveText.textContent = 'Saving...';
+
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    });
+                    const data = await res.json();
+                    feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
+                    if (data.ok) {
+                        feedback.classList.add('alert-success');
+                        feedback.textContent = data.message || 'Saved';
+                        // Optimistic reload to reflect latest values
+                        setTimeout(() => { window.location.reload(); }, 800);
+                    } else {
+                        feedback.classList.add('alert-danger');
+                        if (data.errors) {
+                            const msgs = Object.entries(data.errors).map(([k,v]) => `${k}: ${v}`).join(' | ');
+                            feedback.textContent = msgs;
+                        } else {
+                            feedback.textContent = data.error || 'Update failed';
+                        }
+                        // Hide spinner and re-enable
+                        if (spinner) spinner.classList.add('d-none');
+                        if (saveBtn) saveBtn.disabled = false;
+                        if (saveText) saveText.textContent = 'Save changes';
                     }
                 } catch (err) {
                     feedback.classList.remove('d-none');
                     feedback.classList.add('alert-danger');
                     feedback.textContent = 'Network or server error. Please try again.';
-                }
-            });
-        }
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const url = '{% url "company-profile-update" %}';
-            const feedback = document.getElementById('companyEditFeedback');
-            const saveBtn = document.getElementById('companySaveBtn');
-            const spinner = document.getElementById('companySaveSpinner');
-            const saveText = document.getElementById('companySaveText');
-
-            const formData = new FormData(form);
-
-            // Show spinner and disable button
-            if (spinner) spinner.classList.remove('d-none');
-            if (saveBtn) saveBtn.disabled = true;
-            if (saveText) saveText.textContent = 'Saving...';
-
-            try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: formData
-                });
-                const data = await res.json();
-                feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
-                if (data.ok) {
-                    feedback.classList.add('alert-success');
-                    feedback.textContent = data.message || 'Saved';
-                    // Optimistic reload to reflect latest values
-                    setTimeout(() => { window.location.reload(); }, 800);
-                } else {
-                    feedback.classList.add('alert-danger');
-                    if (data.errors) {
-                        const msgs = Object.entries(data.errors).map(([k,v]) => `${k}: ${v}`).join(' | ');
-                        feedback.textContent = msgs;
-                    } else {
-                        feedback.textContent = data.error || 'Update failed';
-                    }
-                    // Hide spinner and re-enable
                     if (spinner) spinner.classList.add('d-none');
                     if (saveBtn) saveBtn.disabled = false;
                     if (saveText) saveText.textContent = 'Save changes';
                 }
-            } catch (err) {
-                feedback.classList.remove('d-none');
-                feedback.classList.add('alert-danger');
-                feedback.textContent = 'Network or server error. Please try again.';
-                if (spinner) spinner.classList.add('d-none');
-                if (saveBtn) saveBtn.disabled = false;
-                if (saveText) saveText.textContent = 'Save changes';
-            }
-        });
-    })();
-
-        // Admin actions: mute/unmute and delete with confirmation modals
-            (function() {
-                const adminTab = document.getElementById('admins');
-                if (!adminTab) return;
-
-            // Create reusable modal elements
-            const confirmModal = document.createElement('div');
-            confirmModal.className = 'modal fade';
-            confirmModal.id = 'confirmActionModal';
-            confirmModal.tabIndex = -1;
-            confirmModal.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="confirmActionTitle">Confirm Action</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3 text-warning"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i></div>
-                                <div>
-                                    <p class="mb-1" id="confirmActionText"></p>
-                                    <small class="text-muted" id="confirmActionCaption"></small>
-                                </div>
-                            </div>
-                            <div class="mt-3" id="confirmExtra"></div>
-                            <div class="alert d-none mt-3" id="confirmFeedback"></div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="confirmActionBtn">Proceed</button>
-                        </div>
-                    </div>
-                </div>`;
-            document.body.appendChild(confirmModal);
-            const bsConfirmModal = new bootstrap.Modal(confirmModal);
-
-            let pending = null; // {type, userId, desired}
-                adminTab.addEventListener('click', function(e) {
-                const btn = e.target.closest('button[data-action]');
-                if (!btn) return;
-                const userId = btn.getAttribute('data-user-id');
-                const action = btn.getAttribute('data-action');
-                const feedback = confirmModal.querySelector('#confirmFeedback');
-                feedback.classList.add('d-none');
-                feedback.textContent = '';
-
-                if (action === 'toggle-mute') {
-                    const current = btn.getAttribute('data-current'); // 'active' or 'muted'
-                    const desired = current === 'active' ? 'mute' : 'unmute';
-                    pending = { type: 'mute', userId, desired };
-                    confirmModal.querySelector('#confirmActionTitle').textContent = desired === 'mute' ? 'Mute Admin' : 'Unmute Admin';
-                    confirmModal.querySelector('#confirmActionText').textContent = desired === 'mute' ? 'Are you sure you want to mute this admin account?' : 'Unmute this admin account?';
-                    confirmModal.querySelector('#confirmActionCaption').textContent = desired === 'mute' ? 'Muted admins cannot log in until unmuted.' : '';
-                    confirmModal.querySelector('#confirmExtra').innerHTML = '';
-                    bsConfirmModal.show();
-                }
-                if (action === 'delete-admin') {
-                    const name = btn.getAttribute('data-name') || 'this admin';
-                    pending = { type: 'delete', userId };
-                    confirmModal.querySelector('#confirmActionTitle').textContent = 'Delete Admin Account';
-                    confirmModal.querySelector('#confirmActionText').innerHTML = `You are about to <strong>delete</strong> ${name}.`;
-                    confirmModal.querySelector('#confirmActionCaption').textContent = 'This is a soft delete: the user will be deactivated and cannot log in.';
-                    confirmModal.querySelector('#confirmExtra').innerHTML = `
-                        <label class="form-label mt-2">Reason (optional)</label>
-                        <textarea class="form-control" id="deleteReason" rows="2" placeholder="Add a note..."></textarea>`;
-                    bsConfirmModal.show();
-                }
-            });
-
-                function getCookie(name) {
-                    const value = `; ${document.cookie}`;
-                    const parts = value.split(`; ${name}=`);
-                    if (parts.length === 2) return parts.pop().split(';').shift();
-                }
-
-                confirmModal.querySelector('#confirmActionBtn').addEventListener('click', async function() {
-                if (!pending) return;
-                const feedback = confirmModal.querySelector('#confirmFeedback');
-                try {
-                            let url = '';
-                    const form = new FormData();
-                        const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
-                        form.append('csrfmiddlewaretoken', csrfToken);
-                    if (pending.type === 'mute') {
-                                url = `/company-profile/admin/${pending.userId}/toggle-mute/`;
-                        form.append('desired', pending.desired);
-                    } else if (pending.type === 'delete') {
-                                url = `/company-profile/admin/${pending.userId}/delete/`;
-                        const reason = confirmModal.querySelector('#deleteReason')?.value || '';
-                        form.append('reason', reason);
-                    }
-
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        body: form
-                    });
-                    const data = await res.json();
-                    feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
-                            if (data.ok) {
-                        feedback.classList.add('alert-success');
-                        feedback.textContent = data.message || 'Success';
-                        setTimeout(() => { window.location.reload(); }, 600);
-                    } else {
-                        feedback.classList.add('alert-danger');
-                        feedback.textContent = data.error || 'Action failed';
-                    }
-                } catch (err) {
-                    feedback.classList.remove('d-none');
-                    feedback.classList.add('alert-danger');
-                    feedback.textContent = 'Network or server error. Please try again.';
-                }
             });
         })();
-</script>
 
-<style>
-    /* CEO tag: visually distinct from badges */
-    .ceo-tag {
-        display: inline-block;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: #fff;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-weight: 700;
-        box-shadow: 0 6px 18px rgba(16,185,129,0.18);
-        font-size: 0.95rem;
-    }
+            // Admin actions: mute/unmute and delete with confirmation modals
+                (function() {
+                    const adminTab = document.getElementById('admins');
+                    if (!adminTab) return;
 
-    .ceo-tag .ceo-role {
-        background: rgba(255,255,255,0.15);
-        color: rgba(255,255,255,0.95);
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-weight: 600;
-        font-size: 0.7rem;
-        vertical-align: middle;
-    }
-
-    .ceo-tag .bi-award-fill {
-        font-size: 0.9rem;
-        vertical-align: -2px;
-    }
-
-    .master-badge {
-        background: #fbbf24;
-        color: #1f2937;
-        border-radius: 8px;
-        padding: 4px 8px;
-        font-weight: 700;
-        font-size: 0.75rem;
-    }
-    /* Primary CEO variant (keeps green look) */
-    .ceo-tag.primary-ceo {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: #fff;
-        box-shadow: 0 6px 18px rgba(16,185,129,0.18);
-    }
-
-    /* Other CEO variant: pill with softer purple/blue gradient */
-    .ceo-tag.other-ceo {
-        background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
-        color: #fff;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-weight: 600;
-        box-shadow: 0 6px 14px rgba(99,102,241,0.12);
-        font-size: 0.9rem;
-    }
-
-    .ceo-tag.other-ceo .bi-person-fill {
-        font-size: 0.9rem;
-        vertical-align: -2px;
-    }
-
-    /* Slight spacing for CEO name inside pill */
-    .ceo-tag .ceo-name { vertical-align: middle; }
-</style>
-
-<!-- Subscription & Billing JavaScript -->
-<script>
-    // Fetch and display available plans
-    async function loadPlans(targetContainer, isUpgrade = false) {
-        try {
-            const response = await fetch('/api/subscription/plans/');
-            const data = await response.json();
-            let html = '';
-            
-            const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
-            
-            data.plans.forEach(plan => {
-                // Skip current plan in upgrade view
-                if (isUpgrade && plan.name === currentPlan) return;
-                
-                const isCurrentPlan = plan.name === currentPlan;
-                const badgeClass = isCurrentPlan ? 'bg-primary' : 'bg-outline-primary';
-                
-                html += `
-                    <div class="col-md-6">
-                        <div class="card h-100 border-2 plan-card" data-plan-id="${plan.id}" data-plan-name="${plan.name}" data-plan-price="${plan.price}">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h5 class="card-title">${plan.name}</h5>
-                                    ${isCurrentPlan ? '<span class="badge bg-primary">Current</span>' : ''}
+                // Create reusable modal elements
+                const confirmModal = document.createElement('div');
+                confirmModal.className = 'modal fade';
+                confirmModal.id = 'confirmActionModal';
+                confirmModal.tabIndex = -1;
+                confirmModal.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="confirmActionTitle">Confirm Action</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="d-flex align-items-start">
+                                    <div class="me-3 text-warning"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i></div>
+                                    <div>
+                                        <p class="mb-1" id="confirmActionText"></p>
+                                        <small class="text-muted" id="confirmActionCaption"></small>
+                                    </div>
                                 </div>
-                                <div class="h4 text-primary mb-3">₦${plan.price.toLocaleString('en-NG')}/mo</div>
-                                <ul class="list-unstyled mb-3">
-                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Properties:</strong> ${plan.properties_limit}</li>
-                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Users:</strong> ${plan.users_limit}</li>
-                                    <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Marketers:</strong> ${plan.marketers_limit}</li>
-                                    <li class="mb-2">
-                                        <i class="bi ${plan.has_analytics ? 'bi-check-circle text-success' : 'bi-x-circle text-secondary'} me-2"></i>
-                                        <strong>Analytics:</strong> ${plan.has_analytics ? 'Yes' : 'No'}
-                                    </li>
-                                </ul>
-                                <button type="button" class="btn btn-${isCurrentPlan ? 'outline-secondary' : 'primary'} w-100 select-plan-btn" 
-                                        data-plan-name="${plan.name}" data-plan-price="${plan.price}" 
-                                        ${isCurrentPlan ? 'disabled' : ''}>
-                                    ${isCurrentPlan ? 'Current Plan' : 'Select Plan'}
-                                </button>
+                                <div class="mt-3" id="confirmExtra"></div>
+                                <div class="alert d-none mt-3" id="confirmFeedback"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="confirmActionBtn">Proceed</button>
                             </div>
                         </div>
-                    </div>
-                `;
-            });
-            
-            document.getElementById(targetContainer).innerHTML = html;
-            
-            // Attach event listeners to plan selection buttons
-            document.querySelectorAll('.select-plan-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const planName = this.getAttribute('data-plan-name');
-                    const planPrice = this.getAttribute('data-plan-price');
-                    selectPlan(planName, planPrice);
+                    </div>`;
+                document.body.appendChild(confirmModal);
+                const bsConfirmModal = new bootstrap.Modal(confirmModal);
+
+                let pending = null; // {type, userId, desired}
+                    adminTab.addEventListener('click', function(e) {
+                    const btn = e.target.closest('button[data-action]');
+                    if (!btn) return;
+                    const userId = btn.getAttribute('data-user-id');
+                    const action = btn.getAttribute('data-action');
+                    const feedback = confirmModal.querySelector('#confirmFeedback');
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
+
+                    if (action === 'toggle-mute') {
+                        const current = btn.getAttribute('data-current'); // 'active' or 'muted'
+                        const desired = current === 'active' ? 'mute' : 'unmute';
+                        pending = { type: 'mute', userId, desired };
+                        confirmModal.querySelector('#confirmActionTitle').textContent = desired === 'mute' ? 'Mute Admin' : 'Unmute Admin';
+                        confirmModal.querySelector('#confirmActionText').textContent = desired === 'mute' ? 'Are you sure you want to mute this admin account?' : 'Unmute this admin account?';
+                        confirmModal.querySelector('#confirmActionCaption').textContent = desired === 'mute' ? 'Muted admins cannot log in until unmuted.' : '';
+                        confirmModal.querySelector('#confirmExtra').innerHTML = '';
+                        bsConfirmModal.show();
+                    }
+                    if (action === 'delete-admin') {
+                        const name = btn.getAttribute('data-name') || 'this admin';
+                        pending = { type: 'delete', userId };
+                        confirmModal.querySelector('#confirmActionTitle').textContent = 'Delete Admin Account';
+                        confirmModal.querySelector('#confirmActionText').innerHTML = `You are about to <strong>delete</strong> ${name}.`;
+                        confirmModal.querySelector('#confirmActionCaption').textContent = 'This is a soft delete: the user will be deactivated and cannot log in.';
+                        confirmModal.querySelector('#confirmExtra').innerHTML = `
+                            <label class="form-label mt-2">Reason (optional)</label>
+                            <textarea class="form-control" id="deleteReason" rows="2" placeholder="Add a note..."></textarea>`;
+                        bsConfirmModal.show();
+                    }
                 });
-            });
-        } catch (error) {
-            console.error('Error loading plans:', error);
-            document.getElementById(targetContainer).innerHTML = '<div class="alert alert-danger">Failed to load plans.</div>';
-        }
-    }
 
-    // Handle plan selection
-    function selectPlan(planName, planPrice) {
-        const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
-        
-        if (currentPlan && currentPlan !== planName) {
-            // Upgrade flow
-            showUpgradeConfirmation(planName, planPrice);
-        } else if (!currentPlan) {
-            // New subscription flow
-            showPaymentModal(planName, planPrice);
-        }
-    }
+                    function getCookie(name) {
+                        const value = `; ${document.cookie}`;
+                        const parts = value.split(`; ${name}=`);
+                        if (parts.length === 2) return parts.pop().split(';').shift();
+                    }
 
-    // Show upgrade confirmation
-    function showUpgradeConfirmation(newPlan, newPrice) {
-        const currentPrice = '{{ subscription.amount|default:0 }}';
-        const priceDifference = newPrice - currentPrice;
-        
-        const confirmContent = `
-            <div class="card">
-                <div class="card-body">
-                    <p><strong>Current Plan:</strong> {{ subscription.subscription_plan.name|default:"-" }} (₦${currentPrice}/mo)</p>
-                    <p><strong>New Plan:</strong> ${newPlan} (₦${newPrice}/mo)</p>
-                    <div class="alert alert-info">
-                        <strong>Price Change:</strong> ${priceDifference > 0 ? '+' : ''}₦${Math.abs(priceDifference).toLocaleString('en-NG')}/mo
+                    confirmModal.querySelector('#confirmActionBtn').addEventListener('click', async function() {
+                        if (!pending) return;
+                        const feedback = confirmModal.querySelector('#confirmFeedback');
+                        try {
+                            let url = '';
+                            const form = new FormData();
+                            const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
+                            form.append('csrfmiddlewaretoken', csrfToken);
+                            if (pending.type === 'mute') {
+                                url = `/company-profile/admin/${pending.userId}/toggle-mute/`;
+                                form.append('desired', pending.desired);
+                            } else if (pending.type === 'delete') {
+                                url = `/company-profile/admin/${pending.userId}/delete/`;
+                                const reason = confirmModal.querySelector('#deleteReason')?.value || '';
+                                form.append('reason', reason);
+                            }
+
+                            const res = await fetch(url, {
+                                method: 'POST',
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                body: form
+                            });
+                            const data = await res.json();
+                            feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
+                            if (data.ok) {
+                                feedback.classList.add('alert-success');
+                                feedback.textContent = data.message || 'Success';
+                                setTimeout(() => { window.location.reload(); }, 600);
+                            } else {
+                                feedback.classList.add('alert-danger');
+                                feedback.textContent = data.error || 'Action failed';
+                            }
+                        } catch (err) {
+                            feedback.classList.remove('d-none');
+                            feedback.classList.add('alert-danger');
+                            feedback.textContent = 'Network or server error. Please try again.';
+                        }
+                    });
+            })();
+
+            // Edit User functionality
+            (function() {
+                let editUserModal, editUserForm, editUserFeedback;
+
+                function initEditUser() {
+                    editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+                    editUserForm = document.getElementById('editUserForm');
+                    editUserFeedback = document.getElementById('editUserFeedback');
+
+                    // Handle edit button clicks
+                    document.addEventListener('click', function(e) {
+                        const editBtn = e.target.closest('button[data-action="edit-user"]');
+                        if (!editBtn) return;
+
+                        const userId = editBtn.getAttribute('data-user-id');
+                        const userType = editBtn.getAttribute('data-user-type');
+                        const userName = editBtn.getAttribute('data-user-name');
+                        const userEmail = editBtn.getAttribute('data-user-email');
+                        const userPhone = editBtn.getAttribute('data-user-phone');
+                        const userAddress = editBtn.getAttribute('data-user-address');
+
+                        // Populate modal
+                        document.getElementById('editUserId').value = userId;
+                        document.getElementById('editUserType').value = userType;
+                        document.getElementById('editFullName').value = userName;
+                        document.getElementById('editEmail').value = userEmail;
+                        document.getElementById('editPhone').value = userPhone;
+                        document.getElementById('editAddress').value = userAddress;
+                        document.getElementById('editNewPassword').value = '';
+                        document.getElementById('editConfirmPassword').value = '';
+                        
+                        // Clear master admin password field if it exists
+                        const masterPasswordField = document.getElementById('masterAdminPassword');
+                        if (masterPasswordField) {
+                            masterPasswordField.value = '';
+                        }
+
+                        editUserFeedback.classList.add('d-none');
+                        editUserModal.show();
+                    });
+
+                    // Handle form submission
+                    editUserForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        
+                        const formData = new FormData(this);
+                        const userId = formData.get('user_id');
+                        const userType = formData.get('user_type');
+                        
+                        // Validate passwords if provided
+                        const newPassword = formData.get('new_password');
+                        const confirmPassword = formData.get('confirm_password');
+                        
+                        if (newPassword || confirmPassword) {
+                            if (newPassword !== confirmPassword) {
+                                editUserFeedback.classList.remove('d-none', 'alert-success');
+                                editUserFeedback.classList.add('alert-danger');
+                                editUserFeedback.textContent = 'Passwords do not match.';
+                                return;
+                            }
+                            if (newPassword.length < 8) {
+                                editUserFeedback.classList.remove('d-none', 'alert-success');
+                                editUserFeedback.classList.add('alert-danger');
+                                editUserFeedback.textContent = 'Password must be at least 8 characters long.';
+                                return;
+                            }
+                        }
+
+                        // Validate master admin password if field exists
+                        const masterPasswordField = document.getElementById('masterAdminPassword');
+                        if (masterPasswordField && !masterPasswordField.value.trim()) {
+                            editUserFeedback.classList.remove('d-none', 'alert-success');
+                            editUserFeedback.classList.add('alert-danger');
+                            editUserFeedback.textContent = 'Master admin password is required to make changes.';
+                            return;
+                        }
+
+                        try {
+                            const url = userType === 'admin' 
+                                ? `/company-profile/admin/${userId}/edit/` 
+                                : `/company-profile/support/${userId}/edit/`;
+                            const response = await fetch(url, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                                },
+                                body: formData
+                            });
+
+                            const data = await response.json();
+                            
+                            if (data.ok) {
+                                editUserFeedback.classList.remove('d-none', 'alert-danger');
+                                editUserFeedback.classList.add('alert-success');
+                                editUserFeedback.textContent = data.message || 'User updated successfully.';
+                                
+                                setTimeout(() => {
+                                    editUserModal.hide();
+                                    window.location.reload();
+                                }, 1000);
+                            } else {
+                                editUserFeedback.classList.remove('d-none', 'alert-success');
+                                editUserFeedback.classList.add('alert-danger');
+                                editUserFeedback.textContent = data.error || 'Failed to update user.';
+                            }
+                        } catch (error) {
+                            editUserFeedback.classList.remove('d-none', 'alert-success');
+                            editUserFeedback.classList.add('alert-danger');
+                            editUserFeedback.textContent = 'Network error. Please try again.';
+                        }
+                    });
+                }
+
+                // Initialize when DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initEditUser);
+                } else {
+                    initEditUser();
+                }
+            })();
+    </script>
+
+    <style>
+        /* CEO tag: visually distinct from badges */
+        .ceo-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            box-shadow: 0 6px 18px rgba(16,185,129,0.18);
+            font-size: 0.95rem;
+        }
+
+        .ceo-tag .ceo-role {
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.95);
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            vertical-align: middle;
+        }
+
+        .ceo-tag .bi-award-fill {
+            font-size: 0.9rem;
+            vertical-align: -2px;
+        }
+
+        .master-badge {
+            background: #fbbf24;
+            color: #1f2937;
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        /* Primary CEO variant (keeps green look) */
+        .ceo-tag.primary-ceo {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(16,185,129,0.18);
+        }
+
+        /* Other CEO variant: pill with softer purple/blue gradient */
+        .ceo-tag.other-ceo {
+            background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            box-shadow: 0 6px 14px rgba(99,102,241,0.12);
+            font-size: 0.9rem;
+        }
+
+        .ceo-tag.other-ceo .bi-person-fill {
+            font-size: 0.9rem;
+            vertical-align: -2px;
+        }
+
+        /* Slight spacing for CEO name inside pill */
+        .ceo-tag .ceo-name { vertical-align: middle; }
+    </style>
+
+    <!-- Subscription & Billing JavaScript -->
+    <script>
+        // Fetch and display available plans
+        async function loadPlans(targetContainer, isUpgrade = false) {
+            try {
+                const response = await fetch('/api/subscription/plans/');
+                const data = await response.json();
+                let html = '';
+                
+                const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
+                
+                data.plans.forEach(plan => {
+                    // Skip current plan in upgrade view
+                    if (isUpgrade && plan.name === currentPlan) return;
+                    
+                    const isCurrentPlan = plan.name === currentPlan;
+                    const badgeClass = isCurrentPlan ? 'bg-primary' : 'bg-outline-primary';
+                    
+                    html += `
+                        <div class="col-md-6">
+                            <div class="card h-100 border-2 plan-card" data-plan-id="${plan.id}" data-plan-name="${plan.name}" data-plan-price="${plan.price}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <h5 class="card-title">${plan.name}</h5>
+                                        ${isCurrentPlan ? '<span class="badge bg-primary">Current</span>' : ''}
+                                    </div>
+                                    <div class="h4 text-primary mb-3">₦${plan.price.toLocaleString('en-NG')}/mo</div>
+                                    <ul class="list-unstyled mb-3">
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Properties:</strong> ${plan.properties_limit}</li>
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Users:</strong> ${plan.users_limit}</li>
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Marketers:</strong> ${plan.marketers_limit}</li>
+                                        <li class="mb-2">
+                                            <i class="bi ${plan.has_analytics ? 'bi-check-circle text-success' : 'bi-x-circle text-secondary'} me-2"></i>
+                                            <strong>Analytics:</strong> ${plan.has_analytics ? 'Yes' : 'No'}
+                                        </li>
+                                    </ul>
+                                    <button type="button" class="btn btn-${isCurrentPlan ? 'outline-secondary' : 'primary'} w-100 select-plan-btn" 
+                                            data-plan-name="${plan.name}" data-plan-price="${plan.price}" 
+                                            ${isCurrentPlan ? 'disabled' : ''}>
+                                        ${isCurrentPlan ? 'Current Plan' : 'Select Plan'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById(targetContainer).innerHTML = html;
+                
+                // Attach event listeners to plan selection buttons
+                document.querySelectorAll('.select-plan-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const planName = this.getAttribute('data-plan-name');
+                        const planPrice = this.getAttribute('data-plan-price');
+                        selectPlan(planName, planPrice);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading plans:', error);
+                document.getElementById(targetContainer).innerHTML = '<div class="alert alert-danger">Failed to load plans.</div>';
+            }
+        }
+
+        // Handle plan selection
+        function selectPlan(planName, planPrice) {
+            const currentPlan = '{{ subscription.subscription_plan.name|default:"" }}';
+            
+            if (currentPlan && currentPlan !== planName) {
+                // Upgrade flow
+                showUpgradeConfirmation(planName, planPrice);
+            } else if (!currentPlan) {
+                // New subscription flow
+                showPaymentModal(planName, planPrice);
+            }
+        }
+
+        // Show upgrade confirmation
+        function showUpgradeConfirmation(newPlan, newPrice) {
+            const currentPrice = '{{ subscription.amount|default:0 }}';
+            const priceDifference = newPrice - currentPrice;
+            
+            const confirmContent = `
+                <div class="card">
+                    <div class="card-body">
+                        <p><strong>Current Plan:</strong> {{ subscription.subscription_plan.name|default:"-" }} (₦${currentPrice}/mo)</p>
+                        <p><strong>New Plan:</strong> ${newPlan} (₦${newPrice}/mo)</p>
+                        <div class="alert alert-info">
+                            <strong>Price Change:</strong> ${priceDifference > 0 ? '+' : ''}₦${Math.abs(priceDifference).toLocaleString('en-NG')}/mo
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-        
-        // Show in payment modal
-        document.getElementById('paymentPlan').textContent = `${newPlan} (Upgrade)`;
-        document.getElementById('paymentAmount').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
-        document.getElementById('paymentTotal').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
-        
-        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-        paymentModal.show();
-    }
+            `;
+            
+            // Show in payment modal
+            document.getElementById('paymentPlan').textContent = `${newPlan} (Upgrade)`;
+            document.getElementById('paymentAmount').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
+            document.getElementById('paymentTotal').textContent = `₦${newPrice.toLocaleString('en-NG')}`;
+            
+            const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+            paymentModal.show();
+        }
 
-    // Show payment modal
-    function showPaymentModal(planName, planPrice) {
-        document.getElementById('paymentPlan').textContent = planName;
-        document.getElementById('paymentAmount').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
-        document.getElementById('paymentTotal').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
-        
-        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-        paymentModal.show();
-    }
+        // Show payment modal
+        function showPaymentModal(planName, planPrice) {
+            document.getElementById('paymentPlan').textContent = planName;
+            document.getElementById('paymentAmount').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
+            document.getElementById('paymentTotal').textContent = `₦${planPrice.toLocaleString('en-NG')}`;
+            
+            const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+            paymentModal.show();
+        }
 
-    // Load plans when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        loadPlans('plansContainer', false);
-        loadPlans('upgradePlansContainer', true);
-        
+        // Load plans when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPlans('plansContainer', false);
+            loadPlans('upgradePlansContainer', true);
+            
+            // Load current subscription data
+            loadCurrentSubscription();
+        });
+
         // Load current subscription data
-        loadCurrentSubscription();
-    });
-
-    // Load current subscription data
-    async function loadCurrentSubscription() {
-        try {
-            const response = await fetch('/api/subscription/status/');
-            const data = await response.json();
-            
-            if (data.subscription) {
-                document.getElementById('currentPlanName').textContent = data.subscription.plan_name;
-                document.getElementById('renewPlanName').textContent = data.subscription.plan_name;
-                document.getElementById('renewAmount').textContent = data.subscription.amount.toLocaleString('en-NG');
+        async function loadCurrentSubscription() {
+            try {
+                const response = await fetch('/api/subscription/status/');
+                const data = await response.json();
+                
+                if (data.subscription) {
+                    document.getElementById('currentPlanName').textContent = data.subscription.plan_name;
+                    document.getElementById('renewPlanName').textContent = data.subscription.plan_name;
+                    document.getElementById('renewAmount').textContent = data.subscription.amount.toLocaleString('en-NG');
+                }
+            } catch (error) {
+                console.error('Error loading subscription:', error);
             }
-        } catch (error) {
-            console.error('Error loading subscription:', error);
         }
-    }
 
-    // Handle renewal form submission
-    document.getElementById('renewSubscriptionForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const paymentMethod = this.querySelector('select[name="payment_method"]').value;
-        const feedback = document.getElementById('renewFeedback');
-        feedback.classList.add('d-none');
-        
-        if (!paymentMethod) {
-            feedback.classList.remove('d-none', 'alert-success');
-            feedback.classList.add('alert-warning');
-            feedback.textContent = 'Please select a payment method.';
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/subscription/renew/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({ payment_method: paymentMethod })
-            });
+        // Handle renewal form submission
+        document.getElementById('renewSubscriptionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            const data = await response.json();
+            const paymentMethod = this.querySelector('select[name="payment_method"]').value;
+            const feedback = document.getElementById('renewFeedback');
+            feedback.classList.add('d-none');
             
-            if (data.ok) {
-                feedback.classList.remove('d-none', 'alert-danger');
-                feedback.classList.add('alert-success');
-                feedback.textContent = 'Proceeding to payment...';
-                
-                // Close modal and show payment modal
-                bootstrap.Modal.getInstance(document.getElementById('renewSubscriptionModal')).hide();
-                
-                // Show payment modal with Stripe/Paystack form
-                document.getElementById('paymentPlan').textContent = '{{ subscription.subscription_plan.name|default:"-" }}';
-                document.getElementById('paymentAmount').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
-                document.getElementById('paymentTotal').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
-                
-                // Show appropriate payment container
-                document.getElementById('stripePaymentContainer').style.display = paymentMethod === 'stripe' ? 'block' : 'none';
-                document.getElementById('paystackPaymentContainer').style.display = paymentMethod === 'paystack' ? 'block' : 'none';
-                
-                const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-                paymentModal.show();
-            } else {
+            if (!paymentMethod) {
                 feedback.classList.remove('d-none', 'alert-success');
-                feedback.classList.add('alert-danger');
-                feedback.textContent = data.error || 'Failed to initiate renewal.';
-            }
-        } catch (error) {
-            feedback.classList.remove('d-none', 'alert-success');
-            feedback.classList.add('alert-danger');
-            feedback.textContent = 'Network error. Please try again.';
-        }
-    });
-
-    // Handle payment form submission
-    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const paymentMethod = document.querySelector('.payment-method-active')?.value || 'stripe';
-        const feedback = document.getElementById('paymentFeedback');
-        feedback.classList.add('d-none');
-        
-        try {
-            const response = await fetch('/api/subscription/payment/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    payment_method: paymentMethod,
-                    plan_name: document.getElementById('paymentPlan').textContent
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.ok) {
-                feedback.classList.remove('d-none', 'alert-danger');
-                feedback.classList.add('alert-success');
-                feedback.textContent = 'Payment successful! Redirecting...';
-                
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                feedback.classList.remove('d-none', 'alert-success');
-                feedback.classList.add('alert-danger');
-                feedback.textContent = data.error || 'Payment failed.';
-            }
-        } catch (error) {
-            feedback.classList.remove('d-none', 'alert-success');
-            feedback.classList.add('alert-danger');
-            feedback.textContent = 'Network error. Please try again.';
-        }
-    });
-
-    // Show billing history
-    function showBillingHistory() {
-        document.querySelector('a[data-bs-target="#billing"]').click();
-    }
-
-    // Password verification modal with session timeout
-    document.addEventListener('DOMContentLoaded', function() {
-        const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'), {
-            backdrop: 'static',
-            keyboard: false
-        });
-
-        // Session timeout configuration
-        const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-        const WARNING_TIME = 1 * 60 * 1000; // Show warning 1 minute before timeout
-        let sessionTimer;
-        let warningTimer;
-        let isModalShown = false;
-
-        // Function to show password modal
-        function showPasswordModal() {
-            if (!isModalShown) {
-                document.getElementById('protectedContent').style.display = 'none';
-                passwordModal.show();
-                isModalShown = true;
-            }
-        }
-
-        // Function to show session warning
-        function showSessionWarning() {
-            document.getElementById('sessionWarning').style.display = 'block';
-        }
-
-        // Function to hide session warning
-        function hideSessionWarning() {
-            document.getElementById('sessionWarning').style.display = 'none';
-        }
-
-        // Function to extend session (global function for onclick)
-        window.extendSession = function() {
-            hideSessionWarning();
-            resetSessionTimer();
-        };
-
-        // Function to reset session timer
-        function resetSessionTimer() {
-            clearTimeout(sessionTimer);
-            clearTimeout(warningTimer);
-            hideSessionWarning();
-            
-            // Set warning timer (4 minutes from now)
-            warningTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT - WARNING_TIME);
-            // Set session timeout (5 minutes from now)
-            sessionTimer = setTimeout(showPasswordModal, SESSION_TIMEOUT);
-        }
-
-        // Function to handle user activity
-        function handleUserActivity() {
-            // If modal is already shown, don't reset timer
-            if (isModalShown) return;
-
-            hideSessionWarning();
-            resetSessionTimer();
-        }
-
-        // Start session timer on page load
-        resetSessionTimer();
-
-        // Listen for user activity events
-        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-        activityEvents.forEach(event => {
-            document.addEventListener(event, handleUserActivity, true);
-        });
-
-        // Password visibility toggle
-        const togglePassword = document.getElementById('togglePassword');
-        const passwordInput = document.getElementById('masterPassword');
-        const passwordIcon = document.getElementById('passwordIcon');
-
-        togglePassword.addEventListener('click', function() {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-
-            // Toggle icon
-            if (type === 'password') {
-                passwordIcon.className = 'bi bi-eye';
-            } else {
-                passwordIcon.className = 'bi bi-eye-slash';
-            }
-        });
-
-        document.getElementById('verifyBtn').addEventListener('click', async function() {
-            const password = document.getElementById('masterPassword').value;
-            const errorDiv = document.getElementById('passwordError');
-            const errorText = document.getElementById('errorText');
-
-            errorDiv.classList.add('d-none');
-            errorText.textContent = '';
-
-            if (!password) {
-                errorText.textContent = 'Please enter the password.';
-                errorDiv.classList.remove('d-none');
+                feedback.classList.add('alert-warning');
+                feedback.textContent = 'Please select a payment method.';
                 return;
             }
-
-            // Show loading state
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verifying...';
-
+            
             try {
-                const response = await fetch('{% url "verify-master-password" %}', {
+                const response = await fetch('/api/subscription/renew/', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Type': 'application/json',
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                     },
-                    body: new URLSearchParams({ password: password })
+                    body: JSON.stringify({ payment_method: paymentMethod })
                 });
-
+                
                 const data = await response.json();
-
+                
                 if (data.ok) {
-                    // Success animation
-                    this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Access Granted!';
-                    this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
-
-                    setTimeout(() => {
-                        passwordModal.hide();
-                        document.getElementById('protectedContent').style.display = 'block';
-                        isModalShown = false; // Reset modal state
-                        hideSessionWarning(); // Hide any warning
-                        resetSessionTimer(); // Restart session timer
-                    }, 1000);
+                    feedback.classList.remove('d-none', 'alert-danger');
+                    feedback.classList.add('alert-success');
+                    feedback.textContent = 'Proceeding to payment...';
+                    
+                    // Close modal and show payment modal
+                    bootstrap.Modal.getInstance(document.getElementById('renewSubscriptionModal')).hide();
+                    
+                    // Show payment modal with Stripe/Paystack form
+                    document.getElementById('paymentPlan').textContent = '{{ subscription.subscription_plan.name|default:"-" }}';
+                    document.getElementById('paymentAmount').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
+                    document.getElementById('paymentTotal').textContent = '₦{{ subscription.amount|default:0|intcomma }}';
+                    
+                    // Show appropriate payment container
+                    document.getElementById('stripePaymentContainer').style.display = paymentMethod === 'stripe' ? 'block' : 'none';
+                    document.getElementById('paystackPaymentContainer').style.display = paymentMethod === 'paystack' ? 'block' : 'none';
+                    
+                    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+                    paymentModal.show();
                 } else {
+                    feedback.classList.remove('d-none', 'alert-success');
+                    feedback.classList.add('alert-danger');
+                    feedback.textContent = data.error || 'Failed to initiate renewal.';
+                }
+            } catch (error) {
+                feedback.classList.remove('d-none', 'alert-success');
+                feedback.classList.add('alert-danger');
+                feedback.textContent = 'Network error. Please try again.';
+            }
+        });
+
+        // Handle payment form submission
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const paymentMethod = document.querySelector('.payment-method-active')?.value || 'stripe';
+            const feedback = document.getElementById('paymentFeedback');
+            feedback.classList.add('d-none');
+            
+            try {
+                const response = await fetch('/api/subscription/payment/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        payment_method: paymentMethod,
+                        plan_name: document.getElementById('paymentPlan').textContent
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    feedback.classList.remove('d-none', 'alert-danger');
+                    feedback.classList.add('alert-success');
+                    feedback.textContent = 'Payment successful! Redirecting...';
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    feedback.classList.remove('d-none', 'alert-success');
+                    feedback.classList.add('alert-danger');
+                    feedback.textContent = data.error || 'Payment failed.';
+                }
+            } catch (error) {
+                feedback.classList.remove('d-none', 'alert-success');
+                feedback.classList.add('alert-danger');
+                feedback.textContent = 'Network error. Please try again.';
+            }
+        });
+
+        // Show billing history
+        function showBillingHistory() {
+            document.querySelector('a[data-bs-target="#billing"]').click();
+        }
+
+        // Password verification modal with session timeout
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'), {
+                backdrop: 'static',
+                keyboard: false
+            });
+
+            // Session timeout configuration
+            const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+            const WARNING_TIME = 1 * 60 * 1000; // Show warning 1 minute before timeout
+            let sessionTimer;
+            let warningTimer;
+            let isModalShown = false;
+
+            // Function to show password modal
+            function showPasswordModal() {
+                if (!isModalShown) {
+                    document.getElementById('protectedContent').style.display = 'none';
+                    passwordModal.show();
+                    isModalShown = true;
+                }
+            }
+
+            // Function to show session warning
+            function showSessionWarning() {
+                document.getElementById('sessionWarning').style.display = 'block';
+            }
+
+            // Function to hide session warning
+            function hideSessionWarning() {
+                document.getElementById('sessionWarning').style.display = 'none';
+            }
+
+            // Function to extend session (global function for onclick)
+            window.extendSession = function() {
+                hideSessionWarning();
+                resetSessionTimer();
+            };
+
+            // Function to reset session timer
+            function resetSessionTimer() {
+                clearTimeout(sessionTimer);
+                clearTimeout(warningTimer);
+                hideSessionWarning();
+                
+                // Set warning timer (4 minutes from now)
+                warningTimer = setTimeout(showSessionWarning, SESSION_TIMEOUT - WARNING_TIME);
+                // Set session timeout (5 minutes from now)
+                sessionTimer = setTimeout(showPasswordModal, SESSION_TIMEOUT);
+            }
+
+            // Function to handle user activity
+            function handleUserActivity() {
+                // If modal is already shown, don't reset timer
+                if (isModalShown) return;
+
+                hideSessionWarning();
+                resetSessionTimer();
+            }
+
+            // Start session timer on page load
+            resetSessionTimer();
+
+            // Listen for user activity events
+            const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            activityEvents.forEach(event => {
+                document.addEventListener(event, handleUserActivity, true);
+            });
+
+            // Password visibility toggle
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('masterPassword');
+            const passwordIcon = document.getElementById('passwordIcon');
+
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+
+                // Toggle icon
+                if (type === 'password') {
+                    passwordIcon.className = 'bi bi-eye';
+                } else {
+                    passwordIcon.className = 'bi bi-eye-slash';
+                }
+            });
+
+            document.getElementById('verifyBtn').addEventListener('click', async function() {
+                const password = document.getElementById('masterPassword').value;
+                const errorDiv = document.getElementById('passwordError');
+                const errorText = document.getElementById('errorText');
+
+                errorDiv.classList.add('d-none');
+                errorText.textContent = '';
+
+                if (!password) {
+                    errorText.textContent = 'Please enter the password.';
+                    errorDiv.classList.remove('d-none');
+                    return;
+                }
+
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verifying...';
+
+                try {
+                    const response = await fetch('{% url "verify-master-password" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: new URLSearchParams({ password: password })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.ok) {
+                        // Success animation
+                        this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Access Granted!';
+                        this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
+
+                        setTimeout(() => {
+                            passwordModal.hide();
+                            document.getElementById('protectedContent').style.display = 'block';
+                            isModalShown = false; // Reset modal state
+                            hideSessionWarning(); // Hide any warning
+                            resetSessionTimer(); // Restart session timer
+                        }, 1000);
+                    } else {
+                        // Reset button
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
+
+                        errorText.textContent = data.error || 'Invalid password.';
+                        errorDiv.classList.remove('d-none');
+
+                        // Shake animation for error
+                        passwordInput.style.animation = 'shake 0.5s ease-in-out';
+                        setTimeout(() => {
+                            passwordInput.style.animation = '';
+                        }, 500);
+                    }
+                } catch (error) {
                     // Reset button
                     this.disabled = false;
                     this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
 
-                    errorText.textContent = data.error || 'Invalid password.';
+                    errorText.textContent = 'Network error. Please try again.';
                     errorDiv.classList.remove('d-none');
-
-                    // Shake animation for error
-                    passwordInput.style.animation = 'shake 0.5s ease-in-out';
-                    setTimeout(() => {
-                        passwordInput.style.animation = '';
-                    }, 500);
                 }
-            } catch (error) {
-                // Reset button
-                this.disabled = false;
-                this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
+            });
 
-                errorText.textContent = 'Network error. Please try again.';
-                errorDiv.classList.remove('d-none');
+            // Cleanup timers when page unloads
+            window.addEventListener('beforeunload', function() {
+                clearTimeout(sessionTimer);
+                clearTimeout(warningTimer);
+            });
+
+        // Add shake animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
             }
-        });
+        `;
+        document.head.appendChild(style);
+    </script>
 
-        // Cleanup timers when page unloads
-        window.addEventListener('beforeunload', function() {
-            clearTimeout(sessionTimer);
-            clearTimeout(warningTimer);
-        });
-
-    // Add shake animation CSS
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-    `;
-    document.head.appendChild(style);
-</script>
-
-</div> <!-- End of protectedContent -->
+    </div> <!-- End of protectedContent -->
 
     <!-- Session Timeout Warning -->
     <div class="alert alert-warning alert-dismissible fade show position-fixed" id="sessionWarning" style="display: none; top: 20px; right: 20px; z-index: 1050; min-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
@@ -2564,6 +2698,81 @@
         <button type="button" class="btn-close" onclick="extendSession()" aria-label="Extend session"></button>
     </div>
 
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editUserForm">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <input type="hidden" id="editUserId" name="user_id">
+                        <input type="hidden" id="editUserType" name="user_type">
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="editFullName" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="editFullName" name="full_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editEmail" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="editEmail" name="email" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="editPhone" name="phone">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editAddress" class="form-label">Address</label>
+                                <input type="text" class="form-control" id="editAddress" name="address">
+                            </div>
+                            <div class="col-12">
+                                <hr>
+                                <h6>Change Password (Optional)</h6>
+                                <small class="text-muted">Leave blank to keep current password</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editNewPassword" class="form-label">New Password</label>
+                                <input type="password" class="form-control" id="editNewPassword" name="new_password">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editConfirmPassword" class="form-label">Confirm New Password</label>
+                                <input type="password" class="form-control" id="editConfirmPassword" name="confirm_password">
+                            </div>
+                        </div>
+
+                        <!-- Master Admin Password Verification (only for master admin) -->
+                        {% if master_admin_id and request.user.id == master_admin_id %}
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="text-danger mb-2"><i class="bi bi-shield-lock-fill me-2"></i>Master Admin Verification Required</h6>
+                            <small class="text-muted">As the master admin, you must confirm your identity to make changes.</small>
+                        </div>
+                        <div class="col-12">
+                            <label for="masterAdminPassword" class="form-label">Your Master Admin Password</label>
+                            <input type="password" class="form-control" id="masterAdminPassword" name="master_admin_password" required>
+                            <small class="text-muted">Enter your current password to authorize this change.</small>
+                        </div>
+                        {% endif %}
+
+                        <div class="alert d-none mt-3" id="editUserFeedback"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </main>
+
+    <script>
 {% endblock %}
 

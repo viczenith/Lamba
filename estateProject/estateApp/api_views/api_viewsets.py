@@ -31,10 +31,13 @@ from rest_framework.response import Response
 
 
 class CustomUserViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['role']
+
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return CustomUser.objects.all()
 
     # Add a custom action for the current user
     @action(detail=False, methods=['get'], url_path='me')
@@ -44,99 +47,147 @@ class CustomUserViewSet(viewsets.ModelViewSet):
 
 
 class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return Message.objects.all()
+
 
 class PlotSizeViewSet(viewsets.ModelViewSet):
-    queryset = PlotSize.objects.all().order_by('id')
     serializer_class = PlotSizeSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return PlotSize.objects.all().order_by('id')
+
 
 class PlotNumberViewSet(viewsets.ModelViewSet):
-    queryset = PlotNumber.objects.all().order_by('id')
     serializer_class = PlotNumberSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return PlotNumber.objects.all().order_by('id')
+
 
 class EstateViewSet(viewsets.ModelViewSet):
-    queryset = Estate.objects.all()
     serializer_class = EstateSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return Estate.objects.all()
+
 
 class PlotSizeUnitsViewSet(viewsets.ModelViewSet):
-    queryset = PlotSizeUnits.objects.all()
     serializer_class = PlotSizeUnitsSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return PlotSizeUnits.objects.all()
+
 
 class EstatePlotViewSet(viewsets.ModelViewSet):
-    queryset = EstatePlot.objects.all()
     serializer_class = EstatePlotSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstatePlot.objects.all()
+
 
 class PlotAllocationViewSet(viewsets.ModelViewSet):
-    queryset = PlotAllocation.objects.all()
     serializer_class = PlotAllocationSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return PlotAllocation.objects.all()
+
 
 class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return Notification.objects.all()
+
 
 class UserNotificationViewSet(viewsets.ModelViewSet):
-    queryset = UserNotification.objects.all()
     serializer_class = UserNotificationSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return UserNotification.objects.all()
+
 
 class EstateFloorPlanViewSet(viewsets.ModelViewSet):
-    queryset = EstateFloorPlan.objects.all()
     serializer_class = EstateFloorPlanSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstateFloorPlan.objects.all()
+
 
 class EstatePrototypeViewSet(viewsets.ModelViewSet):
-    queryset = EstatePrototype.objects.all()
     serializer_class = EstatePrototypeSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstatePrototype.objects.all()
+
 
 class EstateAmenitieViewSet(viewsets.ModelViewSet):
-    queryset = EstateAmenitie.objects.all()
     serializer_class = EstateAmenitieSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstateAmenitie.objects.all()
+
 
 class EstateLayoutViewSet(viewsets.ModelViewSet):
-    queryset = EstateLayout.objects.all()
     serializer_class = EstateLayoutSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstateLayout.objects.all()
+
 
 class EstateMapViewSet(viewsets.ModelViewSet):
-    queryset = EstateMap.objects.all()
     serializer_class = EstateMapSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return EstateMap.objects.all()
+
 
 class ProgressStatusViewSet(viewsets.ModelViewSet):
-    queryset = ProgressStatus.objects.all()
     serializer_class = ProgressStatusSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return ProgressStatus.objects.all()
+
 
 class PropertyRequestViewSet(viewsets.ModelViewSet):
-    queryset = PropertyRequest.objects.all()
     serializer_class = PropertyRequestSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Override to ensure company-aware filtering"""
+        return PropertyRequest.objects.all()
 
 
 

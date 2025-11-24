@@ -19,7 +19,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-    /* ==================== THEME VARIABLES ==================== */
     :root {
         --primary: #6C5CE7;
         --primary-dark: #5649C0;
@@ -666,12 +665,22 @@
                   {% csrf_token %}
                   <input type="hidden" name="source" value="company_profile">
 
+                  <!-- AJAX Message Container - Isolated from Django messages -->
+                  <div id="ajaxMessageContainer" class="alert-container d-none">
+                    <div id="ajaxMessage" class="alert" role="alert">
+                      <span id="ajaxMessageText"></span>
+                    </div>
+                  </div>
+
+                  <!-- Django Messages - Only show non-AJAX related messages -->
                   {% if messages %}
                   <div class="alert-container">
                     {% for message in messages %}
+                    {% if 'ajax' not in message.tags %}
                     <div class="alert alert-success" role="alert">
                       {{ message | safe }}
                     </div>
+                    {% endif %}
                     {% endfor %}
                   </div>
                   {% endif %}
@@ -792,9 +801,12 @@
 
                   <!-- Marketer dropdown removed -->
 
-                  <button type="submit" class="btn-custom">
-                    <span>Register User</span>
-                    <i class="fas fa-arrow-right"></i>
+                  <button type="submit" class="btn-custom" id="submitBtn">
+                    <span id="btnText">Register User</span>
+                    <i class="fas fa-arrow-right" id="btnIcon"></i>
+                    <div class="spinner-border spinner-border-sm ms-2 d-none" role="status" id="btnSpinner">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
                   </button>
 
                 </form>
@@ -956,6 +968,8 @@
         const form = document.getElementById('registrationForm');
         
         form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+            
             const inputs = form.querySelectorAll('input[required], select[required]');
             let isValid = true;
 
@@ -969,10 +983,88 @@
             });
 
             if (!isValid) {
-                e.preventDefault();
                 alert('Please fill in all required fields.');
+                return;
             }
+
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const btnIcon = document.getElementById('btnIcon');
+            const btnSpinner = document.getElementById('btnSpinner');
+            
+            submitBtn.disabled = true;
+            btnText.textContent = 'Registering...';
+            btnIcon.className = 'fas fa-spinner fa-spin';
+            btnSpinner.classList.remove('d-none');
+
+            // Prepare form data
+            const formData = new FormData(form);
+            
+            // Submit via AJAX
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button state
+                submitBtn.disabled = false;
+                btnText.textContent = 'Register User';
+                btnIcon.className = 'fas fa-arrow-right';
+                btnSpinner.classList.add('d-none');
+
+                if (data.success) {
+                    // Clear form
+                    form.reset();
+                    // Reset Select2
+                    $('#marketer').val(null).trigger('change');
+                    $('#country').val(null).trigger('change');
+                    // Clear password field
+                    document.getElementById('password').value = '';
+                    // Show success message in dedicated AJAX container
+                    showAjaxMessage('User registered successfully!', 'success');
+                    // Reload page to update tables
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    // Show error message in dedicated AJAX container
+                    showAjaxMessage(data.error || 'Registration failed. Please try again.', 'danger');
+                }
+            })
+            .catch(error => {
+                // Reset button state
+                submitBtn.disabled = false;
+                btnText.textContent = 'Register User';
+                btnIcon.className = 'fas fa-arrow-right';
+                btnSpinner.classList.add('d-none');
+                
+                showAjaxMessage('An error occurred. Please try again.', 'danger');
+                console.error('Error:', error);
+            });
         });
+
+        function showAjaxMessage(message, type) {
+            const container = document.getElementById('ajaxMessageContainer');
+            const messageEl = document.getElementById('ajaxMessage');
+            const messageTextEl = document.getElementById('ajaxMessageText');
+            
+            // Update message content and type
+            messageTextEl.textContent = message;
+            messageEl.className = `alert alert-${type}`;
+            
+            // Show the container
+            container.classList.remove('d-none');
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                container.classList.add('d-none');
+            }, 5000);
+        }
 
         // ==================== INPUT ANIMATION ====================
         const inputs = document.querySelectorAll('.form-control');

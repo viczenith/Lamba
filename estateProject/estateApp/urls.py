@@ -37,6 +37,8 @@ urlpatterns = [
     path('company-profile/ceo/<int:ceo_id>/delete/', delete_company_ceo, name='company-ceo-delete'),
     path('company-profile/admin/<int:user_id>/toggle-mute/', admin_toggle_mute, name='admin-toggle-mute'),
     path('company-profile/admin/<int:user_id>/delete/', admin_delete_admin, name='admin-delete-admin'),
+    path('company-profile/admin/<int:user_id>/edit/', edit_admin_user, name='edit-admin-user'),
+    path('company-profile/support/<int:user_id>/edit/', edit_support_user, name='edit-support-user'),
 
 
     path('company-profile/verify-master-password/', verify_master_password, name='verify-master-password'),
