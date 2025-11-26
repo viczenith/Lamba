@@ -899,8 +899,8 @@ class CustomUser(AbstractUser):
 
     username = None 
     full_name = models.CharField(max_length=255, verbose_name="Full Name")
-    address = models.TextField(verbose_name="Residential Address")
-    phone = models.CharField(max_length=15, verbose_name="Phone Number")
+    address = models.TextField(blank=True, null=True, verbose_name="Residential Address")
+    phone = models.CharField(max_length=20, verbose_name="Phone Number")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, verbose_name="Role", blank=True, null=True)
     company_profile = models.ForeignKey(Company, null=True, blank=True, on_delete=models.SET_NULL, related_name="users", verbose_name="Company")
     
@@ -964,6 +964,13 @@ class CustomUser(AbstractUser):
         Ensure the inherited first_name and last_name fields are populated
         from full_name so the DB NOT NULL constraint doesn't fail.
         """
+        # Only run full validation for new instances or when explicitly saving all fields
+        # Skip validation for partial updates (like update_last_login)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is None or not update_fields:
+            # Ensure validation runs during full saves
+            self.full_clean()
+        
         # Only populate if full_name is present:
         if self.full_name:
             parts = self.full_name.strip().split()
@@ -985,21 +992,22 @@ class CustomUser(AbstractUser):
         if self.role in ['admin', 'support'] and not self.company_profile:
             raise ValidationError("Company is required for admin/support roles.")
         
-        # For admin/support roles (not system admin), allow duplicate emails within company, but unique per role per email per company
-        if self.role in ['admin', 'support'] and self.admin_level != 'system':
-            # Check for existing users with same email in same company
-            existing = CustomUser.objects.filter(
-                email=self.email,
-                company_profile=self.company_profile,
-                role__in=['admin', 'support']
-            ).exclude(pk=self.pk)
-            if existing.filter(role=self.role).exists():
+        # Check for duplicate accounts within the same role
+        # Allow same email across different roles, but prevent duplicates within same role
+        existing_users = CustomUser.objects.filter(
+            email=self.email,
+            role=self.role
+        ).exclude(pk=self.pk)
+        
+        if self.role in ['admin', 'support']:
+            # For admin/support roles, also check company uniqueness
+            existing_users = existing_users.filter(company_profile=self.company_profile)
+            if existing_users.exists():
                 raise ValidationError(f"Cannot create multiple {self.role} accounts with the same email in the same company.")
-            # Allow if different role or none
         else:
-            # For other roles or system admin, enforce unique email globally
-            if CustomUser.objects.filter(email=self.email).exclude(pk=self.pk).exists():
-                raise ValidationError("A user with this email address already exists.")
+            # For client/marketer roles, check global uniqueness per role
+            if existing_users.exists():
+                raise ValidationError(f"Cannot create multiple {self.role} accounts with the same email.")
 
 class AdminUser(CustomUser):
     class Meta:
@@ -1086,6 +1094,46 @@ class ClientUser(CustomUser):
                     if total_paid >= (t.total_amount or Decimal('0')):
                         fully_paid.append(t)
             return fully_paid
+
+    def get_assigned_marketer(self, company=None):
+        """
+        Return the assigned marketer for this client.
+
+        If `company` is provided, prefer a company-specific assignment
+        (via ClientMarketerAssignment). Otherwise fall back to the
+        legacy `assigned_marketer` field.
+        """
+        try:
+            if company is not None:
+                assign = ClientMarketerAssignment.objects.filter(
+                    client=self,
+                    company=company
+                ).select_related('marketer').first()
+                if assign:
+                    return assign.marketer
+        except Exception:
+            pass
+
+        return getattr(self, 'assigned_marketer', None)
+
+
+class ClientMarketerAssignment(models.Model):
+    """Assign a marketer to a client for a specific company.
+
+    This allows a client to have different assigned marketers per company
+    (useful when a client has purchases across multiple companies).
+    """
+    client = models.ForeignKey(ClientUser, on_delete=models.CASCADE, related_name='marketer_assignments')
+    marketer = models.ForeignKey(MarketerUser, on_delete=models.CASCADE, related_name='client_assignments')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='client_marketer_assignments')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('client', 'marketer', 'company')
+        indexes = [models.Index(fields=['client', 'company'])]
+
+    def __str__(self):
+        return f"{self.client} → {self.marketer} @ {self.company}"
 
     @property
     def plot_count(self) -> int:
@@ -1261,6 +1309,15 @@ class Message(models.Model):
         on_delete=models.SET_NULL,
         related_name='messages_deleted_globally',
         verbose_name="Deleted For Everyone By"
+    )
+    # Company scope for the message — enforces company-scoped chats
+    company = models.ForeignKey(
+        'Company',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='messages',
+        verbose_name='Company'
     )
     
     class Meta:
@@ -2096,8 +2153,25 @@ class Transaction(models.Model):
             suffix = f"{random.randint(0, 9999):04d}"
             self.reference_code = f"{prefix}{date_str}-{size_num}-{suffix}"
 
-        if not self.marketer_id and self.client.assigned_marketer:
-            self.marketer = self.client.assigned_marketer
+        # Auto-assign marketer based on client->company assignments if available
+        if not self.marketer_id:
+            try:
+                company = self.allocation.estate.company if (self.allocation and self.allocation.estate) else None
+            except Exception:
+                company = None
+
+            try:
+                assigned = None
+                if hasattr(self.client, 'get_assigned_marketer'):
+                    assigned = self.client.get_assigned_marketer(company=company)
+                else:
+                    assigned = getattr(self.client, 'assigned_marketer', None)
+                if assigned:
+                    self.marketer = assigned
+            except Exception:
+                # fallback to legacy field
+                if getattr(self.client, 'assigned_marketer', None):
+                    self.marketer = self.client.assigned_marketer
         
         if self.allocation.payment_type == 'part' and self.installment_plan:
             if self.installment_plan == 'custom':

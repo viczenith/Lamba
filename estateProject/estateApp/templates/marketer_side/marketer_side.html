@@ -5,11 +5,10 @@
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>Marketer Dashboard</h1>
+    <h1>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Marketer Dashboard{% endif %}</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ dashboard_url }}">Home</a></li>
-        <li class="breadcrumb-item active">Dashboard</li>
       </ol>
     </nav>
   </div><!-- End Page Title -->

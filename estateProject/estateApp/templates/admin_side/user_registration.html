@@ -5,8 +5,8 @@
 <!-- Include Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
 
-<!-- Include jQuery (required for Select2) -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Include jQuery (required for Select2) - use CDNJS/JSDelivr to comply with CSP -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 
 <!-- Include Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
@@ -318,6 +318,52 @@
         color: white !important;
     }
 
+    /* ==================== SELECT2 ROLE (MODAL) STYLING ==================== */
+    .existing-modal .select2-container--default .select2-selection--single {
+        height: 48px;
+        border: 2px solid var(--input-border);
+        border-radius: 12px;
+        background-color: var(--input-bg);
+        padding-left: 3rem;
+        position: relative;
+        transition: all 0.25s ease;
+    }
+
+    .existing-modal .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 44px;
+        padding-left: 0.25rem;
+        color: var(--text-color);
+    }
+
+    /* small left icon inside the modal select */
+    .existing-modal .select2-container--default .select2-selection--single::before {
+        content: "\f02b"; /* font-awesome user-tag */
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 0.95rem;
+        pointer-events: none;
+    }
+
+    /* role badge for search results */
+    .list-group-item .role-badge {
+        display: inline-block;
+        margin-left: 0.5rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
+
+    .role-badge.client { background: var(--secondary); color: white; }
+    .role-badge.marketer { background: var(--primary); color: white; }
+
     /* ==================== INTL TEL INPUT ==================== */
     .iti {
         width: 100%;
@@ -619,6 +665,37 @@
         }
     }
 
+    /* ==================== Add Existing User Button & Modal Styling ==================== */
+    .add-existing-wrap{ display:flex; align-items:center; justify-content:flex-end; }
+    .add-existing-btn{ padding:0.6rem 0.9rem; display:inline-flex; align-items:center; gap:0.5rem; border-radius:12px; }
+    .add-existing-btn i{ font-size:1rem }
+
+    .existing-modal .modal-content{ background: var(--card-bg); border-radius: 16px; box-shadow: var(--card-shadow); border:1px solid rgba(108,92,231,0.06); }
+    .existing-modal .modal-header{ background: linear-gradient(135deg, rgba(102,126,234,0.12) 0%, rgba(118,75,162,0.06) 100%); border-bottom:none; }
+    .existing-modal .modal-title{ color:var(--text-color); font-weight:700; }
+    .existing-modal .modal-body p{ color:var(--text-color); opacity:0.85 }
+    .existing-modal .list-group-item{ border-radius:10px; margin-bottom:0.4rem; border:1px solid var(--input-border); }
+    .existing-modal .btn-primary{ background:var(--gradient-primary); border:none }
+
+    @media (max-width: 576px){
+        .add-existing-wrap{ width:100%; }
+        .add-existing-btn{ width:100%; justify-content:center; }
+        .form-header div > div:first-child{ width:100%; }
+    }
+
+    /* Responsive styling for existing-user selected alert inside the form */
+    .existing-user-selected { width: 100%; margin: 1rem 0; }
+    .existing-user-selected .existing-user-label { flex: 1 1 60%; min-width: 0; }
+    .existing-user-selected .existing-user-actions { flex: 0 0 auto; }
+
+    @media (max-width: 576px) {
+        .existing-user-selected .alert { display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem; }
+        .existing-user-selected .existing-user-label { order: 1; }
+        .existing-user-selected .existing-user-actions { order: 2; display: flex; gap: 0.5rem; flex-direction: column; }
+        .existing-user-selected .existing-user-actions .btn { width: 100%; }
+        .existing-user-selected .existing-user-label #existingUserLabel { margin-top: 0.25rem; }
+    }
+
     /* ==================== TOOLTIP CUSTOMIZATION ==================== */
     .tooltip-inner {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -654,17 +731,7 @@
 
     <div class="pagetitle">
       <h1>Admin User Registration</h1>
-      <nav>
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item"><a href="{% url 'dashboard' %}"><i class="fas fa-home"></i> Home</a></li>
-          <li class="breadcrumb-item active">Admin User Registration</li>
-        </ol>
-      </nav>
-    </div><!-- End Page Title -->
-
-    <section class="section">
-      <div class="row">
-        <div class="col-lg-12">
+    </div>
           <div class="registration-wrapper">
             
             <div class="form-header">
@@ -673,8 +740,17 @@
             </div>
     
             <div class="form-container">
+                
+                    <div style="display:flex;align-items:end;justify-content:flex-end;margin-bottom:1.5rem;">
+                        <button style="align-items: end!important;" type="button" id="addExistingUserBtn" data-bs-toggle="modal" data-bs-target="#existingUserModal" style="padding:0.7rem 1rem;display:flex;align-items:center;gap:0.6rem;">
+                            <i class="fas fa-user-plus"></i>
+                            <span style="font-size:0.95rem;">Add Existing User</span>
+                        </button>
+                    </div>
+                
                 <form action="#" method="POST" id="registrationForm">
                     {% csrf_token %}
+                    <input type="hidden" id="existing_user_id" name="existing_user_id" value="">
                     <input type="hidden" name="source" value="admin_registration">
 
                     {% if messages %}
@@ -730,6 +806,7 @@
                                     data-bs-toggle="tooltip" data-bs-placement="top" 
                                     title="Enter the phone number with country code">
                             </div>
+                                <div id="phoneError" class="text-danger" style="display:none;margin-top:0.5rem;font-size:0.9rem;"></div>
                         </div>
 
                         <!-- Date of Birth -->
@@ -935,6 +1012,20 @@
                         </div>
                     </div>
 
+                    <!-- Existing user selected area (moved inside form so add-to-company is part of form flow) -->
+                    <div id="existingUserSelectedArea" class="existing-user-selected" style="max-width:900px;margin:1rem 0;display:none;">
+                        <div class="alert alert-info d-flex align-items-center justify-content-between" role="alert" id="existingUserSelectedAlert">
+                            <div class="existing-user-label">
+                                <strong>Existing user selected:</strong>
+                                <div id="existingUserLabel" style="margin-top:0.25rem;"></div>
+                            </div>
+                            <div class="existing-user-actions" style="display:flex;align-items:center;gap:0.5rem;">
+                                <button type="button" class="btn btn-sm btn-success" id="addExistingToCompanyBtn">Add to Company Now</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearExistingSelectionBtn">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Submit Button -->
                     <button type="submit" class="btn-custom">
                         <span>Register User</span>
@@ -948,6 +1039,332 @@
         </div>
       </div>
     </section>
+
+    <!-- Existing User Modal + helper area scripts will be used to prefill the form -->
+
+
+        <!-- Existing User Lookup Modal (styled to match page) -->
+        <div class="modal fade existing-modal" id="existingUserModal" tabindex="-1" aria-labelledby="existingUserModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="existingUserModalLabel">Find Existing User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3">Enter the email or name of the user you want to add to this company. If found, their details will pre-fill the registration form below.</p>
+                        <div class="form-grid full-width">
+                            <div class="form-group">
+                                <label for="existingEmail">Email or Name</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-search input-icon"></i>
+                                    <input type="text" id="existingEmail" class="form-control" placeholder="user@example.com or Victor">
+                                </div>
+                            </div>
+                            <!-- role select removed from modal — role will be inferred/displayed in results -->
+                        </div>
+
+                        <div id="existingUserError" class="text-danger" style="display:none;margin-top:0.5rem;"></div>
+                        <div id="existingUserResults" style="display:none;margin-top:0.75rem;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="existingUserSearchBtn">Find User</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <script>
+    (function(){
+        // Helper to get CSRF token from the form
+        function getCsrfToken(){
+            const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            return el ? el.value : '';
+        }
+
+        function showExistingUserSelected(user){
+            const area = document.getElementById('existingUserSelectedArea');
+            const label = document.getElementById('existingUserLabel');
+            const hidden = document.getElementById('existing_user_id');
+            hidden.value = user.id;
+            // Use role-badge styling for clear role indication
+            const roleClass = (user.role === 'client') ? 'client' : (user.role === 'marketer' ? 'marketer' : '');
+            const roleLabel = user.role ? `<span class="role-badge ${roleClass}" style="margin-left:.6rem;">${(user.role||'').toUpperCase()}</span>` : '';
+            label.innerHTML = `<div style="display:flex;align-items:center;gap:0.6rem;"><div><strong>${user.full_name || ''}</strong><br><small class=\"text-muted\">${user.email || ''}</small></div>${roleLabel}</div>`;
+            area.style.display = 'block';
+            // Hide the main register button to avoid accidentally creating a duplicate/new user
+            try{
+                const mainBtn = document.querySelector('.btn-custom');
+                if(mainBtn) { mainBtn.style.display = 'none'; }
+            }catch(e){}
+        }
+
+        function clearExistingSelection(){
+            document.getElementById('existing_user_id').value = '';
+            document.getElementById('existingUserLabel').textContent = '';
+            document.getElementById('existingUserSelectedArea').style.display = 'none';
+            // Restore password and copy button
+            try{
+                const pwdGroup = document.getElementById('password') && document.getElementById('password').closest('.form-group');
+                if(pwdGroup) pwdGroup.style.display = '';
+                const pwdField = document.getElementById('password'); if(pwdField) { pwdField.removeAttribute('disabled'); }
+                const copyBtn = document.getElementById('copyPasswordBtn'); if(copyBtn) copyBtn.style.display = '';
+            }catch(e){}
+            // Re-enable main form fields and role radios
+            try{
+                const ids = ['name','email','phone','date_of_birth','address','country','marketer'];
+                ids.forEach(function(id){
+                    const el = document.getElementById(id);
+                    if(!el) return;
+                    el.removeAttribute('disabled');
+                    const fg = el.closest('.form-group'); if(fg) fg.style.display = '';
+                });
+                document.querySelectorAll('input[name="role"]').forEach(r => { r.removeAttribute('disabled'); r.closest('.role-card-label') && (r.closest('.role-card-label').style.opacity = '1'); r.checked = false; });
+            }catch(e){}
+            // Restore main register button visibility
+            try{ const mainBtn = document.querySelector('.btn-custom'); if(mainBtn) mainBtn.style.display = ''; }catch(e){}
+        }
+
+        // Prefill form fields when an existing user object is returned
+        function prefillFormWithUser(user){
+            if(!user) return;
+            // helper to show/hide form groups and disable inputs
+            function setField(id, value){
+                const el = document.getElementById(id);
+                if(!el) return;
+                const fg = el.closest('.form-group');
+                if(value === null || value === undefined || value === ''){
+                    // hide empty fields and remove required
+                    if(fg) fg.style.display = 'none';
+                    el.removeAttribute('required');
+                    el.value = '';
+                    el.disabled = true;
+                    return;
+                }
+                // show and set value; then disable to prevent editing
+                if(fg) fg.style.display = '';
+                el.value = value;
+                try{ el.setAttribute('disabled', 'disabled'); }catch(e){}
+                el.removeAttribute('required');
+            }
+
+            setField('name', user.full_name || '');
+            setField('email', user.email || '');
+            setField('phone', user.phone || '');
+            setField('date_of_birth', user.date_of_birth || '');
+            setField('address', user.address || '');
+
+            // Country uses select2 - handle value and disabling
+            const countryEl = document.getElementById('country');
+            if(countryEl){
+                const fg = countryEl.closest('.form-group');
+                if(!user.country){ if(fg) fg.style.display='none'; countryEl.removeAttribute('required'); }
+                else { if(fg) fg.style.display=''; countryEl.value = user.country; if(window.jQuery && $(countryEl).data('select2')) $(countryEl).trigger('change'); countryEl.setAttribute('disabled','disabled'); countryEl.removeAttribute('required'); }
+            }
+
+            // Set role radio and disable the radios entirely (companies can't change existing user's role)
+            if(user.role){
+                const roleEl = document.querySelector(`input[name="role"][value="${user.role}"]`);
+                document.querySelectorAll('input[name="role"]').forEach(r => { r.checked = false; r.setAttribute('disabled','disabled'); r.closest('.role-card-label') && (r.closest('.role-card-label').style.opacity = '0.6'); });
+                if(roleEl){ roleEl.checked = true; roleEl.dispatchEvent(new Event('change')); }
+            } else {
+                // if no role, hide role selection
+                document.querySelectorAll('input[name="role"]').forEach(r => { r.setAttribute('disabled','disabled'); r.closest('.role-card-label') && (r.closest('.role-card-label').style.opacity = '0.6'); });
+            }
+
+            // If user.role == client and marketer info available, preselect marketer but keep required only if visible
+            if(user.role === 'client'){
+                if(user.assigned_marketer_id){
+                    try{ $('#marketer').val(user.assigned_marketer_id).trigger('change'); }catch(e){}
+                }
+                // show marketer container if needed
+                updateMarketerVisibility('client');
+                // Ensure marketer selection remains enabled so company admins can (re)assign marketer to this client
+                try{
+                    const m = document.getElementById('marketer');
+                    if(m){ m.removeAttribute('disabled'); try{ if(window.jQuery && $(m).data('select2')) $(m).trigger('change'); }catch(e){} }
+                }catch(e){}
+            }
+
+            // mark existing_user_id
+            const hidden = document.getElementById('existing_user_id'); if(hidden) hidden.value = user.id;
+
+            // Hide generated password field for existing users (they already have passwords)
+            try{
+                const pwdGroup = document.getElementById('password') && document.getElementById('password').closest('.form-group');
+                if(pwdGroup) pwdGroup.style.display = 'none';
+                const pwdField = document.getElementById('password'); if(pwdField) { pwdField.value = ''; pwdField.setAttribute('disabled','disabled'); }
+                const copyBtn = document.getElementById('copyPasswordBtn'); if(copyBtn) copyBtn.style.display = 'none';
+            }catch(e){}
+        }
+
+        // Search button inside modal
+        document.addEventListener('DOMContentLoaded', function(){
+            const searchBtn = document.getElementById('existingUserSearchBtn');
+            const emailInput = document.getElementById('existingEmail');
+            const results = document.getElementById('existingUserResults');
+            const err = document.getElementById('existingUserError');
+            
+
+            // Perform search with an optional role. If no results and not yet retried, retry without role.
+            function performSearch(q, role, triedWithoutRole){
+                err.style.display = 'none';
+                results.style.display = 'none';
+                results.innerHTML = '';
+                if(q.length < 2){ err.textContent = 'Please enter at least 2 characters to search.'; err.style.display='block'; return; }
+
+                searchBtn.disabled = true;
+                searchBtn.textContent = 'Searching...';
+
+                let url = `{% url 'search_existing_users_api' %}` + `?q=${encodeURIComponent(q)}`;
+                if(role) url += `&role=${encodeURIComponent(role)}`;
+
+                fetch(url, { credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        searchBtn.disabled = false;
+                        searchBtn.textContent = 'Find User';
+                        if(data.error){ err.textContent = data.error; err.style.display='block'; return; }
+                        const users = data.users || [];
+                        if(users.length === 0){
+                            // If we haven't yet retried without role, try again without role to broaden results
+                            if(!triedWithoutRole){
+                                performSearch(q, '', true);
+                                return;
+                            }
+                            err.textContent = 'No existing user found.'; err.style.display='block'; return;
+                        }
+                        if(users.length === 1){
+                            const u = users[0];
+                            prefillFormWithUser(u);
+                            showExistingUserSelected(u);
+                            // close modal
+                            const modalEl = document.getElementById('existingUserModal');
+                            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                            modal.hide();
+                            // ensure any leftover backdrop/body.modal-open is cleaned up
+                            cleanupModalBackdrop();
+                            return;
+                        }
+                        // multiple results — show a selectable list
+                        results.style.display = 'block';
+                        const list = document.createElement('div');
+                        list.className = 'list-group';
+                        users.forEach(function(u){
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'list-group-item list-group-item-action';
+                            const roleClass = (u.role === 'client') ? 'client' : (u.role === 'marketer' ? 'marketer' : '');
+                            const roleBadge = u.role ? `<span class="role-badge ${roleClass}">${(u.role||'').toUpperCase()}</span>` : '';
+                            item.innerHTML = `
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
+                                    <div style="flex:1;text-align:left;">
+                                        <strong>${u.full_name || ''}</strong> <br>
+                                        <small class="text-muted">${u.email || ''}</small>
+                                    </div>
+                                    <div style="text-align:right;min-width:140px;">
+                                        ${roleBadge}<br>
+                                        <small class="text-muted">${u.phone || ''}</small>
+                                    </div>
+                                </div>
+                            `;
+                            item.addEventListener('click', function(){
+                                prefillFormWithUser(u);
+                                showExistingUserSelected(u);
+                                const modalEl = document.getElementById('existingUserModal');
+                                const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                                modal.hide();
+                                // force cleanup of any leftover backdrop
+                                cleanupModalBackdrop();
+                            });
+                            list.appendChild(item);
+                        });
+                        results.innerHTML = '';
+                        results.appendChild(list);
+                    })
+                    .catch(errFetch => {
+                        console.error(errFetch);
+                        searchBtn.disabled = false;
+                        searchBtn.textContent = 'Find User';
+                        err.textContent = 'Search failed. Please try again.';
+                        err.style.display = 'block';
+                    });
+            }
+
+            searchBtn.addEventListener('click', function(){
+                const q = emailInput.value.trim();
+                performSearch(q, '', false);
+            });
+
+            // Add to company now button
+            const addBtn = document.getElementById('addExistingToCompanyBtn');
+            addBtn.addEventListener('click', function(){
+                const userId = document.getElementById('existing_user_id').value;
+                if(!userId){ alert('No existing user selected'); return; }
+                const role = document.querySelector('input[name="role"]:checked') ? document.querySelector('input[name="role"]:checked').value : null;
+                const marketerId = (role === 'client') ? (document.getElementById('marketer').value || null) : null;
+
+                const payload = { user_id: userId };
+                if(marketerId) payload.marketer_id = marketerId;
+
+                addBtn.disabled = true; addBtn.textContent = 'Adding...';
+
+                fetch(`{% url 'add_existing_user_to_company' %}`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json()).then(data => {
+                    addBtn.disabled = false; addBtn.textContent = 'Add to Company Now';
+                    if(data.error){ alert('Error: ' + data.error); return; }
+                    if(data.success){
+                        alert(data.message || 'User added to company');
+                        // optionally refresh page or clear selection
+                        clearExistingSelection();
+                        return;
+                    }
+                    alert('Unexpected server response');
+                }).catch(e => {
+                    console.error(e);
+                    addBtn.disabled = false; addBtn.textContent = 'Add to Company Now';
+                    alert('Failed to add user. Try again.');
+                });
+            });
+
+            document.getElementById('clearExistingSelectionBtn').addEventListener('click', function(){ clearExistingSelection(); });
+
+        });
+        
+        // Helper to remove any leftover Bootstrap modal backdrop and restore body state
+        function cleanupModalBackdrop(){
+            try{
+                // remove all backdrops
+                document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
+                // remove modal-open class from body
+                document.body.classList.remove('modal-open');
+                // restore scrolling
+                document.body.style.overflow = '';
+                // ensure focusable elements are not aria-hidden by modal
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(m => m.setAttribute('aria-hidden','true'));
+            }catch(e){ console.warn('cleanupModalBackdrop error', e); }
+        }
+
+        // Ensure cleanup runs when the modal is fully hidden (covers manual closes)
+        (function(){
+            const modalEl = document.getElementById('existingUserModal');
+            if(modalEl){
+                modalEl.addEventListener('hidden.bs.modal', function(){
+                    cleanupModalBackdrop();
+                });
+            }
+        })();
+    })();
+    </script>
 
     <script>
         // ==================== COPY PASSWORD FUNCTION ====================
@@ -1064,6 +1481,8 @@
                 width: '100%'
             });
 
+            // existingRole removed from modal — no Select2 init needed
+
             // Initialize Select2 for country dropdown
             $('#country').select2({
                 placeholder: "Search and select a country",
@@ -1075,6 +1494,7 @@
         // ==================== INITIALIZE INTL-TEL-INPUT ====================
         $(document).ready(function() {
             var phoneInput = document.querySelector("#phone");
+            var phoneError = document.getElementById('phoneError');
             var iti = window.intlTelInput(phoneInput, {
                 separateDialCode: true,
                 nationalMode: false,
@@ -1082,58 +1502,48 @@
                 utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
             });
 
-            // Store the full international number in a hidden field on form submit
-            document.getElementById('registrationForm').addEventListener('submit', function() {
-                phoneInput.value = iti.getNumber();
-            });
-        });
+            // Validate and store the full international number on form submit
+            document.getElementById('registrationForm').addEventListener('submit', function(e) {
+                // Clear previous error
+                if(phoneError){ phoneError.style.display = 'none'; phoneError.textContent = ''; }
 
-        // ==================== INITIALIZE TOOLTIPS ====================
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-
-        // ==================== FORM VALIDATION ENHANCEMENTS ====================
-        const form = document.getElementById('registrationForm');
-        
-        form.addEventListener('submit', function(e) {
-            const inputs = form.querySelectorAll('input[required], select[required]');
-            let isValid = true;
-
-            inputs.forEach(input => {
-                if (!input.value) {
-                    isValid = false;
-                    input.style.borderColor = 'var(--danger)';
-                } else {
-                    input.style.borderColor = 'var(--input-border)';
+                // If existing user selected we already block submission earlier — keep that behavior
+                const existingIdVal = document.getElementById('existing_user_id') ? document.getElementById('existing_user_id').value : '';
+                if(existingIdVal){
+                    e.preventDefault();
+                    return;
                 }
-            });
 
-            if (!isValid) {
-                e.preventDefault();
-                alert('Please fill in all required fields.');
-            }
-        });
+                // Use intl-tel-input to get formatted number (E.164) and validate
+                var internationalNumber = '';
+                try{
+                    internationalNumber = iti.getNumber();
+                }catch(err){ internationalNumber = phoneInput.value || ''; }
 
-        // ==================== INPUT ANIMATION ====================
-        const inputs = document.querySelectorAll('.form-control');
-        
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'scale(1.01)';
-            });
+                // Basic validation: ensure number present
+                if(!internationalNumber){
+                    e.preventDefault();
+                    if(phoneError){ phoneError.textContent = 'Please enter a valid phone number.'; phoneError.style.display = 'block'; }
+                    phoneInput.focus();
+                    return;
+                }
 
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'scale(1)';
-            });
-        });
-    </script>
+                // If intlTelInput utilities available, use isValidNumber
+                var isValid = true;
+                try{ isValid = iti.isValidNumber(); }catch(err){ isValid = true; }
+                if(!isValid){
+                    e.preventDefault();
+                    if(phoneError){ phoneError.textContent = 'The phone number appears invalid. Please check the country code and digits.'; phoneError.style.display = 'block'; }
+                    phoneInput.focus();
+                    return;
+                }
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+                // Enforce server-side max length (20) client-side so user gets immediate feedback
+                if(internationalNumber.length > 20){
+                    e.preventDefault();
+                    if(phoneError){ phoneError.innerHTML = 'The phone number is too long (' + internationalNumber.length + ' characters). Please use a shorter format (E.164 up to 20 chars) or contact admin to allow longer numbers.'; phoneError.style.display = 'block'; }
+                    phoneInput.focus();
+                    return;
+                }
 
-  </main>
-
-{% endblock %}
-
+     

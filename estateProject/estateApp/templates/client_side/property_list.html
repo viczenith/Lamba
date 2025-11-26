@@ -89,10 +89,10 @@
   </section>
 
 <style>
-    /* Apple-Like Font */
+    /* Apple-Like Font - use local fallback to respect CSP */
     @font-face {
       font-family: "SF Pro";
-      src: url("https://fonts.cdnfonts.com/s/59278/SFPRODISPLAYREGULAR.woff") format("woff");
+      src: local("SF Pro Display"), local("SFProDisplay-Regular");
       font-display: swap;
     }
   

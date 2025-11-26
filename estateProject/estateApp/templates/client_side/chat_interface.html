@@ -652,6 +652,54 @@
         }
     }
 
+    /* Explorer Sidebar for Chat */
+    .chat-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .chat-explorer {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(102, 126, 234, 0.06);
+        height: 80vh;
+        overflow: auto;
+    }
+
+    .explorer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .explorer-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .explorer-item {
+        padding: 10px;
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.01));
+        border: 1px solid rgba(102, 126, 234, 0.04);
+    }
+
+    .explorer-item-title { font-weight: 700; font-size: 14px; }
+    .explorer-item-meta { font-size: 12px; color: rgba(0,0,0,0.6); margin-top: 6px; }
+    .explorer-item-actions { margin-top: 8px; }
+
+    .explorer-empty { padding: 20px; color: rgba(0,0,0,0.6); }
+
+    @media (max-width: 992px) {
+        .chat-layout { grid-template-columns: 1fr; }
+        .chat-explorer { height: auto; order: 2; }
+        .chat-main { order: 1; }
+    }
+
     @media (max-width: 480px) {
         .chat-container {
             height: calc(100vh - 80px);
@@ -706,7 +754,13 @@
 
 <main id="main" class="main">
     <div class="pagetitle">
-        <h1><i class="bi bi-chat-dots"></i> Chat with Admin Support</h1>
+        <h1><i class="bi bi-chat-dots"></i>
+            {% if selected_company %}
+                Chat — {{ selected_company.company_name }}
+            {% else %}
+                Chat with Admin Support
+            {% endif %}
+        </h1>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
@@ -715,17 +769,50 @@
         </nav>
     </div>
   
-    <div class="chat-container">
-        <!-- Chat Header -->
-        <div class="chat-header">
-            <div class="chat-header-avatar">
-                {{ client.full_name|first|upper }}
+    <div class="chat-layout">
+        <aside class="chat-explorer">
+            <div class="explorer-header">
+                <h4>My Companies</h4>
+                <button id="explorer-toggle" class="btn btn-secondary" title="Toggle explorer">☰</button>
             </div>
-            <div class="chat-header-info">
-                <h3>{{ client.full_name }}</h3>
-                <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+            <div class="explorer-list">
+                {% if companies %}
+                    {% for item in companies %}
+                        <div class="explorer-item" data-company-id="{{ item.company.id }}">
+                            <div class="explorer-item-title">{{ item.company.company_name }}</div>
+                            <div class="explorer-item-meta">Allocations: {{ item.allocations }} • Invested: ₦{{ item.total_invested|default:0 }}</div>
+                            <div class="explorer-item-actions">
+                                <a class="btn btn-sm btn-primary view-portfolio" href="{% url 'my-company-portfolio' company_id=item.company.id %}" target="_blank">View Portfolio</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="explorer-empty">You have no companies yet.</div>
+                {% endif %}
             </div>
-        </div>
+        </aside>
+
+        <section class="chat-main">
+            <div class="chat-container">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="chat-header-avatar">
+                    {% if selected_company and selected_company.logo %}
+                        <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.company_name }}" loading="lazy">
+                    {% else %}
+                        {{ client.full_name|first|upper }}
+                    {% endif %}
+                </div>
+                <div class="chat-header-info">
+                    {% if selected_company %}
+                        <h3>{{ selected_company.company_name }}</h3>
+                        <p><i class="bi bi-building"></i> Company conversation</p>
+                    {% else %}
+                        <h3>{{ client.full_name }}</h3>
+                        <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+                    {% endif %}
+                </div>
+            </div>
 
         <!-- Chat Window -->
         <div id="chat-window" class="chat-window">
@@ -737,10 +824,19 @@
                     <p>No messages yet. Start the conversation!</p>
                 </div>
             {% endfor %}
-        </div>
+            </div>
 
-        <!-- Chat Input Area -->
-        <div class="chat-input-area">
+            <!-- Portfolio panel (AJAX loaded) -->
+            <div id="portfolio-panel" class="portfolio-panel-container" style="display:none; position: absolute; top: 80px; right: -360px; width: 340px; transition: right 0.25s; z-index: 40;">
+                <div class="card" id="portfolio-card">
+                    <div class="card-body" id="portfolio-card-body">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="chat-input-area">
             <!-- File Preview - Enhanced WhatsApp Style -->
             <div id="file-preview-container" class="file-preview-container">
                 <div id="file-thumbnail-wrapper"></div>
@@ -754,8 +850,10 @@
             </div>
             
             <!-- Message Input Form -->
+            {% if companies %}
             <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'chat' %}">
                 {% csrf_token %}
+                <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id if companies.0 }}">
                 <div class="chat-input-form">
                     <input type="file" id="file-input" name="file">
                     
@@ -772,7 +870,14 @@
                     </button>
                 </div>
             </form>
-        </div>
+            {% else %}
+            <div class="chat-input-form" style="align-items:center;">
+                <div style="flex:1; padding:12px; color:rgba(0,0,0,0.6);">Chat disabled — you have no companies associated with your account. Messages are only allowed for clients with company allocations.</div>
+                <button class="send-btn" disabled title="No companies"><i class="bi bi-send-fill"></i></button>
+            </div>
+            {% endif %}
+            </div>
+        </section>
     </div>
   
     <!-- Attachment Modal -->
@@ -802,168 +907,181 @@ document.addEventListener("DOMContentLoaded", function() {
     var chatWindow = document.getElementById('chat-window');
     chatWindow.scrollTop = chatWindow.scrollHeight;
   
-    // File preview elements
-    var fileInput = document.getElementById('file-input');
-    var filePreviewContainer = document.getElementById('file-preview-container');
-    var fileThumbnailWrapper = document.getElementById('file-thumbnail-wrapper');
-    var fileDetailsName = document.getElementById('file-details-name');
-    var fileDetailsSize = document.getElementById('file-details-size');
-    var removeFileBtn = document.getElementById('remove-file');
-  
-    // Enhanced file preview with WhatsApp-style previews
-    fileInput.addEventListener('change', function(){
-        var file = this.files[0];
-        if(file) {
-            // Get file extension
-            var fileName = file.name;
-            var fileExt = fileName.split('.').pop().toLowerCase();
-            var fileSize = formatFileSize(file.size);
-            
-            // Clear previous thumbnail
-            fileThumbnailWrapper.innerHTML = '';
-            
-            if(file.type.startsWith("image/")) {
-                // Image preview
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.className = 'file-thumbnail';
-                    img.alt = 'Image preview';
-                    fileThumbnailWrapper.appendChild(img);
-                }
-                reader.readAsDataURL(file);
-            } else {
-                // Document icon preview
-                var iconDiv = document.createElement('div');
-                iconDiv.className = 'file-icon-thumbnail';
-                
-                // Set icon class based on file type
-                if(fileExt === 'pdf') {
-                    iconDiv.classList.add('pdf');
-                    iconDiv.innerHTML = '<i class="bi bi-file-earmark-pdf-fill"></i>';
-                } else if(fileExt === 'doc' || fileExt === 'docx') {
-                    iconDiv.classList.add('doc');
-                    iconDiv.innerHTML = '<i class="bi bi-file-earmark-word-fill"></i>';
-                } else if(fileExt === 'xls' || fileExt === 'xlsx') {
-                    iconDiv.classList.add('xls');
-                    iconDiv.innerHTML = '<i class="bi bi-file-earmark-excel-fill"></i>';
-                } else if(fileExt === 'zip' || fileExt === 'rar' || fileExt === '7z') {
-                    iconDiv.classList.add('zip');
-                    iconDiv.innerHTML = '<i class="bi bi-file-earmark-zip-fill"></i>';
-                } else {
-                    iconDiv.classList.add('default');
-                    iconDiv.innerHTML = '<i class="bi bi-file-earmark-fill"></i>';
-                }
-                
-                fileThumbnailWrapper.appendChild(iconDiv);
-            }
-            
-            // Update file details
-            fileDetailsName.textContent = fileName.length > 35 ? fileName.substring(0, 32) + '...' : fileName;
-            fileDetailsName.title = fileName;
-            fileDetailsSize.textContent = fileSize;
-            filePreviewContainer.classList.add('active');
-        }
-    });
-    
-    // Format file size helper function
-    function formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-    }
-  
-    removeFileBtn.addEventListener('click', function(){
-        fileInput.value = "";
-        filePreviewContainer.classList.remove('active');
-        fileThumbnailWrapper.innerHTML = '';
-        fileDetailsName.textContent = '';
-        fileDetailsSize.textContent = '';
-    });
-  
-    // WhatsApp-style auto-expanding textarea
-    var messageInput = document.getElementById('message-content');
-    
-    function autoExpand() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    }
-    
-    messageInput.addEventListener('input', autoExpand);
-    
-    // Allow sending message on Enter (without Shift)
-    messageInput.addEventListener('keydown', function(e) {
-        if(e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            document.getElementById('chat-form').dispatchEvent(new Event('submit', {cancelable:true}));
-        }
-    });
-  
-    // Handle chat form submission via AJAX
-    document.getElementById('chat-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var form = this;
-        var formData = new FormData(form);
-        fetch(form.action, {
-            method: "POST",
-            body: formData,
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                // Create a temporary div to parse the message HTML
-                var tempDiv = document.createElement('div');
-                tempDiv.innerHTML = data.message_html;
-                var newMessageElement = tempDiv.firstElementChild;
-
-                // Extract message ID from the new message
-                var newMsgId = newMessageElement.querySelector('[data-msg-id]')?.getAttribute('data-msg-id');
-
-                // Check if message already exists (prevent duplicates)
-                if (newMsgId && !document.querySelector('[data-msg-id="' + newMsgId + '"]')) {
-                    // Force align to right for sender immediately
-                    if (newMessageElement && newMessageElement.classList.contains('chat-message-wrapper')) {
-                        newMessageElement.classList.remove('align-left');
-                        newMessageElement.classList.add('align-right');
-                        var bubble = newMessageElement.querySelector('.message-bubble');
-                        if (bubble) {
-                            bubble.classList.remove('admin-message');
-                            bubble.classList.add('client-message');
+    // Only wire chat form behaviors if the chat form is present (chat may be disabled when no companies)
+    var chatForm = document.getElementById('chat-form');
+    if (chatForm) {
+        // File preview elements
+        var fileInput = document.getElementById('file-input');
+        var filePreviewContainer = document.getElementById('file-preview-container');
+        var fileThumbnailWrapper = document.getElementById('file-thumbnail-wrapper');
+        var fileDetailsName = document.getElementById('file-details-name');
+        var fileDetailsSize = document.getElementById('file-details-size');
+        var removeFileBtn = document.getElementById('remove-file');
+      
+        // Enhanced file preview with WhatsApp-style previews
+        if (fileInput) {
+            fileInput.addEventListener('change', function(){
+                var file = this.files[0];
+                if(file) {
+                    // Get file extension
+                    var fileName = file.name;
+                    var fileExt = fileName.split('.').pop().toLowerCase();
+                    var fileSize = formatFileSize(file.size);
+                    
+                    // Clear previous thumbnail
+                    fileThumbnailWrapper.innerHTML = '';
+                    
+                    if(file.type.startsWith("image/")) {
+                        // Image preview
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            var img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'file-thumbnail';
+                            img.alt = 'Image preview';
+                            fileThumbnailWrapper.appendChild(img);
                         }
+                        reader.readAsDataURL(file);
+                    } else {
+                        // Document icon preview
+                        var iconDiv = document.createElement('div');
+                        iconDiv.className = 'file-icon-thumbnail';
+                        
+                        // Set icon class based on file type
+                        if(fileExt === 'pdf') {
+                            iconDiv.classList.add('pdf');
+                            iconDiv.innerHTML = '<i class="bi bi-file-earmark-pdf-fill"></i>';
+                        } else if(fileExt === 'doc' || fileExt === 'docx') {
+                            iconDiv.classList.add('doc');
+                            iconDiv.innerHTML = '<i class="bi bi-file-earmark-word-fill"></i>';
+                        } else if(fileExt === 'xls' || fileExt === 'xlsx') {
+                            iconDiv.classList.add('xls');
+                            iconDiv.innerHTML = '<i class="bi bi-file-earmark-excel-fill"></i>';
+                        } else if(fileExt === 'zip' || fileExt === 'rar' || fileExt === '7z') {
+                            iconDiv.classList.add('zip');
+                            iconDiv.innerHTML = '<i class="bi bi-file-earmark-zip-fill"></i>';
+                        } else {
+                            iconDiv.classList.add('default');
+                            iconDiv.innerHTML = '<i class="bi bi-file-earmark-fill"></i>';
+                        }
+                        
+                        fileThumbnailWrapper.appendChild(iconDiv);
                     }
-                    chatWindow.appendChild(newMessageElement);
-                    // Update lastMessageId to prevent polling from fetching it again
-                    lastMessageId = parseInt(newMsgId);
+                    
+                    // Update file details
+                    fileDetailsName.textContent = fileName.length > 35 ? fileName.substring(0, 32) + '...' : fileName;
+                    fileDetailsName.title = fileName;
+                    fileDetailsSize.textContent = fileSize;
+                    filePreviewContainer.classList.add('active');
                 }
-                
-                chatWindow.scrollTop = chatWindow.scrollHeight;
-                form.reset();
-                // Clear file preview
-                filePreviewContainer.classList.remove('active');
-                fileThumbnailWrapper.innerHTML = '';
-                fileDetailsName.textContent = '';
-                fileDetailsSize.textContent = '';
-                // Reset textarea height
-                messageInput.style.height = 'auto';
-            } else {
-                alert("Error sending message: " + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert("Error sending message.");
+            });
+        }
+        
+        // Format file size helper function
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+      
+        if (removeFileBtn) {
+            removeFileBtn.addEventListener('click', function(){
+                if (fileInput) fileInput.value = "";
+                if (filePreviewContainer) filePreviewContainer.classList.remove('active');
+                if (fileThumbnailWrapper) fileThumbnailWrapper.innerHTML = '';
+                if (fileDetailsName) fileDetailsName.textContent = '';
+                if (fileDetailsSize) fileDetailsSize.textContent = '';
+            });
+        }
+      
+        // WhatsApp-style auto-expanding textarea
+        var messageInput = document.getElementById('message-content');
+        
+        function autoExpand() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        }
+        
+        if (messageInput) {
+            messageInput.addEventListener('input', autoExpand);
+            
+            // Allow sending message on Enter (without Shift)
+            messageInput.addEventListener('keydown', function(e) {
+                if(e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    document.getElementById('chat-form').dispatchEvent(new Event('submit', {cancelable:true}));
+                }
+            });
+        }
+      
+        // Handle chat form submission via AJAX
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var form = this;
+            var formData = new FormData(form);
+            fetch(form.action, {
+                method: "POST",
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    // Create a temporary div to parse the message HTML
+                    var tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = data.message_html;
+                    var newMessageElement = tempDiv.firstElementChild;
+
+                    // Extract message ID from the new message
+                    var newMsgId = newMessageElement.querySelector('[data-msg-id]')?.getAttribute('data-msg-id');
+
+                    // Check if message already exists (prevent duplicates)
+                    if (newMsgId && !document.querySelector('[data-msg-id="' + newMsgId + '"]')) {
+                        // Force align to right for sender immediately
+                        if (newMessageElement && newMessageElement.classList.contains('chat-message-wrapper')) {
+                            newMessageElement.classList.remove('align-left');
+                            newMessageElement.classList.add('align-right');
+                            var bubble = newMessageElement.querySelector('.message-bubble');
+                            if (bubble) {
+                                bubble.classList.remove('admin-message');
+                                bubble.classList.add('client-message');
+                            }
+                        }
+                        chatWindow.appendChild(newMessageElement);
+                        // Update lastMessageId to prevent polling from fetching it again
+                        lastMessageId = parseInt(newMsgId);
+                    }
+                    
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                    form.reset();
+                    // Clear file preview
+                    if (filePreviewContainer) filePreviewContainer.classList.remove('active');
+                    if (fileThumbnailWrapper) fileThumbnailWrapper.innerHTML = '';
+                    if (fileDetailsName) fileDetailsName.textContent = '';
+                    if (fileDetailsSize) fileDetailsSize.textContent = '';
+                    // Reset textarea height
+                    if (messageInput) messageInput.style.height = 'auto';
+                } else {
+                    alert("Error sending message: " + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("Error sending message.");
+            });
         });
-    });
+    }
   
     // Poll for new messages every 1.5 seconds (faster for real-time feel)
     // Initialize lastMessageId using the last message in the conversation or 0.
     let lastMessageId = {{ messages.last.id|default:0 }};
+    let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
     
     function pollNewMessages() {
-        fetch(`{% url 'chat' %}?last_msg=${lastMessageId}`, {credentials: 'same-origin'})
+        let url = `{% url 'chat' %}?last_msg=${lastMessageId}`;
+        if (selectedCompanyId) url += `&company_id=${selectedCompanyId}`;
+        fetch(url, {credentials: 'same-origin'})
             .then(response => response.json())
             .then(data => {
                 if(data.messages && data.messages.length > 0 && data.messages_html) {
@@ -1006,6 +1124,66 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     pollNewMessages();
+    // Explorer toggle and click handlers
+    var explorerToggle = document.getElementById('explorer-toggle');
+    var explorer = document.querySelector('.chat-explorer');
+    if (explorerToggle && explorer) {
+        explorerToggle.addEventListener('click', function() {
+            explorer.classList.toggle('collapsed');
+            if (explorer.classList.contains('collapsed')) {
+                explorer.style.width = '0';
+                explorer.style.padding = '0';
+                explorer.style.overflow = 'hidden';
+            } else {
+                explorer.style.width = '';
+                explorer.style.padding = '';
+                explorer.style.overflow = '';
+            }
+        });
+    }
+
+    // Explorer: clicking an item selects company for chat and loads portfolio panel
+    document.querySelectorAll('.explorer-item').forEach(function(item){
+        item.addEventListener('click', function(e){
+            // clicking the item selects the company for chat
+            var cid = this.dataset.companyId;
+            if (!cid) return;
+            selectedCompanyId = cid;
+            var hid = document.getElementById('company-id-input');
+            if (hid) hid.value = cid;
+            // fetch portfolio panel (if clicked on view-portfolio link will also open in panel)
+            var vp = this.querySelector('.view-portfolio');
+            if (vp) {
+                var href = vp.getAttribute('href');
+                var companyId = cid || href.split('/').filter(Boolean).pop();
+                fetch(`{% url 'ajax-company-portfolio' 0 %}`.replace('0', companyId), { credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.html) {
+                            var panel = document.getElementById('portfolio-panel');
+                            var body = document.getElementById('portfolio-card-body');
+                            body.innerHTML = data.html;
+                            panel.style.display = 'block';
+                            setTimeout(function(){ panel.style.right = '20px'; }, 10);
+                        }
+                    })
+                    .catch(err => console.error('Failed to load portfolio', err));
+            }
+            // refresh messages immediately for selected company
+            lastMessageId = 0;
+            pollNewMessages();
+        });
+    });
+
+    // Close portfolio when clicking outside
+    document.addEventListener('click', function(e){
+        var panel = document.getElementById('portfolio-panel');
+        if (!panel) return;
+        if (!panel.contains(e.target) && !e.target.closest('.view-portfolio') && panel.style.display === 'block') {
+            panel.style.right = '-360px';
+            setTimeout(function(){ panel.style.display = 'none'; }, 300);
+        }
+    });
 });
 </script>
 

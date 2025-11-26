@@ -224,11 +224,14 @@ def _get_participant_or_404(role: str, user_id: int):
     return get_object_or_404(CustomUser, id=user_id, role=normalized)
 
 
-def _conversation_queryset(participant):
-    return Message.objects.filter(
+def _conversation_queryset(participant, company=None):
+    qs = Message.objects.filter(
         Q(sender=participant, recipient__role__in=SUPPORT_ROLES) |
         Q(sender__role__in=SUPPORT_ROLES, recipient=participant)
-    ).order_by('date_sent')
+    )
+    if company is not None:
+        qs = qs.filter(company=company)
+    return qs.order_by('date_sent')
 
 
 def _mark_conversation_read(participant):
@@ -274,13 +277,23 @@ def _handle_support_message_send(request, participant):
     if not message_content and not file_attachment:
         return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'}, status=400)
 
+    # Optional company scoping: adminSupport UI may include a `company_id` field
+    company = None
+    company_id = request.POST.get('company_id') or request.GET.get('company_id')
+    if company_id:
+        try:
+            company = Company.objects.get(id=int(company_id))
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Invalid company_id'}, status=400)
+
     new_message = Message.objects.create(
         sender=request.user,
         recipient=participant,
         message_type="enquiry",
         content=message_content,
         file=file_attachment,
-        status='sent'
+        status='sent',
+        company=company,
     )
 
     message_html = render_to_string('adminSupport/chat_message.html', {'msg': new_message, 'request': request})

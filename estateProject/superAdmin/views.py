@@ -155,6 +155,14 @@ class SuperAdminLoginView(View):
             else:
                 request.session.set_expiry(1209600)  # 2 weeks
             
+            # Set custom session expiry for middleware
+            import time
+            if not remember_me:
+                request.session['_session_expiry'] = time.time() + 300  # 5 minutes
+            else:
+                request.session['_session_expiry'] = time.time() + 1209600  # 2 weeks
+            request.session.save()
+            
             # Log successful login
             try:
                 SystemAuditLog.objects.create(

@@ -28,6 +28,9 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.db.models import Prefetch, Count, Max, Q, F, Value, Sum, DecimalField, OuterRef, Subquery, Exists, ExpressionWrapper
 from django.db.models.functions import Concat, Coalesce
 
+import unicodedata
+import re
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView, FormView, View
 
@@ -45,7 +48,7 @@ from django.conf import settings
 from django.utils.html import strip_tags
 from django.views.generic.edit import FormView 
 from django.views.decorators.csrf import csrf_protect
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import reverse_lazy
 
 
@@ -442,9 +445,10 @@ def user_registration(request):
         
         date_of_birth = request.POST.get('date_of_birth')
         
-        # Validate the email (check if it's already registered)
-        if CustomUser.objects.filter(email=email).exists():
-            error_msg = f"Email {email} is already registered."
+        # Validate the email (check if it's already registered for the SAME role)
+        # Allow same email across different roles, but prevent duplicates within same role
+        if CustomUser.objects.filter(email=email, role=role).exists():
+            error_msg = f"Email {email} is already registered for a {role} account."
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': False, 'message': error_msg})
             messages.error(request, error_msg)
@@ -1894,12 +1898,43 @@ def admin_chat_view(request, client_id):
     # This ensures unified dashboard - all admins see the same read/unread status
     Message.objects.filter(sender=client, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
     
-    # Query all messages between this client and ANY admin (unified dashboard)
-    # This allows all admins to see the entire conversation history
-    conversation = Message.objects.filter(
-        Q(sender=client, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=client)
-    ).order_by('date_sent')
+    # Build companies list for explorer: companies where client has allocations
+    client_company_ids = (
+        PlotAllocation.objects.filter(client_id=client.id)
+        .values_list('estate__company', flat=True)
+        .distinct()
+    )
+    companies_qs = Company.objects.filter(id__in=[c for c in client_company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        alloc_count = PlotAllocation.objects.filter(client_id=client.id, estate__company=comp).count()
+        companies.append({'company': comp, 'allocations': alloc_count})
+
+    # Query messages: by default show full conversation, but allow optional company scoping
+    # (polling endpoints may pass company_id to scope results)
+    sel_company_id = None
+    if request.method == 'GET':
+        sel_company_id = request.GET.get('company_id')
+    else:
+        sel_company_id = request.POST.get('company_id')
+
+    selected_company = None
+    if sel_company_id:
+        try:
+            selected_company = Company.objects.get(id=int(sel_company_id))
+        except Exception:
+            selected_company = None
+
+    if selected_company:
+        conversation = Message.objects.filter(
+            (Q(sender=client, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
+            (Q(sender__role__in=SUPPORT_ROLES, recipient=client) & Q(company=selected_company))
+        ).order_by('date_sent')
+    else:
+        conversation = Message.objects.filter(
+            Q(sender=client, recipient__role__in=SUPPORT_ROLES) |
+            Q(sender__role__in=SUPPORT_ROLES, recipient=client)
+        ).order_by('date_sent')
     
     # POLLING branch: if GET includes 'last_msg'
     if request.method == "GET" and 'last_msg' in request.GET:
@@ -1933,7 +1968,19 @@ def admin_chat_view(request, client_id):
         
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'})
-        
+        # Optional company scoping: ensure provided company_id (if any) is valid for this client
+        company = None
+        company_id = request.POST.get('company_id') or request.GET.get('company_id')
+        if company_id:
+            try:
+                company = Company.objects.get(id=int(company_id))
+            except Exception:
+                return JsonResponse({'success': False, 'error': 'Invalid company_id'}, status=400)
+
+            # ensure client is affiliated with this company
+            if not companies_qs.filter(id=company.id).exists():
+                return JsonResponse({'success': False, 'error': 'Client is not affiliated with this company'}, status=403)
+
         # Admin sends message - recipient is the specific client
         new_message = Message.objects.create(
             sender=admin_user,
@@ -1941,7 +1988,8 @@ def admin_chat_view(request, client_id):
             message_type="enquiry",
             content=message_content,
             file=file_attachment,
-            status='sent'
+            status='sent',
+            company=company,
         )
         message_html = render_to_string('admin_side/chat_message.html', {'msg': new_message, 'request': request})
         return JsonResponse({'success': True, 'message_html': message_html})
@@ -1949,6 +1997,8 @@ def admin_chat_view(request, client_id):
     context = {
         'client': client,
         'messages': conversation,
+        'companies': companies,
+        'selected_company': selected_company,
     }
     return render(request, 'admin_side/chat_interface.html', context)
 
@@ -1974,10 +2024,43 @@ def marketer_chat_view(request):
     )
     admin_messages_qs.update(is_read=True, status='read')
 
-    conversation = Message.objects.filter(
-        Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=request.user)
-    ).order_by('date_sent')
+    # Build companies list for marketer explorer (companies where marketer has transactions)
+    user = request.user
+    company_ids = (
+        Transaction.objects.filter(marketer=user)
+        .values_list('company', flat=True)
+        .distinct()
+    )
+    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
+        companies.append({'company': comp, 'transactions': txn_count})
+
+    # Determine selected company for conversation
+    sel_company_id = None
+    if request.method == 'GET':
+        sel_company_id = request.GET.get('company_id')
+    else:
+        sel_company_id = request.POST.get('company_id')
+
+    if not sel_company_id and companies_qs.exists():
+        sel_company_id = companies_qs.first().id
+
+    selected_company = None
+    if sel_company_id:
+        try:
+            selected_company = Company.objects.get(id=int(sel_company_id))
+        except Exception:
+            selected_company = None
+
+    if selected_company:
+        conversation = Message.objects.filter(
+            (Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
+            (Q(sender__role__in=SUPPORT_ROLES, recipient=request.user) & Q(company=selected_company))
+        ).order_by('date_sent')
+    else:
+        conversation = Message.objects.none()
 
     if request.method == "GET" and 'last_msg' in request.GET:
         try:
@@ -1999,10 +2082,23 @@ def marketer_chat_view(request):
             'messages_html': messages_html,
             'updated_statuses': updated_statuses,
         })
+    # Build companies list for marketer explorer (companies where marketer has transactions)
+    user = request.user
+    company_ids = (
+        Transaction.objects.filter(marketer=user)
+        .values_list('company', flat=True)
+        .distinct()
+    )
+    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
+        companies.append({'company': comp, 'transactions': txn_count})
 
     if request.method == "POST":
         message_content = request.POST.get('message_content', '').strip()
         file_attachment = request.FILES.get('file')
+        company_id = request.POST.get('company_id')
         reply_to_id = request.POST.get('reply_to')
         reply_to = None
         if reply_to_id:
@@ -2014,6 +2110,22 @@ def marketer_chat_view(request):
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'}, status=400)
 
+        # SECURITY: Prevent sending messages if marketer is not associated with any company
+        if not companies_qs.exists():
+            return JsonResponse({'success': False, 'error': 'You are not associated with any company. Chat is disabled until you have an affiliation.'}, status=400)
+
+        # Validate company_id and ensure marketer is affiliated
+        company = None
+        if not company_id:
+            return JsonResponse({'success': False, 'error': 'Missing company_id'}, status=400)
+        try:
+            company = Company.objects.get(id=int(company_id))
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Invalid company_id'}, status=400)
+
+        if not companies_qs.filter(id=company.id).exists():
+            return JsonResponse({'success': False, 'error': 'You are not affiliated with this company'}, status=403)
+
         new_message = Message.objects.create(
             sender=request.user,
             recipient=admin_user,
@@ -2021,7 +2133,8 @@ def marketer_chat_view(request):
             content=message_content,
             file=file_attachment,
             reply_to=reply_to,
-            status='sent'
+            status='sent',
+            company=company,
         )
 
         message_html = render_to_string('marketer_side/chat_message.html', {
@@ -2034,7 +2147,11 @@ def marketer_chat_view(request):
         'messages': conversation,
         'unread_chat_count': initial_unread,
         'global_message_count': initial_unread,
+        'companies': companies,
+        'selected_company': selected_company,
     }
+    # Include companies and selected company for marketer template too
+    context.update({'companies': companies, 'selected_company': selected_company})
     return render(request, 'marketer_side/chat_interface.html', context)
 
 
@@ -2652,10 +2769,42 @@ def admin_marketer_chat_view(request, marketer_id):
     Message.objects.filter(sender=marketer, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
 
     # Full conversation between this marketer and ANY admin
-    conversation = Message.objects.filter(
-        Q(sender=marketer, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=marketer)
-    ).order_by('date_sent')
+    # Build companies list for explorer: companies where marketer has transactions
+    company_ids = (
+        Transaction.objects.filter(marketer=marketer)
+        .values_list('company', flat=True)
+        .distinct()
+    )
+    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        txn_count = Transaction.objects.filter(marketer=marketer, company=comp).count()
+        companies.append({'company': comp, 'transactions': txn_count})
+
+    # Conversation: optionally scope to selected company
+    sel_company_id = None
+    if request.method == 'GET':
+        sel_company_id = request.GET.get('company_id')
+    else:
+        sel_company_id = request.POST.get('company_id')
+
+    selected_company = None
+    if sel_company_id:
+        try:
+            selected_company = Company.objects.get(id=int(sel_company_id))
+        except Exception:
+            selected_company = None
+
+    if selected_company:
+        conversation = Message.objects.filter(
+            (Q(sender=marketer, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
+            (Q(sender__role__in=SUPPORT_ROLES, recipient=marketer) & Q(company=selected_company))
+        ).order_by('date_sent')
+    else:
+        conversation = Message.objects.filter(
+            Q(sender=marketer, recipient__role__in=SUPPORT_ROLES) |
+            Q(sender__role__in=SUPPORT_ROLES, recipient=marketer)
+        ).order_by('date_sent')
 
     # Polling branch
     if request.method == "GET" and 'last_msg' in request.GET:
@@ -2685,6 +2834,18 @@ def admin_marketer_chat_view(request, marketer_id):
         file_attachment = request.FILES.get('file')
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'})
+        # Optional company scoping for admin->marketer messages
+        company = None
+        company_id = request.POST.get('company_id') or request.GET.get('company_id')
+        if company_id:
+            try:
+                company = Company.objects.get(id=int(company_id))
+            except Exception:
+                return JsonResponse({'success': False, 'error': 'Invalid company_id'}, status=400)
+
+            # ensure marketer has transactions with this company
+            if not Transaction.objects.filter(marketer=marketer, company=company).exists():
+                return JsonResponse({'success': False, 'error': 'Marketer is not affiliated with this company'}, status=403)
 
         new_message = Message.objects.create(
             sender=admin_user,
@@ -2692,7 +2853,8 @@ def admin_marketer_chat_view(request, marketer_id):
             message_type="enquiry",
             content=message_content,
             file=file_attachment,
-            status='sent'
+            status='sent',
+            company=company,
         )
         message_html = render_to_string('admin_side/chat_message.html', {'msg': new_message, 'request': request})
         return JsonResponse({'success': True, 'message_html': message_html})
@@ -2701,6 +2863,8 @@ def admin_marketer_chat_view(request, marketer_id):
         'client': marketer,   # Reuse template expecting 'client'
         'messages': conversation,
         'is_marketer': True,
+        'companies': companies,
+        'selected_company': selected_company,
     }
     return render(request, 'admin_side/chat_interface.html', context)
 
@@ -2792,10 +2956,13 @@ def search_existing_users_api(request):
     """
     query = request.GET.get('q', '').strip()
     role = request.GET.get('role', '').strip()
-    
-    if not role or role not in ['client', 'marketer']:
+
+    # Allow role to be optional: if provided and valid, search that role only,
+    # otherwise search both 'client' and 'marketer'. This helps UI callers
+    # that may not know the exact role or when admins want a broader search.
+    if role and role not in ['client', 'marketer']:
         return JsonResponse({'error': 'Invalid role'}, status=400)
-    
+
     if len(query) < 2:
         return JsonResponse({'users': []})
     
@@ -2804,17 +2971,138 @@ def search_existing_users_api(request):
     if not company:
         return JsonResponse({'error': 'User not assigned to any company'}, status=403)
     
-    # Search for users matching query (email or name)
+    # Search for users matching query (email, name, phone)
     # Find users NOT YET in this company
-    users = CustomUser.objects.filter(
-        role=role,
-        is_active=True,
-        is_deleted=False
-    ).filter(
-        Q(email__icontains=query) | Q(full_name__icontains=query)
-    ).exclude(
-        company_profile=company  # Exclude users already in this company
-    ).distinct()[:20]
+    qs = CustomUser.objects.filter(is_active=True, is_deleted=False)
+    if role:
+        qs = qs.filter(role=role)
+    else:
+        qs = qs.filter(role__in=['client', 'marketer'])
+
+    # Build a robust search expression: exact email, partial email, tokenized name match, phone
+    search_q = Q(email__iexact=query) | Q(email__icontains=query) | Q(full_name__icontains=query) | Q(phone__icontains=query)
+    # Tokenize query and require all tokens to appear in full_name when multiple words provided
+    tokens = [t.strip() for t in query.split() if t.strip()]
+    if tokens and len(tokens) > 1:
+        name_tokens_q = None
+        for tok in tokens:
+            if name_tokens_q is None:
+                name_tokens_q = Q(full_name__icontains=tok)
+            else:
+                name_tokens_q &= Q(full_name__icontains=tok)
+        if name_tokens_q is not None:
+            search_q |= name_tokens_q
+
+    # Get a broader candidate set then perform normalized matching in Python
+    candidates = list(qs.filter(search_q).exclude(company_profile=company).distinct()[:200])
+
+    def _strip_diacritics(s):
+        if not s:
+            return ''
+        s = str(s)
+        s = unicodedata.normalize('NFD', s)
+        s = ''.join(ch for ch in s if not unicodedata.combining(ch))
+        return s.lower()
+
+    def _normalize_email_for_matching(email):
+        if not email:
+            return ''
+        email = email.strip().lower()
+        if '@' not in email:
+            return email
+        local, domain = email.split('@', 1)
+        # strip plus-tags from local part
+        if '+' in local:
+            local = local.split('+', 1)[0]
+        # For Gmail-style addresses, dots in local part are ignored
+        if domain in ('gmail.com', 'googlemail.com'):
+            local = local.replace('.', '')
+        return f"{local}@{domain}"
+
+    query_norm = _strip_diacritics(query)
+    query_is_email = '@' in query
+    query_norm_email = _normalize_email_for_matching(query) if query_is_email else None
+
+    matches = []
+    seen_ids = set()
+
+    def try_add(u):
+        if u.id in seen_ids:
+            return
+        seen_ids.add(u.id)
+        matches.append(u)
+
+    # First pass: exact normalized email matches
+    if query_is_email:
+        for u in candidates:
+            if _normalize_email_for_matching(u.email) == query_norm_email:
+                try_add(u)
+
+    # Second pass: diacritic-normalized name match, email contains, or phone contains
+    for u in candidates:
+        if u.id in seen_ids:
+            continue
+        uname = _strip_diacritics(u.full_name or '')
+        uemail = _strip_diacritics(u.email or '')
+        uphone = (u.phone or '')
+
+        if query_norm and query_norm in uname:
+            try_add(u)
+            continue
+        if query_norm and query_norm in uemail:
+            try_add(u)
+            continue
+        if query and uphone and query in uphone:
+            try_add(u)
+            continue
+
+    # If still no matches and the caller specified a role, broaden to both roles and repeat
+    if not matches and role:
+        qs2 = CustomUser.objects.filter(is_active=True, is_deleted=False, role__in=['client', 'marketer'])
+        candidates2 = list(qs2.filter(search_q).exclude(company_profile=company).distinct()[:400])
+        for u in candidates2:
+            if u.id in seen_ids:
+                continue
+            if query_is_email and _normalize_email_for_matching(u.email) == query_norm_email:
+                try_add(u)
+                continue
+            uname = _strip_diacritics(u.full_name or '')
+            uemail = _strip_diacritics(u.email or '')
+            uphone = (u.phone or '')
+            if query_norm and query_norm in uname:
+                try_add(u)
+                continue
+            if query_norm and query_norm in uemail:
+                try_add(u)
+                continue
+            if query and uphone and query in uphone:
+                try_add(u)
+                continue
+
+    users = matches[:20]
+
+    # If debug flag is present, include diagnostic info to help troubleshoot
+    if request.GET.get('debug') in ('1', 'true', 'True'):
+        debug_info = {
+            'query': query,
+            'query_norm': query_norm,
+            'query_is_email': query_is_email,
+            'query_norm_email': query_norm_email,
+            'candidate_count': len(candidates),
+            'matched_count': len(matches),
+            'matched_ids': [u.id for u in matches[:50]],
+            'matched_emails': [u.email for u in matches[:50]],
+        }
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'email': user.email,
+                'full_name': user.full_name,
+                'phone': user.phone,
+                'role': getattr(user, 'role', None),
+            })
+        return JsonResponse({'users': users_data, 'debug': debug_info})
     
     users_data = []
     for user in users:
@@ -2823,7 +3111,12 @@ def search_existing_users_api(request):
             'email': user.email,
             'full_name': user.full_name,
             'phone': user.phone,
+            # Note: date_registered is not the user's DOB; we only include if there's an explicit date_of_birth field
             'date_registered': user.date_registered.strftime('%Y-%m-%d %H:%M'),
+            'date_of_birth': getattr(user, 'date_of_birth', None).isoformat() if getattr(user, 'date_of_birth', None) else None,
+            'address': getattr(user, 'address', '') or '',
+            'country': getattr(user, 'country', '') or '',
+            'role': getattr(user, 'role', None),
             'is_already_in_company': user.company_profile is not None,
             'current_company': user.company_profile.company_name if user.company_profile else 'None',
         })
@@ -3192,7 +3485,8 @@ def client_profile(request, pk):
     client = get_object_or_404(ClientUser, id=pk)
     
     # Get all transactions with related data
-    transactions = Transaction.objects.filter(client=client).select_related(
+    # Use client_id to support both ClientUser multi-table instances and plain CustomUser fallbacks
+    transactions = Transaction.objects.filter(client_id=getattr(client, 'id', client)).select_related(
         'allocation__estate',
         'allocation__plot_size'
     )
@@ -3781,9 +4075,21 @@ def client_dashboard(request):
 
 @login_required
 def my_client_profile(request):
-    client = ClientUser.objects.select_related('assigned_marketer').get(id=request.user.id)
+    try:
+        client = ClientUser.objects.select_related('assigned_marketer').get(id=request.user.id)
+    except ClientUser.DoesNotExist:
+        # Fallback: some client accounts are stored on the main CustomUser model
+        # If the authenticated user has role 'client', use request.user as the client object
+        user = request.user
+        if getattr(user, 'role', None) == 'client':
+            client = user
+        else:
+            messages.error(request, 'Client profile not found.')
+            return redirect('login')
 
-    transactions = Transaction.objects.filter(client=client).select_related(
+    # Use client_id so queries work regardless of ClientUser subclass presence
+    client_id = getattr(client, 'id', client)
+    transactions = Transaction.objects.filter(client_id=client_id).select_related(
         'allocation__estate',
         'allocation__plot_size'
     )
@@ -3852,10 +4158,52 @@ def chat_view(request):
         is_read=False
     ).update(is_read=True, status='read')
 
-    conversation = Message.objects.filter(
-        Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=request.user)
-    ).order_by('date_sent')
+    # Build companies list for the explorer sidebar (companies where client has allocations)
+    user = request.user
+    client_id = getattr(user, 'id', user)
+
+    company_ids = (
+        PlotAllocation.objects.filter(client_id=client_id)
+        .values_list('estate__company', flat=True)
+        .distinct()
+    )
+
+    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
+        total_invested = (
+            Transaction.objects.filter(client_id=client_id, company=comp)
+            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+        )
+        companies.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
+
+    # Determine selected company for conversation (GET param > POST param > first company)
+    sel_company_id = None
+    if request.method == 'GET':
+        sel_company_id = request.GET.get('company_id')
+    else:
+        sel_company_id = request.POST.get('company_id')
+
+    if not sel_company_id and companies_qs.exists():
+        first_comp = companies_qs.first()
+        sel_company_id = getattr(first_comp, 'id', None)
+
+    selected_company = None
+    if sel_company_id:
+        try:
+            selected_company = Company.objects.get(id=int(sel_company_id))
+        except Exception:
+            selected_company = None
+
+    # Build conversation scoped to selected company when available
+    if selected_company:
+        conversation = Message.objects.filter(
+            (Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
+            (Q(sender__role__in=SUPPORT_ROLES, recipient=request.user) & Q(company=selected_company))
+        ).order_by('date_sent')
+    else:
+        conversation = Message.objects.none()
 
     if request.method == "GET" and 'last_msg' in request.GET:
         try:
@@ -3879,10 +4227,30 @@ def chat_view(request):
             'messages_html': messages_html,
             'updated_statuses': updated_statuses
         })
+    # Build companies list for the explorer sidebar (companies where client has allocations)
+    user = request.user
+    client_id = getattr(user, 'id', user)
+
+    company_ids = (
+        PlotAllocation.objects.filter(client_id=client_id)
+        .values_list('estate__company', flat=True)
+        .distinct()
+    )
+
+    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = []
+    for comp in companies_qs:
+        alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
+        total_invested = (
+            Transaction.objects.filter(client_id=client_id, company=comp)
+            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+        )
+        companies.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
 
     if request.method == "POST":
         message_content = request.POST.get('message_content')
         file_attachment = request.FILES.get('file')
+        company_id = request.POST.get('company_id')
         reply_to_id = request.POST.get('reply_to')
         reply_to = None
         if reply_to_id:
@@ -3894,6 +4262,21 @@ def chat_view(request):
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'})
 
+        # SECURITY: Prevent sending messages if client has no companies (chats are company-scoped)
+        if not companies_qs.exists():
+            return JsonResponse({'success': False, 'error': 'You are not associated with any company. Chat is disabled until you have a company.'})
+
+        # Validate and assign company
+        if not company_id:
+            return JsonResponse({'success': False, 'error': 'Missing company_id'}, status=400)
+        try:
+            company = Company.objects.get(id=int(company_id))
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Invalid company_id'}, status=400)
+
+        if not companies_qs.filter(id=company.id).exists():
+            return JsonResponse({'success': False, 'error': 'You are not associated with this company'}, status=403)
+
         new_message = Message.objects.create(
             sender=request.user,
             recipient=admin_user,
@@ -3901,7 +4284,8 @@ def chat_view(request):
             content=message_content,
             file=file_attachment,
             reply_to=reply_to,
-            status='sent'
+            status='sent',
+            company=company,
         )
 
         message_html = render_to_string('client_side/chat_message.html', {
@@ -3910,13 +4294,16 @@ def chat_view(request):
         })
         return JsonResponse({'success': True, 'message_html': message_html})
 
-    else:
-        context = {
-            'messages': conversation,
-            'unread_chat_count': initial_unread,
-            'global_message_count': initial_unread,
-        }
-        return render(request, 'client_side/chat_interface.html', context)
+    # Render page (GET without last_msg)
+    context = {
+        'messages': conversation,
+        'unread_chat_count': initial_unread,
+        'global_message_count': initial_unread,
+        'companies': companies,
+        'client': request.user,
+        'selected_company': selected_company,
+    }
+    return render(request, 'client_side/chat_interface.html', context)
 
 
 @login_required
@@ -3936,6 +4323,127 @@ def property_list(request):
         "allocations": allocations,
     }
     return render(request, 'client_side/property_list.html', context)
+
+
+@login_required
+def my_companies(request):
+    """Show companies where the authenticated client has allocations/purchases."""
+    user = request.user
+    # Support cases where client is a subclass or base user
+    client_id = getattr(user, 'id', user)
+
+    # Get company ids from allocations
+    company_ids = (
+        PlotAllocation.objects.filter(client_id=client_id)
+        .values_list('estate__company', flat=True)
+        .distinct()
+    )
+
+    companies = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+
+    # Build simple metrics per company
+    company_list = []
+    for comp in companies:
+        alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
+        total_invested = (
+            Transaction.objects.filter(client_id=client_id, company=comp)
+            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+        )
+        company_list.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
+
+    return render(request, 'client_side/my_companies.html', {'companies': company_list})
+
+
+@login_required
+def my_company_portfolio(request, company_id=None, company_slug=None):
+    """Show allocations and transactions for this client scoped to a specific company.
+
+    Accepts either `company_id` or `company_slug` (one must be provided).
+    """
+    user = request.user
+    client_id = getattr(user, 'id', user)
+
+    if company_slug and not company_id:
+        company = get_object_or_404(Company, slug=company_slug)
+    else:
+        company = get_object_or_404(Company, id=company_id)
+
+    allocations = (
+        PlotAllocation.objects.filter(client_id=client_id, estate__company=company)
+        .select_related('estate', 'plot_size', 'plot_number')
+        .order_by('-date_allocated')
+    )
+
+    transactions = (
+        Transaction.objects.filter(client_id=client_id, company=company)
+        .select_related('allocation__estate', 'allocation__plot_size')
+        .order_by('-transaction_date')
+    )
+
+    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+
+    context = {
+        'company': company,
+        'allocations': allocations,
+        'transactions': transactions,
+        'total_invested': total_invested,
+    }
+    return render(request, 'client_side/my_company_portfolio.html', context)
+
+
+@login_required
+def marketer_my_companies(request):
+    """Show companies where the authenticated marketer has transactions/affiliations."""
+    user = request.user
+    if getattr(user, 'role', None) != 'marketer':
+        return redirect('login')
+
+    company_ids = (
+        Transaction.objects.filter(marketer=user)
+        .values_list('company', flat=True)
+        .distinct()
+    )
+
+    companies = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+
+    company_list = []
+    for comp in companies:
+        txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
+        total_value = Transaction.objects.filter(marketer=user, company=comp).aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+        company_list.append({'company': comp, 'transactions': txn_count, 'total_value': total_value})
+
+    return render(request, 'marketer_side/my_companies.html', {'companies': company_list})
+
+
+@login_required
+def marketer_company_portfolio(request, company_id=None):
+    """Show marketer's portfolio for a specific company: their transactions and list of clients they handle within that company."""
+    user = request.user
+    if getattr(user, 'role', None) != 'marketer':
+        return redirect('login')
+
+    company = get_object_or_404(Company, id=company_id)
+
+    # Transactions by this marketer for this company
+    transactions = (
+        Transaction.objects.filter(marketer=user, company=company)
+        .select_related('client', 'allocation__estate')
+        .order_by('-transaction_date')
+    )
+
+    # Clients assigned to this marketer within the company (via Transaction or explicit assignment)
+    client_ids = transactions.values_list('client_id', flat=True).distinct()
+    clients = CustomUser.objects.filter(id__in=[c for c in client_ids if c is not None])
+
+    total_value = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+
+    context = {
+        'company': company,
+        'transactions': transactions,
+        'clients': clients,
+        'total_value': total_value,
+    }
+    return render(request, 'marketer_side/my_company_portfolio.html', context)
 
 @login_required
 def view_client_estate(request, estate_id, plot_size_id):
@@ -4315,9 +4823,115 @@ class CustomLoginView(LoginView):
         context['login_slug'] = self.kwargs.get('login_slug', None)
         return context
 
+    def post(self, request, *args, **kwargs):
+        # Check if this is a role selection POST request
+        if 'selected_user_id' in request.POST:
+            return self.handle_role_selection(request)
+        
+        # Normal login form processing
+        return super().post(request, *args, **kwargs)
+    
+    def handle_role_selection(self, request):
+        """Handle role selection from the multiple users modal."""
+        selected_user_id = request.POST.get('selected_user_id')
+        user_email = request.POST.get('user_email')
+        
+        if not selected_user_id or not user_email:
+            messages.error(request, "Invalid role selection.")
+            return redirect('login')
+        
+        try:
+            # Get the specific user
+            user = CustomUser.objects.get(id=selected_user_id, email=user_email)
+            
+            # SECURITY: Check if user is a system admin
+            if getattr(user, 'is_system_admin', False):
+                messages.error(request, "Access Denied: You are not allowed to login through this interface.")
+                return redirect('login')
+            
+            # SECURITY: Tenancy Validation
+            login_slug = self.kwargs.get('login_slug', None)
+            if login_slug:
+                try:
+                    company = Company.objects.get(slug=login_slug)
+                    user_company = getattr(user, 'company_profile', None)
+                    if user_company and user_company.id != company.id:
+                        messages.error(request, "❌ You do not have permission to login through this tenant portal.")
+                        return redirect('login')
+                except Company.DoesNotExist:
+                    messages.error(request, "❌ Invalid company portal URL.")
+                    return redirect('login')
+            
+            # Log the user in
+            login(request, user)
+            
+            # Capture login details
+            try:
+                ip = extract_client_ip(request)
+                try:
+                    from .services.geoip import is_private_ip
+                    client_ip_from_form = request.POST.get('client_public_ip')
+                    if (not ip or is_private_ip(ip)) and client_ip_from_form:
+                        ip = client_ip_from_form.strip()
+                except Exception:
+                    pass
+                
+                if hasattr(user, 'last_login_ip'):
+                    user.last_login_ip = ip
+                    location = lookup_ip_location(ip)
+                    if hasattr(user, 'last_login_location') and location:
+                        user.last_login_location = location
+                        user.save(update_fields=['last_login_ip', 'last_login_location'])
+                    else:
+                        user.save(update_fields=['last_login_ip'])
+            except Exception:
+                pass
+            
+            # Set session expiry
+            import time
+            request.session['_session_expiry'] = time.time() + 300
+            request.session.save()
+            
+            # Role-specific welcome messages
+            company_name = user.company_profile.company_name if user.company_profile else "your company"
+            role_messages = {
+                'admin': f"Welcome back to {company_name}!",
+                'client': f"Welcome back, {user.full_name}!",
+                'marketer': f"Welcome back, {user.full_name}!",
+                'support': f"Welcome back, {user.full_name}! {company_name}!"
+            }
+            messages.success(request, role_messages.get(user.role, "Login successful!"))
+            
+            return redirect(self.get_success_url())
+            
+        except CustomUser.DoesNotExist:
+            messages.error(request, "Selected user not found.")
+            return redirect('login')
+        except Exception as e:
+            messages.error(request, f"Login failed: {str(e)}")
+            return redirect('login')
     def form_valid(self, form):
+        """
+        Override form_valid to handle MultipleUserMatch objects.
+        When multiple users are found, show the role selection modal instead of logging in.
+        """
+        from .backends import MultipleUserMatch
+        
+        # Check if authentication returned multiple users
+        auth_result = form.get_user()
+        
+        if isinstance(auth_result, MultipleUserMatch):
+            # Multiple users found - show role selection modal
+            context = self.get_context_data(form=form)
+            context['multiple_users'] = auth_result.users
+            context['user_email'] = auth_result.email
+            from django.shortcuts import render
+            return render(self.request, self.template_name, context)
+        
+        # Single user authentication - proceed normally
+        user = auth_result
+        
         # SECURITY: Check if user is a system admin - they cannot use this interface
-        user = form.get_user()
         if getattr(user, 'is_system_admin', False):
             messages.error(
                 self.request, 
@@ -4382,6 +4996,11 @@ class CustomLoginView(LoginView):
                     user.save(update_fields=['last_login_ip'])
         except Exception:
             pass
+        
+        # Set session expiry for sliding expiration (5 minutes)
+        import time
+        self.request.session['_session_expiry'] = time.time() + 300  # 5 minutes
+        self.request.session.save()
         
         # Role-specific welcome messages
         company_name = user.company_profile.company_name if user.company_profile else "your company"
@@ -4513,9 +5132,9 @@ def company_registration(request):
                 messages.error(request, "This company email is already registered!")
                 return redirect('login')
 
-            # Check if user email already exists (strict email isolation)
-            if CustomUser.objects.filter(email=email).exists():
-                messages.error(request, "A user with this email already exists!")
+            # Check if user email already exists for admin role only
+            if CustomUser.objects.filter(email=email, role='admin').exists():
+                messages.error(request, "A user with this email already exists as an admin!")
                 return redirect('login')
 
             # Create company with transaction (atomic: all or nothing)
@@ -4658,6 +5277,17 @@ def client_registration(request):
             last_name = request.POST.get('last_name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
+            date_of_birth_str = request.POST.get('date_of_birth')
+            
+            # Parse date_of_birth if provided
+            date_of_birth = None
+            if date_of_birth_str:
+                try:
+                    from datetime import datetime
+                    date_of_birth = datetime.strptime(date_of_birth_str, '%Y-%m-%d').date()
+                except ValueError:
+                    messages.error(request, "Invalid date format for date of birth!")
+                    return redirect('login')
             password = request.POST.get('password')
             confirm_password = request.POST.get('confirm_password')
 
@@ -4670,9 +5300,9 @@ def client_registration(request):
                 messages.error(request, "Password must be at least 8 characters long!")
                 return redirect('login')
 
-            # Check if user email already exists
-            if CustomUser.objects.filter(email=email).exists():
-                messages.error(request, "A user with this email already exists!")
+            # Check if user email already exists for client role only
+            if CustomUser.objects.filter(email=email, role='client').exists():
+                messages.error(request, "A user with this email already exists as a client!")
                 return redirect('login')
 
             # Create client user
@@ -4684,6 +5314,7 @@ def client_registration(request):
                     password=password,
                     role='client',
                     company_profile=None,  # Clients are not bound to a company initially
+                    date_of_birth=date_of_birth,
                     is_active=True,
                     is_staff=False,
                     is_superuser=False
@@ -4721,11 +5352,27 @@ def client_registration(request):
                 except Exception:
                     pass
 
+                # Check if this is an AJAX request
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': f"🎉 Welcome to Lamba, {first_name}! Your client account is ready. Login to view and manage properties from all companies.",
+                        'redirect_url': reverse('login')
+                    })
+
                 return redirect('login')
 
         except Exception as e:
             messages.error(request, f"An error occurred during registration: {str(e)}")
             logger.error(f"Client registration error: {str(e)}")
+            
+            # Check if this is an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f"An error occurred during registration: {str(e)}"
+                })
+            
             return redirect('login')
 
     # GET request - redirect to login page
@@ -4745,7 +5392,17 @@ def marketer_registration(request):
             last_name = request.POST.get('last_name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
-            experience = request.POST.get('experience')
+            date_of_birth_str = request.POST.get('date_of_birth')
+            
+            # Parse date_of_birth if provided
+            date_of_birth = None
+            if date_of_birth_str:
+                try:
+                    from datetime import datetime
+                    date_of_birth = datetime.strptime(date_of_birth_str, '%Y-%m-%d').date()
+                except ValueError:
+                    messages.error(request, "Invalid date format for date of birth!")
+                    return redirect('login')
             password = request.POST.get('password')
             confirm_password = request.POST.get('confirm_password')
 
@@ -4758,9 +5415,9 @@ def marketer_registration(request):
                 messages.error(request, "Password must be at least 8 characters long!")
                 return redirect('login')
 
-            # Check if user email already exists
-            if CustomUser.objects.filter(email=email).exists():
-                messages.error(request, "A user with this email already exists!")
+            # Check if user email already exists for marketer role only
+            if CustomUser.objects.filter(email=email, role='marketer').exists():
+                messages.error(request, "A user with this email already exists as a marketer!")
                 return redirect('login')
 
             # Create marketer user
@@ -4772,12 +5429,10 @@ def marketer_registration(request):
                     password=password,
                     role='marketer',
                     company_profile=None,  # Marketers can work with multiple companies
+                    date_of_birth=date_of_birth,
                     is_active=True,
                     is_staff=False,
-                    is_superuser=False,
-                    # Store experience in a custom field if available
-                    # Or use the 'about' field temporarily
-                    about=f"Experience: {experience}"
+                    is_superuser=False
                 )
 
                 messages.success(
@@ -4812,11 +5467,27 @@ def marketer_registration(request):
                 except Exception:
                     pass
 
+                # Check if this is an AJAX request
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': f"🎉 Welcome to Lamba, {first_name}! Your marketer account is ready. Login to start affiliating with companies and earning commissions.",
+                        'redirect_url': reverse('login')
+                    })
+
                 return redirect('login')
 
         except Exception as e:
             messages.error(request, f"An error occurred during registration: {str(e)}")
             logger.error(f"Marketer registration error: {str(e)}")
+            
+            # Check if this is an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f"An error occurred during registration: {str(e)}"
+                })
+            
             return redirect('login')
 
     # GET request - redirect to login page
@@ -5267,7 +5938,21 @@ def ajax_client_marketer(request):
     
     try:
         client = ClientUser.objects.get(pk=client_id)
-        marketer = client.assigned_marketer
+        # Optional company context can be provided by the caller
+        company_id = request.GET.get('company_id')
+        company = None
+        if company_id:
+            try:
+                company = Company.objects.get(pk=company_id)
+            except Company.DoesNotExist:
+                company = None
+
+        marketer = None
+        try:
+            marketer = client.get_assigned_marketer(company=company)
+        except Exception:
+            marketer = getattr(client, 'assigned_marketer', None)
+
         return JsonResponse({
             'marketer_name': marketer.full_name if marketer else 'No marketer assigned'
         })
@@ -5344,6 +6029,96 @@ def ajax_allocation_info(request):
         })
 
     return JsonResponse(payload)
+
+
+@login_required
+@require_GET
+def ajax_companies_for_user(request):
+    """Return JSON list of companies relevant to the current user.
+
+    - Clients: companies where they have allocations
+    - Marketers: companies where they have transactions
+    - Admins: their company (if any)
+    """
+    user = request.user
+    companies = []
+
+    try:
+        if getattr(user, 'role', None) == 'client':
+            client_id = getattr(user, 'id', user)
+            company_ids = (
+                PlotAllocation.objects.filter(client_id=client_id)
+                .values_list('estate__company', flat=True)
+                .distinct()
+            )
+            qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+
+        elif getattr(user, 'role', None) == 'marketer':
+            company_ids = (
+                Transaction.objects.filter(marketer=user)
+                .values_list('company', flat=True)
+                .distinct()
+            )
+            qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+
+        else:
+            # Admins: show their company if set
+            comp = getattr(user, 'company_profile', None)
+            qs = Company.objects.filter(id=comp.id) if comp else Company.objects.none()
+
+        for comp in qs:
+            alloc_count = PlotAllocation.objects.filter(client_id=getattr(user, 'id', user), estate__company=comp).count() if getattr(user, 'role', None) == 'client' else Transaction.objects.filter(marketer=user, company=comp).count() if getattr(user, 'role', None) == 'marketer' else 0
+            total_invested = (
+                Transaction.objects.filter(client_id=getattr(user, 'id', user), company=comp)
+                .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+                if getattr(user, 'role', None) == 'client' else 0
+            )
+            companies.append({
+                'id': comp.id,
+                'company_name': comp.company_name,
+                'allocations': alloc_count,
+                'total_invested': float(total_invested) if total_invested is not None else 0,
+                'portfolio_url': reverse('my-company-portfolio', kwargs={'company_id': comp.id})
+            })
+
+        return JsonResponse({'companies': companies})
+
+    except Exception as e:
+        logger.exception('Failed to build companies list')
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_GET
+def ajax_company_portfolio(request, company_id):
+    """Return rendered HTML snippet of the client's portfolio for the company."""
+    user = request.user
+    client_id = getattr(user, 'id', user)
+    company = get_object_or_404(Company, id=company_id)
+
+    allocations = (
+        PlotAllocation.objects.filter(client_id=client_id, estate__company=company)
+        .select_related('estate', 'plot_size', 'plot_number')
+        .order_by('-date_allocated')
+    )
+
+    transactions = (
+        Transaction.objects.filter(client_id=client_id, company=company)
+        .select_related('allocation__estate', 'allocation__plot_size')
+        .order_by('-transaction_date')
+    )
+
+    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+
+    html = render_to_string('client_side/_company_portfolio_panel.html', {
+        'company': company,
+        'allocations': allocations,
+        'transactions': transactions,
+        'total_invested': total_invested,
+        'request': request,
+    })
+
+    return JsonResponse({'html': html})
 
 
 @require_GET
@@ -5673,6 +6448,44 @@ def ajax_send_receipt(request):
         return JsonResponse({"error": "Transaction not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+class CustomLogoutView(LogoutView):
+    """
+    Custom logout view that handles tenant-aware redirects.
+    Ensures logout redirects to the appropriate tenant login page.
+    """
+    
+    http_method_names = ['get', 'post', 'options']  # Allow GET requests for logout
+    
+    def get(self, request, *args, **kwargs):
+        """
+        Handle GET requests by logging out and redirecting.
+        """
+        from django.contrib.auth import logout
+        from django.shortcuts import redirect
+        
+        # Log the user out
+        logout(request)
+        
+        # Determine the redirect URL
+        next_page = self.get_redirect_url()
+        
+        # Redirect to the next page
+        return redirect(next_page)
+    
+    def get_redirect_url(self):
+        """
+        Determine the appropriate redirect URL after logout.
+        Always redirect to the main login page.
+        """
+        # Check for next parameter in URL
+        next_url = self.request.GET.get('next')
+        if next_url:
+            return next_url
+        
+        # Always redirect to main login page
+        return reverse('login')
 
 
 # Sales Volume

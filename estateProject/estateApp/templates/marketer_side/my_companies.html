@@ -1,0 +1,28 @@
+{% extends 'marketer_base.html' %}
+{% load static %}
+{% block content %}
+<main class="main">
+  <div class="pagetitle">
+    <h1>My Companies</h1>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      {% if companies %}
+        <div class="list-group">
+          {% for item in companies %}
+            <a class="list-group-item list-group-item-action" href="{% url 'marketer-company-portfolio' company_id=item.company.id %}">
+              <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ item.company.company_name }}</h5>
+                <small>Transactions: {{ item.transactions }}</small>
+              </div>
+              <p class="mb-1">Total value: ₦{{ item.total_value|default:0 }}</p>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted">You are not affiliated with any company yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -153,6 +153,21 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         if not admin_user:
             raise serializers.ValidationError("No admin user found to send message to.")
         
+        # Optional company scoping from request data
+        company = None
+        company_id = None
+        try:
+            company_id = request.data.get('company_id') if request and hasattr(request, 'data') else None
+        except Exception:
+            company_id = None
+
+        if company_id:
+            try:
+                from estateApp.models import Company
+                company = Company.objects.get(id=int(company_id))
+            except Exception:
+                company = None
+
         message = Message.objects.create(
             sender=request.user,
             recipient=admin_user,
@@ -160,7 +175,8 @@ class MessageCreateSerializer(serializers.ModelSerializer):
             file=validated_data.get('file'),
             message_type=validated_data.get('message_type', 'enquiry'),
             reply_to=validated_data.get('reply_to'),
-            status='sent'
+            status='sent',
+            company=company,
         )
         
         return message

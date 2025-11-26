@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from .models import *
@@ -11,6 +12,37 @@ class CustomAuthenticationForm(AuthenticationForm):
         label="Email",
         required=True
     )
+    
+    def clean(self):
+        """
+        Override clean to handle MultipleUserMatch objects.
+        When multiple users are found, skip the normal login validation
+        and let the view handle the role selection modal.
+        """
+        from .backends import MultipleUserMatch
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        username = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+
+        if username and password:
+            self.user_cache = authenticate(username=username, password=password)
+            logger.info(f"Form clean: authenticate returned {self.user_cache}, type: {type(self.user_cache)}")
+            
+            # If we have multiple users, don't validate as normal user
+            if isinstance(self.user_cache, MultipleUserMatch):
+                logger.info(f"MultipleUserMatch detected with {len(self.user_cache.users)} users")
+                # Skip normal validation - the view will handle this
+                return self.cleaned_data
+            elif self.user_cache:
+                # Normal user validation
+                self.confirm_login_allowed(self.user_cache)
+            else:
+                # No user found
+                raise self.get_invalid_login_error()
+        
+        return self.cleaned_data
     
 
 # ESTATE ADD VIEW FORM

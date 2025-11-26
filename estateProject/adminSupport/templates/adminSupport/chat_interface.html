@@ -764,7 +764,13 @@
 
 <main id="main" class="main">
     <div class="pagetitle">
-        <h1><i class="bi bi-chat-dots"></i> Chat with {{ client.full_name|default:client.get_full_name|default:client.username }}</h1>
+        <h1><i class="bi bi-chat-dots"></i>
+            {% if selected_company %}
+                Chat — {{ selected_company.name }}
+            {% else %}
+                Chat with {{ client.full_name|default:client.get_full_name|default:client.username }}
+            {% endif %}
+        </h1>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'adminSupport:chat' %}">Chat List</a></li>
@@ -776,15 +782,28 @@
     <div class="chat-container" data-role="{{ conversation_role }}" data-user-id="{{ client.id }}">
         <div class="chat-header">
             <div class="chat-header-avatar">
-                {% if client.profile_image %}
-                    <img src="{{ client.profile_image.url }}" alt="{{ client.full_name|default:client.get_full_name|default:client.username }}" loading="lazy">
+                {% if selected_company %}
+                    {% if selected_company.logo %}
+                        <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.name }}" loading="lazy">
+                    {% else %}
+                        {{ selected_company.name|slice:':1'|upper }}
+                    {% endif %}
                 {% else %}
-                    {{ client.full_name|default:client.get_full_name|default:client.username|slice:':1'|upper }}
+                    {% if client.profile_image %}
+                        <img src="{{ client.profile_image.url }}" alt="{{ client.full_name|default:client.get_full_name|default:client.username }}" loading="lazy">
+                    {% else %}
+                        {{ client.full_name|default:client.get_full_name|default:client.username|slice:':1'|upper }}
+                    {% endif %}
                 {% endif %}
             </div>
             <div class="chat-header-info">
-                <h3>{{ client.full_name }}</h3>
-                <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+                {% if selected_company %}
+                    <h3>{{ selected_company.name }}</h3>
+                    <p><i class="bi bi-building"></i> Company conversation</p>
+                {% else %}
+                    <h3>{{ client.full_name }}</h3>
+                    <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+                {% endif %}
             </div>
         </div>
 

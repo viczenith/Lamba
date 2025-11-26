@@ -62,11 +62,12 @@ SECURITY_RATE_LIMIT_LOCKOUT_DURATION = 900  # 15 minutes
 SUPERADMIN_IP_WHITELIST = []  # Example: ['127.0.0.1', '192.168.1.0/24']
 
 # Security: Session Settings
-SESSION_COOKIE_SECURE = True  # HTTPS only in production
+# Cookie security flags should be enabled in production (DEBUG=False)
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True  # No JavaScript access
 SESSION_COOKIE_SAMESITE = 'Strict'  # CSRF protection
 SESSION_COOKIE_AGE = 3600  # 1 hour default
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Strict'
 
@@ -123,6 +124,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Session expiration middleware (must be after authentication)
+    'estateApp.middleware.SessionExpirationMiddleware',
     
     # ENHANCED Multi-Tenant Middleware (MUST be after authentication)
     # These layers provide automatic query interception + security enforcement
@@ -283,13 +287,13 @@ LOGIN_URL = '/login/'
 # LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/' 
 
-SESSION_COOKIE_AGE = 300
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# Canonical session settings (use 1 hour sliding expiry)
+SESSION_COOKIE_AGE = 3600
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 
 
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
     'estateApp.backends.EmailBackend',
 )
 

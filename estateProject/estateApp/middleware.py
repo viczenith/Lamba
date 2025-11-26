@@ -7,6 +7,7 @@ Prevents cross-company data leaks and enforces subscription-based access.
 
 import threading
 from datetime import timedelta
+from django.conf import settings
 from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.contrib.auth.models import AnonymousUser
@@ -15,6 +16,7 @@ from django.utils import timezone
 from django.contrib import messages
 from .models import Company
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -38,32 +40,125 @@ def clear_company_context():
         delattr(_thread_locals, 'company')
 
 
-class AdminAccessMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
+class SessionExpirationMiddleware(MiddlewareMixin):
+    """
+    Checks for expired sessions and redirects to login page.
 
-    def __call__(self, request):
-        return self.get_response(request)
+    Handles session timeout and ensures users are redirected to appropriate login page
+    with tenant context preserved.
 
-    def process_view(self, request, view_func, view_args, view_kwargs):
-        if request.resolver_match and request.resolver_match.url_name == 'send-notification':
-            if not request.user.is_authenticated or not request.user.is_staff:
-                return redirect('login')
+    SECURITY FEATURES:
+    - 5-minute sliding session expiration
+    - Automatic session flush on expiry
+    - Secure redirect to login page
+    - Activity-based session renewal
+    """
+
+    def process_request(self, request):
+        """Check session expiration and redirect if needed"""
+        try:
+            # Skip for public endpoints
+            if self._is_public_endpoint(request):
+                return None
+
+            # Skip for anonymous users
+            if request.user.is_anonymous:
+                return None
+
+            # Get current time
+            current_time = time.time()
+
+            # Determine session timeout from settings (fallback to 3600s)
+            session_timeout = getattr(settings, 'SESSION_COOKIE_AGE', 3600)
+
+            # Check if session has expired
+            session_expiry = request.session.get('_session_expiry', 0)
+
+            # If no expiry set or expired, redirect to login
+            if not session_expiry or current_time > session_expiry:
+                # Session expired - clear session and redirect to login
+                request.session.flush()
+
+                # Log security event
+                logger.warning(
+                    f"SESSION EXPIRED: User {request.user.email if hasattr(request.user, 'email') else 'unknown'} "
+                    f"session expired. IP: {self._get_client_ip(request)}"
+                )
+
+                # Redirect to configured login URL
+                return redirect(getattr(settings, 'LOGIN_URL', '/login/'))
+
+            # Update session expiry on activity (sliding expiration)
+            if getattr(settings, 'SESSION_SAVE_EVERY_REQUEST', True):
+                request.session['_session_expiry'] = current_time + int(session_timeout)
+                try:
+                    request.session.save()
+                except Exception:
+                    # If saving session fails, log and continue
+                    logger.exception('Failed to save session expiry')
+
+        except Exception as e:
+            logger.error(f"Error in SessionExpirationMiddleware: {str(e)}")
+            # On error, redirect to login for security
+            return redirect('/login/')
+
+        return None
+    
+    def _is_public_endpoint(self, request):
+        """Check if endpoint is public (doesn't require session check)"""
+        public_paths = [
+            '/login/',
+            '/logout/',
+            '/register/',
+            '/password-reset/',
+            '/admin/login/',
+            '/health/',
+            '/api/auth/login',
+            '/api/auth/register',
+            '/api/auth/logout',
+            '/api/auth/password-reset',
+        ]
+        
+        for path in public_paths:
+            if request.path.startswith(path):
+                return True
+        
+        return False
+    
+    def _get_tenant_login_url(self, request):
+        """Get appropriate login URL - always redirect to main login"""
+        return '/login/'
+
+    def _get_client_ip(self, request):
+        """Extract client IP from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class TenantIsolationMiddleware(MiddlewareMixin):
     """
     Enforces company tenancy isolation on every request.
-    
+
     ✅ Complete data isolation - Company A NEVER accesses Company B data
     ✅ Subscription status enforcement - Validates active/trial/grace period
     ✅ Read-only mode during grace period
     ✅ System Master Admin bypass for platform management
     ✅ Client/Marketer multi-company support
-    
+
+    SECURITY FEATURES:
+    - Strict tenant context validation
+    - Cross-tenant access prevention
+    - Subscription status enforcement
+    - Audit logging of all tenant operations
+    - IP-based access tracking
+
     IMPORTANT: Must be placed AFTER AuthenticationMiddleware in settings.MIDDLEWARE
     """
-    
+
     def process_request(self, request):
         """
         Process incoming request and set company context.
@@ -75,33 +170,37 @@ class TenantIsolationMiddleware(MiddlewareMixin):
                 set_current_company(None)
                 request.company = None
                 return None
-            
+
             # Anonymous users get no company
             if request.user.is_anonymous:
                 set_current_company(None)
                 request.company = None
                 return None
-            
-            # System Master Admin (super user) - no company filter
+
+            # SECURITY: System Master Admin (super user) - no company filter
             # They can see all companies but must use super admin interface
             if request.user.is_superuser:
                 set_current_company(None)
                 request.company = None
                 request.is_system_master_admin = True
-                
-                # Redirect to super admin if accessing company view
+
+                # SECURITY: Force redirect to super admin if accessing company view
                 if request.path.startswith('/company-console/') or request.path.startswith('/admin-dashboard/'):
-                    messages.warning(request, 'Use Super Admin interface for platform management.')
+                    logger.warning(
+                        f"SECURITY: System admin {request.user.email} attempted to access company interface. "
+                        f"Forced redirect to super admin. IP: {self._get_client_ip(request)}"
+                    )
+                    messages.warning(request, 'System administrators must use the super admin interface.')
                     return redirect('/super-admin/')
-                
+
                 return None
-            
+
             # Company Admin - get their company from company_profile
             if hasattr(request.user, 'company_profile') and request.user.company_profile:
                 company = request.user.company_profile.company
-                
-                # ===== SUBSCRIPTION STATUS CHECKS =====
-                
+
+                # ===== SECURITY: SUBSCRIPTION STATUS CHECKS =====
+
                 # 1. Check if trial has expired
                 if company.subscription_status == 'trial':
                     if company.trial_ends_at and company.trial_ends_at < timezone.now():
@@ -110,12 +209,16 @@ class TenantIsolationMiddleware(MiddlewareMixin):
                         company.grace_period_ends_at = timezone.now() + timedelta(days=7)
                         company.is_read_only_mode = True
                         company.save()
-                        
+
+                        logger.warning(
+                            f"SUBSCRIPTION: Company {company.company_name} trial expired. "
+                            f"Moved to grace period. IP: {self._get_client_ip(request)}"
+                        )
                         messages.warning(
                             request,
                             'Trial period expired. 7-day grace period active. Read-only mode enabled.'
                         )
-                
+
                 # 2. Check if subscription has expired
                 if company.subscription_status == 'active':
                     if company.subscription_ends_at and company.subscription_ends_at < timezone.now():
@@ -124,12 +227,16 @@ class TenantIsolationMiddleware(MiddlewareMixin):
                         company.grace_period_ends_at = timezone.now() + timedelta(days=7)
                         company.is_read_only_mode = True
                         company.save()
-                        
+
+                        logger.warning(
+                            f"SUBSCRIPTION: Company {company.company_name} subscription expired. "
+                            f"Moved to grace period. IP: {self._get_client_ip(request)}"
+                        )
                         messages.warning(
                             request,
                             'Subscription expired. 7-day grace period active. Read-only mode enabled.'
                         )
-                
+
                 # 3. Check if grace period has expired
                 if company.subscription_status == 'grace_period':
                     if company.grace_period_ends_at and company.grace_period_ends_at < timezone.now():
@@ -138,63 +245,91 @@ class TenantIsolationMiddleware(MiddlewareMixin):
                         company.is_read_only_mode = False
                         company.data_deletion_date = timezone.now() + timedelta(days=30)
                         company.save()
-                        
+
+                        logger.error(
+                            f"SUBSCRIPTION: Company {company.company_name} grace period expired. "
+                            f"Account restricted. IP: {self._get_client_ip(request)}"
+                        )
                         messages.error(
                             request,
                             'Grace period expired. Account access will be restricted. Renew now to prevent data deletion.'
                         )
-                
+
                 # 4. Check if account is cancelled or suspended
                 if company.subscription_status == 'cancelled':
+                    logger.warning(
+                        f"ACCESS DENIED: Company {company.company_name} subscription cancelled. "
+                        f"User {request.user.email} blocked. IP: {self._get_client_ip(request)}"
+                    )
                     messages.error(request, 'Your subscription has been cancelled. Contact support.')
                     set_current_company(None)
                     request.company = None
                     return redirect('subscription_cancelled')
-                
+
                 if company.subscription_status == 'suspended':
+                    logger.warning(
+                        f"ACCESS DENIED: Company {company.company_name} subscription suspended. "
+                        f"User {request.user.email} blocked. IP: {self._get_client_ip(request)}"
+                    )
                     messages.error(request, 'Your subscription has been suspended. Contact support.')
                     set_current_company(None)
                     request.company = None
                     return redirect('subscription_suspended')
-                
-                # ===== SET COMPANY CONTEXT =====
+
+                # ===== SECURITY: SET COMPANY CONTEXT =====
                 set_current_company(company)
                 request.company = company
                 request.is_system_master_admin = False
-                
+
                 logger.info(
-                    f"Company context set for {request.user.email}: {company.company_name} "
-                    f"(Status: {company.subscription_status})"
+                    f"TENANT ISOLATION: User {request.user.email} authenticated for company "
+                    f"{company.company_name} (Status: {company.subscription_status}). "
+                    f"IP: {self._get_client_ip(request)}"
                 )
-                
+
                 return None
-            
+
             # Client Users - no company filter
             # Clients can view properties from ALL companies they've purchased from
             if hasattr(request.user, 'client_profile') and request.user.client_profile:
                 set_current_company(None)
                 request.company = None
                 request.is_system_master_admin = False
+                logger.info(
+                    f"TENANT ISOLATION: Client {request.user.email} authenticated. "
+                    f"IP: {self._get_client_ip(request)}"
+                )
                 return None
-            
+
             # Marketer Users - no company filter
             # Marketers can affiliate with MULTIPLE companies
             if hasattr(request.user, 'marketer_profile') and request.user.marketer_profile:
                 set_current_company(None)
                 request.company = None
                 request.is_system_master_admin = False
+                logger.info(
+                    f"TENANT ISOLATION: Marketer {request.user.email} authenticated. "
+                    f"IP: {self._get_client_ip(request)}"
+                )
                 return None
-            
-            # Default: no company
+
+            # SECURITY: Default: no company - block access
+            logger.error(
+                f"SECURITY ALERT: User {request.user.email} has no valid company/role assignment. "
+                f"Access denied. IP: {self._get_client_ip(request)}"
+            )
             set_current_company(None)
             request.company = None
-            request.is_system_master_admin = False
-            
+            messages.error(request, 'Access denied: Invalid user configuration.')
+            return redirect('/login/')
+
         except Exception as e:
             logger.error(f"Error in TenantIsolationMiddleware: {str(e)}", exc_info=True)
+            # SECURITY: On error, clear context and redirect to login
             set_current_company(None)
             request.company = None
-        
+            return redirect('/login/')
+
         return None
     
     def _is_public_endpoint(self, request):
@@ -207,14 +342,24 @@ class TenantIsolationMiddleware(MiddlewareMixin):
             '/admin/login',
             '/health/',
             '/login/',
+            '/logout/',
             '/register/',
         ]
-        
+
         for path in public_paths:
             if request.path.startswith(path):
                 return True
-        
+
         return False
+
+    def _get_client_ip(self, request):
+        """Extract client IP from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
     
     def process_response(self, request, response):
         """Clean up thread-local storage after request processing"""

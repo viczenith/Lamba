@@ -1,0 +1,50 @@
+{% extends 'client_base.html' %}
+{% load humanize %}
+{% block content %}
+<main class="main">
+  <div class="pagetitle"><h1>{{ company.company_name }} — My Portfolio</h1></div>
+  <section class="section">
+    <div class="row">
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-body">
+            <h5>Total Invested: ₦{{ total_invested|intcomma }}</h5>
+            <hr>
+            <h6>Allocations</h6>
+            {% if allocations %}
+              <ul class="list-group mb-3">
+                {% for alloc in allocations %}
+                  <li class="list-group-item">
+                    <strong>{{ alloc.estate.name }}</strong>
+                    <div class="small text-muted">Allocated: {{ alloc.date_allocated }}</div>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="text-muted">No allocations with this company.</div>
+            {% endif %}
+
+            <h6 class="mt-3">Transactions</h6>
+            {% if transactions %}
+              <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Amount</th><th>Allocation</th></tr></thead>
+                <tbody>
+                  {% for tx in transactions %}
+                    <tr>
+                      <td>{{ tx.transaction_date }}</td>
+                      <td>₦{{ tx.total_amount|intcomma }}</td>
+                      <td>{{ tx.allocation.estate.name if tx.allocation else '-' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div class="text-muted">No transactions for this company.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

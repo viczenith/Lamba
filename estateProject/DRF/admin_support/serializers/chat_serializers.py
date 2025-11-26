@@ -141,6 +141,21 @@ class SupportMessageCreateSerializer(serializers.ModelSerializer):
         if not isinstance(participant, CustomUser):
             raise serializers.ValidationError("Invalid participant supplied.")
 
+        # Optional company scoping from request data
+        company = None
+        company_id = None
+        try:
+            company_id = request.data.get('company_id') if request and hasattr(request, 'data') else None
+        except Exception:
+            company_id = None
+
+        if company_id:
+            try:
+                from estateApp.models import Company
+                company = Company.objects.get(id=int(company_id))
+            except Exception:
+                company = None
+
         message = Message.objects.create(
             sender=request.user,
             recipient=participant,
@@ -149,6 +164,7 @@ class SupportMessageCreateSerializer(serializers.ModelSerializer):
             message_type=validated_data.get("message_type", "enquiry"),
             reply_to=validated_data.get("reply_to"),
             status="sent",
+            company=company,
         )
 
         return message

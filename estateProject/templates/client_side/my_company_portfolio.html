@@ -1,0 +1,56 @@
+{% extends 'client_base.html' %}
+
+{% block title %}{{ company.company_name }} — My Portfolio{% endblock %}
+
+{% block content %}
+<main id="main" class="main">
+  <div class="pagetitle">
+    <h1>{{ company.company_name }} — My Portfolio</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'my-companies' %}">My Companies</a></li>
+        <li class="breadcrumb-item active">{{ company.company_name }}</li>
+      </ol>
+    </nav>
+  </div>
+
+  <section class="section">
+    <div class="row">
+      <div class="col-lg-12">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Properties purchased from {{ company.company_name }}</h5>
+            {% if allocations %}
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Plot</th>
+                      <th>Transaction Ref</th>
+                      <th>Amount</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for alloc in allocations %}
+                      <tr>
+                        <td>{{ alloc.plot.title }}</td>
+                        <td>{{ alloc.transaction.reference }}</td>
+                        <td>{{ alloc.transaction.amount|floatformat:2 }}</td>
+                        <td>{{ alloc.transaction.created_at }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted">No properties found for this company.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

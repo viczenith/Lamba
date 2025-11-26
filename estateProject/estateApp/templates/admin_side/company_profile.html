@@ -2273,7 +2273,6 @@
 
     <!-- Subscription & Billing JavaScript -->
     <script>
-        // Fetch and display available plans
         async function loadPlans(targetContainer, isUpgrade = false) {
             try {
                 const response = await fetch('/api/subscription/plans/');
@@ -2788,8 +2787,7 @@
 
 </main>
 
-    <script>
-    // Password visibility toggle for edit modal
+<script>
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle for new password field
         const toggleNewPassword = document.getElementById('toggleNewPassword');
@@ -2830,7 +2828,7 @@
             });
         }
     });
-    </script>
+</script>
 
 {% endblock %}
 

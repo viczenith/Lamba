@@ -35,13 +35,31 @@ class EnhancedTenantIsolationMiddleware(MiddlewareMixin):
         '/login/',
         '/logout/',
         '/register/',
+        '/client/register/',
+        '/marketer/register/',
         '/health/',
         '/api-auth/',
+        # Dashboard paths for clients and marketers (they work across companies)
+        '/client-dashboard',
+        '/marketer-dashboard',
+        '/client-dashboard-cross-company/',
     ]
     
     def should_exempt(self, path):
         """Check if path should be exempt from tenant checking"""
-        return any(path.startswith(exempt) for exempt in self.EXEMPT_PATHS)
+        # Check exact path matches
+        if any(path.startswith(exempt) for exempt in self.EXEMPT_PATHS):
+            return True
+        
+        # Check for tenant-specific login URLs: /<slug>/login/
+        if path.endswith('/login/') and path.count('/') >= 2:
+            return True
+        
+        # Check for tenant-specific logout URLs: /<slug>/logout/
+        if path.endswith('/logout/') and path.count('/') >= 2:
+            return True
+        
+        return False
     
     def process_request(self, request):
         """
@@ -59,6 +77,19 @@ class EnhancedTenantIsolationMiddleware(MiddlewareMixin):
         if not request.user.is_authenticated:
             logger.warning(f"Unauthenticated request to {request.path}")
             return redirect('login')
+
+        # Allow cross-company access for client and marketer roles
+        # Clients and marketers are intentionally not bound to a tenant
+        user_role = getattr(request.user, 'role', None)
+        if user_role in ('client', 'marketer'):
+            # Clear any tenant context and allow the request to proceed
+            request.company = None
+            try:
+                clear_tenant_context()
+            except Exception:
+                pass
+            logger.info(f"ENHANCED_MIDDLEWARE: Bypass tenant detection for {user_role} {request.user.email}")
+            return None
         
         # Try to identify tenant
         company = self._identify_tenant(request)
@@ -211,17 +242,23 @@ class TenantValidationMiddleware(MiddlewareMixin):
         """Validate request has proper tenant context"""
         
         # Skip exempt paths and unauthenticated users
-        exempt_paths = ['/admin/', '/static/', '/media/', '/login/', '/health/']
+        exempt_paths = ['/admin/', '/static/', '/media/', '/login/', '/logout/', '/health/',
+                       '/client-dashboard', '/marketer-dashboard', '/client-dashboard-cross-company/']
         if any(request.path.startswith(p) for p in exempt_paths):
             return None
         
         if not request.user.is_authenticated:
             return None
+
+        # Allow client/marketer users to bypass tenant validation
+        user_role = getattr(request.user, 'role', None)
+        if user_role in ('client', 'marketer'):
+            return None
         
         # Verify tenant context is set
         current_tenant = get_current_tenant()
-        
-        if not current_tenant or not current_tenant.company:
+
+        if not current_tenant or not getattr(current_tenant, 'company', current_tenant):
             logger.error(
                 f"SECURITY ALERT: Tenant context not set for {request.user.email}"
             )
@@ -304,7 +341,8 @@ class AuditLoggingMiddleware(MiddlewareMixin):
             return response
         
         # Skip admin, static, and health check
-        skip_paths = ['/admin/', '/static/', '/media/', '/health/']
+        skip_paths = ['/admin/', '/static/', '/media/', '/health/', '/login/', '/logout/', '/register/',
+                     '/client-dashboard', '/marketer-dashboard', '/client-dashboard-cross-company/']
         if any(request.path.startswith(p) for p in skip_paths):
             return response
         
@@ -315,13 +353,14 @@ class AuditLoggingMiddleware(MiddlewareMixin):
             
             # Determine action type
             action_map = {
+                'GET': 'READ',
                 'POST': 'CREATE',
                 'PUT': 'UPDATE',
                 'PATCH': 'UPDATE',
                 'DELETE': 'DELETE',
             }
             
-            action = action_map.get(request.method, 'other')
+            action = action_map.get(request.method, 'ACCESS_DENIED')
             
             # Create audit log
             IsolationAuditLog.objects.create(

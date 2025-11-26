@@ -85,6 +85,108 @@
         input[name="subscription_tier"]:checked+label div:first-child{color:#667eea !important}
         input[name="subscription_tier"]:hover+label{border-color:#a5b4fc;background:rgba(102,126,234,.03)}
         @media(max-width:576px){.card-container{padding:1.75rem}.form-row{grid-template-columns:1fr}.radio-group{flex-direction:column}.modal-content{border-radius:16px;max-width:95vw}.modal-header h2{font-size:1.25rem}.form-row-custom{grid-template-columns:1fr}.modal-overlay{padding:10px}.password-eye{right:8px;padding:4px}}
+
+        /* ROLE SELECTION MODAL STYLES */
+        .role-selection-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .role-option {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+
+        .role-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .role-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .role-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .role-details {
+            flex: 1;
+        }
+
+        .role-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .role-name {
+            color: #475569;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .role-company {
+            color: #64748b;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .role-radio {
+            margin-left: 1rem;
+        }
+
+        .radio-indicator {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .role-option.selected .radio-indicator {
+            border-color: #667eea;
+            background: #667eea;
+        }
+
+        .role-option.selected .radio-indicator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        #roleSelectBtn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    </style>
     </style>
 </head>
 <body>
@@ -108,6 +210,65 @@
                         <span>{{ message }}</span>
                     </div>
                 {% endfor %}
+            {% endif %}
+
+            {% if multiple_users %}
+                <!-- ROLE SELECTION MODAL -->
+                <div id="roleSelectionModal" class="modal-overlay" style="display: flex;">
+                    <div class="modal-content">
+                        <button class="modal-close" onclick="window.location.reload()"><i class="fas fa-times"></i></button>
+                        <div class="modal-header">
+                            <h2><i class="fas fa-users"></i> Select Your Account</h2>
+                            <p style="color:#64748b;font-size:.9rem;margin-top:.5rem">Multiple accounts found for {{ user_email }}</p>
+                        </div>
+
+                        <form method="post" action="{% if login_slug %}{% url 'tenant-login' login_slug %}{% else %}{% url 'login' %}{% endif %}" id="roleSelectionForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_email" value="{{ user_email }}">
+                            <input type="hidden" name="selected_user_id" id="selectedUserId" value="">
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <p style="color:#475569;font-size:.95rem;margin-bottom:1rem;text-align:center">
+                                    <i class="fas fa-info-circle" style="color:#667eea;margin-right:.5rem"></i>
+                                    You have multiple accounts with this email. Please select which account you'd like to access:
+                                </p>
+
+                                <div class="role-selection-grid">
+                                    {% for user in multiple_users %}
+                                        <div class="role-option" data-user-id="{{ user.id }}" onclick="selectRole(this, '{{ user.id }}')">
+                                            <div class="role-icon">
+                                                {% if user.role == 'admin' %}
+                                                    <i class="fas fa-user-shield"></i>
+                                                {% elif user.role == 'client' %}
+                                                    <i class="fas fa-user"></i>
+                                                {% elif user.role == 'marketer' %}
+                                                    <i class="fas fa-handshake"></i>
+                                                {% elif user.role == 'support' %}
+                                                    <i class="fas fa-headset"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="role-details">
+                                                <div class="role-title">{{ user.get_role_display|title }}</div>
+                                                <div class="role-name">{{ user.full_name }}</div>
+                                                {% if user.company_profile %}
+                                                    <div class="role-company">{{ user.company_profile.company_name }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="role-radio">
+                                                <input type="radio" name="selected_role" value="{{ user.id }}" style="display: none;">
+                                                <div class="radio-indicator"></div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-login" id="roleSelectBtn" disabled>
+                                <i class="fas fa-sign-in-alt"></i> Continue to Account
+                            </button>
+                        </form>
+                    </div>
+                </div>
             {% endif %}
 
             <form method="post" id="loginForm" action="{% if login_slug %}{% url 'tenant-login' login_slug %}{% else %}{% url 'login' %}{% endif %}" novalidate>
@@ -445,6 +606,12 @@
                     <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required>
                 </div>
 
+                <div class="mb-3" style="position:relative">
+                    <label class="form-label">Date of Birth</label>
+                    <i class="fas fa-birthday-cake input-icon"></i>
+                    <input type="date" class="form-control" name="date_of_birth" required>
+                </div>
+
                 <div class="form-row">
                     <div class="mb-3" style="position:relative">
                         <label class="form-label">Password</label>
@@ -516,15 +683,9 @@
                 </div>
 
                 <div class="mb-3" style="position:relative">
-                    <label class="form-label">Years of Experience</label>
-                    <i class="fas fa-briefcase input-icon"></i>
-                    <select class="form-control form-select" name="experience" required>
-                        <option value="">Select experience</option>
-                        <option value="0-1">Less than 1 year</option>
-                        <option value="1-3">1-3 years</option>
-                        <option value="3-5">3-5 years</option>
-                        <option value="5+">5+ years</option>
-                    </select>
+                    <label class="form-label">Date of Birth</label>
+                    <i class="fas fa-birthday-cake input-icon"></i>
+                    <input type="date" class="form-control" name="date_of_birth" required>
                     <div class="form-error"></div>
                 </div>
 
@@ -781,7 +942,22 @@
             });
         });
 
-        // Close modals on ESC key
+        // Role Selection Functionality
+        function selectRole(optionElement, userId) {
+            // Remove selected class from all options
+            document.querySelectorAll('.role-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Add selected class to clicked option
+            optionElement.classList.add('selected');
+
+            // Set the selected user ID
+            document.getElementById('selectedUserId').value = userId;
+
+            // Enable the continue button
+            document.getElementById('roleSelectBtn').disabled = false;
+        }
         document.addEventListener('keydown',function(e){
             if(e.key==='Escape'){
                 closeCompanyModal();
@@ -830,67 +1006,133 @@
                             }
                         })
                         .then(response => {
-                            // Check if response is successful (2xx status)
-                            if (response.ok) {
-                                // Show success message in modal
-                                const messageDiv = document.createElement('div');
-                                messageDiv.className = 'modal-message success';
-                                messageDiv.innerHTML = `
-                                    <i class="fas fa-check-circle" style="color:#11998e;font-size:2rem;margin-bottom:.5rem;display:block"></i>
-                                    <h4 style="color:#11998e;margin:.5rem 0">Account Created Successfully!</h4>
-                                    <p style="color:#64748b;font-size:.9rem">Redirecting you to login...</p>
-                                `;
-                                messageDiv.style.cssText = `
-                                    text-align: center; 
-                                    padding: 2rem; 
-                                    animation: slideIn 0.3s ease-out;
-                                    border-top: 3px solid #11998e;
-                                `;
+                            // Check if response is JSON
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                                return response.json().then(data => {
+                                    if (data.success) {
+                                        // Show success message in modal
+                                        const messageDiv = document.createElement('div');
+                                        messageDiv.className = 'modal-message success';
+                                        messageDiv.innerHTML = `
+                                            <i class="fas fa-check-circle" style="color:#11998e;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                            <h4 style="color:#11998e;margin:.5rem 0">${data.message || 'Account Created Successfully!'}</h4>
+                                            <p style="color:#64748b;font-size:.9rem">Redirecting you to login...</p>
+                                        `;
+                                        messageDiv.style.cssText = `
+                                            text-align: center; 
+                                            padding: 2rem; 
+                                            animation: slideIn 0.3s ease-out;
+                                            border-top: 3px solid #11998e;
+                                        `;
 
-                                // Insert at top of modal content
-                                const modalContent = modal.querySelector('.modal-content');
-                                modalContent.insertBefore(messageDiv, modalContent.firstChild);
+                                        // Insert at top of modal content
+                                        const modalContent = modal.querySelector('.modal-content');
+                                        modalContent.insertBefore(messageDiv, modalContent.firstChild);
 
-                                // Hide form
-                                form.style.display = 'none';
+                                        // Hide form
+                                        form.style.display = 'none';
 
-                                // Wait 3 seconds then redirect or close
-                                setTimeout(() => {
-                                    // Check if there's a redirect URL in response
-                                    window.location.href = response.url || originalAction;
-                                }, 3000);
+                                        // Wait 3 seconds then redirect
+                                        setTimeout(() => {
+                                            window.location.href = data.redirect_url || '/login';
+                                        }, 3000);
+                                    } else {
+                                        // Show error message in modal
+                                        const messageDiv = document.createElement('div');
+                                        messageDiv.className = 'modal-message error';
+                                        messageDiv.innerHTML = `
+                                            <i class="fas fa-times-circle" style="color:#ef4444;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                            <h4 style="color:#ef4444;margin:.5rem 0">Registration Failed</h4>
+                                            <p style="color:#64748b;font-size:.9rem">${data.message || 'Please check your information and try again'}</p>
+                                        `;
+                                        messageDiv.style.cssText = `
+                                            text-align: center; 
+                                            padding: 2rem; 
+                                            animation: slideIn 0.3s ease-out;
+                                            border-top: 3px solid #ef4444;
+                                            margin-bottom: 1rem;
+                                        `;
+
+                                        // Insert at top of modal content
+                                        const modalContent = modal.querySelector('.modal-content');
+                                        modalContent.insertBefore(messageDiv, modalContent.firstChild);
+
+                                        // Re-enable submit button
+                                        if (btn) {
+                                            btn.disabled = false;
+                                            btn.classList.remove('spinning');
+                                        }
+
+                                        // Auto-remove message after 5 seconds
+                                        setTimeout(() => {
+                                            messageDiv.style.animation = 'slideOut 0.3s ease-out';
+                                            setTimeout(() => messageDiv.remove(), 300);
+                                        }, 5000);
+                                    }
+                                });
                             } else {
-                                // Show error message in modal
-                                const messageDiv = document.createElement('div');
-                                messageDiv.className = 'modal-message error';
-                                messageDiv.innerHTML = `
-                                    <i class="fas fa-times-circle" style="color:#ef4444;font-size:2rem;margin-bottom:.5rem;display:block"></i>
-                                    <h4 style="color:#ef4444;margin:.5rem 0">Registration Failed</h4>
-                                    <p style="color:#64748b;font-size:.9rem">Please check your information and try again</p>
-                                `;
-                                messageDiv.style.cssText = `
-                                    text-align: center; 
-                                    padding: 2rem; 
-                                    animation: slideIn 0.3s ease-out;
-                                    border-top: 3px solid #ef4444;
-                                    margin-bottom: 1rem;
-                                `;
+                                // Handle non-JSON responses (like redirects)
+                                if (response.ok || response.status === 302) {
+                                    // Show success message in modal
+                                    const messageDiv = document.createElement('div');
+                                    messageDiv.className = 'modal-message success';
+                                    messageDiv.innerHTML = `
+                                        <i class="fas fa-check-circle" style="color:#11998e;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                        <h4 style="color:#11998e;margin:.5rem 0">Account Created Successfully!</h4>
+                                        <p style="color:#64748b;font-size:.9rem">Redirecting you to login...</p>
+                                    `;
+                                    messageDiv.style.cssText = `
+                                        text-align: center; 
+                                        padding: 2rem; 
+                                        animation: slideIn 0.3s ease-out;
+                                        border-top: 3px solid #11998e;
+                                    `;
 
-                                // Insert at top of modal content
-                                const modalContent = modal.querySelector('.modal-content');
-                                modalContent.insertBefore(messageDiv, modalContent.firstChild);
+                                    // Insert at top of modal content
+                                    const modalContent = modal.querySelector('.modal-content');
+                                    modalContent.insertBefore(messageDiv, modalContent.firstChild);
 
-                                // Re-enable submit button
-                                if (btn) {
-                                    btn.disabled = false;
-                                    btn.classList.remove('spinning');
+                                    // Hide form
+                                    form.style.display = 'none';
+
+                                    // Wait 3 seconds then redirect
+                                    setTimeout(() => {
+                                        window.location.href = '/login';
+                                    }, 3000);
+                                } else {
+                                    // Show error message in modal
+                                    const messageDiv = document.createElement('div');
+                                    messageDiv.className = 'modal-message error';
+                                    messageDiv.innerHTML = `
+                                        <i class="fas fa-times-circle" style="color:#ef4444;font-size:2rem;margin-bottom:.5rem;display:block"></i>
+                                        <h4 style="color:#ef4444;margin:.5rem 0">Registration Failed</h4>
+                                        <p style="color:#64748b;font-size:.9rem">Please check your information and try again</p>
+                                    `;
+                                    messageDiv.style.cssText = `
+                                        text-align: center; 
+                                        padding: 2rem; 
+                                        animation: slideIn 0.3s ease-out;
+                                        border-top: 3px solid #ef4444;
+                                        margin-bottom: 1rem;
+                                    `;
+
+                                    // Insert at top of modal content
+                                    const modalContent = modal.querySelector('.modal-content');
+                                    modalContent.insertBefore(messageDiv, modalContent.firstChild);
+
+                                    // Re-enable submit button
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        btn.classList.remove('spinning');
+                                    }
+
+                                    // Auto-remove message after 5 seconds
+                                    setTimeout(() => {
+                                        messageDiv.style.animation = 'slideOut 0.3s ease-out';
+                                        setTimeout(() => messageDiv.remove(), 300);
+                                    }, 5000);
                                 }
-
-                                // Auto-remove message after 5 seconds
-                                setTimeout(() => {
-                                    messageDiv.style.animation = 'slideOut 0.3s ease-out';
-                                    setTimeout(() => messageDiv.remove(), 300);
-                                }, 5000);
                             }
                         })
                         .catch(error => {

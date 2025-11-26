@@ -18,7 +18,7 @@ urlpatterns = [
     # Dynamic tenant-specific login route (must come before default login route)
     path('<slug:login_slug>/login/', CustomLoginView.as_view(), name='tenant-login'),
     path('login/', CustomLoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
+    path('logout/', CustomLogoutView.as_view(), name='logout'),
     
     # Password Reset URLs (Django built-in)
     path('password-reset/', PasswordResetView.as_view(template_name='auth/password_reset.html'), name='password_reset'),
@@ -170,6 +170,13 @@ urlpatterns = [
     # CLIENT SIDE
     path('client-dashboard', client_dashboard, name="client-dashboard"),
     path('my-client-profile', my_client_profile, name="my-client-profile"),
+    path('my-companies/', my_companies, name='my-companies'),
+    path('my-companies/<int:company_id>/', my_company_portfolio, name='my-company-portfolio'),
+    path('my-companies/<slug:company_slug>/', my_company_portfolio, name='my-company-portfolio-slug'),
+
+    # MARKETER: My companies and per-company portfolio (marketer view)
+    path('marketer/my-companies/', marketer_my_companies, name='marketer-my-companies'),
+    path('marketer/my-companies/<int:company_id>/', marketer_company_portfolio, name='marketer-company-portfolio'),
 
     # path('client/<int:client_id>/transaction/<int:txn_id>/details/', transaction_details, name='client-transaction-details'),
     # path('client/<int:client_id>/transaction/<int:txn_id>/history/', payment_history, name='client-payment-history'),
@@ -241,6 +248,10 @@ urlpatterns = [
 
     # <!-- Land Plot Transactions -->
     path("ajax/allocation-info/", ajax_allocation_info, name="ajax_allocation_info"),
+
+    # AJAX endpoints: company list and portfolio panel for chat explorer
+    path('ajax/companies-for-user/', ajax_companies_for_user, name='ajax-companies-for-user'),
+    path('ajax/company-portfolio/<int:company_id>/', ajax_company_portfolio, name='ajax-company-portfolio'),
 
     path("transactions/add/", add_transaction, name="add-transaction"),
     path("ajax/client-marketer/", ajax_client_marketer, name="ajax_client_marketer"),

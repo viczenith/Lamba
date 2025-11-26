@@ -463,7 +463,13 @@
 
 <main id="main" class="main">
     <div class="pagetitle">
-        <h1><i class="bi bi-chat-dots"></i> Chat with Admin Support</h1>
+        <h1><i class="bi bi-chat-dots"></i>
+            {% if selected_company %}
+                Chat — {{ selected_company.company_name }}
+            {% else %}
+                Chat with Admin Support
+            {% endif %}
+        </h1>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'marketer-dashboard' %}">Home</a></li>
@@ -472,15 +478,44 @@
         </nav>
     </div>
 
+    <div class="chat-layout" style="display:grid; grid-template-columns:300px 1fr; gap:18px; max-width:1200px; margin:0 auto;">
+        <aside class="chat-explorer" style="background:var(--card-bg); border-radius:12px; padding:12px; box-shadow:var(--card-shadow); border:1px solid rgba(102,126,234,0.06); height:80vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h4 style="margin:0;">My Companies</h4>
+            </div>
+            <div>
+                {% if companies %}
+                    {% for item in companies %}
+                        <div style="padding:8px; border-radius:8px; margin-bottom:8px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.01)); border:1px solid rgba(102,126,234,0.04);" data-company-id="{{ item.company.id }}">
+                            <div style="font-weight:700;">{{ item.company.company_name }}</div>
+                            <div style="font-size:12px; color:rgba(0,0,0,0.6); margin-top:6px;">Transactions: {{ item.transactions }}</div>
+                            <div style="margin-top:8px;"><a class="btn btn-sm btn-primary view-portfolio" href="{% url 'marketer-company-portfolio' company_id=item.company.id %}" target="_blank">View Portfolio</a></div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:12px; color:rgba(0,0,0,0.6);">You have no company affiliations yet.</div>
+                {% endif %}
+            </div>
+        </aside>
+
     <div class="chat-container">
         <div class="chat-header">
             <div class="chat-header-info">
                 <div class="chat-header-avatar">
-                    {{ request.user.full_name|first|upper }}
+                    {% if selected_company and selected_company.logo %}
+                        <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.company_name }}" loading="lazy">
+                    {% else %}
+                        {{ request.user.full_name|first|upper }}
+                    {% endif %}
                 </div>
                 <div class="chat-header-text">
-                    <h3>{{ request.user.full_name }}</h3>
-                    <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+                    {% if selected_company %}
+                        <h3>{{ selected_company.company_name }}</h3>
+                        <p><i class="bi bi-building"></i> Company conversation</p>
+                    {% else %}
+                        <h3>{{ request.user.full_name }}</h3>
+                        <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
+                    {% endif %}
                 </div>
             </div>
             <div class="chat-header-actions">
@@ -513,8 +548,10 @@
                 </span>
             </div>
 
+            {% if companies %}
             <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'marketer-chat' %}">
                 {% csrf_token %}
+                <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id if companies.0 }}">
                 <div class="chat-input-form">
                     <input type="file" id="file-input" name="file">
                     <div class="input-wrapper">
@@ -533,6 +570,12 @@
                     </button>
                 </div>
             </form>
+            {% else %}
+            <div class="chat-input-form" style="align-items:center;">
+                <div style="flex:1; padding:12px; color:rgba(0,0,0,0.6);">Chat disabled — you have no company affiliations. Marketers need company affiliations to track clients.</div>
+                <button class="send-btn" disabled title="No companies"><i class="bi bi-send-fill"></i></button>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -671,9 +714,12 @@
         });
 
         let lastMessageId = {{ messages.last.id|default:0 }};
+        let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
 
         function pollNewMessages() {
-            fetch(`{% url 'marketer-chat' %}?last_msg=${lastMessageId}`, { credentials: 'same-origin' })
+            let pollUrl = `{% url 'marketer-chat' %}?last_msg=${lastMessageId}`;
+            if (selectedCompanyId) pollUrl += `&company_id=${selectedCompanyId}`;
+            fetch(pollUrl, { credentials: 'same-origin' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.messages && data.messages.length > 0 && data.messages_html) {
@@ -708,6 +754,20 @@
         }
 
         setInterval(pollNewMessages, 1500);
+
+        // Explorer selection: clicking an explorer item selects the company for chat
+        document.querySelectorAll('.explorer-item').forEach(function(item){
+            item.addEventListener('click', function(){
+                var cid = this.dataset.companyId;
+                if (!cid) return;
+                selectedCompanyId = cid;
+                var hid = document.getElementById('company-id-input');
+                if (hid) hid.value = cid;
+                // refresh messages immediately
+                lastMessageId = 0;
+                pollNewMessages();
+            });
+        });
 
         const deleteModal = document.getElementById('delete-modal');
         const deleteCloseBtn = document.getElementById('delete-modal-close');
