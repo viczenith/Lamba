@@ -1083,6 +1083,41 @@
             return el ? el.value : '';
         }
 
+        // Error / Success modal helpers
+        function showErrorModal(title, message){
+            try{
+                const modalEl = document.getElementById('errorModal');
+                const titleEl = modalEl.querySelector('.modal-title');
+                const bodyEl = modalEl.querySelector('.modal-body .modal-message-body');
+                titleEl.textContent = title || 'Error';
+                if(Array.isArray(message)){
+                    bodyEl.innerHTML = '<ul style="padding-left:1.1rem;margin:0;">' + message.map(m => `<li style="margin-bottom:0.35rem">${m}</li>`).join('') + '</ul>';
+                } else {
+                    bodyEl.innerHTML = `<p style="margin:0">${message || ''}</p>`;
+                }
+                const bm = bootstrap.Modal.getOrCreateInstance(modalEl);
+                bm.show();
+            }catch(e){
+                console.warn('showErrorModal fallback', e);
+                alert((Array.isArray(message)? message.join('\n') : message) || title);
+            }
+        }
+
+        function showSuccessModal(title, message){
+            try{
+                const modalEl = document.getElementById('successModal');
+                const titleEl = modalEl.querySelector('.modal-title');
+                const bodyEl = modalEl.querySelector('.modal-body .modal-message-body');
+                titleEl.textContent = title || 'Success';
+                bodyEl.innerHTML = `<p style="margin:0">${message || ''}</p>`;
+                const bm = bootstrap.Modal.getOrCreateInstance(modalEl);
+                bm.show();
+            }catch(e){
+                console.warn('showSuccessModal fallback', e);
+                alert(message || title);
+            }
+        }
+
         function showExistingUserSelected(user){
             const area = document.getElementById('existingUserSelectedArea');
             const label = document.getElementById('existingUserLabel');
@@ -1237,6 +1272,11 @@
                         }
                         if(users.length === 1){
                             const u = users[0];
+                            // If user already belongs to this company, show a clear modal and do not prefill
+                            if(u.is_in_requester_company){
+                                showErrorModal('User already in company', `${u.full_name} is already registered as ${u.role || 'a user'} in ${u.current_company || 'this company'}.`);
+                                return;
+                            }
                             prefillFormWithUser(u);
                             showExistingUserSelected(u);
                             // close modal
@@ -1270,6 +1310,11 @@
                                 </div>
                             `;
                             item.addEventListener('click', function(){
+                                // If user already belongs to this company (defensive check), show error modal
+                                if(u.is_in_requester_company){
+                                    showErrorModal('User already in company', `${u.full_name} is already registered as ${u.role || 'a user'} in ${u.current_company || 'this company'}.`);
+                                    return;
+                                }
                                 prefillFormWithUser(u);
                                 showExistingUserSelected(u);
                                 const modalEl = document.getElementById('existingUserModal');
@@ -1301,7 +1346,7 @@
             const addBtn = document.getElementById('addExistingToCompanyBtn');
             addBtn.addEventListener('click', function(){
                 const userId = document.getElementById('existing_user_id').value;
-                if(!userId){ alert('No existing user selected'); return; }
+                    if(!userId){ showErrorModal('No user selected', 'No existing user selected. Please pick a user from the lookup results.'); return; }
                 const role = document.querySelector('input[name="role"]:checked') ? document.querySelector('input[name="role"]:checked').value : null;
                 const marketerId = (role === 'client') ? (document.getElementById('marketer').value || null) : null;
 
@@ -1320,18 +1365,30 @@
                     body: JSON.stringify(payload)
                 }).then(r => r.json()).then(data => {
                     addBtn.disabled = false; addBtn.textContent = 'Add to Company Now';
-                    if(data.error){ alert('Error: ' + data.error); return; }
+                    if(data.error){
+                        // If backend indicates user already exists in this company, show a clear message
+                        if(data.existing){
+                            const u = (data.user && data.user.full_name) ? data.user.full_name : 'This user';
+                            const role = data.role || 'user';
+                            const companyName = data.company || 'this company';
+                            showErrorModal('User already in company', `${u} already exists as ${role} in ${companyName}.`);
+                            return;
+                        }
+                        showErrorModal('Error adding user', data.error);
+                        return;
+                    }
                     if(data.success){
-                        alert(data.message || 'User added to company');
+                        // use success alert banner (server will usually redirect) but also show a simple modal for confirmation
+                        try{ showSuccessModal('Success', data.message || 'User added to company'); }catch(e){ alert(data.message || 'User added to company'); }
                         // optionally refresh page or clear selection
                         clearExistingSelection();
                         return;
                     }
-                    alert('Unexpected server response');
+                    showErrorModal('Unexpected response', 'Unexpected server response.');
                 }).catch(e => {
                     console.error(e);
                     addBtn.disabled = false; addBtn.textContent = 'Add to Company Now';
-                    alert('Failed to add user. Try again.');
+                    showErrorModal('Network error', 'Failed to add user. Please try again.');
                 });
             });
 
@@ -1374,8 +1431,8 @@
             const passwordValue = passwordField.value;
 
             if (!passwordValue) {
-                // Show alert if no password is generated
-                alert('Please enter a name to generate a password first!');
+                // Show modal if no password is generated
+                showErrorModal('Missing name', 'Please enter a name to generate a password first!');
                 return;
             }
 
@@ -1419,7 +1476,7 @@
                         copyBtn.classList.remove('copied');
                     }, 2000);
                 } catch (err) {
-                    alert('Failed to copy password. Please copy manually.');
+                        showErrorModal('Copy failed', 'Failed to copy password. Please copy manually.');
                 }
             });
         }
@@ -1501,6 +1558,8 @@
                 preferredCountries: ["ng", "us", "gb", "ca"],
                 utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js"
             });
+            // expose instance globally so other handlers can reuse it
+            try{ window._iti = iti; }catch(e){}
 
             // Validate and store the full international number on form submit
             document.getElementById('registrationForm').addEventListener('submit', function(e) {
@@ -1546,4 +1605,118 @@
                     return;
                 }
 
-     
+                // All good — set input value to the international number (E.164) for server
+                phoneInput.value = internationalNumber;
+            });
+        });
+
+        // ==================== INITIALIZE TOOLTIPS ====================
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // ==================== FORM VALIDATION ENHANCEMENTS ====================
+        const form = document.getElementById('registrationForm');
+        
+        form.addEventListener('submit', function(e) {
+            // If an existing user was selected, prevent using the Register form
+            const existingIdVal = document.getElementById('existing_user_id') ? document.getElementById('existing_user_id').value : '';
+            if(existingIdVal){
+                    e.preventDefault();
+                    showErrorModal('Existing user selected', 'An existing user is selected. Use "Add to Company Now" to add this user to the company.');
+                return;
+            }
+            const inputs = form.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+                const missing = [];
+                inputs.forEach(input => {
+                    if (!input.value) {
+                        isValid = false;
+                        input.style.borderColor = 'var(--danger)';
+                        // try to get label text
+                        let labelText = input.name || input.id || 'This field';
+                        try{
+                            const fg = input.closest('.form-group');
+                            if(fg){ const lbl = fg.querySelector('label'); if(lbl) labelText = lbl.innerText.trim(); }
+                        }catch(e){}
+                        missing.push(labelText.replace(/\n/g,'').replace(/\s{2,}/g,' '));
+                    } else {
+                        input.style.borderColor = 'var(--input-border)';
+                    }
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
+                    // special case: marketer required when role is client
+                    const roleVal = document.querySelector('input[name="role"]:checked') ? document.querySelector('input[name="role"]:checked').value : null;
+                    if(roleVal === 'client'){
+                        const marketerVal = document.getElementById('marketer') ? document.getElementById('marketer').value : '';
+                        if(!marketerVal){
+                            // ensure marketer field is included in missing (avoid duplicate)
+                            if(!missing.includes('Assign Marketer') && !missing.includes('Assign Marketer *')) missing.unshift('Assign Marketer');
+                            showErrorModal('Marketer assignment required', ['Every client must be assigned to a marketer.', 'Please select a marketer before continuing.', 'Missing fields:'].concat(missing));
+                            return;
+                        }
+                    }
+
+                    showErrorModal('Please fix the following', missing);
+                }
+        });
+
+        // ==================== INPUT ANIMATION ====================
+        const inputs = document.querySelectorAll('.form-control');
+        
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'scale(1.01)';
+            });
+
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+
+    <!-- Bootstrap 5 JS -->
+        <!-- Error / Success Modals -->
+        <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Error</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="modal-message-body text-muted"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Success</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="modal-message-body text-muted"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+  </main>
+
+{% endblock %}
+

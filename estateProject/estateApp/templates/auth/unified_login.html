@@ -603,7 +603,15 @@
                 <div class="mb-3" style="position:relative">
                     <label class="form-label">Phone Number</label>
                     <i class="fas fa-phone input-icon"></i>
-                    <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required>
+                    <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required inputmode="numeric" pattern="[+0-9\s\-()]{7,20}" title="Enter phone number (digits, spaces, +, - allowed)">
+                    <div class="form-error"></div>
+                </div>
+
+                <div class="mb-3" style="position:relative">
+                    <label class="form-label">Address</label>
+                    <i class="fas fa-map-marker-alt input-icon"></i>
+                    <input type="text" class="form-control" name="address" placeholder="City, State (e.g. WUSE, FCT ABUJA)" required>
+                    <div class="form-error"></div>
                 </div>
 
                 <div class="mb-3" style="position:relative">
@@ -675,10 +683,18 @@
                     <div class="form-error"></div>
                 </div>
 
+
                 <div class="mb-3" style="position:relative">
                     <label class="form-label">Phone Number</label>
                     <i class="fas fa-phone input-icon"></i>
-                    <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required>
+                    <input type="tel" class="form-control" name="phone" placeholder="+234 xxx xxx xxxx" required inputmode="numeric" pattern="[+0-9\s\-()]{7,20}" title="Enter phone number (digits, spaces, +, - allowed)">
+                    <div class="form-error"></div>
+                </div>
+
+                <div class="mb-3" style="position:relative">
+                    <label class="form-label">Address</label>
+                    <i class="fas fa-map-marker-alt input-icon"></i>
+                    <input type="text" class="form-control" name="address" placeholder="City, State (e.g. WUSE, FCT ABUJA)" required>
                     <div class="form-error"></div>
                 </div>
 

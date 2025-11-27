@@ -1728,6 +1728,9 @@ def admin_marketer_profile(request, pk):
     current_month = now.strftime("%Y-%m")
     password_response = None
 
+    # Company context (may be None for marketers created without a company)
+    company = getattr(request.user, 'company_profile', None)
+
 
     lifetime_closed_deals = Transaction.objects.filter(
         marketer=marketer
@@ -1765,12 +1768,15 @@ def admin_marketer_profile(request, pk):
             performance['total_sales'] / mt.target_amount * 100
         )
 
+    # Ensure company context is available for annual target calculations
+    company = request.user.company_profile
+
     # Annual target achievement
     at = (
         MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
         .first()
     )
     if at and at.target_amount:
@@ -1798,7 +1804,7 @@ def admin_marketer_profile(request, pk):
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
             or
             MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
         )
@@ -3118,7 +3124,8 @@ def search_existing_users_api(request):
             'country': getattr(user, 'country', '') or '',
             'role': getattr(user, 'role', None),
             'is_already_in_company': user.company_profile is not None,
-            'current_company': user.company_profile.company_name if user.company_profile else 'None',
+            'is_in_requester_company': True if (user.company_profile and company and user.company_profile.id == company.id) else False,
+            'current_company': user.company_profile.company_name if user.company_profile else None,
         })
     
     return JsonResponse({'users': users_data})
@@ -3161,7 +3168,15 @@ def add_existing_user_to_company(request):
             # Check if user already in this company
             if user.company_profile and user.company_profile.id == company.id:
                 return JsonResponse({
-                    'error': 'User already belongs to this company'
+                    'error': 'User already belongs to this company',
+                    'existing': True,
+                    'role': getattr(user, 'role', None),
+                    'company': company.company_name if company else None,
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'full_name': user.full_name,
+                    }
                 }, status=400)
             
             # For clients, ensure marketer assignment
@@ -4572,6 +4587,8 @@ def marketer_dashboard(request):
 @login_required
 def marketer_profile(request):
     marketer      = request.user
+    # Ensure company context is always defined to avoid UnboundLocalError
+    company = getattr(request.user, 'company_profile', None)
     now           = timezone.now()
     current_year  = now.year
     year_str      = str(current_year)
@@ -4621,7 +4638,7 @@ def marketer_profile(request):
         MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
         .first()
     )
     if at and at.target_amount:
@@ -4649,7 +4666,7 @@ def marketer_profile(request):
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
             or
             MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
         )
@@ -5277,6 +5294,7 @@ def client_registration(request):
             last_name = request.POST.get('last_name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
+            address = request.POST.get('address')
             date_of_birth_str = request.POST.get('date_of_birth')
             
             # Parse date_of_birth if provided
@@ -5311,6 +5329,7 @@ def client_registration(request):
                     email=email,
                     full_name=f"{first_name} {last_name}",
                     phone=phone,
+                    address=address,
                     password=password,
                     role='client',
                     company_profile=None,  # Clients are not bound to a company initially
@@ -5392,6 +5411,7 @@ def marketer_registration(request):
             last_name = request.POST.get('last_name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
+            address = request.POST.get('address')
             date_of_birth_str = request.POST.get('date_of_birth')
             
             # Parse date_of_birth if provided
@@ -5426,6 +5446,7 @@ def marketer_registration(request):
                     email=email,
                     full_name=f"{first_name} {last_name}",
                     phone=phone,
+                    address=address,
                     password=password,
                     role='marketer',
                     company_profile=None,  # Marketers can work with multiple companies
