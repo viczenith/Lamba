@@ -1711,11 +1711,22 @@ def add_progress_status(request):
 def marketer_list(request):
     # Use MarketerUser model to access the 'clients' reverse relationship
     # SECURITY: Filter by company to prevent cross-company data leakage
-    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
-    marketers = MarketerUser.objects.filter(**company_filter).annotate(
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+
+    # Primary queryset: marketers with MarketerUser subclass
+    marketers_qs = MarketerUser.objects.filter(company_profile=company).annotate(
         client_count=Count('clients', filter=Q(clients__is_deleted=False))
     )
-    return render(request, 'admin_side/marketer_list.html', {'marketers': marketers})
+
+    # Fallback: include any CustomUser(marketer) rows that do not yet have a MarketerUser subclass
+    parent_ids = list(marketers_qs.values_list('pk', flat=True))
+    fallback_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).exclude(id__in=parent_ids).order_by('-date_registered')
+
+    # Combine into a single list and preserve ordering by registration date
+    combined = list(marketers_qs) + list(fallback_marketers)
+    combined.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+
+    return render(request, 'admin_side/marketer_list.html', {'marketers': combined})
 
 
 @login_required
@@ -3179,32 +3190,55 @@ def add_existing_user_to_company(request):
                     }
                 }, status=400)
             
-            # For clients, ensure marketer assignment
+            # For clients, ensure marketer assignment and subclass linkage
             if user.role == 'client':
                 if not marketer_id:
                     return JsonResponse({
                         'error': 'Marketer assignment required for client users'
                     }, status=400)
-                
+
+                # Resolve marketer record (ensure MarketerUser subclass exists)
                 try:
-                    marketer = CustomUser.objects.get(
-                        id=marketer_id,
-                        role='marketer',
-                        company_profile=company
-                    )
-                    user.assigned_marketer = marketer
+                    # Prefer MarketerUser if available
+                    marketer_obj = None
+                    if MarketerUser.objects.filter(pk=marketer_id).exists():
+                        marketer_obj = MarketerUser.objects.get(pk=marketer_id)
+                    else:
+                        # Fallback: ensure parent CustomUser exists and create MarketerUser subclass
+                        parent_marketer = CustomUser.objects.get(id=marketer_id, role='marketer', company_profile=company)
+                        if not MarketerUser.objects.filter(pk=parent_marketer.pk).exists():
+                            MarketerUser.objects.create(id=parent_marketer.pk)
+                        marketer_obj = MarketerUser.objects.get(pk=parent_marketer.pk)
                 except CustomUser.DoesNotExist:
                     return JsonResponse({
                         'error': 'Selected marketer not found in company'
                     }, status=404)
+
+                # Ensure the user has a ClientUser subclass so directory queries include them
+                if not ClientUser.objects.filter(pk=user.pk).exists():
+                    # Create ClientUser row referencing existing CustomUser (multi-table inheritance)
+                    ClientUser.objects.create(id=user.id)
+
+                client_obj = ClientUser.objects.get(pk=user.id)
+                # Assign marketer on the ClientUser instance and create company-specific assignment
+                client_obj.assigned_marketer = marketer_obj
+                client_obj.save()
+                try:
+                    ClientMarketerAssignment.objects.get_or_create(client=client_obj, marketer=marketer_obj, company=company)
+                except Exception:
+                    # non-fatal
+                    pass
             
             # Add user to company
             # If user has no company yet (from signup), set it
-            # If user already has a company, they still get added (they can be in multiple companies)
             if not user.company_profile:
                 user.company_profile = company
-            
-            user.save()
+                user.save()
+
+            # Ensure marketer subclass exists for marketers so marketer directory will list them
+            if user.role == 'marketer':
+                if not MarketerUser.objects.filter(pk=user.pk).exists():
+                    MarketerUser.objects.create(id=user.id)
             
             return JsonResponse({
                 'success': True,
@@ -3308,9 +3342,40 @@ def client_dashboard_cross_company(request):
 def client(request):
     # Get all clients with their assigned marketers using select_related for optimization
     # SECURITY: Filter by company to prevent cross-company data leakage
-    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
-    clients = ClientUser.objects.filter(role='client', **company_filter).select_related('assigned_marketer').order_by('-date_registered')
-    return render(request, 'admin_side/client.html', {'clients' : clients})
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+
+    # Primary queryset: clients represented by ClientUser subclass
+    clients_qs = ClientUser.objects.filter(role='client', company_profile=company).select_related('assigned_marketer').order_by('-date_registered')
+
+    # Fallback: include any CustomUser(client) rows that do not yet have a ClientUser subclass
+    client_ids = list(clients_qs.values_list('pk', flat=True))
+    fallback_clients = list(CustomUser.objects.filter(role='client', company_profile=company).exclude(id__in=client_ids).order_by('-date_registered'))
+
+    # Resolve assigned_marketer for fallback clients so templates can show marketer column
+    for fc in fallback_clients:
+        try:
+            # 1) If a ClientUser subclass exists somewhere (unlikely here), prefer its assignment
+            if ClientUser.objects.filter(pk=fc.pk).exists():
+                cu = ClientUser.objects.get(pk=fc.pk)
+                fc.assigned_marketer = cu.get_assigned_marketer(company=company) if hasattr(cu, 'get_assigned_marketer') else getattr(cu, 'assigned_marketer', None)
+            else:
+                # 2) Try company-scoped ClientMarketerAssignment (may not exist without ClientUser)
+                assign = ClientMarketerAssignment.objects.filter(client_id=fc.pk, company=company).select_related('marketer').first()
+                if assign:
+                    fc.assigned_marketer = assign.marketer
+                else:
+                    # 3) Fallback: look for recent Transaction by this client in the company and use its marketer
+                    txn = Transaction.objects.filter(client_id=fc.pk, company=company, marketer__isnull=False).order_by('-transaction_date').select_related('marketer').first()
+                    fc.assigned_marketer = txn.marketer if txn else None
+        except Exception:
+            # Non-fatal: ensure attribute exists and is None when unresolved
+            fc.assigned_marketer = None
+
+    # Combine into a single list and preserve ordering by registration date
+    combined = list(clients_qs) + fallback_clients
+    combined.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+
+    return render(request, 'admin_side/client.html', {'clients': combined})
 
 
 @login_required
