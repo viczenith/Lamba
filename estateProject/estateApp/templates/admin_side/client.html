@@ -927,7 +927,15 @@
                               <span class="deleted-badge"><i class="fas fa-ban"></i> Deleted</span>
                             {% endif %}
                           </h6>
-                          <small>ID: CLT{{ client.company_uid|stringformat:"04d" }}</small>
+                          {% if client.company_client_uid %}
+                            <small>ID: {{ client.company_client_uid }}</small>
+                          {% elif client.company_client_id %}
+                            <small>ID: CLT{{ client.company_client_id|stringformat:"04d" }}</small>
+                          {% elif client.company_uid %}
+                            <small>ID: {{ client.company_uid }}</small>
+                          {% else %}
+                            <small>ID: CLT0000</small>
+                          {% endif %}
                           {% if client.is_deleted and client.deleted_at %}
                             <small class="deletion-info">
                               <i class="fas fa-clock"></i> Deleted on {{ client.deleted_at|date:"M d, Y" }}

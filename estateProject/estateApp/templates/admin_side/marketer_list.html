@@ -962,7 +962,15 @@
                               <span class="deleted-badge"><i class="fas fa-ban"></i> Deleted</span>
                             {% endif %}
                           </h6>
-                          <small>ID: MKT{{ marketer.company_uid|stringformat:"04d" }}</small>
+                          {% if marketer.company_marketer_uid %}
+                            <small>ID: {{ marketer.company_marketer_uid }}</small>
+                          {% elif marketer.company_marketer_id %}
+                            <small>ID: MKT{{ marketer.company_marketer_id|stringformat:"04d" }}</small>
+                          {% elif marketer.company_uid %}
+                            <small>ID: {{ marketer.company_uid }}</small>
+                          {% else %}
+                            <small>ID: MKT0000</small>
+                          {% endif %}
                           {% if marketer.is_deleted and marketer.deleted_at %}
                             <small class="deletion-info">
                               <i class="fas fa-clock"></i> Deleted on {{ marketer.deleted_at|date:"M d, Y" }}

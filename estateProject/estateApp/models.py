@@ -4,7 +4,7 @@ from decimal import Decimal
 import random
 import re
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -176,7 +176,7 @@ class Company(models.Model):
 
     def __str__(self):
         return self.company_name
-    
+
     def save(self, *args, **kwargs):
         """Auto-generate unique slug from company_name for tenancy isolation"""
         if not self.slug:
@@ -184,19 +184,39 @@ class Company(models.Model):
             base_slug = slugify(self.company_name)
             slug = base_slug
             counter = 1
-            
+
             # Ensure slug is unique
             while Company.objects.filter(slug=slug).exclude(pk=self.pk).exists():
                 slug = f"{base_slug}-{counter}"
                 counter += 1
-            
+
             self.slug = slug
-        
+
         # Sync company limits based on subscription tier
         self.sync_plan_limits()
-        
+
         super().save(*args, **kwargs)
-    
+
+    def _company_prefix(self) -> str:
+        """Return a short prefix for the company name suitable for UIDs.
+
+        Example: 'Lamba Property Limited' -> 'LPL'
+        """
+        try:
+            if not self.company_name:
+                return 'CMP'
+            words = re.findall(r"[A-Za-z0-9]+", self.company_name.upper())
+            if not words:
+                return 'CMP'
+            # Take first letter of up to three words
+            prefix = ''.join(w[0] for w in words[:3])
+            # If prefix too short, pad with company id
+            if len(prefix) < 2:
+                prefix = f"CMP{self.id}"
+            return prefix
+        except Exception:
+            return 'CMP'
+
     def sync_plan_limits(self):
         """Synchronize company limits based on subscription tier and plan"""
         try:
@@ -215,156 +235,38 @@ class Company(models.Model):
             self.max_plots = limits['max_plots']
             self.max_agents = limits['max_agents']
             self.max_api_calls_daily = limits['max_api_calls_daily']
-    
-    def is_trial_active(self):
-        """Check if trial period is still active"""
-        if self.subscription_status == 'trial' and self.trial_ends_at:
-            return self.trial_ends_at > timezone.now()
-        return False
-    
-    def is_subscription_active(self):
-        """Check if subscription is active and not expired"""
-        if self.subscription_status == 'active' and self.subscription_ends_at:
-            return self.subscription_ends_at > timezone.now()
-        return False
-    
-    def can_create_plot(self):
-        """Check if company can create more plots"""
-        from estateApp.models import EstatePlot
-        current_plots = EstatePlot.objects.filter(estate__company=self).count()
-        return current_plots < self.max_plots
-    
-    def get_subscription_plan(self):
-        """Get the SubscriptionPlan object for this company"""
-        try:
-            return SubscriptionPlan.objects.get(tier=self.subscription_tier)
-        except SubscriptionPlan.DoesNotExist:
-            return None
-    
-    def get_feature_limits(self):
-        """Get current feature limits for this company's subscription tier"""
-        plan = self.get_subscription_plan()
-        if plan:
-            return {
-                'estate_properties': plan.features.get('estate_properties', 'unlimited'),
-                'allocations': plan.features.get('allocations', 'unlimited'),
-                'clients': plan.features.get('clients', 'unlimited'),
-                'affiliates': plan.features.get('affiliates', 'unlimited'),
-                'max_plots': plan.max_plots,
-                'max_agents': plan.max_agents,
-                'max_api_calls_daily': plan.max_api_calls_daily,
-            }
-        # Fallback defaults
-        return {
-            'estate_properties': self.max_plots,
-            'allocations': self.max_api_calls_daily,
-            'clients': 'unlimited',
-            'affiliates': 'unlimited',
-            'max_plots': self.max_plots,
-            'max_agents': self.max_agents,
-            'max_api_calls_daily': self.max_api_calls_daily,
-        }
-    
-    def can_add_client(self):
-        """Check if company can add more clients"""
-        limits = self.get_feature_limits()
-        if limits['clients'] == 'unlimited':
-            return True, "Unlimited clients available"
-        
-        from estateApp.models import ClientUser
-        current_clients = ClientUser.objects.filter(
-            company_profile=self
-        ).count()
-        
-        limit = limits['clients']
-        if isinstance(limit, str):
-            return True, f"Unlimited clients available"
-        
-        if current_clients >= limit:
-            return False, f"Client limit ({limit}) reached for {self.subscription_tier} plan"
-        return True, f"Can add {limit - current_clients} more clients"
-    
-    def can_add_affiliate(self):
-        """Check if company can add more affiliate/marketers"""
-        limits = self.get_feature_limits()
-        if limits['affiliates'] == 'unlimited':
-            return True, "Unlimited affiliates available"
-        
-        current_affiliates = self.marketer_affiliations.filter(
-            status='active'
-        ).count()
-        
-        limit = limits['affiliates']
-        if isinstance(limit, str):
-            return True, "Unlimited affiliates available"
-        
-        if current_affiliates >= limit:
-            return False, f"Affiliate limit ({limit}) reached for {self.subscription_tier} plan"
-        return True, f"Can add {limit - current_affiliates} more affiliates"
-    
-    def can_create_allocation(self):
-        """Check if company can create more plot allocations"""
-        limits = self.get_feature_limits()
-        if limits['allocations'] == 'unlimited':
-            return True, "Unlimited allocations available"
-        
-        try:
-            current_allocations = PlotAllocation.objects.filter(
-                plot_size_unit__estate_plot__estate__isnull=False
-            ).count()
-        except:
-            current_allocations = 0
-        
-        limit = limits['allocations']
-        if isinstance(limit, str):
-            return True, "Unlimited allocations available"
-        
-        if current_allocations >= limit:
-            return False, f"Allocation limit ({limit}) reached for {self.subscription_tier} plan"
-        return True, f"Can create {limit - current_allocations} more allocations"
-    
-    def can_create_estate(self):
-        """Check if company can create more estates"""
-        limits = self.get_feature_limits()
-        if limits['estate_properties'] == 'unlimited':
-            return True, "Unlimited estate properties available"
-        
-        current_estates = Estate.objects.filter(company=self).count()
-        
-        limit = limits['estate_properties']
-        if isinstance(limit, str):
-            return True, "Unlimited estate properties available"
-        
-        if current_estates >= limit:
-            return False, f"Estate limit ({limit}) reached for {self.subscription_tier} plan"
-        return True, f"Can create {limit - current_estates} more estates"
-    
-    def get_usage_stats(self):
-        """Get current usage statistics for the company"""
-        from estateApp.models import PlotAllocation, ClientUser
-        
-        try:
-            allocations = PlotAllocation.objects.filter(
-                plot_size_unit__estate_plot__estate__isnull=False
-            ).count()
-        except:
-            allocations = 0
-        
-        try:
-            clients = ClientUser.objects.filter(company_profile=self).count()
-        except:
-            clients = 0
-        
-        try:
-            affiliates = self.marketer_affiliations.filter(status='active').count()
-        except:
-            affiliates = 0
-        
-        return {
-            'allocations': allocations,
-            'clients': clients,
-            'affiliates': affiliates,
-        }
+
+
+class CompanySequence(models.Model):
+    """Per-company sequence counters for named keys (client, marketer, etc.).
+
+    This model stores the last_value used for a particular company/key pair.
+    Use `get_next` to acquire the next integer in a transactionally-safe way
+    using SELECT ... FOR UPDATE via Django's `select_for_update`.
+    """
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='sequences')
+    key = models.CharField(max_length=50, help_text="Sequence key, e.g. 'client' or 'marketer'")
+    last_value = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = (('company', 'key'),)
+        indexes = [models.Index(fields=['company', 'key'])]
+
+    def __str__(self):
+        return f"{self.company.company_name}::{self.key} = {self.last_value}"
+
+    @classmethod
+    def get_next(cls, company, key) -> int:
+        """Return the next integer for (company, key) in an atomic, race-safe manner.
+
+        Example usage:
+            next_id = CompanySequence.get_next(company, 'client')
+        """
+        with transaction.atomic():
+            obj, created = cls.objects.select_for_update().get_or_create(company=company, key=key, defaults={'last_value': 0})
+            obj.last_value = (obj.last_value or 0) + 1
+            obj.save(update_fields=['last_value'])
+            return obj.last_value
 
 
 class AppMetrics(models.Model):
@@ -1032,12 +934,52 @@ class SupportUser(CustomUser):
         super().save(*args, **kwargs)
 
 class MarketerUser(CustomUser):
+    # Per-company sequential identifier for marketers (assigned on save if missing)
+    company_marketer_id = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name="Company Marketer ID")
+    # Human-friendly unique UID including company prefix, e.g. LPLMKT001
+    company_marketer_uid = models.CharField(max_length=64, null=True, blank=True, unique=True, db_index=True, verbose_name="Company Marketer UID")
+
     class Meta:
         verbose_name = "Marketer User"
         verbose_name_plural = "Marketer Users"
 
     def save(self, *args, **kwargs):
+        # Ensure role is set
         self.role = 'marketer'
+
+        # Auto-assign a per-company sequential marketer id when missing
+        try:
+            if self.company_profile and not getattr(self, 'company_marketer_id', None):
+                # Prefer sequence-based allocation for race-safety
+                try:
+                    self.company_marketer_id = CompanySequence.get_next(self.company_profile, 'marketer')
+                except Exception:
+                    from django.db.models import Max
+                    maxv = MarketerUser.objects.filter(company_profile=self.company_profile).aggregate(maxv=Max('company_marketer_id'))
+                    cur = maxv.get('maxv') or 0
+                    self.company_marketer_id = int(cur) + 1
+        except Exception:
+            # Non-fatal; proceed without assignment if aggregation fails
+            pass
+
+        # Auto-generate a unique company-prefixed UID (e.g. LPL-MKT001)
+        try:
+            if self.company_profile and getattr(self, 'company_marketer_id', None) and not getattr(self, 'company_marketer_uid', None):
+                # Use the company to compute a stable prefix (avoid calling a user method)
+                try:
+                    prefix = self.company_profile._company_prefix()
+                except Exception:
+                    prefix = (self.company_profile.company_name or 'CMP')[:3].upper()
+
+                # Format: PREFIX-ROLECODE###  e.g., LPLMKT001
+                base_uid = f"{prefix}MKT{int(self.company_marketer_id):03d}"
+                # Ensure uniqueness; if collision, include company id to disambiguate
+                if MarketerUser.objects.filter(company_marketer_uid=base_uid).exclude(pk=self.pk).exists():
+                    base_uid = f"{prefix}{self.company_profile.id}-MKT{int(self.company_marketer_id):03d}"
+                self.company_marketer_uid = base_uid
+        except Exception:
+            pass
+
         super().save(*args, **kwargs)
 
 
@@ -1050,6 +992,10 @@ class ClientUser(CustomUser):
         related_name="clients",
         verbose_name="Assigned Marketer"
     )
+    # Per-company sequential identifier for clients (assigned on save if missing)
+    company_client_id = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name="Company Client ID")
+    # Human-friendly unique UID including company prefix, e.g. LPL-CLT001
+    company_client_uid = models.CharField(max_length=64, null=True, blank=True, unique=True, db_index=True, verbose_name="Company Client UID")
     class Meta:
         verbose_name = "Client User"
         verbose_name_plural = "Client Users"
@@ -1057,6 +1003,35 @@ class ClientUser(CustomUser):
     def save(self, *args, **kwargs):
         if not self.is_superuser:
             self.role = 'client'
+
+        # Auto-assign a per-company sequential client id when missing
+        try:
+            if self.company_profile and not getattr(self, 'company_client_id', None):
+                try:
+                    self.company_client_id = CompanySequence.get_next(self.company_profile, 'client')
+                except Exception:
+                    from django.db.models import Max
+                    maxv = ClientUser.objects.filter(company_profile=self.company_profile).aggregate(maxv=Max('company_client_id'))
+                    cur = maxv.get('maxv') or 0
+                    self.company_client_id = int(cur) + 1
+        except Exception:
+            # Non-fatal - continue without assignment
+            pass
+        # Auto-generate a unique company-prefixed UID (e.g. LPL-CLT001)
+        try:
+            if self.company_profile and getattr(self, 'company_client_id', None) and not getattr(self, 'company_client_uid', None):
+                try:
+                    prefix = self.company_profile._company_prefix()
+                except Exception:
+                    prefix = (self.company_profile.company_name or 'CMP')[:3].upper()
+
+                # Format: PREFIX-ROLECODE###  e.g., LPL-CLT001
+                base_uid = f"{prefix}-CLT{int(self.company_client_id):03d}"
+                if ClientUser.objects.filter(company_client_uid=base_uid).exclude(pk=self.pk).exists():
+                    base_uid = f"{prefix}{self.company_profile.id}-CLT{int(self.company_client_id):03d}"
+                self.company_client_uid = base_uid
+        except Exception:
+            pass
         super().save(*args, **kwargs)
 
     def _fully_paid_transactions_qs(self):

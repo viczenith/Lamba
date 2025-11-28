@@ -1752,6 +1752,26 @@ def marketer_list(request):
 
             unique_clients = assign_client_ids.union(direct_client_ids)
             m.client_count = len(unique_clients)
+            # Ensure a displayable company_marketer_id exists (prefer persisted value)
+            try:
+                if getattr(m, 'company_marketer_id', None):
+                    pass
+                else:
+                    m.company_marketer_id = m.company_uid
+            except Exception:
+                m.company_marketer_id = m.company_uid
+            # Compute a non-persistent display UID when persistent UID missing
+            try:
+                if not getattr(m, 'company_marketer_uid', None):
+                    try:
+                        prefix = company._company_prefix() if company else 'CMP'
+                    except Exception:
+                        prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
+                    m.company_marketer_uid = f"{prefix}MKT{int(m.company_marketer_id):03d}"
+            except Exception:
+                # ensure attribute exists even on failure
+                if not getattr(m, 'company_marketer_uid', None):
+                    m.company_marketer_uid = f"MKT{int(getattr(m, 'company_marketer_id', 0) or 0):03d}"
     except Exception:
         # Fallback: ensure attribute exists
         for m in combined:
@@ -1759,6 +1779,11 @@ def marketer_list(request):
                 m.client_count = getattr(m, 'client_count', 0)
             if not hasattr(m, 'company_uid'):
                 m.company_uid = getattr(m, 'id', None)
+            try:
+                if not getattr(m, 'company_marketer_id', None):
+                    m.company_marketer_id = m.company_uid
+            except Exception:
+                m.company_marketer_id = m.company_uid
 
     return render(request, 'admin_side/marketer_list.html', {'marketers': combined})
 
@@ -3241,7 +3266,7 @@ def add_existing_user_to_company(request):
                         # Fallback: ensure parent CustomUser exists and create MarketerUser subclass
                         parent_marketer = CustomUser.objects.get(id=marketer_id, role='marketer', company_profile=company)
                         if not MarketerUser.objects.filter(pk=parent_marketer.pk).exists():
-                            MarketerUser.objects.create(id=parent_marketer.pk)
+                            MarketerUser.objects.create(id=parent_marketer.pk, company_profile=company)
                         marketer_obj = MarketerUser.objects.get(pk=parent_marketer.pk)
                 except CustomUser.DoesNotExist:
                     return JsonResponse({
@@ -3251,8 +3276,17 @@ def add_existing_user_to_company(request):
                 # Ensure the user has a ClientUser subclass so directory queries include them
                 if not ClientUser.objects.filter(pk=user.pk).exists():
                     # Create ClientUser row referencing existing CustomUser (multi-table inheritance)
-                    # Ensure the subclass row is tied to this company so company-scoped queries include it
-                    ClientUser.objects.create(id=user.id, company_profile=company)
+                    # For multi-table inheritance, we use the user's pointer to create the subclass
+                    try:
+                        # Get or create the ClientUser subclass linked to this CustomUser
+                        client_user = ClientUser.objects.get_or_create(
+                            customuser_ptr_id=user.id,
+                            defaults={'company_profile': company}
+                        )[0]
+                    except Exception as e:
+                        logger.warning(f"Failed to get_or_create ClientUser: {str(e)}")
+                        # Fallback: just mark the user as added to company
+                        pass
 
                 client_obj = ClientUser.objects.get(pk=user.id)
                 # Assign marketer on the ClientUser instance and create company-specific assignment
@@ -3274,7 +3308,16 @@ def add_existing_user_to_company(request):
             if user.role == 'marketer':
                 if not MarketerUser.objects.filter(pk=user.pk).exists():
                     # Create marketer subclass tied to this company so marketer_list picks them up
-                    MarketerUser.objects.create(id=user.id, company_profile=company)
+                    try:
+                        # Get or create the MarketerUser subclass linked to this CustomUser
+                        marketer_user = MarketerUser.objects.get_or_create(
+                            customuser_ptr_id=user.id,
+                            defaults={'company_profile': company}
+                        )[0]
+                    except Exception as e:
+                        logger.warning(f"Failed to get_or_create MarketerUser: {str(e)}")
+                        # Fallback: just mark the user as added to company
+                        pass
             
             return JsonResponse({
                 'success': True,
@@ -3289,9 +3332,15 @@ def add_existing_user_to_company(request):
             })
     
     except CustomUser.DoesNotExist:
+        logger.error(f'CustomUser not found: user_id={user_id}')
         return JsonResponse({'error': 'User not found'}, status=404)
+    except json.JSONDecodeError:
+        logger.error('Invalid JSON in request body')
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
-        logger.error(f'Error adding user to company: {str(e)}')
+        logger.error(f'Error adding user to company: {str(e)}', exc_info=True)
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -3419,9 +3468,36 @@ def client(request):
         id_map = {u.pk: idx + 1 for idx, u in enumerate(ordered_for_ids)}
         for c in combined:
             c.company_uid = id_map.get(c.pk, c.pk)
+            # If persistent company_client_id exists on the object (DB column), prefer it for display.
+            # Otherwise set a non-persistent attribute so templates can reference `client.company_client_id`.
+            try:
+                if getattr(c, 'company_client_id', None):
+                    # already present (persisted or set on object)
+                    pass
+                else:
+                    # set fallback display id (do not save)
+                    c.company_client_id = c.company_uid
+            except Exception:
+                c.company_client_id = c.company_uid
+            # Compute a non-persistent display UID when persistent UID missing
+            try:
+                if not getattr(c, 'company_client_uid', None):
+                    try:
+                        prefix = company._company_prefix() if company else 'CMP'
+                    except Exception:
+                        prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
+                    c.company_client_uid = f"{prefix}CLT{int(c.company_client_id):03d}"
+            except Exception:
+                if not getattr(c, 'company_client_uid', None):
+                    c.company_client_uid = f"CLT{int(getattr(c, 'company_client_id', 0) or 0):03d}"
     except Exception:
         for c in combined:
             c.company_uid = getattr(c, 'pk', None)
+            try:
+                if not getattr(c, 'company_client_id', None):
+                    c.company_client_id = c.company_uid
+            except Exception:
+                c.company_client_id = c.company_uid
 
     return render(request, 'admin_side/client.html', {'clients': combined})
 
