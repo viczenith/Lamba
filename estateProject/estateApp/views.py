@@ -1722,9 +1722,43 @@ def marketer_list(request):
     parent_ids = list(marketers_qs.values_list('pk', flat=True))
     fallback_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).exclude(id__in=parent_ids).order_by('-date_registered')
 
-    # Combine into a single list and preserve ordering by registration date
+    # Combine into a single list
     combined = list(marketers_qs) + list(fallback_marketers)
+
+    # Sort by registration date descending for display
     combined.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+
+    # Compute company-scoped unique IDs (sequential per company) and client counts
+    try:
+        # Build an ordered list by registration date ascending for deterministic numbering
+        ordered_for_ids = sorted(combined, key=lambda u: getattr(u, 'date_registered', None) or timezone.now())
+        id_map = {u.pk: idx + 1 for idx, u in enumerate(ordered_for_ids)}
+
+        for m in combined:
+            # company_uid: integer sequence per company (use in template as zero-padded)
+            m.company_uid = id_map.get(m.pk, m.pk)
+
+            # Compute client_count as unique clients assigned to this marketer within company
+            # via ClientMarketerAssignment or direct ClientUser.assigned_marketer field
+            try:
+                assign_client_ids = set(ClientMarketerAssignment.objects.filter(company=company, marketer_id=m.pk).values_list('client_id', flat=True))
+            except Exception:
+                assign_client_ids = set()
+
+            try:
+                direct_client_ids = set(ClientUser.objects.filter(company_profile=company, assigned_marketer_id=m.pk).values_list('pk', flat=True))
+            except Exception:
+                direct_client_ids = set()
+
+            unique_clients = assign_client_ids.union(direct_client_ids)
+            m.client_count = len(unique_clients)
+    except Exception:
+        # Fallback: ensure attribute exists
+        for m in combined:
+            if not hasattr(m, 'client_count'):
+                m.client_count = getattr(m, 'client_count', 0)
+            if not hasattr(m, 'company_uid'):
+                m.company_uid = getattr(m, 'id', None)
 
     return render(request, 'admin_side/marketer_list.html', {'marketers': combined})
 
@@ -3217,7 +3251,8 @@ def add_existing_user_to_company(request):
                 # Ensure the user has a ClientUser subclass so directory queries include them
                 if not ClientUser.objects.filter(pk=user.pk).exists():
                     # Create ClientUser row referencing existing CustomUser (multi-table inheritance)
-                    ClientUser.objects.create(id=user.id)
+                    # Ensure the subclass row is tied to this company so company-scoped queries include it
+                    ClientUser.objects.create(id=user.id, company_profile=company)
 
                 client_obj = ClientUser.objects.get(pk=user.id)
                 # Assign marketer on the ClientUser instance and create company-specific assignment
@@ -3238,7 +3273,8 @@ def add_existing_user_to_company(request):
             # Ensure marketer subclass exists for marketers so marketer directory will list them
             if user.role == 'marketer':
                 if not MarketerUser.objects.filter(pk=user.pk).exists():
-                    MarketerUser.objects.create(id=user.id)
+                    # Create marketer subclass tied to this company so marketer_list picks them up
+                    MarketerUser.objects.create(id=user.id, company_profile=company)
             
             return JsonResponse({
                 'success': True,
@@ -3371,9 +3407,21 @@ def client(request):
             # Non-fatal: ensure attribute exists and is None when unresolved
             fc.assigned_marketer = None
 
-    # Combine into a single list and preserve ordering by registration date
+    # Combine into a single list
     combined = list(clients_qs) + fallback_clients
+
+    # Sort by registration date descending for display
     combined.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+
+    # Compute per-company sequential client IDs for display (company_uid)
+    try:
+        ordered_for_ids = sorted(combined, key=lambda u: getattr(u, 'date_registered', None) or timezone.now())
+        id_map = {u.pk: idx + 1 for idx, u in enumerate(ordered_for_ids)}
+        for c in combined:
+            c.company_uid = id_map.get(c.pk, c.pk)
+    except Exception:
+        for c in combined:
+            c.company_uid = getattr(c, 'pk', None)
 
     return render(request, 'admin_side/client.html', {'clients': combined})
 

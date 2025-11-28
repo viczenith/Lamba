@@ -962,7 +962,7 @@
                               <span class="deleted-badge"><i class="fas fa-ban"></i> Deleted</span>
                             {% endif %}
                           </h6>
-                          <small>ID: MKT{{ marketer.id|stringformat:"04d" }}</small>
+                          <small>ID: MKT{{ marketer.company_uid|stringformat:"04d" }}</small>
                           {% if marketer.is_deleted and marketer.deleted_at %}
                             <small class="deletion-info">
                               <i class="fas fa-clock"></i> Deleted on {{ marketer.deleted_at|date:"M d, Y" }}

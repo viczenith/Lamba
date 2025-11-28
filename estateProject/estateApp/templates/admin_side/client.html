@@ -927,7 +927,7 @@
                               <span class="deleted-badge"><i class="fas fa-ban"></i> Deleted</span>
                             {% endif %}
                           </h6>
-                          <small>ID: CLT{{ client.pk|stringformat:"04d" }}</small>
+                          <small>ID: CLT{{ client.company_uid|stringformat:"04d" }}</small>
                           {% if client.is_deleted and client.deleted_at %}
                             <small class="deletion-info">
                               <i class="fas fa-clock"></i> Deleted on {{ client.deleted_at|date:"M d, Y" }}
