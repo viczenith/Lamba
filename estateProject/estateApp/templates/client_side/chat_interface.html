@@ -853,7 +853,12 @@
             {% if companies %}
             <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'chat' %}">
                 {% csrf_token %}
-                <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id if companies.0 }}">
+                {# Use Django conditionals instead of inline Python-like expressions #}
+                {% if companies and companies.0 %}
+                    <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id }}">
+                {% else %}
+                    <input type="hidden" name="company_id" id="company-id-input" value="">
+                {% endif %}
                 <div class="chat-input-form">
                     <input type="file" id="file-input" name="file">
                     

@@ -103,22 +103,24 @@ def tenant_admin_dashboard(request, company_slug):
         company_profile=company
     ).count()
     
-    # Global estates (intentional - shared across companies)
+    # Estates scoped to this company to prevent cross-tenant leakage
     estates = Estate.objects.prefetch_related(
         Prefetch('estate_plots__plotsizeunits',
                  queryset=PlotSizeUnits.objects.annotate(
                      allocated=Count('allocations', filter=Q(allocations__payment_type='full')),
                      reserved=Count('allocations', filter=Q(allocations__payment_type='part'))
                  ))
-    ).all()
-    
-    # Global allocations (intentional - shared across companies)
+    ).filter(company=company)
+
+    # Allocations should be counted only for this company
     total_allocations = PlotAllocation.objects.filter(
+        estate__company=company,
         payment_type='full',
-        plot_number__isnull=False 
+        plot_number__isnull=False
     ).count()
-    
+
     pending_allocations = PlotAllocation.objects.filter(
+        estate__company=company,
         payment_type='part',
         plot_number__isnull=True
     ).count()
@@ -136,10 +138,39 @@ def tenant_admin_dashboard(request, company_slug):
         is_read=False
     ).order_by('-date_sent')[:5]
     
+    # Build company-scoped chart data for Estate Allocation Trends (used by index.html)
+    import json
+    estates_names = []
+    allocated_data = []
+    reserved_data = []
+    total_data = []
+
+    for estate in Estate.objects.filter(company=company).order_by('name'):
+        total_allocated = 0
+        total_reserved = 0
+        # estate_plots is related name; iterate plots then their plot size units
+        for ep in estate.estate_plots.all():
+            for size_unit in ep.plotsizeunits.all():
+                total_allocated += getattr(size_unit, 'full_allocations', 0)
+                total_reserved += getattr(size_unit, 'part_allocations', 0)
+
+        estates_names.append(estate.name)
+        allocated_data.append(total_allocated)
+        reserved_data.append(total_reserved)
+        total_data.append(total_allocated + total_reserved)
+
+    chart_data = json.dumps({
+        'estates': estates_names,
+        'allocated': allocated_data,
+        'reserved': reserved_data,
+        'total': total_data,
+    })
+
     context = {
         'company': company,
         'company_slug': company_slug,
         'company_name': company.company_name,  # For URL context
+        'chart_data': chart_data,
         'total_clients': total_clients,
         'total_marketers': total_marketers,
         'estates': estates,
@@ -185,29 +216,34 @@ def tenant_management_dashboard(request, company_slug):
     )
 
     txn_qs = Transaction.objects.filter(allocation_id=OuterRef('pk'))
+    # Pending allocations only for this company
     pending_allocations = PlotAllocation.objects.annotate(
         has_txn=Exists(txn_qs)
-    ).filter(has_txn=False).select_related('client', 'estate')
+    ).filter(has_txn=False, estate__company=company).select_related('client', 'estate')
 
     today = date.today()
     active_promos_qs = PromotionalOffer.objects.filter(
         start__lte=today, end__gte=today
     )
+    # Only include estates that belong to this company
     estates = Estate.objects.prefetch_related(
         'estate_plots__plotsizeunits__plot_size',
         Prefetch('promotional_offers', queryset=active_promos_qs, to_attr='active_promos')
-    ).all()
+    ).filter(company=company)
 
+    # Only promos affecting estates for this company
     current_promos = PromotionalOffer.objects.filter(
         start__lte=today,
-        end__gte=today
-    ).prefetch_related('estates')
+        end__gte=today,
+        estates__company=company
+    ).prefetch_related('estates').distinct()
 
+    # Property prices only for this company's estates
     existing_prices = {
         (pp.estate_id, pp.plot_unit_id): pp
         for pp in PropertyPrice.objects.select_related(
             'estate', 'plot_unit__plot_size'
-        ).all()
+        ).filter(estate__company=company)
     }
 
     rows = []

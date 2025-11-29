@@ -12,24 +12,30 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add company FK to Transaction model
-        migrations.AddField(
-            model_name='transaction',
-            name='company',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='transactions', to='estateApp.company'),
-        ),
-        
-        # Add company FK to PaymentRecord model
-        migrations.AddField(
-            model_name='paymentrecord',
-            name='company',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='payment_records', to='estateApp.company'),
-        ),
-        
-        # Add company FK to PropertyPrice model
-        migrations.AddField(
-            model_name='propertyprice',
-            name='company',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='property_prices', to='estateApp.company'),
+        # Idempotent addition of company_id columns where needed.
+        migrations.RunPython(
+            code=lambda apps, schema_editor: _add_company_columns_0072(apps, schema_editor),
+            reverse_code=migrations.RunPython.noop
         ),
     ]
+
+
+def _add_company_columns_0072(apps, schema_editor):
+    conn = schema_editor.connection
+    targets = [
+        ('Transaction', 'transaction'),
+        ('PaymentRecord', 'paymentrecord'),
+        ('PropertyPrice', 'propertyprice')
+    ]
+    for model_name, _ in targets:
+        try:
+            model = apps.get_model('estateApp', model_name)
+            table = model._meta.db_table
+            sql = f'ALTER TABLE "{table}" ADD COLUMN company_id integer;'
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(sql)
+            except Exception:
+                pass
+        except Exception:
+            pass

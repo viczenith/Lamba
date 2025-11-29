@@ -551,7 +551,12 @@
             {% if companies %}
             <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'marketer-chat' %}">
                 {% csrf_token %}
-                <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id if companies.0 }}">
+                {# Safely pick the first company id when available; avoid inline Python-like expressions #}
+                {% if companies and companies.0 %}
+                    <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.company.id }}">
+                {% else %}
+                    <input type="hidden" name="company_id" id="company-id-input" value="">
+                {% endif %}
                 <div class="chat-input-form">
                     <input type="file" id="file-input" name="file">
                     <div class="input-wrapper">

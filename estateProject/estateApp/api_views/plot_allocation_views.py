@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from estateApp.models import PlotSizeUnits, EstatePlot, PlotNumber, Estate, PlotAllocation
+from estateApp.models import PlotSizeUnits, EstatePlot, PlotNumber, Estate, PlotAllocation, CustomUser
 # from estateApp.serializers.plot_and_allocation_serializers import (
 from estateApp.serializers.plot_allocation_serializer import (
     EstatePlotSerializer, PlotAllocationSerializer,

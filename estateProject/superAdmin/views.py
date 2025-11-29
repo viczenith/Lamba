@@ -352,8 +352,9 @@ class CompanyDetailView(LoginRequiredMixin, SuperAdminRequiredMixin, DetailView)
         from estateApp.models import Estate, EstatePlot, PlotAllocation
         context['total_estates'] = Estate.objects.filter(company=company).count()
         context['total_plots'] = EstatePlot.objects.filter(estate__company=company).count()
+        # Count allocations for this company (ensure correct relation name)
         context['allocated_plots'] = PlotAllocation.objects.filter(
-            plot__estate__company=company
+            estate__company=company
         ).count()
         
         # Recent invoices

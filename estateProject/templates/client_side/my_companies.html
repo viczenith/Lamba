@@ -1,4 +1,5 @@
 {% extends 'client_base.html' %}
+{% load humanize %}
 
 {% block title %}My Companies{% endblock %}
 
@@ -15,30 +16,171 @@
   </div>
 
   <section class="section profile">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Companies you've purchased from</h5>
-            {% if companies %}
-              <ul class="list-group">
-                {% for company in companies %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>{{ company.company_name }}</strong>
-                      <div class="text-muted">{{ company.address }}</div>
-                    </div>
-                    <a href="{% url 'my-company-portfolio' company.id company.slug %}" class="btn btn-sm btn-primary">View Portfolio</a>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="text-muted">You have no recorded purchases yet.</p>
-            {% endif %}
+    <div class="container">
+      <div class="row mb-4">
+        <div class="col-12">
+          <h5 class="card-title">Companies you've purchased from</h5>
+          <p class="text-muted">Quick access to portfolios and investment details.</p>
+        </div>
+      </div>
+
+      {% comment %}Top summary: Total companies purchased{% endcomment %}
+      {% with total_companies=companies|length %}
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="total-companies-card p-3 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="small text-muted">Total Companies Purchased</div>
+              <div class="total-number display-4 fw-bold">{{ total_companies|intcomma }}</div>
+              <div class="small text-muted">Companies you've invested with</div>
+            </div>
+            <div class="total-icon ms-3 d-flex align-items-center justify-content-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-briefcase">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" fill="none"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              </svg>
+            </div>
           </div>
         </div>
       </div>
+      {% endwith %}
+
+      {% if companies %}
+        <div class="row g-4">
+          {% for company in companies %}
+            {% comment %}Normalize company shape: some views pass {'company': Company, 'allocations': n, ...}
+               while others pass Company instances with attributes attached. We'll prefer inner object when present.{% endcomment %}
+            {% with c=company.company|default:company %}
+            {% with alloc=company.allocations|default:company.total_invested|default:None %}
+            {% with total=company.total_invested|default:None %}
+            <div class="col-12 col-sm-6 col-md-4">
+              <article class="company-card glass-card h-100">
+                <header class="card-header d-flex align-items-center">
+                  <div class="logo-wrap me-3">
+                    {% if c.logo %}
+                      <img src="{{ c.logo.url }}" alt="{{ c.company_name }} logo" class="company-logo">
+                    {% else %}
+                      <div class="company-initials">{{ c.company_name|default:'?'|slice:":1"|upper }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="ms-2">
+                    <h5 class="company-title mb-0">{{ c.company_name|default:'Unnamed Company' }}</h5>
+                    <div class="small text-muted">{{ c.office_address|default:c.location|default:'Address not available' }}</div>
+                    {% if c.phone %}
+                      <div class="small text-muted">Contact: <a href="tel:{{ c.phone }}">{{ c.phone }}</a></div>
+                    {% endif %}
+                    {% if c.email %}
+                      <div class="small text-muted">Email: <a href="mailto:{{ c.email }}">{{ c.email }}</a></div>
+                    {% endif %}
+                  </div>
+                  <div class="ms-auto text-end d-none d-sm-block">
+                    <div class="small text-muted">Properties</div>
+                    <div class="fw-bold allocation-count">{{ company.allocations|default:0 }}</div>
+                  </div>
+                </header>
+
+                <div class="card-body flex-grow-1 d-flex flex-column">
+                  <div class="investment-section mb-3">
+                    <div class="small text-muted">Total invested</div>
+                    <div class="investment-amount h4 mb-2">₦{{ company.total_invested|default:total|default:0|intcomma }}</div>
+
+                    <div class="progress-decor mt-2" aria-hidden="true">
+                      <div class="progress-track">
+                        {# Use allocations as a stylistic width; fallback to 0 - safe clamp via add:0 #}
+                        <div class="progress-fill" style="width: {{ company.allocations|default:0|add:0 }}%"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-auto d-flex gap-2">
+                    <a href="{% url 'my-company-portfolio' c.id %}" class="btn btn-primary btn-sm flex-fill">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye me-1" viewBox="0 0 16 16">
+                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8z"/>
+                        <path d="M8 5.5a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5z"/>
+                      </svg>
+                      View
+                    </a>
+                    <a href="{% url 'client-dashboard' %}?company={{ c.slug|default:'' }}" class="btn btn-outline-light btn-sm outline-btn">Company Page</a>
+                  </div>
+                </div>
+              </article>
+            </div>
+            {% endwith %}
+            {% endwith %}
+            {% endwith %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="row">
+          <div class="col-12">
+            <div class="card p-4 text-center">
+              <div class="text-muted">You have no recorded purchases yet.</div>
+              <a href="{% url 'estates-list' %}" class="btn btn-primary btn-sm mt-3">Browse Estates</a>
+            </div>
+          </div>
+        </div>
+      {% endif %}
     </div>
   </section>
 </main>
 {% endblock %}
+
+<style>
+  /* Sleek animated card styles */
+  .glass-card {
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(245,247,250,0.50));
+    box-shadow: 0 8px 30px rgba(12,20,30,0.08);
+    border: 1px solid rgba(255,255,255,0.55);
+    backdrop-filter: blur(8px) saturate(120%);
+    display: flex;
+    flex-direction: column;
+    transform: translateZ(0);
+    transition: transform 280ms cubic-bezier(.2,.9,.2,1), box-shadow 280ms ease;
+    position: relative;
+  }
+
+  /* Animated gradient outline */
+  .glass-card::before{
+    content: '';
+    position: absolute; inset: -1px; z-index: 0; border-radius: 15px;
+    background: linear-gradient(90deg, rgba(108,92,231,0.25), rgba(118,75,162,0.2), rgba(255,138,128,0.12));
+    filter: blur(16px);
+    opacity: 0; transition: opacity 420ms ease;
+  }
+  .glass-card:hover::before{ opacity: 1; }
+
+  .glass-card:hover { transform: translateY(-10px) scale(1.01); box-shadow: 0 22px 60px rgba(12,20,30,0.18); }
+
+  .card-header { padding: 1rem; display:flex; align-items:center; gap:0.75rem; z-index:2; }
+  .company-logo { width:64px; height:64px; border-radius:12px; object-fit:cover; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 6px 18px rgba(102,126,234,0.12); transition: transform 420ms ease; }
+  .glass-card:hover .company-logo { transform: translateY(-4px) rotate(-1deg) scale(1.02); }
+  .company-initials { width:64px; height:64px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:800; background:linear-gradient(135deg,#6C5CE7,#A29BFE); color:white; font-size:1.15rem; box-shadow: 0 6px 18px rgba(108,92,231,0.12); }
+  .company-title { font-size:1.05rem; margin:0; font-weight:700; color:#081226; }
+
+  .allocation-count { font-size:1.05rem; color:#081226; }
+
+  .card-body { padding:1rem; display:flex; flex-direction:column; z-index:2; }
+  .investment-amount { color:#081226; font-weight:700; letter-spacing:0.2px; display:inline-block; position:relative; }
+
+  /* shimmer on amount */
+  .investment-amount::after{ content:''; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.6), rgba(255,255,255,0.0)); transform:skewX(-20deg); opacity:0; transition:opacity 480ms ease, left 900ms ease; }
+  .glass-card:hover .investment-amount::after{ left:120%; opacity:1; }
+
+  .progress-decor .progress-track { height:10px; background:rgba(12,20,30,0.06); border-radius:999px; overflow:hidden; }
+  .progress-decor .progress-fill { height:100%; width:40%; background:linear-gradient(90deg,#6C5CE7,#764ba2); box-shadow:0 6px 18px rgba(102,126,234,0.16); transition:width 900ms cubic-bezier(.2,.9,.2,1); }
+
+  .btn-outline-light.outline-btn { border-color: rgba(12,20,30,0.08); color: #081226; background: transparent; }
+  .btn-outline-light.outline-btn:hover { background: rgba(12,20,30,0.04); }
+
+  /* small avatar pulse */
+  .logo-wrap { position:relative; z-index:3; }
+  .company-logo, .company-initials { will-change: transform; }
+
+  /* Responsive tweaks */
+  @media (max-width: 576px) {
+    .company-logo, .company-initials { width:56px; height:56px; }
+    .allocation-count { display:block; }
+  }
+</style>

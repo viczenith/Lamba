@@ -294,6 +294,16 @@
     transition: var(--transition);
   }
 
+  /* Profile image styling (used when user uploaded a profile_image) */
+  .avatar-img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-block;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
   .data-table tbody tr:hover .avatar {
     transform: scale(1.1) rotate(5deg);
     box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
@@ -952,9 +962,14 @@
                     <td><strong>{{ forloop.counter }}</strong></td>
                     <td>
                       <div class="d-flex align-items-center">
-                        <div class="avatar {% if marketer.is_deleted %}deleted-avatar{% endif %}">
-                          {{ marketer.full_name|first|upper }}
-                        </div>
+                        {# Show profile image when available, otherwise initials fallback #}
+                        {% if marketer.profile_image %}
+                          <img src="{{ marketer.profile_image.url }}" alt="{{ marketer.full_name }}" class="avatar-img {% if marketer.is_deleted %}deleted-avatar{% endif %}">
+                        {% else %}
+                          <div class="avatar {% if marketer.is_deleted %}deleted-avatar{% endif %}">
+                            {{ marketer.full_name|first|upper }}
+                          </div>
+                        {% endif %}
                         <div class="marketer-info ms-3">
                           <h6 class="mb-0">
                             {{ marketer.full_name }}

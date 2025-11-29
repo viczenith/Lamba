@@ -294,6 +294,16 @@
     transition: var(--transition);
   }
 
+  /* Profile image styling (used when user uploaded a profile_image) */
+  .avatar-img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-block;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
   .data-table tbody tr:hover .avatar {
     transform: scale(1.1) rotate(5deg);
     box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
@@ -917,9 +927,14 @@
                     <td><strong>{{ forloop.counter }}</strong></td>
                     <td>
                       <div class="d-flex align-items-center">
-                        <div class="avatar {% if client.is_deleted %}deleted-avatar{% endif %}">
-                          {{ client.full_name|first|upper }}
-                        </div>
+                        {# Show profile image when available, otherwise initials fallback #}
+                        {% if client.profile_image %}
+                          <img src="{{ client.profile_image.url }}" alt="{{ client.full_name }}" class="avatar-img {% if client.is_deleted %}deleted-avatar{% endif %}">
+                        {% else %}
+                          <div class="avatar {% if client.is_deleted %}deleted-avatar{% endif %}">
+                            {{ client.full_name|first|upper }}
+                          </div>
+                        {% endif %}
                         <div class="client-info ms-3">
                           <h6 class="mb-0">
                             {{ client.full_name }}
@@ -947,9 +962,13 @@
                     <td>
                       {% if client.assigned_marketer %}
                         <div class="d-flex align-items-center">
-                          <div class="avatar" style="width: 35px; height: 35px; font-size: 0.9rem;">
-                            {{ client.assigned_marketer.full_name|first|upper }}
-                          </div>
+                          {% if client.assigned_marketer and client.assigned_marketer.profile_image %}
+                            <img src="{{ client.assigned_marketer.profile_image.url }}" alt="{{ client.assigned_marketer.full_name }}" class="avatar-img" style="width:35px;height:35px;">
+                          {% else %}
+                            <div class="avatar" style="width: 35px; height: 35px; font-size: 0.9rem;">
+                              {{ client.assigned_marketer.full_name|first|upper }}
+                            </div>
+                          {% endif %}
                           <div class="ms-2">
                             <h6 class="mb-0" style="font-size: 0.9rem;">{{ client.assigned_marketer.full_name }}</h6>
                             <small class="text-muted" style="font-size: 0.75rem;">

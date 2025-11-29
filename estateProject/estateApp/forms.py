@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from .models import *
+from .models import Company
 
 
 class CustomAuthenticationForm(AuthenticationForm):
@@ -27,7 +28,31 @@ class CustomAuthenticationForm(AuthenticationForm):
         password = self.cleaned_data.get('password')
 
         if username and password:
-            self.user_cache = authenticate(username=username, password=password)
+            # Attempt to pass tenant/company context when available so the
+            # authentication backend can disambiguate users with the same email
+            # across companies. The Django AuthenticationForm sets `self.request`
+            # when instantiated by the view, so we can try to extract a
+            # `login_slug` from the resolver match kwargs.
+            company = None
+            try:
+                if hasattr(self, 'request') and self.request is not None:
+                    # Prefer explicit kwargs from URL resolver (e.g., tenant slug)
+                    resolver_match = getattr(self.request, 'resolver_match', None)
+                    if resolver_match and isinstance(resolver_match.kwargs, dict):
+                        login_slug = resolver_match.kwargs.get('login_slug')
+                        if login_slug:
+                            try:
+                                company = Company.objects.get(slug=login_slug)
+                            except Company.DoesNotExist:
+                                company = None
+            except Exception:
+                company = None
+
+            # Pass company to authenticate when available
+            if company:
+                self.user_cache = authenticate(username=username, password=password, company=company)
+            else:
+                self.user_cache = authenticate(username=username, password=password)
             logger.info(f"Form clean: authenticate returned {self.user_cache}, type: {type(self.user_cache)}")
             
             # If we have multiple users, don't validate as normal user

@@ -268,9 +268,10 @@ def add_plotnumber(request):
     # SECURITY: Annotate plot numbers with allocation data - ONLY for THIS company
     plot_numbers_data = []
     for plot_number in PlotNumber.objects.filter(company=company).order_by('number'):
-        # Get all allocations for this plot number
+        # Get all allocations for this plot number that belong to this company
         allocations = PlotAllocation.objects.filter(
-            plot_number=plot_number
+            plot_number=plot_number,
+            estate__company=company
         ).select_related('client', 'estate').distinct()
         
         allocation_count = allocations.count()
@@ -340,7 +341,7 @@ def delete_plotnumber(request, pk):
             number_name = plot_number.number
             
             # Check if plot number is allocated to any client/estate
-            allocation_count = PlotAllocation.objects.filter(plot_number=plot_number).count()
+            allocation_count = PlotAllocation.objects.filter(plot_number=plot_number, estate__company=company).count()
             
             if allocation_count > 0:
                 return JsonResponse({
@@ -406,7 +407,14 @@ def estate_allocation_data(request):
 
 
 def get_allocated_plots(request):
-    allocated_plots = PlotAllocation.objects.values('estate_id', 'plot_size_id', 'plot_number_id')
+    # SECURITY: return allocations only for the current user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse([], safe=False)
+
+    allocated_plots = PlotAllocation.objects.filter(estate__company=company).values(
+        'estate_id', 'plot_size_id', 'plot_number_id'
+    )
     return JsonResponse(list(allocated_plots), safe=False)
 
 
@@ -649,13 +657,23 @@ def add_estate(request):
 
 @login_required
 def plot_allocation(request):
+    # SECURITY: Get company context for data isolation
+    company = request.user.company_profile
+    
     if request.method == "POST":
         try:
             with transaction.atomic():
-                # Lock the PlotSizeUnits record for update
+                # SECURITY: Ensure plot_size_unit belongs to company
                 plot_size_unit = get_object_or_404(
-                    PlotSizeUnits.objects.select_for_update(),
+                    PlotSizeUnits.objects.select_for_update()
+                    .filter(estate_plot__estate__company=company),
                     id=request.POST.get('plotSize')
+                )
+                
+                # SECURITY: Ensure client belongs to company
+                client = get_object_or_404(
+                    ClientUser.objects.filter(company_profile=company),
+                    id=request.POST.get('clientName')
                 )
                 
                 # Calculate allocated + reserved units
@@ -666,8 +684,6 @@ def plot_allocation(request):
                     raise ValidationError(
                         f"{plot_size_unit.plot_size.size} sqm units are completely allocated"
                     )
-                
-                client = get_object_or_404(CustomUser, id=request.POST.get('clientName'))
 
                 # Create the allocation (note: each allocation is linked to an estate via the plot_size_unit)
                 allocation = PlotAllocation(
@@ -696,7 +712,6 @@ def plot_allocation(request):
     else:
         # GET request handling
         # SECURITY: Filter by company to prevent cross-tenant data exposure
-        company = request.user.company_profile
         clients = CustomUser.objects.filter(role='client', company_profile=company)
         estates = Estate.objects.filter(company=company)
         context = {
@@ -770,13 +785,23 @@ def check_availability(request, size_id):
 
 
 def available_plot_numbers(request, estate_id):
-    plot_numbers = PlotNumber.objects.filter(
-        estate_id=estate_id
-    ).exclude(
-        plotallocation__isnull=False  # Ensures the plot has not been allocated
-    ).values('id', 'number')  # Retrieve only the necessary fields
+    # SECURITY: ensure estate belongs to user's company and only return company-scoped plot numbers
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'error': 'Company context missing'}, status=403)
 
-    # Check if plot numbers exist
+    try:
+        estate = Estate.objects.get(id=estate_id, company=company)
+    except Estate.DoesNotExist:
+        return JsonResponse({'error': 'Estate not found'}, status=404)
+
+    plot_numbers = PlotNumber.objects.filter(
+        estates__estate=estate,
+        company=company
+    ).exclude(
+        plotallocation__isnull=False
+    ).values('id', 'number')
+
     if not plot_numbers:
         return JsonResponse({'error': 'No available plot numbers found.'}, status=404)
 
@@ -784,7 +809,9 @@ def available_plot_numbers(request, estate_id):
 
 
 def get_allocation(request, allocation_id):
-    allocation = get_object_or_404(PlotAllocation, id=allocation_id)
+    # SECURITY: ensure allocation belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    allocation = get_object_or_404(PlotAllocation, id=allocation_id, estate__company=company)
     return JsonResponse({
         'id': allocation.id,
         'client': allocation.client.full_name,
@@ -1305,7 +1332,9 @@ def add_estate_plot(request):
 
 
 def get_estate_details(request, estate_id):
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: ensure estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     try:
         estate_plot = EstatePlot.objects.get(estate=estate)
         plot_sizes_units = list(estate_plot.plotsizeunits.values(
@@ -1340,7 +1369,9 @@ def allocate_units(estate_plot_id, size_id, units_to_allocate):
         raise ValueError("Not enough units available for this plot size")
 
 def allocated_plot(request, estate_id):
-    estate = Estate.objects.get(id=estate_id)
+    # SECURITY: ensure estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     # Fetch all plot allocations for this estate
     plot_allocations = PlotAllocation.objects.filter(estate=estate)
 
@@ -1385,11 +1416,18 @@ def allocated_plot(request, estate_id):
 
 
 def fetch_plot_data(request):
+    # SECURITY: only return data scoped to the user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'allocated_plots': [], 'reserved_count': 0})
+
     # Allocated plots (with plot numbers assigned)
-    allocated_plots = PlotAllocation.objects.filter(is_allocated=True).values('plot_number', 'client_name')
-    
+    from django.db.models import F
+    allocated_plots = PlotAllocation.objects.filter(estate__company=company, is_allocated=True)
+    allocated_plots = allocated_plots.annotate(client_name=F('client__full_name')).values('plot_number', 'client_name')
+
     # Reserved or unallocated plots (clients without plot numbers)
-    reserved_plots_count = PlotAllocation.objects.filter(plot_number__isnull=True).count()
+    reserved_plots_count = PlotAllocation.objects.filter(estate__company=company, plot_number__isnull=True).count()
 
     data = {
         'allocated_plots': list(allocated_plots),
@@ -1531,16 +1569,27 @@ def add_prototypes(request):
 
 
 def get_plot_sizes_for_prototypes(request, estate_id):
+    # SECURITY: only return plot sizes that belong to the same company as the requesting user
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse([], safe=False)
+
     plot_sizes = PlotSize.objects.filter(
-        plotsizeunits__estate_plot__estate_id=estate_id
+        plotsizeunits__estate_plot__estate_id=estate_id,
+        company=company
     ).distinct().values('id', 'size')
-    
+
     return JsonResponse(list(plot_sizes), safe=False)
 
 # plot allocation
 def get_plot_sizes(request, estate_id):
+    # SECURITY: ensure estate belongs to user's company before returning plot sizes
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({"error": "Company context missing"}, status=403)
+
     try:
-        estate = Estate.objects.get(id=estate_id)
+        estate = Estate.objects.get(id=estate_id, company=company)
         plot_sizes = estate.plot_sizes.all()
         data = {
             "plot_sizes": [{"id": plot_size.id, "size": plot_size.size} for plot_size in plot_sizes]
@@ -1553,12 +1602,20 @@ def get_plot_sizes(request, estate_id):
 def deallocate_plot(request, allocation_id):
     try:
         with transaction.atomic():
-            allocation = PlotAllocation.objects.select_for_update().get(id=allocation_id)
+            company = getattr(request.user, 'company_profile', None)
+            if not company:
+                messages.error(request, "Company context missing")
+                return redirect('allocations-list')
+
+            allocation = PlotAllocation.objects.select_for_update().get(id=allocation_id, estate__company=company)
             unit = allocation.plot_size_unit
             allocation.delete()
-            unit.available_units += 1
-            unit.save()
+            if unit:
+                unit.available_units += 1
+                unit.save()
             messages.success(request, "Deallocation successful")
+    except PlotAllocation.DoesNotExist:
+        messages.error(request, "Allocation not found or does not belong to your company")
     except Exception as e:
         messages.error(request, str(e))
     return redirect('allocations-list')
@@ -3643,13 +3700,25 @@ def calculate_portfolio_metrics(transactions):
     highest_growth_property = ""
     
     for transaction in transactions:
+        # Fetch the latest PropertyPrice for this estate + plot size, preferring the company's price
         try:
-            property_price = PropertyPrice.objects.get(
+            property_price_qs = PropertyPrice.objects.filter(
                 estate=transaction.allocation.estate,
-                plot_unit__plot_size=transaction.allocation.plot_size
-            )
-            current_value = property_price.current
-        except PropertyPrice.DoesNotExist:
+                plot_unit__plot_size=transaction.allocation.plot_size,
+                company=transaction.company
+            ).order_by('-effective')
+
+            property_price = property_price_qs.first()
+            if property_price:
+                current_value = property_price.current
+            else:
+                # Fallback to any matching price regardless of company (defensive)
+                property_price_alt = PropertyPrice.objects.filter(
+                    estate=transaction.allocation.estate,
+                    plot_unit__plot_size=transaction.allocation.plot_size
+                ).order_by('-effective').first()
+                current_value = property_price_alt.current if property_price_alt else transaction.total_amount
+        except Exception:
             current_value = transaction.total_amount
         
         appreciation = current_value - transaction.total_amount
@@ -4378,7 +4447,7 @@ def chat_view(request):
         alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
         total_invested = (
             Transaction.objects.filter(client_id=client_id, company=comp)
-            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+            .aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
         )
         companies.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
 
@@ -4447,7 +4516,7 @@ def chat_view(request):
         alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
         total_invested = (
             Transaction.objects.filter(client_id=client_id, company=comp)
-            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+            .aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
         )
         companies.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
 
@@ -4551,9 +4620,18 @@ def my_companies(request):
         alloc_count = PlotAllocation.objects.filter(client_id=client_id, estate__company=comp).count()
         total_invested = (
             Transaction.objects.filter(client_id=client_id, company=comp)
-            .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+            .aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
         )
-        company_list.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
+        # Attach metrics directly onto the Company instance so templates can use company.id, company.slug, etc.
+        try:
+            setattr(comp, 'allocations', alloc_count)
+            setattr(comp, 'total_invested', total_invested)
+        except Exception:
+            # Fallback to dict structure if attribute assignment fails
+            company_list.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
+            continue
+
+        company_list.append(comp)
 
     return render(request, 'client_side/my_companies.html', {'companies': company_list})
 
@@ -4572,9 +4650,28 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
     else:
         company = get_object_or_404(Company, id=company_id)
 
+    # Annotate each allocation with the latest transaction id (if any) for robust client-side wiring
+    latest_tx_subq = (
+        Transaction.objects.filter(allocation=OuterRef('pk'))
+        .order_by('-transaction_date')
+        .values('id')[:1]
+    )
+
     allocations = (
         PlotAllocation.objects.filter(client_id=client_id, estate__company=company)
         .select_related('estate', 'plot_size', 'plot_number')
+        .annotate(
+            total_paid=Coalesce(Sum('transactions__total_amount'), Value(0, output_field=DecimalField())),
+            latest_tx_id=Subquery(latest_tx_subq),
+            # Get the latest known current price for this estate+plot_size via PropertyPrice
+            latest_price_current=Subquery(
+                PropertyPrice.objects.filter(
+                    estate=OuterRef('estate_id'),
+                    plot_unit__plot_size=OuterRef('plot_size_id')
+                ).order_by('-effective').values('current')[:1],
+                output_field=DecimalField()
+            )
+        )
         .order_by('-date_allocated')
     )
 
@@ -4584,13 +4681,51 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
         .order_by('-transaction_date')
     )
 
-    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
+
+    # Compute portfolio metrics (current_value, appreciation, growth rates) using existing helper
+    try:
+        metrics = calculate_portfolio_metrics(transactions)
+        # calculate_portfolio_metrics attaches `current_value`, `appreciation`, `growth_rate` attrs
+        transactions = metrics.get('transactions', transactions)
+        appreciation_total = metrics.get('appreciation_total', Decimal(0))
+        average_growth = metrics.get('average_growth', 0)
+        highest_growth_rate = metrics.get('highest_growth_rate', Decimal(0))
+        highest_growth_property = metrics.get('highest_growth_property', '')
+    except Exception:
+        # Fallbacks if any unexpected error occurs while computing metrics
+        appreciation_total = Decimal(0)
+        average_growth = 0
+        highest_growth_rate = Decimal(0)
+        highest_growth_property = ''
+    # Build a quick map of allocation_id -> latest transaction (transactions ordered by -transaction_date)
+    alloc_tx_map = {}
+    for tx in transactions:
+        alloc_id = getattr(tx.allocation, 'id', None)
+        if alloc_id and alloc_id not in alloc_tx_map:
+            alloc_tx_map[alloc_id] = tx
+
+    # Attach latest_transaction attribute to each allocation for template convenience
+    for alloc in allocations:
+        try:
+            setattr(alloc, 'latest_transaction', alloc_tx_map.get(alloc.id))
+        except Exception:
+            # If allocation is not a model instance or other error, skip
+            pass
+
+    # Number of estates in this company
+    estates_count = Estate.objects.filter(company=company).count()
 
     context = {
         'company': company,
         'allocations': allocations,
         'transactions': transactions,
         'total_invested': total_invested,
+        'estates_count': estates_count,
+        'appreciation_total': appreciation_total,
+        'average_growth': average_growth,
+        'highest_growth_rate': highest_growth_rate,
+        'highest_growth_property': highest_growth_property,
     }
     return render(request, 'client_side/my_company_portfolio.html', context)
 
@@ -4613,7 +4748,7 @@ def marketer_my_companies(request):
     company_list = []
     for comp in companies:
         txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
-        total_value = Transaction.objects.filter(marketer=user, company=comp).aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+        total_value = Transaction.objects.filter(marketer=user, company=comp).aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
         company_list.append({'company': comp, 'transactions': txn_count, 'total_value': total_value})
 
     return render(request, 'marketer_side/my_companies.html', {'companies': company_list})
@@ -4639,7 +4774,7 @@ def marketer_company_portfolio(request, company_id=None):
     client_ids = transactions.values_list('client_id', flat=True).distinct()
     clients = CustomUser.objects.filter(id__in=[c for c in client_ids if c is not None])
 
-    total_value = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+    total_value = transactions.aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
 
     context = {
         'company': company,
@@ -6280,7 +6415,7 @@ def ajax_companies_for_user(request):
             alloc_count = PlotAllocation.objects.filter(client_id=getattr(user, 'id', user), estate__company=comp).count() if getattr(user, 'role', None) == 'client' else Transaction.objects.filter(marketer=user, company=comp).count() if getattr(user, 'role', None) == 'marketer' else 0
             total_invested = (
                 Transaction.objects.filter(client_id=getattr(user, 'id', user), company=comp)
-                .aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+                .aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
                 if getattr(user, 'role', None) == 'client' else 0
             )
             companies.append({
@@ -6318,7 +6453,7 @@ def ajax_company_portfolio(request, company_id):
         .order_by('-transaction_date')
     )
 
-    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), 0))['total']
+    total_invested = transactions.aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
 
     html = render_to_string('client_side/_company_portfolio_panel.html', {
         'company': company,

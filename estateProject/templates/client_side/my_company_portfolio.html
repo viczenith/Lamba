@@ -1,4 +1,5 @@
 {% extends 'client_base.html' %}
+{% load humanize %}
 
 {% block title %}{{ company.company_name }} — My Portfolio{% endblock %}
 
@@ -16,36 +17,171 @@
   </div>
 
   <section class="section">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Properties purchased from {{ company.company_name }}</h5>
-            {% if allocations %}
-              <div class="table-responsive">
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>Plot</th>
-                      <th>Transaction Ref</th>
-                      <th>Amount</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for alloc in allocations %}
-                      <tr>
-                        <td>{{ alloc.plot.title }}</td>
-                        <td>{{ alloc.transaction.reference }}</td>
-                        <td>{{ alloc.transaction.amount|floatformat:2 }}</td>
-                        <td>{{ alloc.transaction.created_at }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+    <div class="container">
+      <!-- Company header -->
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="company-hero d-flex align-items-center justify-content-between p-3 rounded shadow-sm">
+            <div class="d-flex align-items-center">
+              <div class="me-3">
+                {% if company.logo %}
+                  <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="portfolio-logo">
+                {% else %}
+                  <div class="portfolio-initials">{{ company.company_name|default:"?"|slice:":1"|upper }}</div>
+                {% endif %}
               </div>
+              <div>
+                <h2 class="mb-0">{{ company.company_name }}</h2>
+                <div class="text-muted small">{{ company.office_address|default:company.location|default:'Address not available' }}</div>
+                <div class="text-muted small">Contact: {% if company.phone %}<a href="tel:{{ company.phone }}">{{ company.phone }}</a>{% else %}-{% endif %} • {% if company.email %}<a href="mailto:{{ company.email }}">{{ company.email }}</a>{% else %}-{% endif %}</div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 align-items-center">
+              <!-- Action buttons removed per UI request -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats & Charts -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-3">
+          <div class="stat-card p-3 rounded shadow-sm h-100">
+            <div class="small text-muted">Total Invested</div>
+            <div class="h4 fw-bold">₦{{ total_invested|default:0|intcomma }}</div>
+            <div class="small text-muted">Across all purchases</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="stat-card p-3 rounded shadow-sm h-100">
+            <div class="small text-muted">Properties</div>
+            <div class="h4 fw-bold">{{ allocations|length }}</div>
+            <div class="small text-muted">Total plots purchased</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="stat-card p-3 rounded shadow-sm h-100">
+            <div class="small text-muted">Transactions</div>
+            <div class="h4 fw-bold">{{ transactions|length }}</div>
+            <div class="small text-muted">Payments & receipts</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="stat-card p-3 rounded shadow-sm h-100">
+            <div class="small text-muted">Total Current Value</div>
+            <div class="h4 fw-bold">{{ current_value|default:0|intcomma }}</div>
+            <div class="small text-muted">Value increase of all properties purchased</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- Left column: allocations list -->
+        <div class="col-lg-8">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Your Properties</h5>
+              {% if allocations and allocations.count %}
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+                    <thead>
+                      <tr>
+                        <th>Estate</th>
+                        <th>Plotsize</th>
+                        <th>Plot Number</th>
+                        <th>Payment</th>
+                        <th>Amount Paid</th>
+                        <th>Current Value</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for alloc in allocations %}
+                        <tr>
+                          <td class="fw-semibold">{{ alloc.estate.name }}</td>
+                          <td>{{ alloc.plot_size.size }}</td>
+                          <td>{% if alloc.plot_number %}{{ alloc.plot_number.number }}{% else %}<span class="text-muted">Reserved</span>{% endif %}</td>
+                          <td>{{ alloc.get_payment_type_display }}</td>
+                          <td>₦{{ alloc.total_paid|default:0|intcomma }}</td>
+                          <td class="fw-bold">{% if alloc.current_value %}₦{{ alloc.current_value|floatformat:"2g" }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                          <td>{{ alloc.date_allocated|date:"d M Y" }}</td>
+                          <td class="text-end">
+                            <!-- View Receipts: will trigger transaction modal when allocation has a transaction id -->
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-success alloc-receipts-btn"
+                              data-bs-toggle="modal"
+                              data-bs-target="#transactionDetailsModal"
+                              {% if alloc.latest_tx_id %}data-id="{{ alloc.latest_tx_id }}"{% endif %}
+                              data-alloc-id="{{ alloc.id }}"
+                            >
+                              <i class="bi bi-receipt"></i> View Receipts
+                            </button>
+
+                            <!-- View Plot Details: reuse the same route used elsewhere -->
+                            {% if alloc.estate and alloc.plot_size %}
+                              <a href="{% url 'view-client-estate' alloc.estate.id alloc.plot_size.id %}" class="btn btn-sm btn-outline-primary ms-2">
+                                <i class="bi bi-book"></i> View Plot Details
+                              </a>
+                            {% else %}
+                              <span class="text-muted ms-2">N/A</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="text-muted">No allocations found for this company.</p>
+              {% endif %}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right column: company summary, contact, downloads -->
+        <div class="col-lg-4">
+          <div class="card mb-3 p-3 text-center">
+            <div class="company-side-stats">
+              <div class="small text-muted">Company Summary</div>
+              <div class="h5 fw-bold">{{ company.company_name }}</div>
+              <div class="small text-muted">Owned Estates: {{ estates_count }}</div>
+            </div>
+          </div>
+
+          <div class="card mb-3 p-3">
+            <h6 class="mb-2">Quick Facts</h6>
+            <ul class="list-unstyled small text-muted mb-0">
+              <li><strong>{{ allocations|length }}</strong> properties</li>
+              <li><strong>{{ transactions|length }}</strong> transactions</li>
+              <li>Last transaction: {% if transactions|length %}{{ transactions.0.transaction_date|date:"d M Y" }}{% else %}-{% endif %}</li>
+            </ul>
+          </div>
+
+          <div class="card p-3">
+            <h6 class="mb-2">Recent Transactions</h6>
+            {% if transactions and transactions.count %}
+              <ul class="list-group list-group-flush">
+                {% for tx in transactions|slice:":5" %}
+                  <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ tx.reference|default:tx.id }}</div>
+                      <div class="small text-muted">{{ tx.transaction_date|date:"d M Y" }}</div>
+                    </div>
+                    <div class="text-end">
+                      <div class="fw-bold">₦{{ tx.total_amount|intcomma }}</div>
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
             {% else %}
-              <p class="text-muted">No properties found for this company.</p>
+              <p class="small text-muted mb-0">No recent transactions.</p>
             {% endif %}
           </div>
         </div>
@@ -53,4 +189,264 @@
     </div>
   </section>
 </main>
+
+<!-- Transaction Details Modal (reused from client profile) -->
+<div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Transaction Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th>Estate</th><td id="td_estate"></td></tr>
+              <tr><th>Plot Size</th><td id="td_plot_size"></td></tr>
+              <tr><th>Date</th><td id="td_date"></td></tr>
+              <tr><th>Amount</th><td id="td_amount"></td></tr>
+              <tr><th>Type</th><td id="td_payment_type"></td></tr>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th>Status</th><td id="td_status"></td></tr>
+              <tr id="row_duration" style="display:none;"><th>Duration</th><td id="td_duration"></td></tr>
+              <tr id="row_plan" style="display:none;"><th>Plan</th><td id="td_plan"></td></tr>
+              <tr id="row_first" style="display:none;"><th>1st</th><td id="td_first"></td></tr>
+              <tr id="row_second" style="display:none;"><th>2nd</th><td id="td_second"></td></tr>
+              <tr id="row_third" style="display:none;"><th>3rd</th><td id="td_third"></td></tr>
+            </table>
+          </div>
+        </div>
+        <div id="td_payment_history" class="mt-3">
+          <h6>Payment Receipts</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Installment</th>
+                  <th>Reference</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody id="payment_history_body">
+                <!-- Payment records will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+  <!-- Chart.js (optional) and page scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    (function(){
+      // Build simple allocation trend from server-rendered data
+      var ctx = document.getElementById('allocTrendChart');
+      if (ctx) {
+        try{
+          // Dummy data: counts per allocation month
+          var labels = [];
+          var data = [];
+          {% comment %}Aggregate by month in template if needed; using JS placeholder for now{% endcomment %}
+          {% for alloc in allocations %}
+            labels.push('{{ alloc.date_allocated|date:"M Y" }}');
+            data.push(1);
+          {% endfor %}
+          // Collapse counts by label
+          var counts = {};
+          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + data[i]; }
+          var groupedLabels = Object.keys(counts);
+          var groupedData = groupedLabels.map(function(k){ return counts[k]; });
+
+          new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: groupedLabels,
+              datasets: [{ label: 'Allocations', data: groupedData, backgroundColor: 'rgba(108,92,231,0.9)' }]
+            },
+            options: { responsive:true, maintainAspectRatio:true, scales:{ y:{ beginAtZero:true } } }
+          });
+        }catch(e){ console.error(e); }
+      }
+
+      // Export CSV removed — feature intentionally disabled in UI
+
+      // Contact button fallback behaviour: if contact-marketer is mailto, nothing extra needed.
+      
+      // Allocation Details button (fetch JSON and show simple modal)
+      document.addEventListener('click', function(evt){
+        var btn = evt.target.closest && evt.target.closest('.alloc-details-btn');
+        if(!btn) return;
+        evt.preventDefault();
+        var url = btn.dataset.url;
+        if(!url) return alert('Details URL not available');
+        fetch(url, { credentials: 'same-origin' })
+          .then(function(res){ if(!res.ok) throw new Error('Failed to fetch'); return res.json(); })
+          .then(function(data){
+            var parts = [];
+            parts.push('Client: ' + (data.client || 'N/A'));
+            parts.push('Payment type: ' + (data.payment_type || 'N/A'));
+            parts.push('Plot number id: ' + (data.plot_number || 'N/A'));
+            parts.push('Allocation id: ' + (data.id || 'N/A'));
+            alert(parts.join('\n'));
+          }).catch(function(err){
+            console.error(err);
+            alert('Unable to load allocation details.');
+          });
+      });
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script>
+    $(document).ready(function(){
+      function formatCurrency(v) {
+        return '₦' + parseFloat(v || 0).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
+
+      // Build a client-side map from allocation id -> transaction id using server-rendered `transactions`
+      var allocationTransactionMap = {};
+      {% for tx in transactions %}
+        {% if tx.allocation %}
+          allocationTransactionMap['{{ tx.allocation.id }}'] = '{{ tx.id }}';
+        {% endif %}
+      {% endfor %}
+
+      // When a receipts button is clicked, stash the resolved tx id on the modal
+      $(document).on('click', '.alloc-receipts-btn', function(e){
+        var $btn = $(this);
+        var txFromAttr = $btn.attr('data-id') || $btn.data('id');
+        var allocId = $btn.attr('data-alloc-id') || $btn.data('allocId');
+        var resolved = txFromAttr || (allocId ? allocationTransactionMap[allocId] : null) || null;
+        $('#transactionDetailsModal').data('tx-id', resolved);
+      });
+
+      $('#transactionDetailsModal').on('show.bs.modal', function(e) {
+        var related = e.relatedTarget; // native element
+        var $trigger = related ? $(related) : $();
+
+        // Safely read data attributes (use attr if data() normalization may vary)
+        var txId = $trigger.attr('data-transaction-id') || $trigger.data('transactionId') || null;
+        var allocId = $trigger.attr('data-alloc-id') || $trigger.data('allocId') || null;
+
+        // If transaction id is missing but allocation id is available, lookup mapping
+        if(!txId && allocId && allocationTransactionMap[allocId]) {
+          txId = allocationTransactionMap[allocId];
+        }
+
+        // Also check if a click handler previously stored the tx id on the modal
+        var stored = $('#transactionDetailsModal').data('tx-id');
+        if(!txId && stored) txId = stored;
+
+        // Clear previous data
+        $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
+        $('#payment_history_body').empty();
+        $('[id^="row_"]').hide();
+
+        console.log('Modal show: txId(from-attr/data)=%o allocId=%o stored=%o', txId, allocId, $('#transactionDetailsModal').data('tx-id'));
+
+        if(txId) {
+          // Fetch transaction details
+          $.get(`/transaction/${txId}/details/`)
+            .done(function(d){
+              console.log('ajax_transaction_details response', d);
+              try{
+                $('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : (d.estate || 'N/A'));
+                $('#td_plot_size').text(d.allocation && d.allocation.plot_size ? d.allocation.plot_size : (d.plot_size || 'N/A'));
+                $('#td_date').text(d.transaction_date || 'N/A');
+                $('#td_amount').text(formatCurrency(d.total_amount || d.amount || 0));
+
+                const pt = d.allocation && d.allocation.payment_type ? d.allocation.payment_type : d.payment_type;
+                const ptHtml = pt === 'part'
+                  ? '<span class="badge bg-info text-dark">Part Payment</span>'
+                  : '<span class="badge bg-primary">Full Payment</span>';
+                $('#td_payment_type').html(ptHtml);
+
+                var status = d.status || d.payment_status || 'Unknown';
+                var statusHtml = '<span class="badge bg-secondary">' + status + '</span>';
+                if(status === 'Paid Complete' || status === 'Fully Paid') statusHtml = '<span class="badge bg-success">' + status + '</span>';
+                if(status === 'Part Payment') statusHtml = '<span class="badge bg-warning text-dark">' + status + '</span>';
+                if(status === 'Overdue') statusHtml = '<span class="badge bg-danger">' + status + '</span>';
+                $('#td_status').html(statusHtml);
+
+                // Part payment fields
+                if(pt === 'part'){
+                  var durText = '';
+                  if(d.payment_duration) durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
+                  else if(d.custom_duration) durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
+                  if(durText){ $('#td_duration').text(durText); $('#row_duration').show(); }
+
+                  var planText = '';
+                  if(d.installment_plan === 'custom') planText = `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`;
+                  else if(d.installment_plan) planText = d.installment_plan.split('-').join('%, ') + '%';
+                  if(planText){ $('#td_plan').text(planText); $('#row_plan').show(); }
+
+                  if(d.first_installment) { $('#td_first').text(formatCurrency(d.first_installment)); $('#row_first').show(); }
+                  if(d.second_installment) { $('#td_second').text(formatCurrency(d.second_installment)); $('#row_second').show(); }
+                  if(d.third_installment) { $('#td_third').text(formatCurrency(d.third_installment)); $('#row_third').show(); }
+                }
+              }catch(err){ console.error('Error rendering transaction details', err); }
+            })
+            .fail(function(){ alert('Error loading transaction details'); });
+
+          // Fetch payment history
+          $.get("{% url 'ajax_payment_history' %}", { transaction_id: txId })
+            .done(function(d){
+              console.log('ajax_payment_history response', d);
+              var html = '';
+              if(d && d.payments && d.payments.length){
+                d.payments.forEach(function(p){
+                  html += `<tr>
+                    <td>${p.date}</td>
+                    <td>${formatCurrency(p.amount)}</td>
+                    <td>${p.method}</td>
+                    <td>${p.installment}</td>
+                    <td>${p.reference || ''}</td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-success view-receipt-btn receipt-btn" data-reference="${p.reference}">
+                        <i class="bi bi-download"></i> Download
+                      </button>
+                    </td>
+                  </tr>`;
+                });
+              } else {
+                html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
+              }
+              $('#payment_history_body').html(html);
+            })
+            .fail(function(xhr, status, err){
+              console.error('ajax_payment_history error', status, err, xhr.responseText);
+              $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
+            });
+
+        } else {
+          // No transaction id available
+          $('#payment_history_body').html('<tr><td colspan="6" class="text-center">No payment history available for this allocation</td></tr>');
+        }
+      });
+
+      // Handle receipt download
+      $(document).on('click', '.view-receipt-btn', function() {
+        const reference = $(this).attr('data-reference') || $(this).data('reference');
+        if(reference) window.open(`/payment/receipt/${reference}/`, '_blank');
+      });
+    });
+  </script>
 {% endblock %}
