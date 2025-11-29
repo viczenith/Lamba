@@ -55,26 +55,18 @@
         </div>
 
         <div class="col-md-3">
-          <div class="stat-card p-3 rounded shadow-sm h-100">
-            <div class="small text-muted">Properties</div>
-            <div class="h4 fw-bold">{{ allocations|length }}</div>
-            <div class="small text-muted">Total plots purchased</div>
-          </div>
-        </div>
-
-        <div class="col-md-3">
-          <div class="stat-card p-3 rounded shadow-sm h-100">
-            <div class="small text-muted">Transactions</div>
-            <div class="h4 fw-bold">{{ transactions|length }}</div>
-            <div class="small text-muted">Payments & receipts</div>
+          <div class="stat-card p-3 rounded shadow-sm h-100 bg-light-success">
+            <div class="small text-muted">Total Value Increase</div>
+            <div class="h4 fw-bold text-success">₦{{ total_value_increased|default:0|intcomma }}</div>
+            <div class="small text-muted">Total Current Value minus Total Invested</div>
           </div>
         </div>
 
         <div class="col-md-3">
           <div class="stat-card p-3 rounded shadow-sm h-100">
             <div class="small text-muted">Total Current Value</div>
-            <div class="h4 fw-bold">{{ current_value|default:0|intcomma }}</div>
-            <div class="small text-muted">Value increase of all properties purchased</div>
+            <div class="h4 fw-bold">₦{{ total_current_value|default:0|intcomma }}</div>
+            <div class="small text-muted">Current market value of all properties</div>
           </div>
         </div>
       </div>
@@ -108,20 +100,35 @@
                           <td>{% if alloc.plot_number %}{{ alloc.plot_number.number }}{% else %}<span class="text-muted">Reserved</span>{% endif %}</td>
                           <td>{{ alloc.get_payment_type_display }}</td>
                           <td>₦{{ alloc.total_paid|default:0|intcomma }}</td>
-                          <td class="fw-bold">{% if alloc.current_value %}₦{{ alloc.current_value|floatformat:"2g" }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                          <td class="fw-bold">
+                            {% if alloc.latest_price_current %}
+                              ₦{{ alloc.latest_price_current|floatformat:"2g" }}
+                            {% elif alloc.latest_transaction and alloc.latest_transaction.current_value %}
+                              ₦{{ alloc.latest_transaction.current_value|floatformat:"2g" }}
+                            {% else %}
+                              <span class="text-muted">-</span>
+                            {% endif %}
+                          </td>
                           <td>{{ alloc.date_allocated|date:"d M Y" }}</td>
                           <td class="text-end">
                             <!-- View Receipts: will trigger transaction modal when allocation has a transaction id -->
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-success alloc-receipts-btn"
-                              data-bs-toggle="modal"
-                              data-bs-target="#transactionDetailsModal"
-                              {% if alloc.latest_tx_id %}data-id="{{ alloc.latest_tx_id }}"{% endif %}
-                              data-alloc-id="{{ alloc.id }}"
-                            >
-                              <i class="bi bi-receipt"></i> View Receipts
-                            </button>
+
+                            {% if alloc.latest_tx_id %}
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-success alloc-receipts-btn"
+                                data-bs-toggle="modal"
+                                data-bs-target="#transactionDetailsModal"
+                                data-id="{{ alloc.latest_tx_id }}"
+                                data-alloc-id="{{ alloc.id }}"
+                              >
+                                <i class="bi bi-receipt"></i> View Receipts
+                              </button>
+                            {% else %}
+                              <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="No transaction available">
+                                <i class="bi bi-receipt"></i> View Receipts
+                              </button>
+                            {% endif %}
 
                             <!-- View Plot Details: reuse the same route used elsewhere -->
                             {% if alloc.estate and alloc.plot_size %}
@@ -171,7 +178,7 @@
                 {% for tx in transactions|slice:":5" %}
                   <li class="list-group-item d-flex justify-content-between align-items-start">
                     <div>
-                      <div class="fw-semibold">{{ tx.reference|default:tx.id }}</div>
+                      <div class="fw-semibold">{{ tx.reference_code }}</div>
                       <div class="small text-muted">{{ tx.transaction_date|date:"d M Y" }}</div>
                     </div>
                     <div class="text-end">
@@ -199,6 +206,13 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <div id="txn-modal-loading" class="text-center my-4" style="display:none;">
+          <div class="spinner-border text-success" role="status"><span class="visually-hidden">Loading...</span></div>
+          <div>Loading transaction details...</div>
+        </div>
+        <div id="txn-modal-error" class="alert alert-danger d-none" role="alert">
+          Error loading transaction details. Please try again.
+        </div>
         <div class="row">
           <div class="col-md-6">
             <table class="table table-sm">
@@ -254,25 +268,18 @@
   <!-- Chart.js (optional) and page scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    (function(){
-      // Build simple allocation trend from server-rendered data
+    // Build simple allocation trend from server-rendered data
+    document.addEventListener('DOMContentLoaded', function() {
       var ctx = document.getElementById('allocTrendChart');
       if (ctx) {
-        try{
-          // Dummy data: counts per allocation month
-          var labels = [];
-          var data = [];
-          {% comment %}Aggregate by month in template if needed; using JS placeholder for now{% endcomment %}
-          {% for alloc in allocations %}
-            labels.push('{{ alloc.date_allocated|date:"M Y" }}');
-            data.push(1);
-          {% endfor %}
+        try {
+          var labels = JSON.parse('{{ allocations|json_script:"allocLabels" }}');
+          var data = JSON.parse('{{ allocations|length|json_script:"allocData" }}');
           // Collapse counts by label
           var counts = {};
-          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + data[i]; }
+          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + 1; }
           var groupedLabels = Object.keys(counts);
           var groupedData = groupedLabels.map(function(k){ return counts[k]; });
-
           new Chart(ctx, {
             type: 'bar',
             data: {
@@ -281,13 +288,8 @@
             },
             options: { responsive:true, maintainAspectRatio:true, scales:{ y:{ beginAtZero:true } } }
           });
-        }catch(e){ console.error(e); }
+        } catch(e) { console.error(e); }
       }
-
-      // Export CSV removed — feature intentionally disabled in UI
-
-      // Contact button fallback behaviour: if contact-marketer is mailto, nothing extra needed.
-      
       // Allocation Details button (fetch JSON and show simple modal)
       document.addEventListener('click', function(evt){
         var btn = evt.target.closest && evt.target.closest('.alloc-details-btn');
@@ -309,7 +311,7 @@
             alert('Unable to load allocation details.');
           });
       });
-    })();
+    });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script>
@@ -321,24 +323,33 @@
         });
       }
 
-      // Build a client-side map from allocation id -> transaction id using server-rendered `transactions`
+
+      // Build a client-side map from allocation id -> transaction id using server-rendered `transactions` (via JSON)
       var allocationTransactionMap = {};
-      {% for tx in transactions %}
-        {% if tx.allocation %}
-          allocationTransactionMap['{{ tx.allocation.id }}'] = '{{ tx.id }}';
-        {% endif %}
-      {% endfor %}
+      var allocTxMapJson = document.getElementById('alloc-tx-map-json');
+      if (allocTxMapJson) {
+        try {
+          allocationTransactionMap = JSON.parse(allocTxMapJson.textContent);
+        } catch (e) { console.error('Failed to parse allocationTransactionMap JSON', e); }
+      }
+
+  <!-- JSON map for allocation id -> transaction id (for modal logic) -->
+  {{ allocation_tx_map|json_script:"alloc-tx-map-json" }}
 
       // When a receipts button is clicked, stash the resolved tx id on the modal
+
       $(document).on('click', '.alloc-receipts-btn', function(e){
         var $btn = $(this);
         var txFromAttr = $btn.attr('data-id') || $btn.data('id');
         var allocId = $btn.attr('data-alloc-id') || $btn.data('allocId');
         var resolved = txFromAttr || (allocId ? allocationTransactionMap[allocId] : null) || null;
+        console.log('[Modal Trigger] Transaction ID:', resolved, 'Allocation ID:', allocId);
         $('#transactionDetailsModal').data('tx-id', resolved);
       });
 
+
       $('#transactionDetailsModal').on('show.bs.modal', function(e) {
+        var $modal = $(this);
         var related = e.relatedTarget; // native element
         var $trigger = related ? $(related) : $();
 
@@ -352,64 +363,69 @@
         }
 
         // Also check if a click handler previously stored the tx id on the modal
-        var stored = $('#transactionDetailsModal').data('tx-id');
+        var stored = $modal.data('tx-id');
         if(!txId && stored) txId = stored;
 
+        // Show loading spinner, hide error and content
+        $modal.find('#txn-modal-loading').show();
+        $modal.find('#txn-modal-error').addClass('d-none');
+        $modal.find('.modal-body .row, #td_payment_history').hide();
         // Clear previous data
-        $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
-        $('#payment_history_body').empty();
-        $('[id^="row_"]').hide();
-
-        console.log('Modal show: txId(from-attr/data)=%o allocId=%o stored=%o', txId, allocId, $('#transactionDetailsModal').data('tx-id'));
+        $modal.find('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
+        $modal.find('#payment_history_body').empty();
+        $modal.find('[id^="row_"]').hide();
 
         if(txId) {
           // Fetch transaction details
           $.get(`/transaction/${txId}/details/`)
             .done(function(d){
-              console.log('ajax_transaction_details response', d);
+              $modal.find('#txn-modal-loading').hide();
+              $modal.find('.modal-body .row, #td_payment_history').show();
               try{
-                $('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : (d.estate || 'N/A'));
-                $('#td_plot_size').text(d.allocation && d.allocation.plot_size ? d.allocation.plot_size : (d.plot_size || 'N/A'));
-                $('#td_date').text(d.transaction_date || 'N/A');
-                $('#td_amount').text(formatCurrency(d.total_amount || d.amount || 0));
+                $modal.find('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : (d.estate || 'N/A'));
+                $modal.find('#td_plot_size').text(d.allocation && d.allocation.plot_size ? d.allocation.plot_size : (d.plot_size || 'N/A'));
+                $modal.find('#td_date').text(d.transaction_date || 'N/A');
+                $modal.find('#td_amount').text(formatCurrency(d.total_amount || d.amount || 0));
 
                 const pt = d.allocation && d.allocation.payment_type ? d.allocation.payment_type : d.payment_type;
                 const ptHtml = pt === 'part'
                   ? '<span class="badge bg-info text-dark">Part Payment</span>'
                   : '<span class="badge bg-primary">Full Payment</span>';
-                $('#td_payment_type').html(ptHtml);
+                $modal.find('#td_payment_type').html(ptHtml);
 
                 var status = d.status || d.payment_status || 'Unknown';
                 var statusHtml = '<span class="badge bg-secondary">' + status + '</span>';
                 if(status === 'Paid Complete' || status === 'Fully Paid') statusHtml = '<span class="badge bg-success">' + status + '</span>';
                 if(status === 'Part Payment') statusHtml = '<span class="badge bg-warning text-dark">' + status + '</span>';
                 if(status === 'Overdue') statusHtml = '<span class="badge bg-danger">' + status + '</span>';
-                $('#td_status').html(statusHtml);
+                $modal.find('#td_status').html(statusHtml);
 
                 // Part payment fields
                 if(pt === 'part'){
                   var durText = '';
                   if(d.payment_duration) durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
                   else if(d.custom_duration) durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
-                  if(durText){ $('#td_duration').text(durText); $('#row_duration').show(); }
+                  if(durText){ $modal.find('#td_duration').text(durText); $modal.find('#row_duration').show(); }
 
                   var planText = '';
                   if(d.installment_plan === 'custom') planText = `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`;
                   else if(d.installment_plan) planText = d.installment_plan.split('-').join('%, ') + '%';
-                  if(planText){ $('#td_plan').text(planText); $('#row_plan').show(); }
+                  if(planText){ $modal.find('#td_plan').text(planText); $modal.find('#row_plan').show(); }
 
-                  if(d.first_installment) { $('#td_first').text(formatCurrency(d.first_installment)); $('#row_first').show(); }
-                  if(d.second_installment) { $('#td_second').text(formatCurrency(d.second_installment)); $('#row_second').show(); }
-                  if(d.third_installment) { $('#td_third').text(formatCurrency(d.third_installment)); $('#row_third').show(); }
+                  if(d.first_installment) { $modal.find('#td_first').text(formatCurrency(d.first_installment)); $modal.find('#row_first').show(); }
+                  if(d.second_installment) { $modal.find('#td_second').text(formatCurrency(d.second_installment)); $modal.find('#row_second').show(); }
+                  if(d.third_installment) { $modal.find('#td_third').text(formatCurrency(d.third_installment)); $modal.find('#row_third').show(); }
                 }
               }catch(err){ console.error('Error rendering transaction details', err); }
             })
-            .fail(function(){ alert('Error loading transaction details'); });
+            .fail(function(){
+              $modal.find('#txn-modal-loading').hide();
+              $modal.find('#txn-modal-error').removeClass('d-none');
+            });
 
           // Fetch payment history
           $.get("{% url 'ajax_payment_history' %}", { transaction_id: txId })
             .done(function(d){
-              console.log('ajax_payment_history response', d);
               var html = '';
               if(d && d.payments && d.payments.length){
                 d.payments.forEach(function(p){
@@ -429,16 +445,17 @@
               } else {
                 html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
               }
-              $('#payment_history_body').html(html);
+              $modal.find('#payment_history_body').html(html);
             })
-            .fail(function(xhr, status, err){
-              console.error('ajax_payment_history error', status, err, xhr.responseText);
-              $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
+            .fail(function(){
+              $modal.find('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
             });
 
         } else {
           // No transaction id available
-          $('#payment_history_body').html('<tr><td colspan="6" class="text-center">No payment history available for this allocation</td></tr>');
+          $modal.find('#txn-modal-loading').hide();
+          $modal.find('.modal-body .row, #td_payment_history').show();
+          $modal.find('#payment_history_body').html('<tr><td colspan="6" class="text-center">No payment history available for this allocation</td></tr>');
         }
       });
 

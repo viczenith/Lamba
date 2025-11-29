@@ -145,7 +145,7 @@ class CompanyForm(forms.ModelForm):
         model = Company
         fields = [
             'company_name', 'registration_number', 'registration_date', 'location',
-            'ceo_name', 'ceo_dob', 'email', 'phone', 'logo', 'is_active'
+            'ceo_name', 'ceo_dob', 'email', 'phone', 'logo', 'office_address', 'cashier_name', 'cashier_signature', 'is_active'
         ]
         widgets = {
             'registration_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),

@@ -4667,7 +4667,8 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
             latest_price_current=Subquery(
                 PropertyPrice.objects.filter(
                     estate=OuterRef('estate_id'),
-                    plot_unit__plot_size=OuterRef('plot_size_id')
+                    plot_unit__plot_size=OuterRef('plot_size_id'),
+                    company=company
                 ).order_by('-effective').values('current')[:1],
                 output_field=DecimalField()
             )
@@ -4716,11 +4717,24 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
     # Number of estates in this company
     estates_count = Estate.objects.filter(company=company).count()
 
+
+    # Calculate total current value (sum of latest_price_current for all allocations, fallback to latest_transaction.current_value)
+    total_current_value = 0
+    for alloc in allocations:
+        if getattr(alloc, 'latest_price_current', None):
+            total_current_value += alloc.latest_price_current or 0
+        elif getattr(alloc, 'latest_transaction', None) and getattr(alloc.latest_transaction, 'current_value', None):
+            total_current_value += alloc.latest_transaction.current_value or 0
+
+    total_value_increased = total_current_value - (total_invested or 0)
+
     context = {
         'company': company,
         'allocations': allocations,
         'transactions': transactions,
         'total_invested': total_invested,
+        'total_current_value': total_current_value,
+        'total_value_increased': total_value_increased,
         'estates_count': estates_count,
         'appreciation_total': appreciation_total,
         'average_growth': average_growth,
@@ -6661,51 +6675,197 @@ def payment_receipt(request, reference_code):
         payment = payments.first()
         payments_total = sum(p.amount_paid for p in payments)
     
-    # Generate receipt number if needed
-    if payment and not payment.receipt_number:
-        payment.generate_receipt_number()
-        payment.receipt_generated = True
-        payment.receipt_date = timezone.now()
-        payment.save()
-    
+    # Resolve company from transaction allocation (tenant-aware)
+    company_obj = None
+    try:
+        company_obj = txn.allocation.estate.company
+    except Exception:
+        company_obj = None
+
+    # Generate a company-scoped sequential receipt number when missing.
+    receipt_number = None
+    if company_obj:
+        from .models import CompanySequence
+
+        if payment:
+            if not payment.receipt_number:
+                seq = CompanySequence.get_next(company_obj, 'receipt')
+                receipt_number = f"{company_obj._company_prefix()}-RC-{seq:06d}"
+                payment.receipt_number = receipt_number
+                payment.receipt_generated = True
+                payment.receipt_date = timezone.now()
+                payment.save()
+            else:
+                receipt_number = payment.receipt_number
+        else:
+            # Full payment (no PaymentRecord): generate a non-persistent receipt number for display
+            seq = CompanySequence.get_next(company_obj, 'receipt')
+            receipt_number = f"{company_obj._company_prefix()}-RC-{seq:06d}"
+
+    # Build company dict for template (use company fields when available)
+    company_context = {
+        'name': (company_obj.company_name if (company_obj and getattr(company_obj, 'company_name', None)) else '-'),
+        'office_address': (company_obj.office_address if (company_obj and getattr(company_obj, 'office_address', None)) else '-'),
+        'address': (company_obj.location if (company_obj and getattr(company_obj, 'location', None)) else '-'),
+        'phone': (company_obj.phone if (company_obj and getattr(company_obj, 'phone', None)) else '-'),
+        'email': (company_obj.email if (company_obj and getattr(company_obj, 'email', None)) else '-'),
+        'website': (company_obj.custom_domain if (company_obj and getattr(company_obj, 'custom_domain', None)) else '-'),
+        'logo_url': (company_obj.logo.url if (company_obj and getattr(company_obj, 'logo', None)) else None),
+        'cashier_name': (company_obj.cashier_name if (company_obj and getattr(company_obj, 'cashier_name', None)) else '-'),
+        'cashier_signature_url': (company_obj.cashier_signature.url if (company_obj and getattr(company_obj, 'cashier_signature', None)) else None),
+    }
+
+    # Ensure numeric totals are Decimal and compute formatted displays
+    try:
+        payments_total_dec = Decimal(payments_total) if payments_total is not None else Decimal('0.00')
+    except Exception:
+        payments_total_dec = Decimal('0.00')
+
+    try:
+        total_amount_dec = Decimal(txn.total_amount) if txn and getattr(txn, 'total_amount', None) is not None else Decimal('0.00')
+    except Exception:
+        total_amount_dec = Decimal('0.00')
+
+    # Outstanding balance: never negative for display
+    outstanding_dec = total_amount_dec - payments_total_dec
+    if outstanding_dec < Decimal('0'):
+        outstanding_dec = Decimal('0.00')
+
+    # Format money with thousand separators and 2 decimals
+    def money_fmt(d: Decimal) -> str:
+        try:
+            return f"₦ {d:,.2f}"
+        except Exception:
+            return f"₦ {Decimal(d):,.2f}"
+
+    # Convert amount to words (supports integers and two-decimal kobo)
+    def _num_to_words(n: int) -> str:
+        units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+        tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+        if n < 20:
+            return units[n]
+        if n < 100:
+            return tens[n // 10] + ('' if n % 10 == 0 else ' ' + units[n % 10])
+        if n < 1000:
+            return units[n // 100] + ' Hundred' + ('' if n % 100 == 0 else ' and ' + _num_to_words(n % 100))
+
+        for idx, word in enumerate(['Thousand', 'Million', 'Billion', 'Trillion'], 1):
+            unit = 1000 ** idx
+            if n < unit * 1000:
+                major = n // unit
+                rem = n % unit
+                return _num_to_words(major) + ' ' + word + ('' if rem == 0 else ' ' + _num_to_words(rem))
+
+    def amount_in_words(amount: Decimal) -> str:
+        amt = amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        naira = int(amt // 1)
+        kobo = int((amt - Decimal(naira)) * 100)
+        if naira == 0 and kobo == 0:
+            return 'Zero Naira'
+        parts = []
+        if naira > 0:
+            parts.append((_num_to_words(naira) + ' Naira'))
+        if kobo > 0:
+            parts.append((_num_to_words(kobo) + ' Kobo'))
+        return ' and '.join(parts)
+
+    amount_words = amount_in_words(payments_total_dec)
+
     context = {
         'transaction': txn,
         'payment': payment,
         'payments': payments,
-        'payments_total': payments_total,
+        'payments_total': payments_total_dec,
+        'payments_total_display': money_fmt(payments_total_dec),
+        'total_amount_display': money_fmt(total_amount_dec),
+        'balance_display': money_fmt(outstanding_dec),
+        'subtotal_display': money_fmt(total_amount_dec),
+        'paid_display': money_fmt(payments_total_dec),
+        'outstanding_display': money_fmt(outstanding_dec),
+        'amount_in_words': amount_words,
         'today': timezone.now().date(),
-        'company': {
-            'name': "NeuraLens Properties",
-            'address': "123 NeuraLens, Wuse Zone 4, Abuja",
-            'phone': "+234 812 345 6789",
-            'email': "info@neuralensproperties.com",
-            'website': "www.neuralensproperties.com"
-        }
+        'company': company_context,
+        'receipt_number': receipt_number,
     }
     
-    # Render HTML
+    # Prepare payments for display (add display_amount) and render HTML
+    payments_list = []
+    if payments is not None:
+        try:
+            for p in payments:
+                # attach a display value for each payment
+                try:
+                    p.display_amount = money_fmt(Decimal(p.amount_paid))
+                except Exception:
+                    p.display_amount = money_fmt(Decimal('0.00'))
+                payments_list.append(p)
+        except Exception:
+            payments_list = list(payments) if hasattr(payments, '__iter__') else []
+
+    context['payments'] = payments_list
     template = 'admin_side/management_page_sections/absolute_payment_reciept.html'
     html_string = render_to_string(template, context)
-    
-    # Add CSS styling directly to the HTML
-    html_with_css = f"""
-    <html>
-    <head>
-        <style>
-            @page {{ size: A4; margin: 20mm; }}
-            html, body {{ font-family: 'Poppins', sans-serif !important; font-size: 12px; margin: 0; padding: 0; }}
-        </style>
-    </head>
-    <body>
-        {html_string}
-    </body>
-    </html>
-    """
-    
-    # Create PDF using xhtml2pdf
+
+    # If the rendered template already contains a full HTML document (doctype/html tags),
+    # pass it directly to the PDF renderer to preserve the template's own CSS and structure.
+    rendered_lower = html_string.lower()
+    if '<html' in rendered_lower or '<!doctype' in rendered_lower:
+        html_to_render = html_string
+    else:
+        # Otherwise, wrap with a minimal HTML document and safe defaults.
+        html_to_render = f"""
+        <html>
+        <head>
+            <style>
+                @page {{ size: A4; margin: 20mm; }}
+                html, body {{ font-family: 'Poppins', sans-serif !important; font-size: 12px; margin: 0; padding: 0; }}
+            </style>
+        </head>
+        <body>
+            {html_string}
+        </body>
+        </html>
+        """
+
+    # Preprocess HTML to convert CSS units (px, mm) to points for reportlab compatibility
+    def _convert_units_to_pt(s: str) -> str:
+        # px -> pt (1px = 0.75pt), mm -> pt (1mm = 2.834645669pt)
+        def _px(m):
+            v = float(m.group(1))
+            pt = round(v * 0.75, 2)
+            if float(pt).is_integer():
+                pt = int(pt)
+            return f"{pt}pt"
+
+        def _mm(m):
+            v = float(m.group(1))
+            pt = round(v * 2.834645669, 2)
+            if float(pt).is_integer():
+                pt = int(pt)
+            return f"{pt}pt"
+
+        s = re.sub(r"(\d+(?:\.\d+)?)px", _px, s)
+        s = re.sub(r"(\d+(?:\.\d+)?)mm", _mm, s)
+        return s
+
+    html_processed = _convert_units_to_pt(html_to_render)
+
+    # Debug mode: return the processed HTML used to generate the PDF for inspection
+    if request.GET.get('debug') == 'html':
+        return HttpResponse(html_processed, content_type='text/html')
+
+    # Create PDF using xhtml2pdf with fallback and diagnostics
     result = BytesIO()
-    pdf = pisa.pisaDocument(BytesIO(html_with_css.encode("UTF-8")), result)
-    
+    try:
+        pdf = pisa.pisaDocument(BytesIO(html_processed.encode("UTF-8")), result)
+    except Exception as e:
+        logger.exception("PDF generation failed for receipt %s: %s", reference_code, str(e))
+        # Return the processed HTML and error for debugging when in debug mode
+        if settings.DEBUG:
+            return HttpResponse(f"<h3>PDF generation error:</h3><pre>{str(e)}</pre>\n\n" + html_processed, content_type='text/html')
+        return HttpResponse("Error generating PDF", status=500)
+
     if not pdf.err:
         # Create HTTP response
         response = HttpResponse(content_type='application/pdf')
@@ -6714,6 +6874,9 @@ def payment_receipt(request, reference_code):
         response.write(result.getvalue())
         return response
     else:
+        logger.error("xhtml2pdf reported errors while generating receipt %s", reference_code)
+        if settings.DEBUG:
+            return HttpResponse("Error generating PDF", status=500)
         return HttpResponse("Error generating PDF", status=500)
 
 @require_GET

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center py-5">
+    <i class="bi bi-emoji-frown display-1 text-warning"></i>
+    <h2 class="mt-4">429 - Too Many Requests</h2>
+    <p class="lead">You have made too many requests in a short period.<br>
+    Please wait a moment and try again.</p>
+    <a href="javascript:location.reload()" class="btn btn-primary mt-3">
+        <i class="bi bi-arrow-clockwise"></i> Retry
+    </a>
+</div>
+{% endblock %}

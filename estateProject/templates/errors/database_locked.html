@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center py-5">
+    <i class="bi bi-exclamation-diamond display-1 text-warning"></i>
+    <h2 class="mt-4">Database Busy</h2>
+    <p class="lead">Our database is currently busy or locked.<br>
+    Please wait a moment and try again. If this keeps happening, contact support.</p>
+    <a href="javascript:location.reload()" class="btn btn-primary mt-3">
+        <i class="bi bi-arrow-clockwise"></i> Retry
+    </a>
+</div>
+{% endblock %}

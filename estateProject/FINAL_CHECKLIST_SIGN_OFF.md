@@ -34,12 +34,12 @@
 #### Part 2: Fix UID Format
 - [x] Modified `MarketerUser.save()` in `models.py` line ~975
   - Added hyphen to format string
-  - Before: `f"{prefix}MKT{id:03d}"` → After: `f"{prefix}-MKT{id:03d}"`
+  - Before: `f"{prefix}MKT{id:03d}"` → After: `f"{prefix}MKT{id:03d}"`
   - Format now: `LPL-MKT001` ✓
 
 - [x] Modified `ClientUser.save()` in `models.py` line ~1030
   - Added hyphen to format string
-  - Before: `f"{prefix}CLT{id:03d}"` → After: `f"{prefix}-CLT{id:03d}"`
+  - Before: `f"{prefix}CLT{id:03d}"` → After: `f"{prefix}CLT{id:03d}"`
   - Format now: `LPL-CLT001` ✓
 
 #### Part 3: Implement Atomic Generation

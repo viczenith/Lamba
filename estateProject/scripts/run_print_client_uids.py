@@ -38,6 +38,6 @@ for comp in Company.objects.all():
             prefix = company._company_prefix()
         except Exception:
             prefix = (company.company_name or 'CMP')[:3].upper()
-        company_client_uid = getattr(c,'company_client_uid', None) or f"{prefix}-CLT{int(company_client_id):03d}"
+        company_client_uid = getattr(c,'company_client_uid', None) or f"{prefix}CLT{int(company_client_id):03d}"
         print(f' - {c.pk} {c.email} client_id= {company_client_id} uid= {company_client_uid}')
     print()

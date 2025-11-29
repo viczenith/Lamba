@@ -153,7 +153,7 @@ python scripts/run_print_uids.py     # Debug UID display
 2. System calls `MarketerUser.save()`
 3. `save()` calls `CompanySequence.get_next(company, 'marketer')`
 4. Database returns next available ID (with `select_for_update()` lock)
-5. `save()` formats UID as `{PREFIX}-MKT{ID:03d}` (e.g., `LPL-MKT003`)
+5. `save()` formats UID as `{PREFIX}MKT{ID:03d}` (e.g., `LPL-MKT003`)
 6. `save()` stores in `company_marketer_id` and `company_marketer_uid` fields
 7. New marketer gets unique ID automatically ✓
 
@@ -247,7 +247,7 @@ New Client:      company_client_uid = 'LPL-CLT006' ✓ (Unique, auto-generated)
 base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 
 # AFTER:
-base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
+base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 ```
 
 **Change 2: ClientUser.save() - Line ~1030**
@@ -256,7 +256,7 @@ base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
 base_uid = f"{prefix}CLT{company_client_id:03d}"
 
 # AFTER:
-base_uid = f"{prefix}-CLT{company_client_id:03d}"
+base_uid = f"{prefix}CLT{company_client_id:03d}"
 ```
 
 **Why:** Format strings must include hyphen for proper UID format (LPL-MKT001, not LPLMKT001)

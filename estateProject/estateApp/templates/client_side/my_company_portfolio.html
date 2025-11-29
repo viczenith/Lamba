@@ -199,15 +199,34 @@
     }
 
     $('#transactionDetailsModal').on('show.bs.modal', function(e) {
-      const id = $(e.relatedTarget).data('id');
+      let id = $(e.relatedTarget).data('id');
+      const allocIdFallback = $(e.relatedTarget).data('alloc-id') || $(e.relatedTarget).closest('tr').data('id');
+      if(!id && allocIdFallback) {
+        // Try to resolve a transaction id from the allocation if button only provided alloc-id
+        console.debug('Modal trigger had alloc-id, attempting to resolve tx id for alloc:', allocIdFallback);
+        // Look up a button in the page that references this allocation and carries a tx id
+        const btn = $(`[data-alloc-id="${allocIdFallback}"][data-id]`).first();
+        if(btn && btn.data('id')) {
+          id = btn.data('id');
+          console.debug('Resolved tx id from page element:', id);
+        }
+      }
+      console.debug('Opening transaction modal, resolved id:', id, 'allocFallback:', allocIdFallback);
       // Clear previous data
       $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
       $('#payment_history_body').empty();
       $('[id^="row_"]').hide();
 
       // Fetch transaction details
+      if(!id) {
+        console.error('No transaction id available to load details');
+        $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Transaction id missing</td></tr>');
+        return;
+      }
+
       $.get(`/transaction/${id}/details/`)
         .done(d => {
+          console.debug('ajax_transaction_details response:', d);
           $('#td_estate').text(d.allocation.estate.name);
           $('#td_plot_size').text(d.allocation.plot_size);
           $('#td_date').text(d.transaction_date);
@@ -261,11 +280,15 @@
             $('#row_third').show();
           }
         })
-        .fail(() => alert('Error loading transaction details'));
+        .fail((xhr, status, err) => {
+          console.error('Error loading transaction details', status, err, xhr.responseText);
+          alert('Error loading transaction details');
+        });
 
       // Fetch payment history
       $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
         .done(d => {
+          console.debug('ajax_payment_history response:', d);
           let html = '';
           if(d.payments?.length) {
             d.payments.forEach(p => {

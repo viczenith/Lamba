@@ -19,9 +19,9 @@ class Command(BaseCommand):
                 for c in clients:
                     try:
                         prefix = self._company_prefix(comp)
-                        base_uid = f"{prefix}-CLT{int(c.company_client_id):03d}"
+                        base_uid = f"{prefix}CLT{int(c.company_client_id):03d}"
                         if ClientUser.objects.filter(company_client_uid=base_uid).exclude(pk=c.pk).exists():
-                            base_uid = f"{prefix}{comp.id}-CLT{int(c.company_client_id):03d}"
+                            base_uid = f"{prefix}{comp.id}CLT{int(c.company_client_id):03d}"
                         c.company_client_uid = base_uid
                         c.save(update_fields=['company_client_uid'])
                         total_clients += 1
@@ -34,9 +34,9 @@ class Command(BaseCommand):
                 for m in marketers:
                     try:
                         prefix = self._company_prefix(comp)
-                        base_uid = f"{prefix}-MKT{int(m.company_marketer_id):03d}"
+                        base_uid = f"{prefix}MKT{int(m.company_marketer_id):03d}"
                         if MarketerUser.objects.filter(company_marketer_uid=base_uid).exclude(pk=m.pk).exists():
-                            base_uid = f"{prefix}{comp.id}-MKT{int(m.company_marketer_id):03d}"
+                            base_uid = f"{prefix}{comp.id}MKT{int(m.company_marketer_id):03d}"
                         m.company_marketer_uid = base_uid
                         m.save(update_fields=['company_marketer_uid'])
                         total_marketers += 1

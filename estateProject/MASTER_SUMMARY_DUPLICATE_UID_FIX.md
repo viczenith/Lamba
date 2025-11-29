@@ -214,7 +214,7 @@ Duplicate Check: ✓ No system-wide duplicates
 base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 
 # AFTER:
-base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
+base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 ```
 
 **Change 2 - Line ~1030 (ClientUser):**
@@ -223,7 +223,7 @@ base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
 base_uid = f"{prefix}CLT{company_client_id:03d}"
 
 # AFTER:
-base_uid = f"{prefix}-CLT{company_client_id:03d}"
+base_uid = f"{prefix}CLT{company_client_id:03d}"
 ```
 
 **Why:** Format strings must include hyphen for proper UID format (LPL-MKT001, not LPLMKT001)
@@ -239,7 +239,7 @@ base_uid = f"{prefix}-CLT{company_client_id:03d}"
 4. `save()` calls `CompanySequence.get_next(company, 'marketer')`
 5. **Database acquires exclusive lock on counter** ← atomic!
 6. Database increments counter and returns next ID
-7. `save()` formats as `{PREFIX}-MKT{ID:03d}`
+7. `save()` formats as `{PREFIX}MKT{ID:03d}`
 8. `save()` stores in `company_marketer_id` and `company_marketer_uid` fields
 9. **New marketer gets unique ID automatically** ✓
 

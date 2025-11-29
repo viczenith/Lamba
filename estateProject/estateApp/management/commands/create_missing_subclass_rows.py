@@ -52,9 +52,9 @@ class Command(BaseCommand):
                     cur = maxv.get('maxv') or 0
                     new_id = int(cur) + 1
                 prefix = comp._company_prefix()
-                base_uid = f"{prefix}-MKT{int(new_id):03d}"
+                base_uid = f"{prefix}MKT{int(new_id):03d}"
                 if MarketerUser.objects.filter(company_marketer_uid=base_uid).exists():
-                    base_uid = f"{prefix}{comp.id}-MKT{int(new_id):03d}"
+                    base_uid = f"{prefix}{comp.id}MKT{int(new_id):03d}"
                 MarketerUser.objects.create(
                     pk=u.pk,
                     customuser_ptr=u,
@@ -87,9 +87,9 @@ class Command(BaseCommand):
                     cur = maxv.get('maxv') or 0
                     new_id = int(cur) + 1
                 prefix = comp._company_prefix()
-                base_uid = f"{prefix}-CLT{int(new_id):03d}"
+                base_uid = f"{prefix}CLT{int(new_id):03d}"
                 if ClientUser.objects.filter(company_client_uid=base_uid).exists():
-                    base_uid = f"{prefix}{comp.id}-CLT{int(new_id):03d}"
+                    base_uid = f"{prefix}{comp.id}CLT{int(new_id):03d}"
                 ClientUser.objects.create(
                     pk=u.pk,
                     customuser_ptr=u,

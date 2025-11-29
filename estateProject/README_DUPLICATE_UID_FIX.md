@@ -214,7 +214,7 @@ python scripts/run_print_uids.py     # Debug UID display
 base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 
 # NEW:
-base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
+base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 ```
 
 **Line ~1030 (ClientUser.save()):**
@@ -223,7 +223,7 @@ base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
 base_uid = f"{prefix}CLT{company_client_id:03d}"
 
 # NEW:
-base_uid = f"{prefix}-CLT{company_client_id:03d}"
+base_uid = f"{prefix}CLT{company_client_id:03d}"
 ```
 
 ---

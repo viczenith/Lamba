@@ -100,13 +100,13 @@ python verify_all_uids.py
 **Line ~975 (MarketerUser):**
 ```python
 # BEFORE: base_uid = f"{prefix}MKT{id:03d}"
-# AFTER:  base_uid = f"{prefix}-MKT{id:03d}"
+# AFTER:  base_uid = f"{prefix}MKT{id:03d}"
 ```
 
 **Line ~1030 (ClientUser):**
 ```python
 # BEFORE: base_uid = f"{prefix}CLT{id:03d}"
-# AFTER:  base_uid = f"{prefix}-CLT{id:03d}"
+# AFTER:  base_uid = f"{prefix}CLT{id:03d}"
 ```
 
 **Why:** Format strings must include hyphen for proper UID format

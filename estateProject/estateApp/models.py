@@ -975,7 +975,7 @@ class MarketerUser(CustomUser):
                 base_uid = f"{prefix}MKT{int(self.company_marketer_id):03d}"
                 # Ensure uniqueness; if collision, include company id to disambiguate
                 if MarketerUser.objects.filter(company_marketer_uid=base_uid).exclude(pk=self.pk).exists():
-                    base_uid = f"{prefix}{self.company_profile.id}-MKT{int(self.company_marketer_id):03d}"
+                    base_uid = f"{prefix}{self.company_profile.id}MKT{int(self.company_marketer_id):03d}"
                 self.company_marketer_uid = base_uid
         except Exception:
             pass
@@ -994,7 +994,7 @@ class ClientUser(CustomUser):
     )
     # Per-company sequential identifier for clients (assigned on save if missing)
     company_client_id = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name="Company Client ID")
-    # Human-friendly unique UID including company prefix, e.g. LPL-CLT001
+    # Human-friendly unique UID including company prefix, e.g. LPLCLT001
     company_client_uid = models.CharField(max_length=64, null=True, blank=True, unique=True, db_index=True, verbose_name="Company Client UID")
     class Meta:
         verbose_name = "Client User"
@@ -1017,7 +1017,7 @@ class ClientUser(CustomUser):
         except Exception:
             # Non-fatal - continue without assignment
             pass
-        # Auto-generate a unique company-prefixed UID (e.g. LPL-CLT001)
+        # Auto-generate a unique company-prefixed UID (e.g. LPLCLT001)
         try:
             if self.company_profile and getattr(self, 'company_client_id', None) and not getattr(self, 'company_client_uid', None):
                 try:
@@ -1025,10 +1025,10 @@ class ClientUser(CustomUser):
                 except Exception:
                     prefix = (self.company_profile.company_name or 'CMP')[:3].upper()
 
-                # Format: PREFIX-ROLECODE###  e.g., LPL-CLT001
-                base_uid = f"{prefix}-CLT{int(self.company_client_id):03d}"
+                # Format: PREFIX-ROLECODE###  e.g., LPLCLT001
+                base_uid = f"{prefix}CLT{int(self.company_client_id):03d}"
                 if ClientUser.objects.filter(company_client_uid=base_uid).exclude(pk=self.pk).exists():
-                    base_uid = f"{prefix}{self.company_profile.id}-CLT{int(self.company_client_id):03d}"
+                    base_uid = f"{prefix}{self.company_profile.id}CLT{int(self.company_client_id):03d}"
                 self.company_client_uid = base_uid
         except Exception:
             pass

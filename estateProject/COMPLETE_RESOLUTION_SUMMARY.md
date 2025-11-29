@@ -34,8 +34,8 @@
 **Root Cause:** UID generation code in `models.py` had incorrect f-string format
 
 **Solution Implemented:**
-- ✅ Fixed `MarketerUser.save()` UID generation: `f"{prefix}-MKT{int(id):03d}"`
-- ✅ Fixed `ClientUser.save()` UID generation: `f"{prefix}-CLT{int(id):03d}"`
+- ✅ Fixed `MarketerUser.save()` UID generation: `f"{prefix}MKT{int(id):03d}"`
+- ✅ Fixed `ClientUser.save()` UID generation: `f"{prefix}CLT{int(id):03d}"`
 
 **Result:** New users now get properly formatted UIDs with hyphens
 
@@ -77,7 +77,7 @@ if self.company_profile and not self.company_marketer_uid:
     prefix = self.company_profile._company_prefix()  # e.g., "LPL"
     next_id = CompanySequence.get_next(self.company_profile, 'marketer')
     self.company_marketer_id = next_id
-    self.company_marketer_uid = f"{prefix}-MKT{next_id:03d}"  # e.g., LPL-MKT001
+    self.company_marketer_uid = f"{prefix}MKT{next_id:03d}"  # e.g., LPL-MKT001
 ```
 **Effect:** Unique UID combines company prefix + role + sequence number
 
@@ -190,7 +190,7 @@ When a new user is registered:
 
 3. Generate UID
    └─> prefix = company._company_prefix()
-   └─> uid = f"{prefix}-MKT{id:03d}"
+   └─> uid = f"{prefix}MKT{id:03d}"
    └─> Check for duplicates (should never occur)
    └─> Save UID to database
 

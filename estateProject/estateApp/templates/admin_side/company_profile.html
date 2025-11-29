@@ -208,6 +208,26 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <!-- Cashier / Receipts Section in Overview -->
+                                    <div class="row mb-2">
+                                        <div class="col-12">
+                                            <div class="text-muted small">Cashier / Receipts</div>
+                                            <div class="d-flex align-items-center gap-3 mt-2">
+                                                <div>
+                                                    <div class="fw-semibold">Name:</div>
+                                                    <div>{{ company.cashier_name|default:'—' }}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">Signature:</div>
+                                                    {% if company.cashier_signature %}
+                                                        <img src="{{ company.cashier_signature.url }}" alt="Cashier Signature" style="max-width: 120px; max-height: 60px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 3px;">
+                                                    {% else %}
+                                                        <span class="text-muted">—</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 {% else %}
                                     <div class="alert alert-info">No company linked yet. Use Edit to register details.</div>
                                 {% endif %}
@@ -1756,9 +1776,52 @@
                                 <label class="form-label">Phone</label>
                                 <input type="text" name="phone" class="form-control" value="{{ company.phone }}" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label">Logo</label>
-                                <input type="file" name="logo" class="form-control" accept="image/*">
+                                <div class="custom-file-upload mb-2" id="logoDropArea">
+                                    <input type="file" name="logo" accept="image/*" id="logoInput" class="custom-file-input" style="display:none;">
+                                    <div class="upload-box d-flex flex-column align-items-center justify-content-center p-3" id="logoUploadBox" style="cursor:pointer; border:2px dashed #a5b4fc; border-radius:12px; background:#f8fafc; min-height:110px; transition: border-color 0.2s;">
+                                        <i class="bi bi-image" style="font-size:2rem; color:#6366f1;"></i>
+                                        <span class="upload-text mt-2" style="color:#6366f1; font-weight:500;">Click or Drag & Drop Logo</span>
+                                        <span class="upload-hint text-muted" style="font-size:0.9em;">PNG, JPG, JPEG, max 2MB</span>
+                                    </div>
+                                    <div class="preview-box mt-2 text-center">
+                                        {% if company.logo %}
+                                            <img id="logoPreviewImg" src="{{ company.logo.url }}" alt="Company Logo" style="max-width: 120px; max-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 4px;">
+                                        {% else %}
+                                            <img id="logoPreviewImg" src="#" alt="Logo Preview" style="display:none; max-width: 120px; max-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 4px;">
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cashier / Receipts Section -->
+                            <div class="col-12 mt-4">
+                                <hr>
+                                <h6 class="mb-2">Cashier / Receipts</h6>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cashier Name</label>
+                                <input type="text" name="cashier_name" class="form-control" value="{{ company.cashier_name }}" placeholder="Enter cashier name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cashier Signature <span class="text-muted" style="font-size: 0.9em;">(Image upload)</span></label>
+                                <div class="custom-file-upload mb-2" id="signatureDropArea">
+                                    <input type="file" name="cashier_signature" accept="image/*" id="cashierSignatureInput" class="custom-file-input" style="display:none;">
+                                    <div class="upload-box d-flex flex-column align-items-center justify-content-center p-3" id="signatureUploadBox" style="cursor:pointer; border:2px dashed #a5b4fc; border-radius:12px; background:#f8fafc; min-height:110px; transition: border-color 0.2s;">
+                                        <i class="bi bi-pencil-square" style="font-size:2rem; color:#6366f1;"></i>
+                                        <span class="upload-text mt-2" style="color:#6366f1; font-weight:500;">Click or Drag & Drop Signature</span>
+                                        <span class="upload-hint text-muted" style="font-size:0.9em;">PNG, JPG, JPEG, max 2MB</span>
+                                    </div>
+                                    <div class="preview-box mt-2 text-center">
+                                        {% if company.cashier_signature %}
+                                            <img id="cashierSignaturePreviewImg" src="{{ company.cashier_signature.url }}" alt="Cashier Signature" style="max-width: 180px; max-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 4px;">
+                                        {% else %}
+                                            <img id="cashierSignaturePreviewImg" src="#" alt="Signature Preview" style="display:none; max-width: 180px; max-height: 80px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 4px;">
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
 
                         </div>
@@ -1802,7 +1865,115 @@
         </div>
     </div>
 
+    <style>
+        .custom-file-upload .upload-box {
+            border: 2px dashed #a5b4fc;
+            border-radius: 12px;
+            background: #f8fafc;
+            min-height: 110px;
+            transition: border-color 0.2s;
+        }
+        .custom-file-upload .upload-box.dragover {
+            border-color: #6366f1;
+            background: #eef2ff;
+        }
+        .custom-file-upload .upload-text {
+            color: #6366f1;
+            font-weight: 500;
+        }
+        .custom-file-upload .upload-hint {
+            font-size: 0.9em;
+        }
+        .custom-file-upload .preview-box img {
+            margin-top: 4px;
+        }
+    </style>
     <script>
+        // Modern file upload UI for logo and cashier signature
+        document.addEventListener('DOMContentLoaded', function() {
+            // Logo
+            const logoDropArea = document.getElementById('logoDropArea');
+            const logoInput = document.getElementById('logoInput');
+            const logoUploadBox = document.getElementById('logoUploadBox');
+            const logoPreviewImg = document.getElementById('logoPreviewImg');
+            if (logoDropArea && logoInput && logoUploadBox && logoPreviewImg) {
+                logoUploadBox.addEventListener('click', () => logoInput.click());
+                logoDropArea.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    logoUploadBox.classList.add('dragover');
+                });
+                logoDropArea.addEventListener('dragleave', e => {
+                    e.preventDefault();
+                    logoUploadBox.classList.remove('dragover');
+                });
+                logoDropArea.addEventListener('drop', e => {
+                    e.preventDefault();
+                    logoUploadBox.classList.remove('dragover');
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        logoInput.files = e.dataTransfer.files;
+                        const file = e.dataTransfer.files[0];
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            logoPreviewImg.src = ev.target.result;
+                            logoPreviewImg.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+                logoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            logoPreviewImg.src = ev.target.result;
+                            logoPreviewImg.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+            // Cashier Signature
+            const signatureDropArea = document.getElementById('signatureDropArea');
+            const cashierSignatureInput = document.getElementById('cashierSignatureInput');
+            const signatureUploadBox = document.getElementById('signatureUploadBox');
+            const cashierSignaturePreviewImg = document.getElementById('cashierSignaturePreviewImg');
+            if (signatureDropArea && cashierSignatureInput && signatureUploadBox && cashierSignaturePreviewImg) {
+                signatureUploadBox.addEventListener('click', () => cashierSignatureInput.click());
+                signatureDropArea.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    signatureUploadBox.classList.add('dragover');
+                });
+                signatureDropArea.addEventListener('dragleave', e => {
+                    e.preventDefault();
+                    signatureUploadBox.classList.remove('dragover');
+                });
+                signatureDropArea.addEventListener('drop', e => {
+                    e.preventDefault();
+                    signatureUploadBox.classList.remove('dragover');
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        cashierSignatureInput.files = e.dataTransfer.files;
+                        const file = e.dataTransfer.files[0];
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            cashierSignaturePreviewImg.src = ev.target.result;
+                            cashierSignaturePreviewImg.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+                cashierSignatureInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            cashierSignaturePreviewImg.src = ev.target.result;
+                            cashierSignaturePreviewImg.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
         // Initialize progress bar widths
         document.addEventListener('DOMContentLoaded', function() {
             const progressFills = document.querySelectorAll('.progress-fill');

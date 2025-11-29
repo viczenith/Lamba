@@ -99,7 +99,7 @@ class CompanyAdmin(admin.ModelAdmin):
             'fields': ('ceo_name', 'ceo_dob')
         }),
         ('Contact Information', {
-            'fields': ('email', 'phone', 'billing_email')
+            'fields': ('email', 'phone', 'billing_email', 'office_address')
         }),
         ('Subscription & Billing', {
             'fields': (
@@ -111,6 +111,10 @@ class CompanyAdmin(admin.ModelAdmin):
         }),
         ('Customization', {
             'fields': ('custom_domain', 'theme_color', 'api_key'),
+            'classes': ('wide',)
+        }),
+        ('Cashier / Receipts', {
+            'fields': ('cashier_name', 'cashier_signature', 'receipt_counter'),
             'classes': ('wide',)
         }),
         ('Status', {

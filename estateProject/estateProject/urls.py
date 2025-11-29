@@ -4,7 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
+
 from adminSupport import views as admin_support_views
+from . import error_handlers
 
 urlpatterns = [
     # Django Admin
@@ -39,4 +41,18 @@ urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG or settings.MEDIA_URL:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Custom error handlers
+handler400 = 'estateProject.error_handlers.custom_400'
+handler401 = 'estateProject.error_handlers.custom_401'
+handler403 = 'estateProject.error_handlers.custom_403'
+handler404 = 'estateProject.error_handlers.custom_404'
+handler405 = 'estateProject.error_handlers.custom_405'
+handler408 = 'estateProject.error_handlers.custom_408'
+handler410 = 'estateProject.error_handlers.custom_410'
+handler429 = 'estateProject.error_handlers.custom_429'
+handler451 = 'estateProject.error_handlers.custom_451'
+handler500 = 'estateProject.error_handlers.custom_500'
+handler502 = 'estateProject.error_handlers.custom_502'
+handler503 = 'estateProject.error_handlers.custom_503'
 

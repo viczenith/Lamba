@@ -405,6 +405,13 @@
                       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                      <div id="txn-modal-loading" class="text-center my-4" style="display:none;">
+                        <div class="spinner-border text-success" role="status"><span class="visually-hidden">Loading...</span></div>
+                        <div>Loading transaction details...</div>
+                      </div>
+                      <div id="txn-modal-error" class="alert alert-danger d-none" role="alert">
+                        Error loading transaction details. Please try again.
+                      </div>
                       <div class="row">
                         <div class="col-md-6">
                           <table class="table table-sm">
@@ -831,104 +838,113 @@
       });
     }
 
-    $('#transactionDetailsModal').on('show.bs.modal', function(e) {
-      const id = $(e.relatedTarget).data('id');
-      // Clear previous data
-      $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
-      $('#payment_history_body').empty();
-      $('[id^="row_"]').hide();
+      $('#transactionDetailsModal').on('show.bs.modal', function(e) {
+        const id = $(e.relatedTarget).data('id');
+        // Show loading spinner, hide error and content
+        $('#txn-modal-loading').show();
+        $('#txn-modal-error').addClass('d-none');
+        $('.modal-body .row, #td_payment_history').hide();
+        // Clear previous data
+        $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
+        $('#payment_history_body').empty();
+        $('[id^="row_"]').hide();
 
-      // Fetch transaction details
-      $.get(`/transaction/${id}/details/`)
-        .done(d => {
-          // Basic info
-          $('#td_estate').text(d.allocation.estate.name);
-          $('#td_plot_size').text(d.allocation.plot_size);
-          $('#td_date').text(d.transaction_date);
-          $('#td_amount').text(formatCurrency(d.total_amount));
+        // Fetch transaction details
+        $.get(`/transaction/${id}/details/`)
+          .done(d => {
+            $('#txn-modal-loading').hide();
+            $('.modal-body .row, #td_payment_history').show();
+            // Basic info
+            $('#td_estate').text(d.allocation.estate.name);
+            $('#td_plot_size').text(d.allocation.plot_size);
+            $('#td_date').text(d.transaction_date);
+            $('#td_amount').text(formatCurrency(d.total_amount));
 
-          // Payment Type badge
-          const ptHtml = d.allocation.payment_type === 'part'
-            ? '<span class="badge bg-info text-dark">Part Payment</span>'
-            : '<span class="badge bg-primary">Full Payment</span>';
-          $('#td_payment_type').html(ptHtml);
+            // Payment Type badge
+            const ptHtml = d.allocation.payment_type === 'part'
+              ? '<span class="badge bg-info text-dark">Part Payment</span>'
+              : '<span class="badge bg-primary">Full Payment</span>';
+            $('#td_payment_type').html(ptHtml);
 
-          // Status badge
-          let statusHtml = '';
-          switch(d.status) {
-            case 'Paid Complete':
-            case 'Fully Paid':
-              statusHtml = '<span class="badge bg-success">' + d.status + '</span>';
-              break;
-            case 'Part Payment':
-              statusHtml = '<span class="badge bg-warning text-dark">' + d.status + '</span>';
-              break;
-            case 'Overdue':
-              statusHtml = '<span class="badge bg-danger">' + d.status + '</span>';
-              break;
-            default:
-              statusHtml = '<span class="badge bg-secondary">' + d.status + '</span>';
-          }
-          $('#td_status').html(statusHtml);
-
-          // If part-payment, show duration & installments
-          if(d.allocation.payment_type === 'part') {
-            let durText = '';
-            if(d.payment_duration) {
-              durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
-            } else if(d.custom_duration) {
-              durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
+            // Status badge
+            let statusHtml = '';
+            switch(d.status) {
+              case 'Paid Complete':
+              case 'Fully Paid':
+                statusHtml = '<span class="badge bg-success">' + d.status + '</span>';
+                break;
+              case 'Part Payment':
+                statusHtml = '<span class="badge bg-warning text-dark">' + d.status + '</span>';
+                break;
+              case 'Overdue':
+                statusHtml = '<span class="badge bg-danger">' + d.status + '</span>';
+                break;
+              default:
+                statusHtml = '<span class="badge bg-secondary">' + d.status + '</span>';
             }
-            if(durText) {
-              $('#td_duration').text(durText);
-              $('#row_duration').show();
+            $('#td_status').html(statusHtml);
+
+            // If part-payment, show duration & installments
+            if(d.allocation.payment_type === 'part') {
+              let durText = '';
+              if(d.payment_duration) {
+                durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
+              } else if(d.custom_duration) {
+                durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
+              }
+              if(durText) {
+                $('#td_duration').text(durText);
+                $('#row_duration').show();
+              }
+
+              const planText = d.installment_plan === 'custom'
+                ? `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`
+                : d.installment_plan.split('-').join('%, ') + '%';
+              $('#td_plan').text(planText);
+              $('#row_plan').show();
+
+              $('#td_first').text(formatCurrency(d.first_installment));
+              $('#row_first').show();
+              $('#td_second').text(formatCurrency(d.second_installment));
+              $('#row_second').show();
+              $('#td_third').text(formatCurrency(d.third_installment));
+              $('#row_third').show();
             }
+          })
+          .fail(() => {
+            $('#txn-modal-loading').hide();
+            $('#txn-modal-error').removeClass('d-none');
+          });
 
-            const planText = d.installment_plan === 'custom'
-              ? `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`
-              : d.installment_plan.split('-').join('%, ') + '%';
-            $('#td_plan').text(planText);
-            $('#row_plan').show();
-
-            $('#td_first').text(formatCurrency(d.first_installment));
-            $('#row_first').show();
-            $('#td_second').text(formatCurrency(d.second_installment));
-            $('#row_second').show();
-            $('#td_third').text(formatCurrency(d.third_installment));
-            $('#row_third').show();
-          }
-        })
-        .fail(() => alert('Error loading transaction details'));
-
-      // Fetch payment history
-      $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
-        .done(d => {
-          let html = '';
-          if(d.payments?.length) {
-            d.payments.forEach(p => {
-              html += `<tr>
-                <td>${p.date}</td>
-                <td>${formatCurrency(p.amount)}</td>
-                <td>${p.method}</td>
-                <td>${p.installment}</td>
-                <td>${p.reference || ''}</td>
-                <td class="text-end">
-                  <button class="btn btn-sm btn-outline-success view-receipt-btn receipt-btn" 
-                          data-reference="${p.reference}">
-                    <i class="bi bi-download"></i> Download
-                  </button>
-                </td>
-              </tr>`;
-            });
-          } else {
-            html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
-          }
-          $('#payment_history_body').html(html);
-        })
-        .fail(() => {
-          $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
-        });
-    });
+        // Fetch payment history
+        $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
+          .done(d => {
+            let html = '';
+            if(d.payments?.length) {
+              d.payments.forEach(p => {
+                html += `<tr>
+                  <td>${p.date}</td>
+                  <td>${formatCurrency(p.amount)}</td>
+                  <td>${p.method}</td>
+                  <td>${p.installment}</td>
+                  <td>${p.reference || ''}</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-success view-receipt-btn receipt-btn" 
+                            data-reference="${p.reference}">
+                      <i class="bi bi-download"></i> Download
+                    </button>
+                  </td>
+                </tr>`;
+              });
+            } else {
+              html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
+            }
+            $('#payment_history_body').html(html);
+          })
+          .fail(() => {
+            $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
+          });
+      });
 
     // Handle receipt download
     $(document).on('click', '.view-receipt-btn', function() {

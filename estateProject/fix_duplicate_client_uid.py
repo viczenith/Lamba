@@ -49,9 +49,9 @@ def fix_client_duplicates(company_slug):
             
             # Build UID
             prefix = comp._company_prefix() if hasattr(comp, '_company_prefix') else (comp.company_name or 'CMP')[:3].upper()
-            base_uid = f"{prefix}-CLT{int(new_id):03d}"
+            base_uid = f"{prefix}CLT{int(new_id):03d}"
             if ClientUser.objects.filter(company_client_uid=base_uid).exists():
-                base_uid = f"{prefix}{comp.id}-CLT{int(new_id):03d}"
+                base_uid = f"{prefix}{comp.id}CLT{int(new_id):03d}"
             
             # Insert into DB
             try:

@@ -30,7 +30,7 @@
     ┌──────────────────────────────────────────┐
     │ Generate UID                             │
     │ - Get company prefix: "LPL"              │
-    │ - Format: "{prefix}-MKT{id:03d}"         │
+    │ - Format: "{prefix}MKT{id:03d}"         │
     │ - Result: "LPL-MKT003"                   │
     │ - Check for duplicates (never happens)   │
     └──────────────────────────────────────────┘

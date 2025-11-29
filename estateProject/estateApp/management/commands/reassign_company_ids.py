@@ -61,9 +61,9 @@ class Command(BaseCommand):
                 m.company_marketer_id = new_id
                 # build uid
                 prefix = comp._company_prefix() if hasattr(comp, '_company_prefix') else ''.join([w[0] for w in comp.company_name.upper().split()[:3]])
-                base_uid = f"{prefix}-MKT{int(new_id):03d}"
+                base_uid = f"{prefix}MKT{int(new_id):03d}"
                 if MarketerUser.objects.filter(company_marketer_uid=base_uid).exclude(pk=m.pk).exists():
-                    base_uid = f"{prefix}{comp.id}-MKT{int(new_id):03d}"
+                    base_uid = f"{prefix}{comp.id}MKT{int(new_id):03d}"
                 m.company_marketer_uid = base_uid
                 m.save(update_fields=['company_marketer_id', 'company_marketer_uid'])
                 total_marketers += 1
@@ -79,9 +79,9 @@ class Command(BaseCommand):
                     CompanySequence.objects.get_or_create(company=comp, key='client', defaults={'last_value': new_id})
                 c.company_client_id = new_id
                 prefix = comp._company_prefix() if hasattr(comp, '_company_prefix') else ''.join([w[0] for w in comp.company_name.upper().split()[:3]])
-                base_uid = f"{prefix}-CLT{int(new_id):03d}"
+                base_uid = f"{prefix}CLT{int(new_id):03d}"
                 if ClientUser.objects.filter(company_client_uid=base_uid).exclude(pk=c.pk).exists():
-                    base_uid = f"{prefix}{comp.id}-CLT{int(new_id):03d}"
+                    base_uid = f"{prefix}{comp.id}CLT{int(new_id):03d}"
                 c.company_client_uid = base_uid
                 c.save(update_fields=['company_client_id', 'company_client_uid'])
                 total_clients += 1

@@ -213,13 +213,13 @@ python scripts/run_print_client_uids.py
 **Change 1 (Line ~975 - MarketerUser):**
 ```python
 # OLD:  base_uid = f"{prefix}MKT{company_marketer_id:03d}"
-# NEW:  base_uid = f"{prefix}-MKT{company_marketer_id:03d}"
+# NEW:  base_uid = f"{prefix}MKT{company_marketer_id:03d}"
 ```
 
 **Change 2 (Line ~1030 - ClientUser):**
 ```python
 # OLD:  base_uid = f"{prefix}CLT{company_client_id:03d}"
-# NEW:  base_uid = f"{prefix}-CLT{company_client_id:03d}"
+# NEW:  base_uid = f"{prefix}CLT{company_client_id:03d}"
 ```
 
 **Why:** Format strings must include hyphen for proper UID format

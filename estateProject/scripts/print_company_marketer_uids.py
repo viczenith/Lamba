@@ -18,6 +18,6 @@ for comp in Company.objects.all():
             prefix = company._company_prefix()
         except Exception:
             prefix = (company.company_name or 'CMP')[:3].upper()
-        company_marketer_uid = getattr(m,'company_marketer_uid', None) or f"{prefix}-MKT{int(company_marketer_id):03d}"
+        company_marketer_uid = getattr(m,'company_marketer_uid', None) or f"{prefix}MKT{int(company_marketer_id):03d}"
         print(' -', m.pk, m.email, 'marketer_id=', company_marketer_id, 'uid=', company_marketer_uid)
     print()

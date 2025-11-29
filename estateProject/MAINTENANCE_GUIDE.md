@@ -20,7 +20,7 @@
 base_uid = f"{prefix}MKT{int(self.company_marketer_id):03d}"  # Missing hyphen
 
 # AFTER:
-base_uid = f"{prefix}-MKT{int(self.company_marketer_id):03d}"  # With hyphen
+base_uid = f"{prefix}MKT{int(self.company_marketer_id):03d}"  # With hyphen
 ```
 
 #### 2. Fixed UID Format in ClientUser.save()
@@ -30,7 +30,7 @@ base_uid = f"{prefix}-MKT{int(self.company_marketer_id):03d}"  # With hyphen
 base_uid = f"{prefix}CLT{int(self.company_client_id):03d}"  # Missing hyphen
 
 # AFTER:
-base_uid = f"{prefix}-CLT{int(self.company_client_id):03d}"  # With hyphen
+base_uid = f"{prefix}CLT{int(self.company_client_id):03d}"  # With hyphen
 ```
 
 #### 3. Database Inserts (One-time Migration)
