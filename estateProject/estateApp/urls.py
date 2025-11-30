@@ -9,6 +9,7 @@ from .tenant_views import (
     tenant_company_settings,
     redirect_admin_dashboard_to_tenant,
     redirect_management_to_tenant,
+    company_admin_register,
 )
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 
@@ -39,6 +40,7 @@ urlpatterns = [
     path('company-profile/admin/<int:user_id>/delete/', admin_delete_admin, name='admin-delete-admin'),
     path('company-profile/admin/<int:user_id>/edit/', edit_admin_user, name='edit-admin-user'),
     path('company-profile/support/<int:user_id>/edit/', edit_support_user, name='edit-support-user'),
+    path('company/<int:company_id>/admin-register/', company_admin_register, name='company-admin-register'),
 
 
     path('company-profile/verify-master-password/', verify_master_password, name='verify-master-password'),

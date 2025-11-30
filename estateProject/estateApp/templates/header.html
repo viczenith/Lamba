@@ -13,7 +13,7 @@
               <img src="{{ company.logo|versioned_file }}" alt="{{ company.company_name }} Logo">
             </a>
           {% else %}
-            <a href="{% url 'company-profile' %}" title="Upload your company logo">
+            <a href="{% url 'company-profile' %}?company={{ request.user.company_profile.slug }}" title="Upload your company logo">
               <img src="{{ 'assets/img/logo.png'|versioned_static }}" alt="Upload company logo" class="placeholder-logo">
             </a>
           {% endif %}
@@ -237,7 +237,7 @@
             {% if user.role == 'admin' %}
               {% url 'company-profile' as company_profile_url %}
               <li>
-                <a class="dropdown-item d-flex align-items-center" href="{{ company_profile_url|default:'/company-profile/' }}">
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'company-profile' %}?company={{ request.user.company_profile.slug }}">
                   <i class="bi bi-person"></i>
                   <span>Company Profile</span>
                 </a>

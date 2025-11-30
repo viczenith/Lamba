@@ -100,6 +100,38 @@ def get_tenant_dashboard_redirect(request):
         return redirect('login')
 
 
+def get_user_company_from_slug(request):
+    """
+    Helper function to get user's company from query parameter or default.
+    
+    Supports dynamic slug routing:
+    - Current: /company-profile/
+    - With query param: /company-profile/?company=lamba-real-homes
+    
+    Returns: Company object or None
+    Raises: HttpResponseForbidden if user tries to access different company
+    """
+    user = request.user
+    company = getattr(user, 'company_profile', None)
+    
+    # Check for ?company=slug parameter
+    company_slug = request.GET.get('company')
+    if company_slug:
+        try:
+            company_by_slug = Company.objects.get(slug=company_slug)
+            # SECURITY: Verify user has access to this company
+            if user.company_profile == company_by_slug:
+                company = company_by_slug
+            else:
+                # User trying to access different company - FORBIDDEN
+                raise HttpResponseForbidden("❌ Access Denied: You can only access your own company's profile")
+        except Company.DoesNotExist:
+            # Invalid slug - return None or could raise 404
+            return None
+    
+    return company
+
+
 def custom_csrf_failure_view(request, reason=""):
     return render(request, 'csrf_failure.html', {"reason": reason}, status=403)
 
@@ -3012,7 +3044,18 @@ def company_profile_view(request):
     if getattr(user, 'role', None) != 'admin':
         return redirect('home')
 
-    company = getattr(user, 'company_profile', None)
+    # Support both direct company_profile and query parameter (?company=slug)
+    # Similar to: http://127.0.0.1:8000/client?company=lamba-real-homes
+    try:
+        company = get_user_company_from_slug(request)
+    except HttpResponseForbidden as e:
+        return e
+    
+    if not company:
+        company = getattr(user, 'company_profile', None)
+    
+    if not company:
+        return redirect('home')
 
     # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
@@ -3147,7 +3190,15 @@ def company_profile_update(request):
     if getattr(user, 'role', None) != 'admin':
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
-    company = getattr(user, 'company_profile', None)
+    # Support dynamic slug parameter
+    try:
+        company = get_user_company_from_slug(request)
+    except HttpResponseForbidden:
+        return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+    
+    if not company:
+        company = getattr(user, 'company_profile', None)
+    
     if not company:
         return JsonResponse({'ok': False, 'error': 'No linked company'}, status=400)
 
@@ -3249,7 +3300,15 @@ def delete_company_ceo(request, ceo_id: int):
     if getattr(user, 'role', None) != 'admin':
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
-    company = getattr(user, 'company_profile', None)
+    # Support dynamic slug parameter
+    try:
+        company = get_user_company_from_slug(request)
+    except HttpResponseForbidden:
+        return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+    
+    if not company:
+        company = getattr(user, 'company_profile', None)
+    
     if not company:
         return JsonResponse({'ok': False, 'error': 'No linked company'}, status=400)
 
@@ -3281,7 +3340,15 @@ def admin_toggle_mute(request, user_id: int):
 
     try:
         # SECURITY: Verify user belongs to same company
-        company = request.user.company_profile
+        # Support dynamic slug parameter
+        try:
+            company = get_user_company_from_slug(request)
+        except HttpResponseForbidden:
+            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+        
+        if not company:
+            company = request.user.company_profile
+        
         try:
             target = AdminUser.objects.get(id=user_id, company_profile=company)
         except AdminUser.DoesNotExist:
@@ -3342,7 +3409,15 @@ def admin_delete_admin(request, user_id: int):
 
     try:
         # SECURITY: Verify user belongs to same company
-        company = request.user.company_profile
+        # Support dynamic slug parameter
+        try:
+            company = get_user_company_from_slug(request)
+        except HttpResponseForbidden:
+            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+        
+        if not company:
+            company = request.user.company_profile
+        
         try:
             target = AdminUser.objects.get(id=user_id, company_profile=company)
         except AdminUser.DoesNotExist:
@@ -9242,6 +9317,16 @@ def edit_admin_user(request, user_id):
 
         # Security checks
         current_user = request.user
+        
+        # Support dynamic slug parameter
+        try:
+            company = get_user_company_from_slug(request)
+        except HttpResponseForbidden:
+            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+        
+        if not company:
+            company = current_user.company_profile
+        
         if current_user.admin_level != 'system':
             return JsonResponse({'ok': False, 'error': 'Only master admin can edit users'}, status=403)
 
@@ -9328,6 +9413,16 @@ def edit_support_user(request, user_id):
 
         # Security checks
         current_user = request.user
+        
+        # Support dynamic slug parameter
+        try:
+            company = get_user_company_from_slug(request)
+        except HttpResponseForbidden:
+            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+        
+        if not company:
+            company = current_user.company_profile
+        
         if current_user.admin_level != 'system':
             return JsonResponse({'ok': False, 'error': 'Only master admin can edit users'}, status=403)
 

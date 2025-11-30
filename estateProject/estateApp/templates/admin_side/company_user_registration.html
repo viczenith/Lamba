@@ -656,34 +656,22 @@
           <div class="col-lg-12">
             <div class="registration-wrapper my-3">
               <div class="form-header">
-                <h2>Create New User Account</h2>
-                <p>Fill in the details below to register a new user in the system</p>
+                <h2>Create Company Admin Accounts</h2>
+                <p>The Admin oversees the company account, whereas the Admin Support handles the company’s customer relations account.</p>
               </div>
 
               <div class="form-container">
-                <form action="{% url 'user-registration' %}" method="POST" id="registrationForm">
+                <form id="registrationForm" method="POST">
                   {% csrf_token %}
                   <input type="hidden" name="source" value="company_profile">
+                  <input type="hidden" id="companyId" name="company_id" value="{{ company.id }}">
 
-                  <!-- AJAX Message Container - Isolated from Django messages -->
+                  <!-- AJAX Message Container - For form submission feedback -->
                   <div id="ajaxMessageContainer" class="alert-container d-none">
                     <div id="ajaxMessage" class="alert" role="alert">
                       <span id="ajaxMessageText"></span>
                     </div>
                   </div>
-
-                  <!-- Django Messages - Only show non-AJAX related messages -->
-                  {% if messages %}
-                  <div class="alert-container">
-                    {% for message in messages %}
-                    {% if 'ajax' not in message.tags %}
-                    <div class="alert alert-success" role="alert">
-                      {{ message | safe }}
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                  </div>
-                  {% endif %}
 
                   <div class="form-grid">
                     <div class="form-group">
@@ -786,6 +774,7 @@
                         <label for="role-admin" class="role-card-label">
                           <i class="fas fa-user-shield"></i>
                           <span>Admin</span>
+                          <small>Full access to all company features and settings</small>
                         </label>
                       </div>
                       <div>
@@ -793,6 +782,7 @@
                         <label for="role-support" class="role-card-label">
                           <i class="fas fa-headset"></i>
                           <span>Admin Support</span>
+                            <small>Manage customer relations and support tasks</small>
                         </label>
                       </div>
                       <!-- Client and Marketer roles removed as requested -->
@@ -1009,8 +999,12 @@
                 formData.delete('password');
             }
             
-            // Submit via AJAX
-            fetch(form.action, {
+            // Use company-scoped endpoint - STAYS ON THIS PAGE
+            const companyId = document.getElementById('companyId').value;
+            const endpoint = `/company/${companyId}/admin-register/`;
+            
+            // Submit via AJAX to company-scoped endpoint
+            fetch(endpoint, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -1033,12 +1027,9 @@
                     $('#country').val(null).trigger('change');
                     // Clear password field
                     document.getElementById('password').value = '';
-                    // Show success message in dedicated AJAX container
-                    showAjaxMessage('User registered successfully!', 'success');
-                    // Reload page to update tables
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
+                    // Show success message WITHOUT reloading page
+                    showAjaxMessage('✅ ' + (data.message || 'User registered successfully!'), 'success');
+                    // NO PAGE RELOAD - stays on company profile tab
                 } else {
                     // Show error message in dedicated AJAX container
                     showAjaxMessage(data.error || 'Registration failed. Please try again.', 'danger');

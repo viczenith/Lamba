@@ -16,7 +16,8 @@ EXAMPLES:
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, HttpResponseNotFound
+from django.http import HttpResponseForbidden, HttpResponseNotFound, JsonResponse
+from django.views.decorators.http import require_http_methods
 from django.db.models import Count, Q, Prefetch, OuterRef, Exists
 from estateApp.models import (
     Company, CustomUser, Estate, PlotAllocation, Message,
@@ -511,3 +512,130 @@ TENANT_AWARE_PATTERNS = [
 
 urlpatterns += TENANT_AWARE_PATTERNS
 """
+
+
+# ============================================================================
+# COMPANY-SCOPED ADMIN REGISTRATION
+# ============================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def company_admin_register(request, company_id):
+    """
+    Company-scoped admin/support user registration endpoint
+    
+    SECURITY FEATURES:
+    ✅ User must be authenticated and belong to the company
+    ✅ Only company admins can create other admins/support users  
+    ✅ Admin and support users are COMPANY-SCOPED ONLY (no sharing between companies)
+    ✅ Cannot be added to multiple companies via MarketerAffiliation/ClientMarketerAssignment
+    ✅ Returns JSON for AJAX submission (NO redirect - form stays on page)
+    ✅ Company isolation enforced
+    
+    Args:
+        company_id: ID of the company managing the registration
+        
+    Returns:
+        JSON response with success/error status
+    """
+    try:
+        from django.views.decorators.http import require_http_methods
+        import random
+        import string
+        from django.db import transaction
+        
+        # Get company
+        company = Company.objects.get(id=company_id)
+        
+        # SECURITY: Verify user belongs to this company
+        if request.user.company_profile != company:
+            return JsonResponse({
+                'success': False,
+                'error': '❌ Access denied. You can only manage your own company.'
+            }, status=403)
+        
+        # SECURITY: Verify user is admin
+        if request.user.role != 'admin':
+            return JsonResponse({
+                'success': False,
+                'error': '❌ Only admins can register new users.'
+            }, status=403)
+        
+        # Extract form data
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        date_of_birth = request.POST.get('date_of_birth', '').strip()
+        address = request.POST.get('address', '').strip()
+        country = request.POST.get('country', '').strip()
+        role = request.POST.get('role', '').strip()
+        password = request.POST.get('password', '').strip()
+        
+        # Validation
+        if not all([name, email, role]):
+            return JsonResponse({
+                'success': False,
+                'error': '❌ Name, email, and role are required.'
+            })
+        
+        # SECURITY: Only allow admin and support roles for company-scoped users
+        if role not in ['admin', 'support']:
+            return JsonResponse({
+                'success': False,
+                'error': '❌ Invalid role. Only "admin" and "support" are allowed for company users.'
+            })
+        
+        # Check if email already exists
+        if CustomUser.objects.filter(email=email).exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'❌ Email {email} is already registered.'
+            })
+        
+        # Generate password if not provided
+        if not password:
+            def generate_password(name):
+                nameParts = name.strip().split()
+                basePassword = '_'.join(nameParts).lower()
+                randomNum = random.randint(100, 999)
+                return f"{basePassword}{randomNum}"
+            password = generate_password(name)
+        
+        # Create user within transaction
+        with transaction.atomic():
+            user = CustomUser.objects.create_user(
+                email=email,
+                password=password,
+                full_name=name,
+                role=role,
+                phone=phone or None,
+                date_of_birth=date_of_birth or None,
+                address=address or None,
+                country=country or None,
+                company_profile=company,  # COMPANY-SCOPED - stored in this field
+                is_active=True
+            )
+            
+            # Verify user was created
+            if not user:
+                raise Exception("Failed to create user")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'✅ {role.capitalize()} "{name}" registered successfully in {company.company_name}!'
+        })
+    
+    except Company.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': '❌ Company not found.'
+        }, status=404)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': f'❌ Error: {str(e)}'
+        })
+

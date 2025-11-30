@@ -2088,7 +2088,7 @@
 
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const url = '{% url "company-profile-update" %}';
+                const url = '{% url "company-profile-update" %}?company={{ company.slug }}';
                 const feedback = document.getElementById('companyEditFeedback');
                 const saveBtn = document.getElementById('companySaveBtn');
                 const spinner = document.getElementById('companySaveSpinner');
@@ -2223,12 +2223,13 @@
                             let url = '';
                             const form = new FormData();
                             const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
+                            const companySlug = '{{ company.slug }}';
                             form.append('csrfmiddlewaretoken', csrfToken);
                             if (pending.type === 'mute') {
-                                url = `/company-profile/admin/${pending.userId}/toggle-mute/`;
+                                url = `/company-profile/admin/${pending.userId}/toggle-mute/?company=${companySlug}`;
                                 form.append('desired', pending.desired);
                             } else if (pending.type === 'delete') {
-                                url = `/company-profile/admin/${pending.userId}/delete/`;
+                                url = `/company-profile/admin/${pending.userId}/delete/?company=${companySlug}`;
                                 const reason = confirmModal.querySelector('#deleteReason')?.value || '';
                                 form.append('reason', reason);
                             }
@@ -2334,9 +2335,10 @@
                         }
 
                         try {
+                            const companySlug = '{{ company.slug }}';
                             const url = userType === 'admin' 
-                                ? `/company-profile/admin/${userId}/edit/` 
-                                : `/company-profile/support/${userId}/edit/`;
+                                ? `/company-profile/admin/${userId}/edit/?company=${companySlug}` 
+                                : `/company-profile/support/${userId}/edit/?company=${companySlug}`;
                             const response = await fetch(url, {
                                 method: 'POST',
                                 headers: {
