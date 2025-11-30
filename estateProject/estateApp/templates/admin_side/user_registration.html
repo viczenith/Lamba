@@ -1002,9 +1002,16 @@
                                 <select class="form-control" id="marketer" name="marketer">
                                     <option value="">Select a Marketer (Required)</option>
                                     {% for marketer in marketers %}
-                                        <option value="{{ marketer.id }}">{{ marketer.full_name }}</option>
+                                        <option 
+                                            value="{{ marketer.id }}"
+                                            data-email="{{ marketer.email }}"
+                                            data-client-count="{{ marketer.client_count }}"
+                                        >
+                                            {{ marketer.full_name }} • {{ marketer.email }} • {{ marketer.client_count }} client{{ marketer.client_count|pluralize }}
+                                        </option>
                                     {% endfor %}
                                 </select>
+
                             </div>
                             <small class="text-muted">
                                 <i class="fas fa-info-circle"></i> Every client must be assigned to a marketer
@@ -1715,6 +1722,121 @@
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Dynamic Marketer Client Count Updates -->
+        <script>
+        (function() {
+            // Configuration
+            const REFRESH_INTERVAL = 3000; // Refresh every 3 seconds
+            const API_URL = '{% url "api_marketer_client_counts" %}';
+            
+            // Store original option data
+            const marketerSelect = document.getElementById('marketer');
+            const originalOptions = {};
+            
+            // Initialize: store original data
+            function initializeMarketerData() {
+                Array.from(marketerSelect.options).forEach(option => {
+                    if (option.value) { // Skip the default option
+                        originalOptions[option.value] = {
+                            id: option.value,
+                            email: option.getAttribute('data-email'),
+                            clientCount: parseInt(option.getAttribute('data-client-count')) || 0,
+                            fullName: option.textContent.split(' •')[0].trim()
+                        };
+                    }
+                });
+            }
+            
+            // Format option text
+            function formatOptionText(marketerData) {
+                const plural = marketerData.client_count === 1 ? 'client' : 'clients';
+                return `${marketerData.full_name} • ${marketerData.email} • ${marketerData.client_count} ${plural}`;
+            }
+            
+            // Update dropdown with fresh data
+            function updateMarketerCounts() {
+                fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        console.warn('API error:', data.error);
+                        return;
+                    }
+                    
+                    // Create a map of marketer data by ID
+                    const marketerMap = {};
+                    data.marketers.forEach(m => {
+                        marketerMap[m.id] = m;
+                    });
+                    
+                    // Update each option
+                    Array.from(marketerSelect.options).forEach(option => {
+                        if (option.value && marketerMap[option.value]) {
+                            const newData = marketerMap[option.value];
+                            const oldData = originalOptions[option.value];
+                            
+                            // Update data attributes
+                            option.setAttribute('data-client-count', newData.client_count);
+                            
+                            // Update option text with new client count
+                            option.textContent = formatOptionText(newData);
+                            
+                            // Highlight if count changed (optional visual feedback)
+                            if (oldData && oldData.clientCount !== newData.client_count) {
+                                option.style.backgroundColor = '#e8f4f8';
+                                setTimeout(() => {
+                                    option.style.backgroundColor = '';
+                                }, 1000);
+                            }
+                            
+                            // Update original data
+                            originalOptions[option.value].clientCount = newData.client_count;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Failed to update marketer counts:', error);
+                    // Silently fail - don't disrupt user experience
+                });
+            }
+            
+            // Start auto-refresh when page loads
+            function startAutoRefresh() {
+                // Initial refresh
+                updateMarketerCounts();
+                
+                // Set interval for periodic updates
+                const intervalId = setInterval(updateMarketerCounts, REFRESH_INTERVAL);
+                
+                // Clean up interval if page is unloaded
+                window.addEventListener('beforeunload', () => {
+                    clearInterval(intervalId);
+                });
+            }
+            
+            // Initialize on DOM ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    initializeMarketerData();
+                    startAutoRefresh();
+                });
+            } else {
+                // DOM is already loaded
+                initializeMarketerData();
+                startAutoRefresh();
+            }
+        })();
+        </script>
 
   </main>
 

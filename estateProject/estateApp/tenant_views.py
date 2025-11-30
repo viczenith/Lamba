@@ -90,18 +90,33 @@ def tenant_admin_dashboard(request, company_slug):
     Shows admin dashboard for the specific company.
     SECURITY: User can ONLY see data from their own company.
     """
+    from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
+    
     company = request.company
     
-    # Get company-scoped data
-    total_clients = CustomUser.objects.filter(
+    # Get company-scoped clients (both via company_profile AND ClientMarketerAssignment)
+    primary_clients = set(CustomUser.objects.filter(
         role='client',
         company_profile=company
-    ).count()
+    ).values_list('id', flat=True))
     
-    total_marketers = CustomUser.objects.filter(
+    affiliation_clients = set(ClientMarketerAssignment.objects.filter(
+        company=company
+    ).values_list('client_id', flat=True))
+    
+    total_clients = len(primary_clients.union(affiliation_clients))
+    
+    # Get company-scoped marketers (both via company_profile AND MarketerAffiliation)
+    primary_marketers = set(CustomUser.objects.filter(
         role='marketer',
         company_profile=company
-    ).count()
+    ).values_list('id', flat=True))
+    
+    affiliation_marketers = set(MarketerAffiliation.objects.filter(
+        company=company
+    ).values_list('marketer_id', flat=True))
+    
+    total_marketers = len(primary_marketers.union(affiliation_marketers))
     
     # Estates scoped to this company to prevent cross-tenant leakage
     estates = Estate.objects.prefetch_related(
@@ -294,16 +309,34 @@ def tenant_management_dashboard(request, company_slug):
                             self.active_promo = active_promo
                     rows.append(DummyPrice(estate, unit, active))
 
-    # ✅ SECURITY: Filter clients and marketers by company
-    all_clients = CustomUser.objects.filter(
+    # ✅ SECURITY: Filter clients and marketers by company (including affiliations)
+    from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
+    
+    # Get clients from both company_profile and ClientMarketerAssignment
+    primary_client_ids = set(CustomUser.objects.filter(
         role='client',
         company_profile=company
-    )
+    ).values_list('id', flat=True))
     
-    all_marketers = CustomUser.objects.filter(
+    affiliation_client_ids = set(ClientMarketerAssignment.objects.filter(
+        company=company
+    ).values_list('client_id', flat=True))
+    
+    all_client_ids = primary_client_ids.union(affiliation_client_ids)
+    all_clients = CustomUser.objects.filter(id__in=all_client_ids) if all_client_ids else CustomUser.objects.none()
+    
+    # Get marketers from both company_profile and MarketerAffiliation
+    primary_marketer_ids = set(CustomUser.objects.filter(
         role='marketer',
         company_profile=company
-    )
+    ).values_list('id', flat=True))
+    
+    affiliation_marketer_ids = set(MarketerAffiliation.objects.filter(
+        company=company
+    ).values_list('marketer_id', flat=True))
+    
+    all_marketer_ids = primary_marketer_ids.union(affiliation_marketer_ids)
+    all_marketers = CustomUser.objects.filter(id__in=all_marketer_ids) if all_marketer_ids else CustomUser.objects.none()
 
     context = {
         'company': company,
@@ -335,8 +368,26 @@ def tenant_user_management(request, company_slug):
     """
     company = request.company
     
-    # Get ONLY this company's users
-    all_users = CustomUser.objects.filter(company_profile=company)
+    # Get ONLY this company's users (both primary and via affiliations)
+    from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
+    
+    # Direct company users
+    primary_user_ids = set(CustomUser.objects.filter(
+        company_profile=company
+    ).values_list('id', flat=True))
+    
+    # Users added via MarketerAffiliation
+    affiliation_marketer_ids = set(MarketerAffiliation.objects.filter(
+        company=company
+    ).values_list('marketer_id', flat=True))
+    
+    # Users added via ClientMarketerAssignment
+    affiliation_client_ids = set(ClientMarketerAssignment.objects.filter(
+        company=company
+    ).values_list('client_id', flat=True))
+    
+    all_user_ids = primary_user_ids.union(affiliation_marketer_ids).union(affiliation_client_ids)
+    all_users = CustomUser.objects.filter(id__in=all_user_ids) if all_user_ids else CustomUser.objects.none()
     
     admins = all_users.filter(role='admin')
     clients = all_users.filter(role='client')

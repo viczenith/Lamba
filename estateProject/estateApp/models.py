@@ -197,6 +197,76 @@ class Company(models.Model):
 
         super().save(*args, **kwargs)
 
+    def get_marketer_by_company_id(self, company_marketer_id: int):
+        """
+        Get a marketer for this company by their company-specific ID.
+        
+        Example:
+            marketer = company.get_marketer_by_company_id(1)  # Returns marketer with ID "LPLMKT001"
+        """
+        try:
+            profile = self.marketer_profiles.get(company_marketer_id=company_marketer_id)
+            return profile.marketer
+        except Exception:
+            return None
+
+    def get_marketer_by_company_uid(self, company_marketer_uid: str):
+        """
+        Get a marketer for this company by their company-specific UID.
+        
+        Example:
+            marketer = company.get_marketer_by_company_uid('LPLMKT001')
+        """
+        try:
+            profile = self.marketer_profiles.get(company_marketer_uid=company_marketer_uid)
+            return profile.marketer
+        except Exception:
+            return None
+
+    def get_client_by_company_id(self, company_client_id: int):
+        """
+        Get a client for this company by their company-specific ID.
+        
+        Example:
+            client = company.get_client_by_company_id(1)  # Returns client with ID "LPLCLT001"
+        """
+        try:
+            profile = self.client_profiles.get(company_client_id=company_client_id)
+            return profile.client
+        except Exception:
+            return None
+
+    def get_client_by_company_uid(self, company_client_uid: str):
+        """
+        Get a client for this company by their company-specific UID.
+        
+        Example:
+            client = company.get_client_by_company_uid('LPLCLT001')
+        """
+        try:
+            profile = self.client_profiles.get(company_client_uid=company_client_uid)
+            return profile.client
+        except Exception:
+            return None
+
+    def get_marketer_profile(self, marketer) -> 'CompanyMarketerProfile':
+        """
+        Get the CompanyMarketerProfile for a marketer in this company.
+        """
+        try:
+            return self.marketer_profiles.get(marketer=marketer)
+        except Exception:
+            return None
+
+    def get_client_profile(self, client) -> 'CompanyClientProfile':
+        """
+        Get the CompanyClientProfile for a client in this company.
+        """
+        try:
+            return self.client_profiles.get(client=client)
+        except Exception:
+            return None
+
     def _company_prefix(self) -> str:
         """Return a short prefix for the company name suitable for UIDs.
 
@@ -366,6 +436,88 @@ class SubscriptionPlan(models.Model):
     
     def __str__(self):
         return f"{self.name} - ₦{self.monthly_price}/month"
+
+
+class CompanyMarketerProfile(models.Model):
+    """
+    Stores company-specific ID and UID for each marketer in each company.
+    This allows marketers to have unique sequential IDs per company.
+    """
+    marketer = models.ForeignKey(
+        'MarketerUser',
+        on_delete=models.CASCADE,
+        related_name='company_profiles',
+        verbose_name="Marketer"
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='marketer_profiles',
+        verbose_name="Company"
+    )
+    company_marketer_id = models.PositiveIntegerField(
+        db_index=True,
+        verbose_name="Company-Specific Marketer ID"
+    )
+    company_marketer_uid = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        verbose_name="Company-Specific Marketer UID"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (('marketer', 'company'),)
+        indexes = [models.Index(fields=['company', 'company_marketer_id']),
+                   models.Index(fields=['marketer', 'company'])]
+        verbose_name = "Company Marketer Profile"
+        verbose_name_plural = "Company Marketer Profiles"
+
+    def __str__(self):
+        return f"{self.marketer.full_name} ({self.company_marketer_uid}) @ {self.company.company_name}"
+
+
+class CompanyClientProfile(models.Model):
+    """
+    Stores company-specific ID and UID for each client in each company.
+    This allows clients to have unique sequential IDs per company.
+    """
+    client = models.ForeignKey(
+        'ClientUser',
+        on_delete=models.CASCADE,
+        related_name='company_profiles',
+        verbose_name="Client"
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='client_profiles',
+        verbose_name="Company"
+    )
+    company_client_id = models.PositiveIntegerField(
+        db_index=True,
+        verbose_name="Company-Specific Client ID"
+    )
+    company_client_uid = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        verbose_name="Company-Specific Client UID"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (('client', 'company'),)
+        indexes = [models.Index(fields=['company', 'company_client_id']),
+                   models.Index(fields=['client', 'company'])]
+        verbose_name = "Company Client Profile"
+        verbose_name_plural = "Company Client Profiles"
+
+    def __str__(self):
+        return f"{self.client.full_name} ({self.company_client_uid}) @ {self.company.company_name}"
 
 
 class MarketerAffiliation(models.Model):
@@ -949,7 +1101,7 @@ class MarketerUser(CustomUser):
         # Ensure role is set
         self.role = 'marketer'
 
-        # Auto-assign a per-company sequential marketer id when missing
+        # For backward compatibility, auto-assign a per-company sequential marketer id when missing
         try:
             if self.company_profile and not getattr(self, 'company_marketer_id', None):
                 # Prefer sequence-based allocation for race-safety
@@ -983,6 +1135,25 @@ class MarketerUser(CustomUser):
             pass
 
         super().save(*args, **kwargs)
+
+        # Create or update CompanyMarketerProfile for the primary company
+        if self.company_profile:
+            try:
+                profile, created = CompanyMarketerProfile.objects.get_or_create(
+                    marketer=self,
+                    company=self.company_profile,
+                    defaults={
+                        'company_marketer_id': self.company_marketer_id or 1,
+                        'company_marketer_uid': self.company_marketer_uid or f"{(self.company_profile.company_name or 'CMP')[:3].upper()}MKT001"
+                    }
+                )
+                if not created and (self.company_marketer_id or self.company_marketer_uid):
+                    # Update profile if these fields changed
+                    profile.company_marketer_id = self.company_marketer_id
+                    profile.company_marketer_uid = self.company_marketer_uid
+                    profile.save(update_fields=['company_marketer_id', 'company_marketer_uid', 'updated_at'])
+            except Exception:
+                pass
 
 
 class ClientUser(CustomUser):
@@ -1035,6 +1206,25 @@ class ClientUser(CustomUser):
         except Exception:
             pass
         super().save(*args, **kwargs)
+
+        # Create or update CompanyClientProfile for the primary company
+        if self.company_profile:
+            try:
+                profile, created = CompanyClientProfile.objects.get_or_create(
+                    client=self,
+                    company=self.company_profile,
+                    defaults={
+                        'company_client_id': self.company_client_id or 1,
+                        'company_client_uid': self.company_client_uid or f"{(self.company_profile.company_name or 'CMP')[:3].upper()}CLT001"
+                    }
+                )
+                if not created and (self.company_client_id or self.company_client_uid):
+                    # Update profile if these fields changed
+                    profile.company_client_id = self.company_client_id
+                    profile.company_client_uid = self.company_client_uid
+                    profile.save(update_fields=['company_client_id', 'company_client_uid', 'updated_at'])
+            except Exception:
+                pass
 
     def _fully_paid_transactions_qs(self):
         """

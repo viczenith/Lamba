@@ -79,6 +79,7 @@ urlpatterns = [
     path('get-allocated-plots/', get_allocated_plots, name='get_allocated_plots'),
 
     path('user-registration', user_registration, name="user-registration"),
+    path('api/marketer-client-counts/', api_marketer_client_counts, name='api_marketer_client_counts'),
     path('add-estate', add_estate, name="add-estate"),
     path('add-estate-plot/', add_estate_plot, name='add-estate-plot'),
     path('get-estate-details/<int:estate_id>/', get_estate_details, name='get-estate-details'),

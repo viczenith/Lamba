@@ -32,6 +32,62 @@ def update_unit_availability(sender, instance, **kwargs):
     unit.save()  # Triggers availability recalculation
 
 
+# ========== Company User Profile Signals ==========
+
+@receiver(post_save, sender=MarketerAffiliation)
+def create_company_marketer_profile_on_affiliation(sender, instance, created, **kwargs):
+    """
+    When a marketer is affiliated with a company, create a CompanyMarketerProfile
+    with a unique company-specific ID and UID.
+    """
+    if kwargs.get('raw', False):
+        return
+    
+    if created:
+        try:
+            from django.db.models import Max
+            from django.db import transaction as db_transaction
+            
+            # Get the marketer and company
+            marketer = instance.marketer
+            company = instance.company
+            
+            # Check if profile already exists
+            if CompanyMarketerProfile.objects.filter(marketer=marketer, company=company).exists():
+                return
+            
+            # Generate company-specific ID for this marketer in this company
+            with db_transaction.atomic():
+                maxv = CompanyMarketerProfile.objects.filter(
+                    company=company
+                ).aggregate(maxv=Max('company_marketer_id'))
+                next_id = (maxv.get('maxv') or 0) + 1
+                
+                # Get company prefix
+                try:
+                    prefix = company._company_prefix()
+                except Exception:
+                    prefix = (company.company_name or 'CMP')[:3].upper()
+                
+                # Generate UID
+                base_uid = f"{prefix}MKT{next_id:03d}"
+                
+                # Ensure uniqueness
+                if CompanyMarketerProfile.objects.filter(company_marketer_uid=base_uid).exists():
+                    base_uid = f"{prefix}{company.id}MKT{next_id:03d}"
+                
+                # Create the profile
+                CompanyMarketerProfile.objects.create(
+                    marketer=marketer,
+                    company=company,
+                    company_marketer_id=next_id,
+                    company_marketer_uid=base_uid
+                )
+        except Exception as e:
+            # Log but don't fail the affiliation creation
+            pass
+
+
 # @receiver(post_save, sender=Transaction)
 # @receiver(post_save, sender=PaymentRecord)
 # def update_current_performance(sender, instance, **kwargs):
@@ -93,3 +149,4 @@ def create_client_dashboard(sender, instance, created, **kwargs):
         # Create ClientDashboard if it doesn't exist
         from estateApp.models import ClientDashboard
         ClientDashboard.objects.get_or_create(client=instance)
+

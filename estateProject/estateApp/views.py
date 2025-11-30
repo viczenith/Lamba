@@ -418,34 +418,116 @@ def get_allocated_plots(request):
     return JsonResponse(list(allocated_plots), safe=False)
 
 
+def get_all_marketers_for_company(company_obj):
+    """
+    Helper function to fetch all marketers for a company.
+    Combines marketers from both company_profile and MarketerAffiliation.
+    
+    Returns a QuerySet of CustomUser objects with role='marketer' with client count annotation.
+    
+    IMPORTANT: Counts ONLY from ClientMarketerAssignment table (single source of truth).
+    Each assignment is counted EXACTLY ONCE per company. No data leakage between companies.
+    A marketer can serve multiple clients within a company.
+    A client can be served by a marketer in multiple companies they operate in.
+    """
+    if not company_obj:
+        return CustomUser.objects.none()
+    
+    # Get marketers assigned directly to the company
+    marketers_primary = CustomUser.objects.filter(role='marketer', company_profile=company_obj)
+    
+    # Get marketers affiliated via MarketerAffiliation (added via "Add Existing User" modal)
+    marketers_affiliated = CustomUser.objects.none()
+    try:
+        affiliation_marketer_ids = MarketerAffiliation.objects.filter(
+            company=company_obj
+        ).values_list('marketer_id', flat=True).distinct()
+        if affiliation_marketer_ids:
+            marketers_affiliated = CustomUser.objects.filter(
+                id__in=affiliation_marketer_ids
+            ).exclude(
+                id__in=marketers_primary.values_list('pk', flat=True)
+            )
+    except Exception as e:
+        logger.warning(f"Failed to get affiliated marketers for company {company_obj}: {e}")
+        pass
+    
+    # Combine both QuerySets using set union, then filter in a single QuerySet
+    all_marketer_ids = set(marketers_primary.values_list('pk', flat=True)) | set(
+        marketers_affiliated.values_list('pk', flat=True)
+    )
+    
+    # Count clients for each marketer ONLY from ClientMarketerAssignment table
+    # Strict company filtering prevents data leakage and duplicate counting
+    from estateApp.models import ClientMarketerAssignment
+    
+    # Single source of truth: Count distinct clients assigned to each marketer for THIS company ONLY
+    client_count_subquery = ClientMarketerAssignment.objects.filter(
+        marketer_id=OuterRef('id'),
+        company=company_obj
+    ).values('marketer_id').annotate(
+        count=Count('id', distinct=True)
+    ).values('count')
+    
+    # Return a single QuerySet with all marketers sorted by name
+    # Strict company isolation: each count belongs to this company only
+    return CustomUser.objects.filter(id__in=all_marketer_ids).annotate(
+        client_count=Subquery(client_count_subquery)
+    ).annotate(
+        # Handle NULL for marketers with no assignments in this company
+        client_count=Coalesce('client_count', 0)
+    ).order_by('full_name')
+
+
+@login_required
+def api_marketer_client_counts(request):
+    """
+    API endpoint that returns the current client count for each marketer in the company.
+    Used by frontend to dynamically update dropdown without page reload.
+    
+    Returns JSON: {
+        "success": true,
+        "marketers": [
+            {"id": 15, "client_count": 5},
+            {"id": 8, "client_count": 3},
+            ...
+        ]
+    }
+    """
+    # Get company from request
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    if not company:
+        return JsonResponse({'success': False, 'error': 'No company context'}, status=400)
+    
+    # Get all marketers with client counts
+    marketers = get_all_marketers_for_company(company)
+    
+    # Build response
+    marketer_data = [
+        {
+            'id': marketer.id,
+            'full_name': marketer.full_name,
+            'email': marketer.email,
+            'client_count': marketer.client_count
+        }
+        for marketer in marketers
+    ]
+    
+    return JsonResponse({
+        'success': True,
+        'marketers': marketer_data,
+        'timestamp': now().isoformat()
+    })
+
+
 def user_registration(request):
     # Fetch all users with the 'marketer' role
     # SECURITY: Filter by company to prevent cross-company data leakage
     company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
     
-    # Get marketers from company_profile
-    company_filter = {'company_profile': company} if company else {}
-    marketers_primary = CustomUser.objects.filter(role='marketer', **company_filter)
-    
-    # ALSO get marketers from MarketerAffiliation (for users added via add_existing_user_to_company)
-    marketers_affiliated = []
-    if company:
-        try:
-            affiliation_marketer_ids = MarketerAffiliation.objects.filter(
-                company=company
-            ).values_list('marketer_id', flat=True).distinct()
-            if affiliation_marketer_ids:
-                marketers_affiliated = CustomUser.objects.filter(
-                    id__in=affiliation_marketer_ids
-                ).exclude(
-                    id__in=marketers_primary.values_list('pk', flat=True)
-                )
-        except Exception:
-            # If affiliation lookup fails, just use primary marketers
-            pass
-    
-    # Combine both lists
-    marketers = list(marketers_primary) + list(marketers_affiliated)
+    # Get all marketers for the company (both primary and affiliated)
+    marketers = get_all_marketers_for_company(company)
 
 
     if request.method == 'POST':
@@ -2254,26 +2336,24 @@ def marketer_list(request):
 
             unique_clients = assign_client_ids.union(direct_client_ids)
             m.client_count = len(unique_clients)
-            # Ensure a displayable company_marketer_id exists (prefer persisted value)
+            
+            # Fetch the actual CompanyMarketerProfile for this company
             try:
-                if getattr(m, 'company_marketer_id', None):
-                    pass
-                else:
-                    m.company_marketer_id = m.company_uid
-            except Exception:
+                profile = CompanyMarketerProfile.objects.get(marketer_id=m.pk, company=company)
+                m.company_marketer_id = profile.company_marketer_id
+                m.company_marketer_uid = profile.company_marketer_uid
+            except CompanyMarketerProfile.DoesNotExist:
+                # Fallback: Use company_uid if no profile exists
                 m.company_marketer_id = m.company_uid
-            # Compute a non-persistent display UID when persistent UID missing
-            try:
-                if not getattr(m, 'company_marketer_uid', None):
-                    try:
-                        prefix = company._company_prefix() if company else 'CMP'
-                    except Exception:
-                        prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
-                    m.company_marketer_uid = f"{prefix}MKT{int(m.company_marketer_id):03d}"
+                try:
+                    prefix = company._company_prefix() if company else 'CMP'
+                except Exception:
+                    prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
+                m.company_marketer_uid = f"{prefix}MKT{int(m.company_marketer_id):03d}"
             except Exception:
-                # ensure attribute exists even on failure
-                if not getattr(m, 'company_marketer_uid', None):
-                    m.company_marketer_uid = f"MKT{int(getattr(m, 'company_marketer_id', 0) or 0):03d}"
+                # Final fallback
+                m.company_marketer_id = m.company_uid
+                m.company_marketer_uid = f"MKT{int(getattr(m, 'company_marketer_id', 0) or 0):03d}"
     except Exception:
         # Fallback: ensure attribute exists
         for m in combined:
@@ -4061,28 +4141,24 @@ def client(request):
         id_map = {u.pk: idx + 1 for idx, u in enumerate(ordered_for_ids)}
         for c in combined:
             c.company_uid = id_map.get(c.pk, c.pk)
-            # If persistent company_client_id exists on the object (DB column), prefer it for display.
-            # Otherwise set a non-persistent attribute so templates can reference `client.company_client_id`.
+            
+            # Fetch the actual CompanyClientProfile for this company
             try:
-                if getattr(c, 'company_client_id', None):
-                    # already present (persisted or set on object)
-                    pass
-                else:
-                    # set fallback display id (do not save)
-                    c.company_client_id = c.company_uid
-            except Exception:
+                profile = CompanyClientProfile.objects.get(client_id=c.pk, company=company)
+                c.company_client_id = profile.company_client_id
+                c.company_client_uid = profile.company_client_uid
+            except CompanyClientProfile.DoesNotExist:
+                # Fallback: Use company_uid if no profile exists
                 c.company_client_id = c.company_uid
-            # Compute a non-persistent display UID when persistent UID missing
-            try:
-                if not getattr(c, 'company_client_uid', None):
-                    try:
-                        prefix = company._company_prefix() if company else 'CMP'
-                    except Exception:
-                        prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
-                    c.company_client_uid = f"{prefix}CLT{int(c.company_client_id):03d}"
+                try:
+                    prefix = company._company_prefix() if company else 'CMP'
+                except Exception:
+                    prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
+                c.company_client_uid = f"{prefix}CLT{int(c.company_client_id):03d}"
             except Exception:
-                if not getattr(c, 'company_client_uid', None):
-                    c.company_client_uid = f"CLT{int(getattr(c, 'company_client_id', 0) or 0):03d}"
+                # Final fallback
+                c.company_client_id = c.company_uid
+                c.company_client_uid = f"CLT{int(getattr(c, 'company_client_id', 0) or 0):03d}"
     except Exception:
         for c in combined:
             c.company_uid = getattr(c, 'pk', None)
