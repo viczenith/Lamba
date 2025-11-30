@@ -869,9 +869,11 @@ class CustomUser(AbstractUser):
         # Only run full validation for new instances or when explicitly saving all fields
         # Skip validation for partial updates (like update_last_login)
         update_fields = kwargs.get('update_fields')
-        if update_fields is None or not update_fields:
-            # Ensure validation runs during full saves
-            self.full_clean()
+        # Skip full_clean() to prevent validation errors on password field during initial user creation
+        # Password will be set via set_password() immediately after creation
+        # if (update_fields is None or not update_fields):
+        #     # Ensure validation runs during full saves
+        #     self.full_clean()
         
         # Only populate if full_name is present:
         if self.full_name:

@@ -3,7 +3,7 @@ from estateApp.models import AdminUser, ClientUser, MarketerUser, CustomUser
 
 class UserRegistrationSerializer(serializers.Serializer):
     full_name = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     address = serializers.CharField()
     phone = serializers.CharField()
     email = serializers.EmailField()
@@ -31,7 +31,12 @@ class UserRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data):
         role = validated_data.pop("role")
         marketer = validated_data.pop("marketer", None)
-        password = validated_data.pop("password")
+        password = validated_data.pop("password", None) or None  # Handle empty/missing passwords
+        
+        # Auto-generate password if not provided
+        if not password:
+            from django.utils.crypto import get_random_string
+            password = get_random_string(12)
 
         if role == "admin":
             user = AdminUser(**validated_data)

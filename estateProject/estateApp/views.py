@@ -23,7 +23,7 @@ import csv
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed
 from django.core.exceptions import ValidationError
 import json
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 
 from django.db.models import Prefetch, Count, Max, Q, F, Value, Sum, DecimalField, OuterRef, Subquery, Exists, ExpressionWrapper
 from django.db.models.functions import Concat, Coalesce
@@ -421,10 +421,42 @@ def get_allocated_plots(request):
 def user_registration(request):
     # Fetch all users with the 'marketer' role
     # SECURITY: Filter by company to prevent cross-company data leakage
-    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
-    marketers = CustomUser.objects.filter(role='marketer', **company_filter)
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    # Get marketers from company_profile
+    company_filter = {'company_profile': company} if company else {}
+    marketers_primary = CustomUser.objects.filter(role='marketer', **company_filter)
+    
+    # ALSO get marketers from MarketerAffiliation (for users added via add_existing_user_to_company)
+    marketers_affiliated = []
+    if company:
+        try:
+            affiliation_marketer_ids = MarketerAffiliation.objects.filter(
+                company=company
+            ).values_list('marketer_id', flat=True).distinct()
+            if affiliation_marketer_ids:
+                marketers_affiliated = CustomUser.objects.filter(
+                    id__in=affiliation_marketer_ids
+                ).exclude(
+                    id__in=marketers_primary.values_list('pk', flat=True)
+                )
+        except Exception:
+            # If affiliation lookup fails, just use primary marketers
+            pass
+    
+    # Combine both lists
+    marketers = list(marketers_primary) + list(marketers_affiliated)
+
 
     if request.method == 'POST':
+        # Normalize company context: prefer request.company (middleware), fall back to user's company_profile
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        if not company:
+            error_msg = "Unable to determine company context for registration. Please ensure you're operating within a company scope."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': error_msg})
+            messages.error(request, error_msg)
+            return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
         source = request.POST.get('source', 'admin_registration')
         # Extract form data
         full_name = request.POST.get('name')
@@ -433,130 +465,509 @@ def user_registration(request):
         email = request.POST.get('email')
         role = request.POST.get('role')
         country = request.POST.get('country')
-        
-        # Only assign a marketer if the role is 'client'
-        marketer = None
-        if role == 'client':
-            marketer_id = request.POST.get('marketer')
-            if marketer_id:
-                try:
-                    marketer = CustomUser.objects.get(id=marketer_id)
-                except CustomUser.DoesNotExist:
-                    error_msg = f"Marketer with ID {marketer_id} does not exist."
-                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                        return JsonResponse({'success': False, 'message': error_msg})
-                    messages.error(request, error_msg)
-                    if source == 'company_profile':
-                        return redirect('company-profile')
-                    else:
-                        return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
-        
         date_of_birth = request.POST.get('date_of_birth')
-        
-        # Validate the email (check if it's already registered for the SAME role)
-        # Allow same email across different roles, but prevent duplicates within same role
-        if CustomUser.objects.filter(email=email, role=role).exists():
-            error_msg = f"Email {email} is already registered for a {role} account."
+        password = request.POST.get('password')
+
+        # Validate required fields
+        if not email or not role or not full_name:
+            error_msg = "Email, role, and full name are required."
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': False, 'message': error_msg})
             messages.error(request, error_msg)
-            if source == 'company_profile':
-                return redirect('company-profile')
-            else:
+            return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+
+        # Quick lookup: does a user with this email already exist?
+        existing_user = CustomUser.objects.filter(email=email).first()
+
+        # If an existing user id was supplied (frontend may accidentally submit the registration
+        # form when an existing user was selected), handle it here by affiliating the user
+        # to the company instead of trying to create a new user or requiring a password.
+        existing_user_id = request.POST.get('existing_user_id') or request.POST.get('existingId')
+        if existing_user_id:
+            try:
+                # SECURITY: Only admins may add users to company via this path
+                if getattr(request.user, 'role', None) != 'admin':
+                    error_msg = 'Only admins can add existing users to a company.'
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg}, status=403)
+                    messages.error(request, error_msg)
+                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+
+                company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+                user_to_add = CustomUser.objects.get(id=int(existing_user_id), is_active=True, is_deleted=False)
+
+                # Marketer assignment required for clients
+                if role == 'client' and not marketer:
+                    error_msg = 'Marketer assignment required for client users.'
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg}, status=400)
+                    messages.error(request, error_msg)
+                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+
+                # Use transaction to ensure consistent state
+                with transaction.atomic():
+                    # If client, ensure ClientUser subclass exists and assign marketer and create ClientMarketerAssignment
+                    if getattr(user_to_add, 'role', None) == 'client':
+                        if not ClientUser.objects.filter(pk=user_to_add.pk).exists():
+                            try:
+                                ClientUser.objects.create(id=user_to_add.pk, company_profile=company)
+                            except Exception:
+                                # If multi-table constraints prevent creation, ignore and continue
+                                pass
+                        # assign marketer on the ClientUser instance if applicable
+                        try:
+                            client_obj = ClientUser.objects.get(pk=user_to_add.pk)
+                        except ClientUser.DoesNotExist:
+                            client_obj = CustomUser.objects.get(pk=user_to_add.pk)
+
+                        if marketer and hasattr(client_obj, 'assigned_marketer'):
+                            try:
+                                client_obj.assigned_marketer = marketer
+                                client_obj.save()
+                            except Exception:
+                                pass
+
+                        # Create company-scoped ClientMarketerAssignment
+                        try:
+                            ClientMarketerAssignment.objects.get_or_create(
+                                client_id=user_to_add.pk,
+                                marketer=marketer,
+                                company=company
+                            )
+                        except Exception:
+                            pass
+
+                    # For marketers, ensure MarketerUser subclass exists and create MarketerAffiliation
+                    if getattr(user_to_add, 'role', None) == 'marketer':
+                        if not MarketerUser.objects.filter(pk=user_to_add.pk).exists():
+                            try:
+                                MarketerUser.objects.create(id=user_to_add.pk, company_profile=company)
+                            except Exception:
+                                pass
+                        try:
+                            MarketerAffiliation.objects.get_or_create(marketer_id=user_to_add.pk, company=company)
+                        except Exception:
+                            pass
+
+                    # Do not overwrite user's primary company_profile if already set; only set if missing
+                    if not getattr(user_to_add, 'company_profile', None):
+                        try:
+                            user_to_add.company_profile = company
+                            user_to_add.save()
+                        except Exception:
+                            pass
+
+                # Return success (AJAX or normal flow)
+                success_msg = f"{user_to_add.full_name} successfully added to {company.company_name}"
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': True, 'message': success_msg, 'user': {'id': user_to_add.id, 'email': user_to_add.email, 'full_name': user_to_add.full_name}})
+                messages.success(request, success_msg)
                 return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
-        
-        # Use the provided password or generate one
-        password = request.POST.get('password')
-        
-        # Handle user creation based on role
-        if role == 'admin':
-            # Save to AdminUser table
-            admin_user = AdminUser(
-                email=email,
-                full_name=full_name,
-                address=address,
-                phone=phone,
-                date_of_birth=date_of_birth,
-                country=country,
-                company_profile=request.company,  # Set company profile for admin users
-                is_staff=True,  # Admins are staff, but not superusers
-            )
-            admin_user.set_password(password)
-            admin_user.save()
-            success_msg = f"<strong>{full_name}</strong> has been successfully registered as <strong>Admin User</strong>!"
-        
-        elif role == 'client':
-            # Validate marketer assignment - REQUIRED for clients
+            except CustomUser.DoesNotExist:
+                error_msg = 'Selected existing user not found.'
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': error_msg}, status=404)
+                messages.error(request, error_msg)
+                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+
+        # Only assign a marketer if the role is 'client'
+        marketer = None
+        if role == 'client':
             marketer_id = request.POST.get('marketer')
             if not marketer_id:
                 error_msg = "Please assign a marketer to this client. Marketer assignment is required."
                 if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                     return JsonResponse({'success': False, 'message': error_msg})
                 messages.error(request, error_msg)
-                if source == 'company_profile':
-                    return redirect('company-profile')
-                else:
-                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
-            
+                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
             try:
-                assigned_marketer = MarketerUser.objects.get(id=marketer_id)
+                marketer = MarketerUser.objects.get(id=marketer_id)
             except MarketerUser.DoesNotExist:
                 error_msg = f"Selected marketer does not exist. Please select a valid marketer."
                 if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                     return JsonResponse({'success': False, 'message': error_msg})
                 messages.error(request, error_msg)
-                if source == 'company_profile':
-                    return redirect('company-profile')
-                else:
-                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
-            
-            # Save to ClientUser table
-            client_user = ClientUser(
-                email=email,
-                full_name=full_name,
-                address=address,
-                phone=phone,
-                date_of_birth=date_of_birth,
-                country=country,
-                assigned_marketer=assigned_marketer,
-                company_profile=request.company  # Set company profile for client users
-            )
-            client_user.set_password(password)
-            client_user.save()
-            success_msg = f"<strong>{full_name}</strong> has been successfully registered and assigned to <strong>{assigned_marketer.full_name}!</strong>"
-        
-        elif role == 'marketer':
-            # Save to MarketerUser table
-            marketer_user = MarketerUser(
-                email=email,
-                full_name=full_name,
-                address=address,
-                phone=phone,
-                date_of_birth=date_of_birth,
-                country=country,
-                company_profile=request.company  # Set company profile for marketer users
-            )
-            marketer_user.set_password(password)
-            marketer_user.save()
-            success_msg = f"Marketer, <strong>{full_name}</strong> has been successfully registered!"
+                return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
 
-        elif role == 'support':
-            support_user = SupportUser(
-                email=email,
-                full_name=full_name,
-                address=address,
-                phone=phone,
-                date_of_birth=date_of_birth,
-                country=country,
-                company_profile=request.company,  # Set company profile for support users
-            )
-            support_user.set_password(password)
-            support_user.save()
-            success_msg = f"Support User, <strong>{full_name}</strong> has been successfully registered!"
+
+        # Dynamic user creation and linking logic (robust multi-company support)
+        success_msg = None
+        try:
+            from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
+            import logging
+            from django.utils.crypto import get_random_string
+            logger = logging.getLogger(__name__)
+            if role == 'admin':
+                admin_user = AdminUser.objects.filter(email=email).first()
+                if admin_user:
+                    # Link to this company if not already
+                    if admin_user.company_profile != request.company:
+                        admin_user.company_profile = request.company
+                        admin_user.save()
+                    success_msg = f"Admin user <strong>{full_name}</strong> already exists and is linked."
+                else:
+                    # Auto-generate password when not provided
+                    if not password:
+                        generated_password = get_random_string(12)
+                        password_to_set = generated_password
+                        pw_generated = True
+                    else:
+                        password_to_set = password
+                        pw_generated = False
+
+                    admin_user = AdminUser.objects.create(
+                        email=email,
+                        full_name=full_name,
+                        address=address or '',
+                        phone=phone,
+                        date_of_birth=date_of_birth,
+                        country=country or '',
+                        company_profile=company
+                    )
+                    admin_user.set_password(password_to_set)
+                    admin_user.save()
+                    success_msg = f"Admin user <strong>{admin_user.full_name}</strong> has been successfully registered! (New user)"
+                    try:
+                        if pw_generated:
+                            success_msg += ' A temporary password was generated for this user.'
+                    except NameError:
+                        pass
+            elif role == 'marketer':
+                marketer_user = MarketerUser.objects.filter(email=email).first()
+                if marketer_user:
+                    # Check if marketer is already affiliated with this company
+                    affiliation = MarketerAffiliation.objects.filter(marketer=marketer_user, company=request.company).first()
+                    already_in_company = bool(affiliation)
+                    # Update info if needed
+                    updated = False
+                    if marketer_user.full_name != full_name:
+                        marketer_user.full_name = full_name
+                        updated = True
+                    if marketer_user.address != address:
+                        marketer_user.address = address
+                        updated = True
+                    if marketer_user.phone != phone:
+                        marketer_user.phone = phone
+                        updated = True
+                    if marketer_user.date_of_birth != date_of_birth:
+                        marketer_user.date_of_birth = date_of_birth
+                        updated = True
+                    if marketer_user.country != country:
+                        marketer_user.country = country
+                        updated = True
+                    # Ensure marketer's company_profile is set to this company if not already
+                    if marketer_user.company_profile != request.company:
+                        marketer_user.company_profile = request.company
+                        updated = True
+                    if updated:
+                        marketer_user.save()
+                    # Link marketer to company if not already linked
+                    ma, ma_created = MarketerAffiliation.objects.get_or_create(
+                        marketer=marketer_user,
+                        company=company
+                    )
+                    logger.info('MarketerAffiliation get_or_create: marketer=%s company=%s created=%s', getattr(marketer_user, 'email', None), getattr(company, 'company_name', None), ma_created)
+                    # Ensure marketer_user has a visible primary company if missing (do not override existing primary)
+                    if ma_created and not getattr(marketer_user, 'company_profile', None):
+                        try:
+                            marketer_user.company_profile = company
+                            marketer_user.save()
+                            logger.info('Set marketer primary company_profile for %s -> %s', marketer_user.email, getattr(company, 'company_name', None))
+                        except Exception:
+                            logger.exception('Failed to set marketer.company_profile')
+                    if already_in_company:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists and is already affiliated with this company as marketer."
+                        )
+                    elif ma_created:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists in the system and has now been affiliated with this company as marketer."
+                        )
+                    else:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists in the system."
+                        )
+                else:
+                    # Auto-generate password when not provided (company admins do not supply passwords)
+                    if not password:
+                        generated_password = get_random_string(12)
+                        password_to_set = generated_password
+                        pw_generated = True
+                    else:
+                        password_to_set = password
+                        pw_generated = False
+
+                    marketer_user = MarketerUser.objects.create(
+                        email=email,
+                        full_name=full_name,
+                        address=address or '',
+                        phone=phone,
+                        date_of_birth=date_of_birth,
+                        country=country or '',
+                        company_profile=company
+                    )
+                    marketer_user.set_password(password_to_set)
+                    marketer_user.save()
+                    # Link marketer to company
+                    ma, ma_created = MarketerAffiliation.objects.get_or_create(
+                        marketer=marketer_user,
+                        company=company
+                    )
+                    logger.info('MarketerAffiliation created for new marketer: %s -> %s', getattr(marketer_user, 'email', None), getattr(company, 'company_name', None))
+                    success_msg = f"Marketer <strong>{marketer_user.full_name}</strong> is now affiliated with this company! (New user)"
+                    try:
+                        if pw_generated:
+                            success_msg += ' A temporary password was generated for this user.'
+                    except NameError:
+                        pass
+            elif role == 'client':
+                client_user = ClientUser.objects.filter(email=email).first()
+                if client_user:
+                    # Check if client is already affiliated with this company
+                    affiliation = ClientMarketerAssignment.objects.filter(client=client_user, company=request.company).first()
+                    already_in_company = bool(affiliation)
+                    # Update info if needed
+                    updated = False
+                    if client_user.full_name != full_name:
+                        client_user.full_name = full_name
+                        updated = True
+                    if client_user.address != address:
+                        client_user.address = address
+                        updated = True
+                    if client_user.phone != phone:
+                        client_user.phone = phone
+                        updated = True
+                    if client_user.date_of_birth != date_of_birth:
+                        client_user.date_of_birth = date_of_birth
+                        updated = True
+                    if client_user.country != country:
+                        client_user.country = country
+                        updated = True
+                    if client_user.assigned_marketer != marketer:
+                        client_user.assigned_marketer = marketer
+                        updated = True
+                    if updated:
+                        client_user.save()
+                    # Link client to company/marketer if not already linked
+                    cma, cma_created = ClientMarketerAssignment.objects.get_or_create(
+                        client=client_user,
+                        marketer=marketer,
+                        company=company
+                    )
+                    logger.info('ClientMarketerAssignment get_or_create: client=%s marketer=%s company=%s created=%s', getattr(client_user, 'email', None), getattr(marketer, 'email', None) if marketer else None, getattr(company, 'company_name', None), cma_created)
+                    if already_in_company:
+                        success_msg = (
+                            f"<strong>{client_user.full_name}</strong> already has an account with email <strong>{client_user.email}</strong>. "
+                            f"They are now assigned to <strong>{marketer.full_name}</strong> for this company!"
+                        )
+                    else:
+                        success_msg = (
+                            f"<strong>{client_user.full_name}</strong> already has an account with email <strong>{client_user.email}</strong>, "
+                            f"but was not yet added to your company.\n"
+                            f"This user has now been added and assigned to <strong>{marketer.full_name}</strong> for your company."
+                        )
+                else:
+                    # Auto-generate password when not provided (admins can communicate it to the user)
+                    if not password:
+                        generated_password = get_random_string(12)
+                        password_to_set = generated_password
+                        pw_generated = True
+                    else:
+                        password_to_set = password
+                        pw_generated = False
+
+                    client_user = ClientUser.objects.create(
+                        email=email,
+                        full_name=full_name,
+                        address=address or '',
+                        phone=phone,
+                        date_of_birth=date_of_birth,
+                        country=country or '',
+                        assigned_marketer=marketer,
+                        company_profile=company
+                    )
+                    client_user.set_password(password_to_set)
+                    client_user.save()
+                    # Link client to company/marketer
+                    cma, cma_created = ClientMarketerAssignment.objects.get_or_create(
+                        client=client_user,
+                        marketer=marketer,
+                        company=company
+                    )
+                    logger.info('ClientMarketerAssignment get_or_create (new client): client=%s marketer=%s company=%s created=%s', getattr(client_user, 'email', None), getattr(marketer, 'email', None) if marketer else None, getattr(company, 'company_name', None), cma_created)
+                    success_msg = f"<strong>{client_user.full_name}</strong> is now assigned to <strong>{marketer.full_name}</strong> for this company! (New user)"
+                    try:
+                        if pw_generated:
+                            success_msg += ' A temporary password was generated for this user.'
+                    except NameError:
+                        pass
+
+            elif role == 'marketer':
+                marketer_user = MarketerUser.objects.filter(email=email).first()
+                if marketer_user:
+                    # Check if marketer is already affiliated with this company (affiliation record must exist AND marketer's company_profile must match)
+                    affiliation = MarketerAffiliation.objects.filter(marketer=marketer_user, company=request.company).first()
+                    already_in_company = bool(affiliation and marketer_user.company_profile == request.company)
+                    # Update info if needed
+                    updated = False
+                    if marketer_user.full_name != full_name:
+                        marketer_user.full_name = full_name
+                        updated = True
+                    if marketer_user.address != address:
+                        marketer_user.address = address
+                        updated = True
+                    if marketer_user.phone != phone:
+                        marketer_user.phone = phone
+                        updated = True
+                    if marketer_user.date_of_birth != date_of_birth:
+                        marketer_user.date_of_birth = date_of_birth
+                        updated = True
+                    if marketer_user.country != country:
+                        marketer_user.country = country
+                        updated = True
+                    if updated:
+                        marketer_user.save()
+                    # Link marketer to company if not already linked
+                    ma, ma_created = MarketerAffiliation.objects.get_or_create(
+                        marketer=marketer_user,
+                        company=company
+                    )
+                    logger.info('MarketerAffiliation get_or_create: marketer=%s company=%s created=%s', getattr(marketer_user, 'email', None), getattr(company, 'company_name', None), ma_created)
+                    if ma_created and not getattr(marketer_user, 'company_profile', None):
+                        try:
+                            marketer_user.company_profile = company
+                            marketer_user.save()
+                        except Exception:
+                            logger.exception('Failed to set marketer.company_profile on affiliation creation')
+                    if already_in_company:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists and is already affiliated with this company as marketer."
+                        )
+                    elif ma_created:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists in the system and has now been affiliated with this company as marketer."
+                        )
+                    else:
+                        success_msg = (
+                            f"User with email <strong>{marketer_user.email}</strong> already exists in the system."
+                        )
+                else:
+                    # Auto-generate password when not provided (company admins do not supply passwords)
+                    if not password:
+                        generated_password = get_random_string(12)
+                        password_to_set = generated_password
+                        pw_generated = True
+                    else:
+                        password_to_set = password
+                        pw_generated = False
+
+                    marketer_user = MarketerUser.objects.create(
+                        email=email,
+                        full_name=full_name,
+                        address=address,
+                        phone=phone,
+                        date_of_birth=date_of_birth,
+                        country=country,
+                        company_profile=company
+                    )
+                    marketer_user.set_password(password_to_set)
+                    marketer_user.save()
+                    # Link marketer to company
+                    ma, ma_created = MarketerAffiliation.objects.get_or_create(
+                        marketer=marketer_user,
+                        company=company
+                    )
+                    logger.info('MarketerAffiliation created for new marketer: %s -> %s', getattr(marketer_user, 'email', None), getattr(company, 'company_name', None))
+                    success_msg = f"Marketer <strong>{marketer_user.full_name}</strong> is now affiliated with this company! (New user)"
+                    try:
+                        if pw_generated:
+                            success_msg += ' A temporary password was generated for this user.'
+                    except NameError:
+                        pass
+
+            elif role == 'support':
+                support_user = SupportUser.objects.filter(email=email).first()
+                if support_user:
+                    # Update info if needed
+                    updated = False
+                    if support_user.full_name != full_name:
+                        support_user.full_name = full_name
+                        updated = True
+                    if support_user.address != address:
+                        support_user.address = address
+                        updated = True
+                    if support_user.phone != phone:
+                        support_user.phone = phone
+                        updated = True
+                    if support_user.date_of_birth != date_of_birth:
+                        support_user.date_of_birth = date_of_birth
+                        updated = True
+                    if support_user.country != country:
+                        support_user.country = country
+                        updated = True
+                    if updated:
+                        support_user.save()
+                    success_msg = f"Support User, <strong>{full_name}</strong> has been successfully registered! (Existing user)"
+                else:
+                    # Auto-generate password when not provided
+                    if not password:
+                        generated_password = get_random_string(12)
+                        password_to_set = generated_password
+                        pw_generated = True
+                    else:
+                        password_to_set = password
+                        pw_generated = False
+
+                    support_user = SupportUser.objects.create(
+                        email=email,
+                        full_name=full_name,
+                        address=address,
+                        phone=phone,
+                        date_of_birth=date_of_birth,
+                        country=country,
+                        company_profile=company
+                    )
+                    support_user.set_password(password_to_set)
+                    support_user.save()
+                    success_msg = f"Support User, <strong>{full_name}</strong> has been successfully registered! (New user)"
+                    try:
+                        if pw_generated:
+                            success_msg += ' A temporary password was generated for this user.'
+                    except NameError:
+                        pass
+
+        except Exception as e:
+            # Better-format serializer/form validation errors where possible
+            try:
+                # If it's a dict-like error (e.g., {'password': ['This field cannot be blank.']}), present a cleaner message
+                err_obj = e
+                if hasattr(e, 'detail'):
+                    err_obj = e.detail
+                if isinstance(err_obj, dict):
+                    # Collate field errors
+                    parts = []
+                    for k, v in err_obj.items():
+                        parts.append(f"{k}: {', '.join(v)}")
+                    error_msg = "Registration failed: " + "; ".join(parts)
+                else:
+                    error_msg = f"Registration failed: {str(e)}"
+            except Exception:
+                error_msg = f"Registration failed: {str(e)}"
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': error_msg})
+            messages.error(request, error_msg)
+            return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
 
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'success': True, 'message': success_msg})
-        
+            # If the server auto-generated a password during this request, include it in the JSON
+            pw_generated_flag = locals().get('pw_generated', False)
+            pw_value = locals().get('password_to_set') if pw_generated_flag else None
+            resp = {'success': True, 'message': success_msg}
+            if pw_value:
+                resp['temporary_password'] = pw_value
+            return JsonResponse(resp)
+
         messages.success(request, success_msg)
         if source == 'company_profile':
             return redirect('company-profile')
@@ -671,10 +1082,18 @@ def plot_allocation(request):
                 )
                 
                 # SECURITY: Ensure client belongs to company
-                client = get_object_or_404(
-                    ClientUser.objects.filter(company_profile=company),
-                    id=request.POST.get('clientName')
-                )
+                # Check both company_profile and ClientMarketerAssignment (for users added via add_existing_user_to_company)
+                client_id = request.POST.get('clientName')
+                client_in_company = ClientUser.objects.filter(
+                    id=client_id, company_profile=company
+                ).exists() or ClientMarketerAssignment.objects.filter(
+                    client_id=client_id, company=company
+                ).exists()
+                
+                if not client_in_company:
+                    raise ValidationError("Selected client does not belong to this company")
+                
+                client = get_object_or_404(ClientUser, id=client_id)
                 
                 # Calculate allocated + reserved units
                 allocated_reserved = plot_size_unit.full_allocations + plot_size_unit.part_allocations
@@ -712,7 +1131,20 @@ def plot_allocation(request):
     else:
         # GET request handling
         # SECURITY: Filter by company to prevent cross-tenant data exposure
-        clients = CustomUser.objects.filter(role='client', company_profile=company)
+        # Include clients from both company_profile and ClientMarketerAssignment
+        clients_primary = CustomUser.objects.filter(role='client', company_profile=company)
+        
+        # Get affiliated clients
+        affiliation_client_ids = list(
+            ClientMarketerAssignment.objects.filter(company=company).values_list('client_id', flat=True).distinct()
+        )
+        clients_affiliated = CustomUser.objects.filter(id__in=affiliation_client_ids).exclude(
+            id__in=clients_primary.values_list('pk', flat=True)
+        )
+        
+        # Combine both querysets
+        clients = list(clients_primary) + list(clients_affiliated)
+        
         estates = Estate.objects.filter(company=company)
         context = {
             'clients': clients,
@@ -1775,8 +2207,21 @@ def marketer_list(request):
         client_count=Count('clients', filter=Q(clients__is_deleted=False))
     )
 
+    # ALSO include marketers from MarketerAffiliation (for users added via add_existing_user_to_company)
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+    )
+    affiliation_marketers_qs = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
+        id__in=marketers_qs.values_list('pk', flat=True)
+    ).annotate(
+        client_count=Count('clients', filter=Q(clients__is_deleted=False))
+    )
+
+    # Combine both querysets
+    marketers_qs = list(marketers_qs) + list(affiliation_marketers_qs)
+
     # Fallback: include any CustomUser(marketer) rows that do not yet have a MarketerUser subclass
-    parent_ids = list(marketers_qs.values_list('pk', flat=True))
+    parent_ids = [m.pk if hasattr(m, 'pk') else m for m in marketers_qs]
     fallback_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).exclude(id__in=parent_ids).order_by('-date_registered')
 
     # Combine into a single list
@@ -1848,6 +2293,14 @@ def marketer_list(request):
 @login_required
 def admin_marketer_profile(request, pk):
     marketer = get_object_or_404(CustomUser, pk=pk, role='marketer')
+    
+    # SECURITY: Verify marketer belongs to same company (either via company_profile or MarketerAffiliation)
+    company = request.user.company_profile
+    if marketer.company_profile != company:
+        # Check if marketer belongs to company via MarketerAffiliation
+        if not MarketerAffiliation.objects.filter(marketer_id=pk, company=company).exists():
+            return HttpResponseForbidden("You don't have permission to view this marketer.")
+    
     # marketer      = request.user
     now           = timezone.now()
     current_year  = now.year
@@ -1921,7 +2374,17 @@ def admin_marketer_profile(request, pk):
     sales_data = []
     # SECURITY: Filter by company to prevent cross-tenant leakage
     company = getattr(request, 'company', None) or request.user.company_profile
-    company_marketers = MarketerUser.objects.filter(company=company) if company else MarketerUser.objects.none()
+    
+    # Get marketers from both company_profile and MarketerAffiliation
+    company_marketers = MarketerUser.objects.filter(company_profile=company) if company else MarketerUser.objects.none()
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+    ) if company else []
+    affiliation_marketers = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
+        id__in=company_marketers.values_list('pk', flat=True)
+    ) if affiliation_marketer_ids else MarketerUser.objects.none()
+    
+    company_marketers = list(company_marketers) + list(affiliation_marketers)
     
     for m in company_marketers:
         year_sales = Transaction.objects.filter(
@@ -2473,8 +2936,14 @@ def company_profile_view(request):
 
     # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
-    total_clients = CustomUser.objects.filter(role='client', company_profile=company).count()
-    total_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).count()
+    # Include users from company_profile AND from affiliation models (MarketerAffiliation, ClientMarketerAssignment)
+    primary_clients = CustomUser.objects.filter(role='client', company_profile=company).count()
+    affiliation_clients = ClientMarketerAssignment.objects.filter(company=company).values_list('client_id', flat=True).distinct().count()
+    total_clients = primary_clients + (affiliation_clients if affiliation_clients > 0 else 0)
+    
+    primary_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).count()
+    affiliation_marketers = MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct().count()
+    total_marketers = primary_marketers + (affiliation_marketers if affiliation_marketers > 0 else 0)
 
     # Estates and allocations
     total_estates = Estate.objects.filter(company=company).count() if 'Estate' in globals() else 0
@@ -3046,7 +3515,9 @@ def search_marketers_api(request):
 
     # SECURITY: Filter marketers by company to prevent cross-tenant data exposure
     company = request.user.company_profile
-    marketers = CustomUser.objects.filter(
+    
+    # Get marketers from company_profile
+    marketers_primary = CustomUser.objects.filter(
         role='marketer',
         company_profile=company,
         full_name__icontains=query
@@ -3055,8 +3526,22 @@ def search_marketers_api(request):
         company_profile=company,
         email__icontains=query
     )
-
-    marketers = marketers.distinct()[:10]
+    
+    # ALSO get marketers from MarketerAffiliation (for users added via add_existing_user_to_company)
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+    )
+    marketers_affiliated = CustomUser.objects.filter(
+        id__in=affiliation_marketer_ids,
+        role='marketer'
+    ).filter(
+        Q(full_name__icontains=query) | Q(email__icontains=query)
+    ).exclude(
+        id__in=marketers_primary.values_list('pk', flat=True)
+    )
+    
+    # Combine both querysets
+    marketers = (marketers_primary | marketers_affiliated).distinct()[:10]
 
     marketers_data = []
     for m in marketers:
@@ -3292,10 +3777,25 @@ def add_existing_user_to_company(request):
             # Get the user
             user = CustomUser.objects.get(id=user_id, is_active=True, is_deleted=False)
             
-            # Check if user already in this company
-            if user.company_profile and user.company_profile.id == company.id:
+            # Check if user already belongs to this company
+            # For clients: check ClientMarketerAssignment
+            # For marketers: check MarketerAffiliation
+            # For other roles: check company_profile
+            user_already_in_company = False
+            if user.role == 'client':
+                user_already_in_company = ClientMarketerAssignment.objects.filter(
+                    client_id=user.pk, company=company
+                ).exists()
+            elif user.role == 'marketer':
+                user_already_in_company = MarketerAffiliation.objects.filter(
+                    marketer_id=user.pk, company=company
+                ).exists()
+            else:  # admin, support, other
+                user_already_in_company = user.company_profile and user.company_profile.id == company.id
+            
+            if user_already_in_company:
                 return JsonResponse({
-                    'error': 'User already belongs to this company',
+                    'error': f'{user.email} already exists as {user.role} in {company.company_name}.',
                     'existing': True,
                     'role': getattr(user, 'role', None),
                     'company': company.company_name if company else None,
@@ -3319,9 +3819,23 @@ def add_existing_user_to_company(request):
                     marketer_obj = None
                     if MarketerUser.objects.filter(pk=marketer_id).exists():
                         marketer_obj = MarketerUser.objects.get(pk=marketer_id)
+                        # SECURITY: Verify marketer belongs to company (either via company_profile or MarketerAffiliation)
+                        if marketer_obj.company_profile != company:
+                            if not MarketerAffiliation.objects.filter(marketer_id=marketer_id, company=company).exists():
+                                raise CustomUser.DoesNotExist("Marketer not in company")
                     else:
                         # Fallback: ensure parent CustomUser exists and create MarketerUser subclass
-                        parent_marketer = CustomUser.objects.get(id=marketer_id, role='marketer', company_profile=company)
+                        # Check both company_profile AND MarketerAffiliation
+                        parent_marketer = None
+                        try:
+                            parent_marketer = CustomUser.objects.get(id=marketer_id, role='marketer', company_profile=company)
+                        except CustomUser.DoesNotExist:
+                            # Check if marketer belongs via MarketerAffiliation
+                            if MarketerAffiliation.objects.filter(marketer_id=marketer_id, company=company).exists():
+                                parent_marketer = CustomUser.objects.get(id=marketer_id, role='marketer')
+                            else:
+                                raise CustomUser.DoesNotExist("Marketer not found in company")
+                        
                         if not MarketerUser.objects.filter(pk=parent_marketer.pk).exists():
                             MarketerUser.objects.create(id=parent_marketer.pk, company_profile=company)
                         marketer_obj = MarketerUser.objects.get(pk=parent_marketer.pk)
@@ -3355,11 +3869,13 @@ def add_existing_user_to_company(request):
                     # non-fatal
                     pass
             
-            # Add user to company
-            # If user has no company yet (from signup), set it
+            # Add user to company - ALWAYS save to ensure user is added to this company
+            # Even if user already has a company_profile, they need to be affiliated with this company too
+            # Users can belong to multiple companies via ClientMarketerAssignment/MarketerAffiliation
             if not user.company_profile:
+                # User has no primary company yet, set this as their primary
                 user.company_profile = company
-                user.save()
+            user.save()  # Always save - ensures user is persisted to this company
 
             # Ensure marketer subclass exists for marketers so marketer directory will list them
             if user.role == 'marketer':
@@ -3375,10 +3891,19 @@ def add_existing_user_to_company(request):
                         logger.warning(f"Failed to get_or_create MarketerUser: {str(e)}")
                         # Fallback: just mark the user as added to company
                         pass
+                
+                # Create MarketerAffiliation so marketer can be found in this company
+                try:
+                    MarketerAffiliation.objects.get_or_create(
+                        marketer_id=user.pk,
+                        company=company
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to create MarketerAffiliation for {user.pk} in {company.pk}: {str(e)}")
             
             return JsonResponse({
                 'success': True,
-                'message': f'{user.full_name} ({user.role}) successfully added to {company.company_name}',
+                'message': f'{user.email} ({user.role}) successfully added to {company.company_name}',
                 'user': {
                     'id': user.id,
                     'email': user.email,
@@ -3489,8 +4014,19 @@ def client(request):
     # Primary queryset: clients represented by ClientUser subclass
     clients_qs = ClientUser.objects.filter(role='client', company_profile=company).select_related('assigned_marketer').order_by('-date_registered')
 
+    # ALSO include clients from ClientMarketerAssignment (for users added via add_existing_user_to_company)
+    assignment_client_ids = list(
+        ClientMarketerAssignment.objects.filter(company=company).values_list('client_id', flat=True).distinct()
+    )
+    assignment_clients_qs = ClientUser.objects.filter(id__in=assignment_client_ids).exclude(
+        id__in=clients_qs.values_list('pk', flat=True)
+    ).select_related('assigned_marketer').order_by('-date_registered')
+    
+    # Combine both querysets
+    clients_qs = list(clients_qs) + list(assignment_clients_qs)
+
     # Fallback: include any CustomUser(client) rows that do not yet have a ClientUser subclass
-    client_ids = list(clients_qs.values_list('pk', flat=True))
+    client_ids = [c.pk if hasattr(c, 'pk') else c for c in clients_qs]
     fallback_clients = list(CustomUser.objects.filter(role='client', company_profile=company).exclude(id__in=client_ids).order_by('-date_registered'))
 
     # Resolve assigned_marketer for fallback clients so templates can show marketer column
@@ -3565,9 +4101,19 @@ def client_soft_delete(request, pk):
     """Soft delete a client"""
     import json
     try:
-        # SECURITY: Verify client belongs to same company
+        # SECURITY: Verify client belongs to same company (either via company_profile or ClientMarketerAssignment)
         company = request.user.company_profile
-        client = CustomUser.objects.get(pk=pk, role='client', company_profile=company)
+        client = CustomUser.objects.get(pk=pk, role='client')
+        
+        # Check if client belongs to company via company_profile OR ClientMarketerAssignment
+        in_company_profile = client.company_profile == company
+        in_affiliation = ClientMarketerAssignment.objects.filter(client_id=pk, company=company).exists()
+        
+        if not (in_company_profile or in_affiliation):
+            return JsonResponse({
+                'success': False,
+                'message': 'Client not found in your company.'
+            }, status=404)
         
         # Get deletion reasons from request
         data = json.loads(request.body)
@@ -3600,9 +4146,19 @@ def client_soft_delete(request, pk):
 def client_restore(request, pk):
     """Restore a soft-deleted client"""
     try:
-        # SECURITY: Verify client belongs to same company
+        # SECURITY: Verify client belongs to same company (either via company_profile or ClientMarketerAssignment)
         company = request.user.company_profile
-        client = CustomUser.objects.get(pk=pk, role='client', company_profile=company)
+        client = CustomUser.objects.get(pk=pk, role='client')
+        
+        # Check if client belongs to company via company_profile OR ClientMarketerAssignment
+        in_company_profile = client.company_profile == company
+        in_affiliation = ClientMarketerAssignment.objects.filter(client_id=pk, company=company).exists()
+        
+        if not (in_company_profile or in_affiliation):
+            return JsonResponse({
+                'success': False,
+                'message': 'Client not found in your company.'
+            }, status=404)
         
         # Restore the client
         client.is_deleted = False
@@ -3632,9 +4188,19 @@ def marketer_soft_delete(request, pk):
     """Soft delete a marketer"""
     import json
     try:
-        # SECURITY: Verify marketer belongs to same company
+        # SECURITY: Verify marketer belongs to same company (either via company_profile or MarketerAffiliation)
         company = request.user.company_profile
-        marketer = CustomUser.objects.get(pk=pk, role='marketer', company_profile=company)
+        marketer = CustomUser.objects.get(pk=pk, role='marketer')
+        
+        # Check if marketer belongs to company via company_profile OR MarketerAffiliation
+        in_company_profile = marketer.company_profile == company
+        in_affiliation = MarketerAffiliation.objects.filter(marketer_id=pk, company=company).exists()
+        
+        if not (in_company_profile or in_affiliation):
+            return JsonResponse({
+                'success': False,
+                'message': 'Marketer not found in your company.'
+            }, status=404)
         
         # Get deletion reasons from request
         data = json.loads(request.body)
@@ -3667,9 +4233,19 @@ def marketer_soft_delete(request, pk):
 def marketer_restore(request, pk):
     """Restore a soft-deleted marketer"""
     try:
-        # SECURITY: Verify marketer belongs to same company
+        # SECURITY: Verify marketer belongs to same company (either via company_profile or MarketerAffiliation)
         company = request.user.company_profile
-        marketer = CustomUser.objects.get(pk=pk, role='marketer', company_profile=company)
+        marketer = CustomUser.objects.get(pk=pk, role='marketer')
+        
+        # Check if marketer belongs to company via company_profile OR MarketerAffiliation
+        in_company_profile = marketer.company_profile == company
+        in_affiliation = MarketerAffiliation.objects.filter(marketer_id=pk, company=company).exists()
+        
+        if not (in_company_profile or in_affiliation):
+            return JsonResponse({
+                'success': False,
+                'message': 'Marketer not found in your company.'
+            }, status=404)
         
         # Restore the marketer
         marketer.is_deleted = False
@@ -4829,7 +5405,11 @@ def marketer_dashboard(request):
     # 1) Totals
     total_transactions = Transaction.objects.filter(marketer=user, company=user.company_profile).count()
     total_estates_sold = Transaction.objects.filter(marketer=user, allocation__payment_type='full', company=user.company_profile).count()
-    number_clients = ClientUser.objects.filter(assigned_marketer=user, company_profile=user.company_profile).count()
+    
+    # Count clients assigned to this marketer - include both direct assignments and ClientMarketerAssignment records
+    direct_clients = ClientUser.objects.filter(assigned_marketer=user, company_profile=user.company_profile).count()
+    assigned_clients = ClientMarketerAssignment.objects.filter(marketer=user, company=user.company_profile).values_list('client_id', flat=True).distinct().count()
+    number_clients = direct_clients + (assigned_clients if assigned_clients > 0 else 0)
 
     # Helper to build a list of (label, transaction_count, estate_count, new_client_count)
     def build_series(start, step, buckets, date_field='transaction_date'):
@@ -4994,7 +5574,17 @@ def marketer_profile(request):
     sales_data = []
     # SECURITY: Filter by company to prevent cross-tenant leakage  
     company = request.user.company_profile
-    company_marketers = MarketerUser.objects.filter(company=company) if company else MarketerUser.objects.none()
+    
+    # Get marketers from both company_profile and MarketerAffiliation
+    company_marketers = MarketerUser.objects.filter(company_profile=company) if company else MarketerUser.objects.none()
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+    ) if company else []
+    affiliation_marketers = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
+        id__in=company_marketers.values_list('pk', flat=True)
+    ) if affiliation_marketer_ids else MarketerUser.objects.none()
+    
+    company_marketers = list(company_marketers) + list(affiliation_marketers)
     
     for m in company_marketers:
         year_sales = Transaction.objects.filter(
@@ -7028,7 +7618,19 @@ class PerformanceDataAPI(View):
 
         # SECURITY: Filter by company to prevent cross-tenant leakage
         company = request.user.company_profile
-        for marketer in MarketerUser.objects.filter(company=company):
+        
+        # Get marketers from both company_profile and MarketerAffiliation
+        company_marketers_qs = MarketerUser.objects.filter(company_profile=company) if company else MarketerUser.objects.none()
+        affiliation_marketer_ids = list(
+            MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+        ) if company else []
+        affiliation_marketers = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
+            id__in=company_marketers_qs.values_list('pk', flat=True)
+        ) if affiliation_marketer_ids else MarketerUser.objects.none()
+        
+        company_marketers = list(company_marketers_qs) + list(affiliation_marketers)
+        
+        for marketer in company_marketers:
             # transactions in period
             txns = Transaction.objects.filter(
                 marketer=marketer,

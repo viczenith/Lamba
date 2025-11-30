@@ -69,6 +69,21 @@
             <div class="small text-muted">Current market value of all properties</div>
           </div>
         </div>
+
+        <!-- Marketer Details Card -->
+        <div class="col-md-3">
+          <div class="stat-card p-3 rounded shadow-sm h-100 bg-light-info">
+            <div class="small text-muted">Your Marketer</div>
+            {% if marketer %}
+              <div class="h5 fw-bold mb-1">{{ marketer.full_name }}</div>
+              <div class="small text-muted">{{ marketer.email }}</div>
+              <div class="small">Phone: {% if marketer.phone %}<a href="tel:{{ marketer.phone }}">{{ marketer.phone }}</a>{% else %}-{% endif %}</div>
+            {% else %}
+              <div class="text-muted">No marketer assigned</div>
+            {% endif %}
+          </div>
+        </div>
+        <!-- End Marketer Details Card -->
       </div>
 
       <div class="row g-4">
