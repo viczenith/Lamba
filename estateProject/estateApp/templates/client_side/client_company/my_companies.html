@@ -7,7 +7,7 @@
 <main id="main" class="main">
   <style>
     :root {
-      --primary: #6C5CE7;
+      --primary: linear-gradient(135deg, #10b981 0%, #059669 100%);
       --text-primary: #081226;
       --text-secondary: #6C757D;
       --border-color: #E9ECEF;
@@ -62,7 +62,7 @@
     }
 
     .section-header h5 i {
-      color: var(--primary);
+      color: #10b981;
     }
 
     .section-header p {
@@ -85,7 +85,7 @@
     }
 
     .total-number {
-      color: var(--primary);
+      color: #10b981;
       font-weight: 700;
       font-size: 2.5rem;
     }
@@ -118,9 +118,9 @@
     }
 
     .filter-btn:hover, .filter-btn.active {
-      background: var(--primary);
+      background: #10b981;
       color: white;
-      border-color: var(--primary);
+      border-color: #10b981;
     }
 
     .sort-select {
@@ -136,7 +136,7 @@
 
     .sort-select:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: #10b981;
     }
 
     /* Cards Grid */
@@ -193,7 +193,7 @@
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      background: var(--primary);
+      background: #10b981;
       color: white;
       font-size: 1rem;
       flex-shrink: 0;
@@ -224,7 +224,7 @@
     }
 
     .company-contact a {
-      color: var(--primary);
+      color: #10b981;
       text-decoration: none;
     }
 
@@ -282,12 +282,12 @@
       flex: 1;
       transition: all 150ms ease;
       background: white;
-      color: var(--primary);
-      border: 2px solid var(--primary);
+      color: #10b981;
+      border: 2px solid #10b981;
     }
 
     .btn-view:hover {
-      background: var(--primary);
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: white;
     }
 
@@ -307,7 +307,7 @@
 
     .empty-icon {
       font-size: 3.5rem;
-      color: var(--primary);
+      color: #10b981;
       margin-bottom: 1rem;
       opacity: 0.6;
     }
@@ -326,7 +326,7 @@
     }
 
     .btn-explore {
-      background: var(--primary);
+      background: #10b981;
       color: white;
       border: none;
       padding: 0.8rem 2rem;
@@ -339,7 +339,7 @@
     }
 
     .btn-explore:hover {
-      background: #5A4ECE;
+      background: #059669;
       color: white;
     }
 
@@ -394,12 +394,6 @@
 
   <section class="section profile">
     <div class="container-fluid">
-      <!-- Section Header -->
-      <div class="section-header">
-        <h5>Your Portfolio</h5>
-        <p>View and manage all your company investments</p>
-      </div>
-
       <!-- Total Companies Summary -->
       {% with total_companies=companies|length %}
       <div class="total-companies-card">

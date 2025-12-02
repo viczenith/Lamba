@@ -2312,7 +2312,16 @@ class Transaction(models.Model):
             self.company = self.allocation.estate.company
         
         if not self.reference_code:
-            prefix = "NLP"
+            # Generate reference code with company-specific prefix
+            # CRITICAL: Company MUST be present - payment reference is legally sensitive
+            company = self.company or (self.allocation.estate.company if self.allocation and self.allocation.estate else None)
+            if not company:
+                raise ValueError(
+                    "Cannot generate payment reference code: Company is required for proper payment tracking and compliance. "
+                    "Ensure transaction is linked to a valid company before saving."
+                )
+            
+            prefix = company._company_prefix()
             date_str = timezone.now().strftime("%Y%m%d")
             plot_raw = str(self.allocation.plot_size)
             m = re.search(r'\d+', plot_raw)
@@ -2484,14 +2493,23 @@ class PaymentRecord(models.Model):
             self.company = self.transaction.allocation.estate.company
         
         if not self.reference_code:
-            prefix = "NLP"
+            # Generate reference code with company-specific prefix
+            # CRITICAL: Company MUST be present - payment reference is legally sensitive
+            company = self.company or (self.transaction.allocation.estate.company if self.transaction and self.transaction.allocation and self.transaction.allocation.estate else None)
+            if not company:
+                raise ValueError(
+                    "Cannot generate payment record reference code: Company is required for proper payment tracking and compliance. "
+                    "Ensure payment record is linked to a valid company before saving."
+                )
+            
+            prefix = company._company_prefix()
             date = timezone.now().strftime("%Y%m%d")
             raw = str(self.transaction.allocation.plot_size)
             m = re.search(r'\d+', raw)
             size = m.group(0) if m else raw
             method = self.payment_method.upper()[:3]
             suffix = f"{random.randint(0,9999):04d}"
-            self.reference_code = f"{prefix}-{date}-{size}{method}{suffix}"
+            self.reference_code = f"{prefix}{date}-{size}-{method}{suffix}"
 
         super().save(*args, **kwargs)
         

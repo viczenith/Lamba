@@ -8026,12 +8026,16 @@ def generate_receipt_pdf(request, transaction_id):
 
 
 @require_GET
+@require_GET
+@login_required
 def ajax_payment_history(request):
     txn_id = request.GET.get("transaction_id")
     if not txn_id:
         return JsonResponse({"error": "Missing transaction_id"}, status=400)
 
-    txn = get_object_or_404(Transaction, pk=txn_id)
+    # SECURITY: Verify the requesting client owns this transaction
+    client_id = getattr(request.user, 'id', request.user)
+    txn = get_object_or_404(Transaction, pk=txn_id, client_id=client_id)
 
     # FULL PAYMENT → 1 line straight off Transaction
     if txn.allocation.payment_type == 'full':
@@ -8087,8 +8091,16 @@ def ajax_record_payment(request):
     if total > balance:
         total = balance
 
-    # Generate reference code
-    prefix = "NLP"
+    # Generate reference code with company-specific prefix
+    # CRITICAL: Company MUST be present - payment reference is legally sensitive
+    company = txn.company or (txn.allocation.estate.company if txn.allocation and txn.allocation.estate else None)
+    if not company:
+        return JsonResponse({
+            "success": False,
+            "error": "Cannot record payment: Transaction company is missing. Payment reference generation requires valid company information for compliance."
+        }, status=400)
+    
+    prefix = company._company_prefix()
     date_str = timezone.now().strftime("%Y%m%d")
     plot_raw = str(txn.allocation.plot_size)
     m = re.search(r'\d+', plot_raw)
@@ -8207,8 +8219,34 @@ def payment_receipt(request, reference_code):
     except Exception:
         total_amount_dec = Decimal('0.00')
 
+    # Calculate current payment amount (for display in receipt)
+    current_payment_amount = Decimal('0.00')
+    total_paid_so_far = Decimal('0.00')  # Cumulative: current + all previous
+    is_first_installment = False
+    
+    if payment:
+        current_payment_amount = Decimal(payment.amount_paid)
+        # Calculate total paid INCLUDING this current payment (cumulative)
+        all_payments_for_transaction = PaymentRecord.objects.filter(
+            transaction=txn
+        ).order_by('payment_date', 'id')
+        
+        total_paid_so_far = Decimal('0.00')
+        for p in all_payments_for_transaction:
+            total_paid_so_far += Decimal(p.amount_paid)
+            if p.id == payment.id:
+                # Stop after processing the current payment
+                break
+        
+        # Check if this is the first installment (no previous payments before this one)
+        is_first_installment = (total_paid_so_far == current_payment_amount)
+    else:
+        current_payment_amount = payments_total_dec
+        total_paid_so_far = payments_total_dec
+
     # Outstanding balance: never negative for display
-    outstanding_dec = total_amount_dec - payments_total_dec
+    # Calculate as Total Price MINUS Total Amount Paid So Far
+    outstanding_dec = total_amount_dec - total_paid_so_far
     if outstanding_dec < Decimal('0'):
         outstanding_dec = Decimal('0.00')
 
@@ -8263,11 +8301,15 @@ def payment_receipt(request, reference_code):
         'balance_display': money_fmt(outstanding_dec),
         'subtotal_display': money_fmt(total_amount_dec),
         'paid_display': money_fmt(payments_total_dec),
+        'current_payment_display': money_fmt(current_payment_amount),
+        'total_paid_so_far_display': money_fmt(total_paid_so_far),
         'outstanding_display': money_fmt(outstanding_dec),
         'amount_in_words': amount_words,
         'today': timezone.now().date(),
         'company': company_context,
         'receipt_number': receipt_number,
+        'is_part_payment': payment is not None,  # True if this is a part/installment payment
+        'is_first_installment': is_first_installment,  # True if this is the FIRST payment
     }
     
     # Prepare payments for display (add display_amount) and render HTML
@@ -8361,14 +8403,21 @@ def payment_receipt(request, reference_code):
         return HttpResponse("Error generating PDF", status=500)
 
 @require_GET
+@require_GET
+@login_required
 def ajax_transaction_details(request, transaction_id):
+    # SECURITY: Verify the requesting client owns this transaction
+    client_id = getattr(request.user, 'id', request.user)
+    
     txn = get_object_or_404(
         Transaction.objects.select_related(
             'allocation__estate',
+            'allocation__plot_size',
             'client',
             'marketer'
         ),
-        pk=transaction_id
+        pk=transaction_id,
+        client_id=client_id  # SECURITY: Only return transactions for the logged-in client
     )
 
     data = {
@@ -8381,20 +8430,18 @@ def ajax_transaction_details(request, transaction_id):
             'estate': {
                 'name': txn.allocation.estate.name
             },
-            'plot_size': txn.allocation.plot_size_for_transaction,
+            'plot_size': str(txn.allocation.plot_size) if txn.allocation.plot_size else 'N/A',
             'payment_type': txn.allocation.payment_type
         },
-        # ← Add these two:
-        'payment_duration': txn.payment_duration,      # integer months or None
-        'custom_duration': txn.custom_duration,        # integer months or None
-
+        'payment_duration': txn.payment_duration,
+        'custom_duration': txn.custom_duration,
         'installment_plan': txn.installment_plan,
         'first_percent': txn.first_percent,
         'second_percent': txn.second_percent,
         'third_percent': txn.third_percent,
-        'first_installment': str(txn.first_installment)  if txn.first_installment  else None,
+        'first_installment': str(txn.first_installment) if txn.first_installment else None,
         'second_installment': str(txn.second_installment) if txn.second_installment else None,
-        'third_installment': str(txn.third_installment)   if txn.third_installment  else None,
+        'third_installment': str(txn.third_installment) if txn.third_installment else None,
     }
 
     return JsonResponse(data)
