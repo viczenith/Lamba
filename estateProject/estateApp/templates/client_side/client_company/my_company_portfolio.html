@@ -5,8 +5,29 @@
 
 {% block content %}
 <main id="main" class="main">
+  <style>
+    .portfolio-logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    .portfolio-initials {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      background: #6C5CE7;
+      color: white;
+      font-size: 2rem;
+    }
+  </style>
   <div class="pagetitle">
-    <h1>{{ company.company_name }} — My Portfolio</h1>
+    <h1>My Portfolio</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
@@ -73,7 +94,7 @@
         <!-- Marketer Details Card -->
         <div class="col-md-3">
           <div class="stat-card p-3 rounded shadow-sm h-100 bg-light-info">
-            <div class="small text-muted">Your Marketer</div>
+            <div class="small text-muted">Your Marketer is</div>
             {% if marketer %}
               <div class="h5 fw-bold mb-1">{{ marketer.full_name }}</div>
               <div class="small text-muted">{{ marketer.email }}</div>
@@ -339,139 +360,124 @@
       }
 
 
-      // Build a client-side map from allocation id -> transaction id using server-rendered `transactions` (via JSON)
-      var allocationTransactionMap = {};
-      var allocTxMapJson = document.getElementById('alloc-tx-map-json');
-      if (allocTxMapJson) {
-        try {
-          allocationTransactionMap = JSON.parse(allocTxMapJson.textContent);
-        } catch (e) { console.error('Failed to parse allocationTransactionMap JSON', e); }
-      }
 
-  <!-- JSON map for allocation id -> transaction id (for modal logic) -->
-  {{ allocation_tx_map|json_script:"alloc-tx-map-json" }}
-
-      // When a receipts button is clicked, stash the resolved tx id on the modal
-
-      $(document).on('click', '.alloc-receipts-btn', function(e){
-        var $btn = $(this);
-        var txFromAttr = $btn.attr('data-id') || $btn.data('id');
-        var allocId = $btn.attr('data-alloc-id') || $btn.data('allocId');
-        var resolved = txFromAttr || (allocId ? allocationTransactionMap[allocId] : null) || null;
-        console.log('[Modal Trigger] Transaction ID:', resolved, 'Allocation ID:', allocId);
-        $('#transactionDetailsModal').data('tx-id', resolved);
-      });
 
 
       $('#transactionDetailsModal').on('show.bs.modal', function(e) {
         var $modal = $(this);
-        var related = e.relatedTarget; // native element
-        var $trigger = related ? $(related) : $();
-
-        // Safely read data attributes (use attr if data() normalization may vary)
-        var txId = $trigger.attr('data-transaction-id') || $trigger.data('transactionId') || null;
-        var allocId = $trigger.attr('data-alloc-id') || $trigger.data('allocId') || null;
-
-        // If transaction id is missing but allocation id is available, lookup mapping
-        if(!txId && allocId && allocationTransactionMap[allocId]) {
-          txId = allocationTransactionMap[allocId];
-        }
-
-        // Also check if a click handler previously stored the tx id on the modal
-        var stored = $modal.data('tx-id');
-        if(!txId && stored) txId = stored;
-
-        // Show loading spinner, hide error and content
-        $modal.find('#txn-modal-loading').show();
-        $modal.find('#txn-modal-error').addClass('d-none');
-        $modal.find('.modal-body .row, #td_payment_history').hide();
+        var id = $(e.relatedTarget).data('id');
+        
         // Clear previous data
-        $modal.find('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
-        $modal.find('#payment_history_body').empty();
-        $modal.find('[id^="row_"]').hide();
-
-        if(txId) {
-          // Fetch transaction details
-          $.get(`/transaction/${txId}/details/`)
-            .done(function(d){
-              $modal.find('#txn-modal-loading').hide();
-              $modal.find('.modal-body .row, #td_payment_history').show();
-              try{
-                $modal.find('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : (d.estate || 'N/A'));
-                $modal.find('#td_plot_size').text(d.allocation && d.allocation.plot_size ? d.allocation.plot_size : (d.plot_size || 'N/A'));
-                $modal.find('#td_date').text(d.transaction_date || 'N/A');
-                $modal.find('#td_amount').text(formatCurrency(d.total_amount || d.amount || 0));
-
-                const pt = d.allocation && d.allocation.payment_type ? d.allocation.payment_type : d.payment_type;
-                const ptHtml = pt === 'part'
-                  ? '<span class="badge bg-info text-dark">Part Payment</span>'
-                  : '<span class="badge bg-primary">Full Payment</span>';
-                $modal.find('#td_payment_type').html(ptHtml);
-
-                var status = d.status || d.payment_status || 'Unknown';
-                var statusHtml = '<span class="badge bg-secondary">' + status + '</span>';
-                if(status === 'Paid Complete' || status === 'Fully Paid') statusHtml = '<span class="badge bg-success">' + status + '</span>';
-                if(status === 'Part Payment') statusHtml = '<span class="badge bg-warning text-dark">' + status + '</span>';
-                if(status === 'Overdue') statusHtml = '<span class="badge bg-danger">' + status + '</span>';
-                $modal.find('#td_status').html(statusHtml);
-
-                // Part payment fields
-                if(pt === 'part'){
-                  var durText = '';
-                  if(d.payment_duration) durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
-                  else if(d.custom_duration) durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
-                  if(durText){ $modal.find('#td_duration').text(durText); $modal.find('#row_duration').show(); }
-
-                  var planText = '';
-                  if(d.installment_plan === 'custom') planText = `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`;
-                  else if(d.installment_plan) planText = d.installment_plan.split('-').join('%, ') + '%';
-                  if(planText){ $modal.find('#td_plan').text(planText); $modal.find('#row_plan').show(); }
-
-                  if(d.first_installment) { $modal.find('#td_first').text(formatCurrency(d.first_installment)); $modal.find('#row_first').show(); }
-                  if(d.second_installment) { $modal.find('#td_second').text(formatCurrency(d.second_installment)); $modal.find('#row_second').show(); }
-                  if(d.third_installment) { $modal.find('#td_third').text(formatCurrency(d.third_installment)); $modal.find('#row_third').show(); }
-                }
-              }catch(err){ console.error('Error rendering transaction details', err); }
-            })
-            .fail(function(){
-              $modal.find('#txn-modal-loading').hide();
-              $modal.find('#txn-modal-error').removeClass('d-none');
-            });
-
-          // Fetch payment history
-          $.get("{% url 'ajax_payment_history' %}", { transaction_id: txId })
-            .done(function(d){
-              var html = '';
-              if(d && d.payments && d.payments.length){
-                d.payments.forEach(function(p){
-                  html += `<tr>
-                    <td>${p.date}</td>
-                    <td>${formatCurrency(p.amount)}</td>
-                    <td>${p.method}</td>
-                    <td>${p.installment}</td>
-                    <td>${p.reference || ''}</td>
-                    <td class="text-end">
-                      <button class="btn btn-sm btn-outline-success view-receipt-btn receipt-btn" data-reference="${p.reference}">
-                        <i class="bi bi-download"></i> Download
-                      </button>
-                    </td>
-                  </tr>`;
-                });
-              } else {
-                html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
+        $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
+        $('#payment_history_body').empty();
+        $('[id^="row_"]').hide();
+        
+        // Fetch transaction details
+        $.get(`/transaction/${id}/details/`)
+          .done(function(d) {
+            // Basic info - handle both nested allocation and flat structure
+            var estate = (d.allocation && d.allocation.estate) ? d.allocation.estate.name : (d.estate || 'N/A');
+            var plotSize = (d.allocation && d.allocation.plot_size) ? d.allocation.plot_size : (d.plot_size || 'N/A');
+            
+            $('#td_estate').text(estate);
+            $('#td_plot_size').text(plotSize);
+            $('#td_date').text(d.transaction_date || 'N/A');
+            $('#td_amount').text(formatCurrency(d.total_amount || d.amount || 0));
+            
+            // Payment Type badge - handle both nested and flat
+            var paymentType = (d.allocation && d.allocation.payment_type) ? d.allocation.payment_type : d.payment_type;
+            var ptHtml = paymentType === 'part'
+              ? '<span class="badge bg-info text-dark">Part Payment</span>'
+              : '<span class="badge bg-primary">Full Payment</span>';
+            $('#td_payment_type').html(ptHtml);
+            
+            // Status badge
+            var statusHtml = '';
+            var status = d.status || d.payment_status || 'Unknown';
+            switch(status) {
+              case 'Paid Complete':
+              case 'Fully Paid':
+                statusHtml = '<span class="badge bg-success">' + status + '</span>';
+                break;
+              case 'Part Payment':
+                statusHtml = '<span class="badge bg-warning text-dark">' + status + '</span>';
+                break;
+              case 'Overdue':
+                statusHtml = '<span class="badge bg-danger">' + status + '</span>';
+                break;
+              default:
+                statusHtml = '<span class="badge bg-secondary">' + status + '</span>';
+            }
+            $('#td_status').html(statusHtml);
+            
+            // If part-payment, show duration & installments
+            if(paymentType === 'part') {
+              // Payment Duration
+              var durText = '';
+              if(d.payment_duration) {
+                durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
+              } else if(d.custom_duration) {
+                durText = d.custom_duration + ' month' + (d.custom_duration > 1 ? 's' : '');
               }
-              $modal.find('#payment_history_body').html(html);
-            })
-            .fail(function(){
-              $modal.find('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
-            });
-
-        } else {
-          // No transaction id available
-          $modal.find('#txn-modal-loading').hide();
-          $modal.find('.modal-body .row, #td_payment_history').show();
-          $modal.find('#payment_history_body').html('<tr><td colspan="6" class="text-center">No payment history available for this allocation</td></tr>');
-        }
+              if(durText) {
+                $('#td_duration').text(durText);
+                $('#row_duration').show();
+              }
+              
+              // Installment plan
+              var planText = d.installment_plan === 'custom'
+                ? `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`
+                : d.installment_plan.split('-').join('%, ') + '%';
+              $('#td_plan').text(planText);
+              $('#row_plan').show();
+              
+              // Installment amounts
+              if(d.first_installment) {
+                $('#td_first').text(formatCurrency(d.first_installment));
+                $('#row_first').show();
+              }
+              if(d.second_installment) {
+                $('#td_second').text(formatCurrency(d.second_installment));
+                $('#row_second').show();
+              }
+              if(d.third_installment) {
+                $('#td_third').text(formatCurrency(d.third_installment));
+                $('#row_third').show();
+              }
+            }
+          })
+          .fail(function() { alert('Error loading transaction details'); });
+        
+        // Fetch payment history
+        $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
+          .done(function(d) {
+            var html = '';
+            
+            if(d.payments && d.payments.length) {
+              d.payments.forEach(function(p) {
+                html += `<tr>
+                  <td>${p.date}</td>
+                  <td>${formatCurrency(p.amount)}</td>
+                  <td>${p.method}</td>
+                  <td>${p.installment}</td>
+                  <td>${p.reference || ''}</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-success view-receipt-btn" 
+                            data-reference="${p.reference}">
+                      <i class="bi bi-download"></i> Download
+                    </button>
+                  </td>
+                </tr>`;
+              });
+            } else {
+              html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
+            }
+            
+            $('#payment_history_body').html(html);
+          })
+          .fail(function() {
+            $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
+          });
       });
 
       // Handle receipt download

@@ -6077,7 +6077,7 @@ def my_companies(request):
 
         company_list.append(comp)
 
-    return render(request, 'client_side/my_companies.html', {'companies': company_list})
+    return render(request, 'client_side/client_company/my_companies.html', {'companies': company_list})
 
 
 @login_required
@@ -6086,6 +6086,8 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
 
     Accepts either `company_id` or `company_slug` (one must be provided).
     """
+    from estateApp.models import ClientMarketerAssignment
+    
     user = request.user
     client_id = getattr(user, 'id', user)
 
@@ -6093,6 +6095,11 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
         company = get_object_or_404(Company, slug=company_slug)
     else:
         company = get_object_or_404(Company, id=company_id)
+
+    # SECURITY: Verify client has allocations in this company (prevent unauthorized access)
+    if not PlotAllocation.objects.filter(client_id=client_id, estate__company=company).exists():
+        from django.http import Http404
+        raise Http404("You don't have any allocations in this company.")
 
     # Annotate each allocation with the latest transaction id (if any) for robust client-side wiring
     latest_tx_subq = (
@@ -6172,6 +6179,17 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
 
     total_value_increased = total_current_value - (total_invested or 0)
 
+    # Get the client's assigned marketer for this specific company (company-scoped)
+    # SECURITY: Only fetch marketer if client has this company assignment
+    try:
+        assignment = ClientMarketerAssignment.objects.filter(
+            client_id=client_id,
+            company=company
+        ).select_related('marketer').first()
+        marketer = assignment.marketer if assignment else None
+    except Exception:
+        marketer = None
+
     context = {
         'company': company,
         'allocations': allocations,
@@ -6184,8 +6202,9 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
         'average_growth': average_growth,
         'highest_growth_rate': highest_growth_rate,
         'highest_growth_property': highest_growth_property,
+        'marketer': marketer,
     }
-    return render(request, 'client_side/my_company_portfolio.html', context)
+    return render(request, 'client_side/client_company/my_company_portfolio.html', context)
 
 
 @login_required
