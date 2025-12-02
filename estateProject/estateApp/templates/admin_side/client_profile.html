@@ -39,13 +39,15 @@
 
             {% if client.assigned_marketer %}
             <div class="marketer-badge mt-3">
-              <div class="d-flex align-items-center bg-light p-2 rounded justify-content-center">
-                <i class="bi bi-person-badge-fill text-primary me-2"></i>
-                <div class="text-start">
-                  <div class="small text-muted">Assigned Marketer</div>
-                  <strong>{{ client.assigned_marketer.full_name }}</strong>
+              <a href="{% url 'marketer-profile-slug' slug=client.assigned_marketer.company_marketer_uid %}?company={{ company.slug }}" class="text-decoration-none text-reset">
+                <div class="d-flex align-items-center bg-light p-2 rounded justify-content-center">
+                  <i class="bi bi-person-badge-fill text-primary me-2"></i>
+                  <div class="text-start">
+                    <div class="small text-muted">Assigned Marketer</div>
+                    <strong class="text-primary">{{ client.assigned_marketer.full_name }}</strong>
+                  </div>
                 </div>
-              </div>
+              </a>
             </div>
             {% endif %}
 
@@ -157,7 +159,13 @@
                       <div class="info-item p-3 bg-light rounded">
                         <span class="info-label">Assigned Marketer</span>
                         <span class="info-value">
-                          {% if client.assigned_marketer %}{{ client.assigned_marketer.full_name }}{% else %}Not assigned{% endif %}
+                          {% if client.assigned_marketer %}
+                            <a href="{% url 'marketer-profile-slug' slug=client.assigned_marketer.company_marketer_uid %}?company={{ company.slug }}" class="text-decoration-none text-primary fw-bold">
+                              {{ client.assigned_marketer.full_name }}
+                            </a>
+                          {% else %}
+                            Not assigned
+                          {% endif %}
                         </span>
                       </div>
                       <div class="info-item p-3 bg-light rounded">

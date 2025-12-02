@@ -1,0 +1,28 @@
+Re-engagement Reminder: {{ company_name }}
+
+Dear {{ user_name }},
+
+We noticed you haven't logged into your {{ company_name }} account for a while. We'd love to see you back!
+
+Your account is active and ready to use. Simply log in to continue accessing all your features and staying updated.
+
+---
+
+WHAT'S NEW?
+- Enhanced dashboard with real-time analytics
+- Improved user interface for easier navigation
+- New features added to boost your productivity
+
+---
+
+LOG IN NOW:
+{{ login_url }}
+
+NEED HELP?
+Contact our support team at: {{ support_email }}
+
+---
+
+{{ company_name }} | User Engagement Team
+
+This is an automated message. Please do not reply to this email.

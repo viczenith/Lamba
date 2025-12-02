@@ -216,22 +216,19 @@ def tenant_management_dashboard(request, company_slug):
     
     STATUSES = ['Fully Paid', 'Part Payment', 'Pending', 'Overdue']
 
-    # ✅ SECURITY: Filter transactions by company
+    # ✅ SECURITY: Filter transactions by company (direct company FK for multi-tenant isolation)
     transactions = Transaction.objects.select_related(
         'client', 'marketer',
         'allocation__estate',
         'allocation__plot_size_unit__plot_size'
     ).filter(
-        client__company_profile=company
-    ) | Transaction.objects.select_related(
-        'client', 'marketer',
-        'allocation__estate',
-        'allocation__plot_size_unit__plot_size'
-    ).filter(
-        marketer__company_profile=company
-    )
+        company=company
+    ).order_by('-transaction_date')
 
-    txn_qs = Transaction.objects.filter(allocation_id=OuterRef('pk'))
+    txn_qs = Transaction.objects.filter(
+        allocation_id=OuterRef('pk'),
+        company=company  # Ensure company-scoped check
+    )
     # Pending allocations only for this company
     pending_allocations = PlotAllocation.objects.annotate(
         has_txn=Exists(txn_qs)
@@ -603,18 +600,37 @@ def company_admin_register(request, company_id):
         
         # Create user within transaction
         with transaction.atomic():
-            user = CustomUser.objects.create_user(
-                email=email,
-                password=password,
-                full_name=name,
-                role=role,
-                phone=phone or None,
-                date_of_birth=date_of_birth or None,
-                address=address or None,
-                country=country or None,
-                company_profile=company,  # COMPANY-SCOPED - stored in this field
-                is_active=True
-            )
+            # Use the correct model based on role to ensure proper table storage
+            if role == 'admin':
+                from estateApp.models import AdminUser
+                user = AdminUser.objects.create_user(
+                    email=email,
+                    password=password,
+                    full_name=name,
+                    role=role,
+                    phone=phone or None,
+                    date_of_birth=date_of_birth or None,
+                    address=address or None,
+                    country=country or None,
+                    company_profile=company,
+                    is_active=True
+                )
+            elif role == 'support':
+                from estateApp.models import SupportUser
+                user = SupportUser.objects.create_user(
+                    email=email,
+                    password=password,
+                    full_name=name,
+                    role=role,
+                    phone=phone or None,
+                    date_of_birth=date_of_birth or None,
+                    address=address or None,
+                    country=country or None,
+                    company_profile=company,
+                    is_active=True
+                )
+            else:
+                raise Exception(f"Invalid role: {role}")
             
             # Verify user was created
             if not user:

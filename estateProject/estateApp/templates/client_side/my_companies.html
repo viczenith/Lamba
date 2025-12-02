@@ -1,34 +1,944 @@
 {% extends 'client_base.html' %}
 {% load humanize %}
+{% load static %}
+
 {% block content %}
 <main class="main">
-  <div class="pagetitle"><h1>My Companies</h1></div>
-  <section class="section">
-    <div class="row">
-      <div class="col-lg-8">
-        <div class="card">
-          <div class="card-body">
-            {% if companies %}
-              <ul class="list-group">
-                {% for item in companies %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>{{ item.company.company_name }}</strong>
-                      <div class="small text-muted">Allocations: {{ item.allocations }} • Invested: ₦{{ item.total_invested|intcomma }}</div>
-                    </div>
-                    <div>
-                      <a href="{% url 'my-company-portfolio' company_id=item.company.id %}" class="btn btn-sm btn-primary">View</a>
-                    </div>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <div class="text-muted">You don't have any company activity yet.</div>
-            {% endif %}
-          </div>
+  <style>
+    /* ============================================
+       ADVANCED COMPANY PORTFOLIO STYLING
+       ============================================ */
+
+    * {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --dark-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+
+    body {
+      background: #f8f9ff;
+    }
+
+    /* ============================================
+       HEADER SECTION WITH ADVANCED STYLING
+       ============================================ */
+    .companies-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 3.5rem 2rem;
+      border-radius: 16px;
+      margin-bottom: 3rem;
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .companies-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 400px;
+      height: 400px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      animation: float 8s ease-in-out infinite;
+    }
+
+    .companies-header::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      left: -5%;
+      width: 300px;
+      height: 300px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 10s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-30px) rotate(10deg); }
+    }
+
+    .companies-header-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .companies-header h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin: 0;
+      text-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .companies-header h1 i {
+      font-size: 3rem;
+      opacity: 0.9;
+    }
+
+    .companies-header-subtitle {
+      font-size: 1.15rem;
+      opacity: 0.92;
+      margin-top: 0.8rem;
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    /* Advanced Stats Row */
+    .companies-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      transition: all 0.3s ease;
+    }
+
+    .stat-box:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      opacity: 0.85;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-top: 0.7rem;
+    }
+
+    /* ============================================
+       FILTER AND SORT BAR
+       ============================================ */
+    .filter-sort-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      background: white;
+      padding: 1.2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 0.6rem 1.3rem;
+      border: 2px solid #e9ecef;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      color: #6c757d;
+      position: relative;
+    }
+
+    .filter-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      background: var(--primary-gradient);
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: -1;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      border-color: #667eea;
+      color: white;
+      background: var(--primary-gradient);
+    }
+
+    .sort-select {
+      padding: 0.6rem 1rem;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      color: #495057;
+    }
+
+    .sort-select:hover, .sort-select:focus {
+      border-color: #667eea;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* ============================================
+       COMPANY CARDS GRID
+       ============================================ */
+    .companies-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 2.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .company-card {
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+    }
+
+    .company-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--primary-gradient);
+      z-index: 10;
+    }
+
+    .company-card:hover {
+      transform: translateY(-12px);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+      border-color: rgba(102, 126, 234, 0.3);
+    }
+
+    /* Card Badge */
+    .card-badge {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      background: var(--success-gradient);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 5;
+      box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+    }
+
+    .company-card-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 2rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .company-card-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+    }
+
+    .company-card-header::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      left: -5%;
+      width: 150px;
+      height: 150px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+    }
+
+    .company-card-title {
+      position: relative;
+      z-index: 2;
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .company-card-title i {
+      font-size: 1.6rem;
+      opacity: 0.9;
+    }
+
+    .company-card-body {
+      padding: 2rem 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem;
+      background: linear-gradient(135deg, #f8f9ff 0%, #f5f7fa 100%);
+      border-radius: 10px;
+      transition: all 0.3s;
+      border-left: 4px solid #667eea;
+    }
+
+    .metric-row:hover {
+      background: linear-gradient(135deg, #f0f2ff 0%, #f0f5ff 100%);
+      transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: #6c757d;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .metric-label i {
+      color: #667eea;
+      font-size: 1rem;
+    }
+
+    .metric-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #667eea;
+    }
+
+    .company-card-footer {
+      padding: 1.5rem;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .btn-view {
+      flex: 1;
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      padding: 0.9rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-view::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: left 0.3s;
+    }
+
+    .btn-view:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+      text-decoration: none;
+      color: white;
+    }
+
+    .btn-view:hover::before {
+      left: 100%;
+    }
+
+    .btn-details {
+      background: white;
+      color: #667eea;
+      border: 2.5px solid #667eea;
+      padding: 0.9rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.3s;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+
+    .btn-details:hover {
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      transform: scale(1.05);
+    }
+
+    /* ============================================
+       PORTFOLIO OVERVIEW CARD
+       ============================================ */
+    .total-stats-card {
+      background: white;
+      border-radius: 14px;
+      padding: 2.5rem;
+      margin-bottom: 3rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .total-stats-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 300px;
+      height: 300px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.05) 100%);
+      border-radius: 50%;
+      z-index: 0;
+    }
+
+    .total-stats-card-title {
+      position: relative;
+      z-index: 2;
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 2rem;
+      color: #1a1a2e;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .total-stats-card-title i {
+      color: #667eea;
+      font-size: 1.5rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #f8f9ff 0%, #f5f7fa 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(102, 126, 234, 0.1);
+      transition: all 0.3s;
+    }
+
+    .stat-item:hover {
+      background: linear-gradient(135deg, #f0f2ff 0%, #f0f5ff 100%);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+    }
+
+    .stat-item-label {
+      color: #6c757d;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.8rem;
+      font-weight: 700;
+    }
+
+    .stat-item-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-item-change {
+      font-size: 0.85rem;
+      color: #51cf66;
+      font-weight: 600;
+    }
+
+    /* ============================================
+       ALLOCATION BADGE & STATUS
+       ============================================ */
+    .allocation-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #e7f5ff 0%, #d0ebff 100%);
+      color: #1971c2;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border: 1px solid #bfe7f6;
+    }
+
+    .investment-status {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #51cf66;
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 0 3px rgba(81, 207, 102, 0.2);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* ============================================
+       EMPTY STATE
+       ============================================ */
+    .empty-state {
+      text-align: center;
+      padding: 5rem 2rem;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 14px;
+      margin: 2rem 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .empty-state::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 300px;
+      height: 300px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+    }
+
+    .empty-state-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .empty-state-icon {
+      font-size: 5rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1.5rem;
+      opacity: 0.8;
+    }
+
+    .empty-state-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #1a1a2e;
+      margin-bottom: 0.8rem;
+    }
+
+    .empty-state-text {
+      color: #6c757d;
+      font-size: 1.05rem;
+      margin-bottom: 2.5rem;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn-explore {
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      padding: 1rem 2.5rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-explore:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+      text-decoration: none;
+      color: white;
+    }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       ============================================ */
+    @media (max-width: 768px) {
+      .companies-header h1 {
+        font-size: 2rem;
+      }
+
+      .companies-stats {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .companies-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .filter-sort-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-buttons {
+        width: 100%;
+      }
+
+      .sort-select {
+        width: 100%;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .company-card-footer {
+        flex-direction: column;
+      }
+
+      .btn-view, .btn-details {
+        width: 100%;
+      }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .company-card {
+      animation: fadeInUp 0.6s ease-out both;
+    }
+
+    .total-stats-card {
+      animation: fadeInUp 0.6s ease-out 0.1s both;
+    }
+
+    .stat-item {
+      animation: fadeInUp 0.6s ease-out both;
+    }
+  </style>
+
+  <!-- Header Section with Advanced Design -->
+  <div class="companies-header">
+    <div class="companies-header-content">
+      <h1><i class="bi bi-building"></i> My Investment Portfolio</h1>
+      <p class="companies-header-subtitle">Manage and monitor all your real estate investments in one place</p>
+      
+      {% if companies %}
+      <div class="companies-stats">
+        <div class="stat-box">
+          <div class="stat-label"><i class="bi bi-graph-up"></i> Portfolio Companies</div>
+          <div class="stat-value">{{ companies|length }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label"><i class="bi bi-stack"></i> Active Properties</div>
+          <div class="stat-value">{{ total_allocations|default:0 }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label"><i class="bi bi-cash-coin"></i> Total Invested</div>
+          <div class="stat-value">₦{{ total_invested|default:0|intcomma }}</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if companies %}
+    <!-- Filter and Sort Bar -->
+    <div class="filter-sort-bar">
+      <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterCompanies('all')">
+          <i class="bi bi-funnel"></i> All Companies
+        </button>
+        <button class="filter-btn" onclick="filterCompanies('active')">
+          <i class="bi bi-check-circle"></i> Active
+        </button>
+        <button class="filter-btn" onclick="filterCompanies('high')">
+          <i class="bi bi-arrow-up-circle"></i> High Value
+        </button>
+      </div>
+      <select class="sort-select" onchange="sortCompanies(this.value)">
+        <option value="recent">Sort by: Most Recent</option>
+        <option value="invested">Sort by: Investment</option>
+        <option value="allocations">Sort by: Allocations</option>
+        <option value="name">Sort by: Company Name</option>
+      </select>
+    </div>
+
+    <!-- Total Stats Card -->
+    <div class="total-stats-card">
+      <h5 class="total-stats-card-title"><i class="bi bi-pie-chart-fill"></i> Portfolio Overview</h5>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-item-label">Total Portfolio Value</div>
+          <div class="stat-item-value">₦{{ total_invested|default:0|intcomma }}</div>
+          <div class="stat-item-change">Across {{ companies|length }} compan{{ companies|length|pluralize:"y,ies" }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-item-label">Active Investments</div>
+          <div class="stat-item-value">{{ total_allocations|default:0 }}</div>
+          <div class="stat-item-change">Properties owned</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-item-label">Average Investment</div>
+          <div class="stat-item-value">{% if companies %}₦{{ average_invested|default:0|intcomma }}{% else %}—{% endif %}</div>
+          <div class="stat-item-change">Per company</div>
         </div>
       </div>
     </div>
-  </section>
+
+    <!-- Companies Grid -->
+    <div class="companies-grid" id="companiesGrid">
+      {% for item in companies %}
+        <div class="company-card" data-company-id="{{ item.company.id }}" data-invested="{{ item.total_invested }}">
+          <!-- Card Badge -->
+          <span class="card-badge"><i class="bi bi-lightning-fill"></i> Active</span>
+
+          <!-- Card Header -->
+          <div class="company-card-header">
+            <h3 class="company-card-title">
+              <i class="bi bi-building"></i> {{ item.company.company_name }}
+            </h3>
+          </div>
+
+          <!-- Card Body -->
+          <div class="company-card-body">
+            <div class="metric-row">
+              <span class="metric-label"><i class="bi bi-stack"></i> Properties</span>
+              <span class="allocation-badge">{{ item.allocations }} prop{{ item.allocations|pluralize:"erty,erties" }}</span>
+            </div>
+
+            <div class="metric-row">
+              <span class="metric-label"><i class="bi bi-currency-naira"></i> Total Investment</span>
+              <span class="metric-value">₦{{ item.total_invested|intcomma }}</span>
+            </div>
+
+            <div class="metric-row">
+              <span class="metric-label"><i class="bi bi-activity"></i> Status</span>
+              <span class="investment-status">
+                <span class="status-indicator"></span>
+                <span>Active & Growing</span>
+              </span>
+            </div>
+
+            {% if item.company.company_slug %}
+            <div class="metric-row">
+              <span class="metric-label"><i class="bi bi-tag"></i> Company ID</span>
+              <span style="font-family: 'Courier New', monospace; font-weight: 700; color: #667eea; font-size: 0.95rem;">{{ item.company.company_slug }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Card Footer -->
+          <div class="company-card-footer">
+            <a href="{% url 'my-company-portfolio' company_id=item.company.id %}" class="btn-view">
+              <i class="bi bi-eye"></i> View Portfolio
+            </a>
+            <button class="btn-details" title="More details" onclick="showCompanyDetails({{ item.company.id }})">
+              <i class="bi bi-info-circle"></i>
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+      <div class="empty-state-content">
+        <div class="empty-state-icon">
+          <i class="bi bi-inbox"></i>
+        </div>
+        <h2 class="empty-state-title">Start Your Investment Journey</h2>
+        <p class="empty-state-text">You haven't invested in any real estate companies yet. Explore our available opportunities and start building your property portfolio today!</p>
+        <a href="{% url 'available-properties' %}" class="btn-explore">
+          <i class="bi bi-search"></i> Explore Properties
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
 </main>
+
+<script>
+  // ============================================
+  // PAGE LOAD ANIMATIONS
+  // ============================================
+  document.addEventListener('DOMContentLoaded', function() {
+    // Stagger card animations
+    const cards = document.querySelectorAll('.company-card');
+    cards.forEach((card, index) => {
+      card.style.animationDelay = `${index * 0.1}s`;
+    });
+
+    // Count up animation for stat values
+    animateStatValues();
+  });
+
+  // ============================================
+  // STAT VALUE ANIMATION
+  // ============================================
+  function animateStatValues() {
+    const statValues = document.querySelectorAll('.stat-value, .stat-item-value');
+    statValues.forEach(stat => {
+      const finalValue = stat.textContent;
+      const isNumber = /\d/.test(finalValue);
+      
+      if (isNumber) {
+        const numbers = finalValue.match(/\d+/g);
+        if (numbers) {
+          const targetNum = parseInt(numbers[0]);
+          let currentNum = 0;
+          const increment = Math.ceil(targetNum / 30);
+          
+          const counter = setInterval(() => {
+            currentNum += increment;
+            if (currentNum >= targetNum) {
+              currentNum = targetNum;
+              clearInterval(counter);
+            }
+            stat.textContent = finalValue.replace(/\d+/, currentNum);
+          }, 30);
+        }
+      }
+    });
+  }
+
+  // ============================================
+  // FILTER FUNCTIONALITY
+  // ============================================
+  function filterCompanies(filter) {
+    const cards = document.querySelectorAll('.company-card');
+    const buttons = document.querySelectorAll('.filter-btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    cards.forEach(card => {
+      if (filter === 'all') {
+        card.style.display = 'block';
+      } else if (filter === 'active') {
+        card.style.display = 'block';
+      } else if (filter === 'high') {
+        const invested = parseInt(card.dataset.invested) || 0;
+        card.style.display = invested > 1000000 ? 'block' : 'none';
+      }
+    });
+  }
+
+  // ============================================
+  // SORT FUNCTIONALITY
+  // ============================================
+  function sortCompanies(sortType) {
+    const grid = document.getElementById('companiesGrid');
+    const cards = Array.from(grid.querySelectorAll('.company-card'));
+    
+    cards.sort((a, b) => {
+      switch(sortType) {
+        case 'invested':
+          return parseInt(b.dataset.invested) - parseInt(a.dataset.invested);
+        case 'name':
+          const nameA = a.querySelector('.company-card-title').textContent;
+          const nameB = b.querySelector('.company-card-title').textContent;
+          return nameA.localeCompare(nameB);
+        case 'recent':
+        default:
+          return 0;
+      }
+    });
+    
+    cards.forEach(card => {
+      grid.appendChild(card);
+      card.style.animation = 'fadeInUp 0.4s ease-out';
+    });
+  }
+
+  // ============================================
+  // COMPANY DETAILS MODAL
+  // ============================================
+  function showCompanyDetails(companyId) {
+    alert('Company Details Modal for ID: ' + companyId + '\n(Feature coming soon)');
+  }
+</script>
+
 {% endblock %}

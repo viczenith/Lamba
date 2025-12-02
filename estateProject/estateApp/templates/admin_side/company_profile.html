@@ -86,6 +86,34 @@
             border-color: #22c55e !important;
             color: #16a34a !important;
         }
+
+        /* Analytics Dashboard Gradients */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0857ca 100%) !important;
+        }
+
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #198754 0%, #157347 100%) !important;
+        }
+
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%) !important;
+            color: #000 !important;
+        }
+
+        .bg-gradient-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c71c22 100%) !important;
+        }
+
+        /* Analytics Cards Hover Effect */
+        .bg-gradient-primary, .bg-gradient-success, .bg-gradient-warning, .bg-gradient-danger {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .bg-gradient-primary:hover, .bg-gradient-success:hover, .bg-gradient-warning:hover, .bg-gradient-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+        }
     </style>
 
     <div class="container py-3" id="protectedContent">
@@ -306,10 +334,199 @@
 
             <!-- Users -->
             <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="users-tab">
-                <div class="card">
+                <!-- USER ENGAGEMENT ANALYTICS DASHBOARD -->
+                <div class="row g-3 mb-4">
+                    <!-- Metric Cards -->
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm bg-gradient-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="opacity-75">Active (30d)</small>
+                                        <h3 class="mb-0">{{ active_users_30d|intcomma }}</h3>
+                                    </div>
+                                    <i class="bi bi-graph-up" style="font-size: 2rem; opacity: 0.5;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm bg-gradient-success text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="opacity-75">Recently Active (7d)</small>
+                                        <h3 class="mb-0">{{ recently_active_7d|intcomma }}</h3>
+                                    </div>
+                                    <i class="bi bi-clock-history" style="font-size: 2rem; opacity: 0.5;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm bg-gradient-warning text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="opacity-75">At-Risk Users</small>
+                                        <h3 class="mb-0">{{ at_risk_users|intcomma }}</h3>
+                                    </div>
+                                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem; opacity: 0.5;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm bg-gradient-danger text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="opacity-75">Engagement Score</small>
+                                        <h3 class="mb-0">{{ engagement_score }}%</h3>
+                                    </div>
+                                    <i class="bi bi-percent" style="font-size: 2rem; opacity: 0.5;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Charts -->
+                <div class="row g-3 mb-4">
+                    <!-- Status Distribution Pie Chart -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white">
+                                <strong>User Status Distribution</strong>
+                            </div>
+                            <div class="card-body" style="height: 300px; position: relative;">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Login Frequency Heatmap -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white">
+                                <strong>Login Frequency (Last 30 Days)</strong>
+                            </div>
+                            <div class="card-body" style="height: 300px; position: relative;">
+                                <canvas id="frequencyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Geographic & Device Analytics -->
+                <div class="row g-3 mb-4">
+                    <!-- Top Login Locations -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white">
+                                <strong><i class="bi bi-geo-alt"></i> Top Login Locations</strong>
+                            </div>
+                            <div class="card-body">
+                                {% if top_locations %}
+                                    <div style="max-height: 300px; overflow-y: auto;">
+                                        {% for loc in top_locations %}
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small><strong>{{ loc.location }}</strong></small>
+                                                <small class="text-muted">{{ loc.count }} logins ({{ loc.percentage }}%)</small>
+                                            </div>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-info" style="width: {{ loc.percentage }}%"></div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="bi bi-exclamation-circle" style="font-size: 2rem;"></i>
+                                        <p class="mt-2">No location data available</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device/Platform Analytics -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white">
+                                <strong><i class="bi bi-phone"></i> Platform Usage</strong>
+                            </div>
+                            <div class="card-body" style="height: 300px; position: relative;">
+                                <canvas id="deviceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Recommendations -->
+                <div class="card border-0 shadow-sm mb-4 bg-light">
+                    <div class="card-header bg-white">
+                        <strong><i class="bi bi-lightbulb"></i> Recommended Actions</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            {% if at_risk_users > 0 %}
+                            <div class="col-md-6">
+                                <div class="alert alert-warning mb-0 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ at_risk_users }} users</strong> haven't logged in for 30+ days. 
+                                    </div>
+                                    <button class="btn btn-sm btn-warning send-engagement-btn" data-email-type="reengagement" title="Send re-engagement emails">
+                                        <i class="bi bi-send"></i> Send re-engagement email
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if dormant_users > 0 %}
+                            <div class="col-md-6">
+                                <div class="alert alert-danger mb-0 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ dormant_users }} users</strong> have never logged in. 
+                                    </div>
+                                    <button class="btn btn-sm btn-danger send-engagement-btn" data-email-type="onboarding" title="Send onboarding reminders">
+                                        <i class="bi bi-send"></i> Send onboarding reminder
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if engagement_score < 50 %}
+                            <div class="col-md-6">
+                                <div class="alert alert-info mb-0">
+                                    Engagement is {{ engagement_score }}% - Consider platform improvements or features to boost usage.
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if recently_active_7d > active_users_30d|add:'-5' %}
+                            <div class="col-md-6">
+                                <div class="alert alert-success mb-0">
+                                    <i class="bi bi-check-circle"></i> Great! Most active users are engaging consistently.
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registered Users Table -->
+                <div class="card border-0 shadow-sm">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <strong>Registered Users</strong>
-                        <small class="text-muted">Latest 20</small>
+                        <div>
+                            <strong>All Registered Users</strong>
+                            <small class="text-muted d-block" style="font-size: 0.85rem;">Includes Clients, Marketers, Admins, Support, and all other user types</small>
+                        </div>
+                        <span class="badge bg-info">{{ registered_users_total_count|intcomma }}</span>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -318,26 +535,211 @@
                                     <th>Full Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
-                                    <th>Last Login</th>
+                                    <th>Status</th>
+                                    <th>Engagement</th>
+                                    <th>Days Since Login</th>
                                     <th>Joined</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for u in registered_users %}
-                                <tr>
+                                <tr {% if u.status_info.at_risk %}class="table-warning"{% endif %}>
                                     <td>{{ u.full_name }}</td>
                                     <td>{{ u.email }}</td>
                                     <td><span class="badge bg-outline-secondary" style="border:1px solid #ccc;color:#555">{{ u.role|default:'-' }}</span></td>
-                                    <td>{{ u.last_login|date:'M d, Y H:i'|default:'—' }}</td>
+                                    <td>
+                                        {% if u.status_info %}
+                                            {% if u.status_info.status == 'Active' %}
+                                                <span class="badge bg-success">{{ u.status_info.status }}</span>
+                                            {% elif u.status_info.status == 'Idle' %}
+                                                <span class="badge bg-info">{{ u.status_info.status }}</span>
+                                            {% elif u.status_info.status == 'Low Activity' %}
+                                                <span class="badge bg-warning">{{ u.status_info.status }}</span>
+                                            {% elif u.status_info.status == 'At-Risk' %}
+                                                <span class="badge bg-danger">{{ u.status_info.status }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ u.status_info.status }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if u.status_info %}
+                                            {% if u.status_info.engagement == 'Strong' %}
+                                                <span class="badge bg-success">{{ u.status_info.engagement }}</span>
+                                            {% elif u.status_info.engagement == 'Moderate' %}
+                                                <span class="badge bg-info">{{ u.status_info.engagement }}</span>
+                                            {% elif u.status_info.engagement == 'Weak' %}
+                                                <span class="badge bg-warning">{{ u.status_info.engagement }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">{{ u.status_info.engagement }}</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if u.status_info.days_since %}
+                                            <small>{{ u.status_info.days_since }} days ago</small>
+                                        {% else %}
+                                            <small class="text-muted">Never</small>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ u.date_joined|date:'M d, Y' }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="5" class="text-center text-muted">No users yet.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">No users yet.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
+                    <!-- Pagination Controls -->
+                    {% if registered_users_page.has_other_pages %}
+                    <div class="card-footer bg-white d-flex justify-content-center align-items-center gap-2">
+                        <nav aria-label="User pagination">
+                            <ul class="pagination mb-0">
+                                {% if registered_users_page.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?users_page=1" title="First page">«</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?users_page={{ registered_users_page.previous_page_number }}">Previous</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">«</span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link">Previous</span>
+                                </li>
+                                {% endif %}
+
+                                <!-- Page Info -->
+                                <li class="page-item disabled">
+                                    <span class="page-link">Page {{ registered_users_page.number }} of {{ registered_users_page.paginator.num_pages }}</span>
+                                </li>
+
+                                {% if registered_users_page.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?users_page={{ registered_users_page.next_page_number }}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?users_page={{ registered_users_page.paginator.num_pages }}" title="Last page">»</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">Next</span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link">»</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
                 </div>
+
+                <!-- Chart.js Scripts for Analytics -->
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    // User Status Distribution Pie Chart
+                    var statusCtx = document.getElementById('statusChart');
+                    if (statusCtx) {
+                        new Chart(statusCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: {{ chart_data.status_labels|safe }},
+                                datasets: [{
+                                    data: {{ chart_data.status_values|safe }},
+                                    backgroundColor: [
+                                        '#198754',  // Active - Green
+                                        '#0dcaf0',  // Idle - Cyan
+                                        '#ffc107',  // At-Risk - Yellow
+                                        '#6c757d'   // Dormant - Gray
+                                    ],
+                                    borderColor: 'white',
+                                    borderWidth: 2
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // Login Frequency Bar Chart
+                    var frequencyCtx = document.getElementById('frequencyChart');
+                    if (frequencyCtx) {
+                        new Chart(frequencyCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: {{ chart_data.login_days|safe }},
+                                datasets: [{
+                                    label: 'Logins',
+                                    data: {{ chart_data.login_frequency|safe }},
+                                    backgroundColor: '#0d6efd',
+                                    borderColor: '#0d6efd',
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                indexAxis: 'x',
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // Device/Platform Pie Chart
+                    var deviceCtx = document.getElementById('deviceChart');
+                    if (deviceCtx) {
+                        new Chart(deviceCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: {{ chart_data.device_labels|safe }},
+                                datasets: [{
+                                    data: {{ chart_data.device_values|safe }},
+                                    backgroundColor: [
+                                        '#0d6efd',  // Web - Blue
+                                        '#198754',  // iOS - Green
+                                        '#fd7e14',  // Android - Orange
+                                        '#6c757d'   // Other - Gray
+                                    ],
+                                    borderColor: 'white',
+                                    borderWidth: 2
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+                </script>
             </div>
 
             <!-- Admins -->
@@ -3000,6 +3402,101 @@
                 masterPasswordIcon.className = type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
             });
         }
+
+        // Handle engagement email button clicks
+        document.querySelectorAll('.send-engagement-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const emailType = this.dataset.emailType;
+                const originalText = this.innerHTML;
+                const isReengagement = emailType === 'reengagement';
+                const emailTypeLabel = isReengagement ? 're-engagement' : 'onboarding';
+                
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sending...';
+                
+                try {
+                    // Get CSRF token
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                    
+                    // Prepare form data
+                    const formData = new FormData();
+                    formData.append('email_type', emailType);
+                    
+                    // Send POST request
+                    const response = await fetch("{% url 'send-engagement-emails' %}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Success - show toast notification
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                        alertDiv.role = 'alert';
+                        alertDiv.innerHTML = `
+                            <i class="bi bi-check-circle me-2"></i>
+                            <strong>Success!</strong> Sent ${data.sent_count} ${emailTypeLabel} email${data.sent_count !== 1 ? 's' : ''}.
+                            ${data.failed_count > 0 ? `<br><small>${data.failed_count} email${data.failed_count !== 1 ? 's' : ''} failed to send.</small>` : ''}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        
+                        // Insert alert above the first section or at top of main
+                        const main = document.querySelector('main');
+                        const firstSection = main.querySelector('section');
+                        if (firstSection) {
+                            firstSection.parentNode.insertBefore(alertDiv, firstSection);
+                        } else {
+                            main.insertBefore(alertDiv, main.firstChild);
+                        }
+                        
+                        // Auto-dismiss after 6 seconds
+                        setTimeout(() => {
+                            const bsAlert = new bootstrap.Alert(alertDiv);
+                            bsAlert.close();
+                        }, 6000);
+                    } else {
+                        // Error response
+                        const errorMsg = data.error || `Failed to send ${emailTypeLabel} emails`;
+                        throw new Error(errorMsg);
+                    }
+                } catch (error) {
+                    // Error - show error alert
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    alertDiv.role = 'alert';
+                    alertDiv.innerHTML = `
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Error!</strong> ${error.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                    
+                    // Insert alert above the first section or at top of main
+                    const main = document.querySelector('main');
+                    const firstSection = main.querySelector('section');
+                    if (firstSection) {
+                        firstSection.parentNode.insertBefore(alertDiv, firstSection);
+                    } else {
+                        main.insertBefore(alertDiv, main.firstChild);
+                    }
+                    
+                    // Auto-dismiss after 6 seconds
+                    setTimeout(() => {
+                        const bsAlert = new bootstrap.Alert(alertDiv);
+                        bsAlert.close();
+                    }, 6000);
+                } finally {
+                    // Restore button state
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                }
+            });
+        });
     });
 </script>
 

@@ -1011,7 +1011,24 @@
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                // Check HTTP status
+                if (!response.ok && response.status !== 200) {
+                    // Return error response
+                    return response.text().then(text => {
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            return { success: false, error: 'Server error. Please try again.' };
+                        }
+                    });
+                }
+                
+                // Parse JSON response
+                return response.json().catch(err => {
+                    return { success: false, error: 'Invalid server response. Please try again.' };
+                });
+            })
             .then(data => {
                 // Reset button state
                 submitBtn.disabled = false;
@@ -1019,7 +1036,8 @@
                 btnIcon.className = 'fas fa-arrow-right';
                 btnSpinner.classList.add('d-none');
 
-                if (data.success) {
+                // Check if success flag is true (not just truthy)
+                if (data && data.success === true) {
                     // Clear form
                     form.reset();
                     // Reset Select2
@@ -1029,7 +1047,11 @@
                     document.getElementById('password').value = '';
                     // Show success message WITHOUT reloading page
                     showAjaxMessage('✅ ' + (data.message || 'User registered successfully!'), 'success');
-                    // NO PAGE RELOAD - stays on company profile tab
+                    
+                    // Reload page after 2 seconds to show new user in table
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                 } else {
                     // Show error message in dedicated AJAX container
                     showAjaxMessage(data.error || 'Registration failed. Please try again.', 'danger');
@@ -1042,8 +1064,7 @@
                 btnIcon.className = 'fas fa-arrow-right';
                 btnSpinner.classList.add('d-none');
                 
-                showAjaxMessage('An error occurred. Please try again.', 'danger');
-                console.error('Error:', error);
+                showAjaxMessage('Network error. Please check your connection and try again.', 'danger');
             });
         });
 

@@ -1,0 +1,59 @@
+Welcome to {{ company_name }}!
+
+Dear {{ user_name }},
+
+Welcome to the {{ company_name }} community! We're excited to have you on board. This email will help you get started quickly and maximize your experience.
+
+ACTION REQUIRED: You haven't logged in yet. Let's change that and get you up and running!
+
+---
+
+GETTING STARTED IN 3 STEPS:
+
+Step 1: Log In
+Use your credentials to log in to your account and explore the dashboard.
+
+Step 2: Complete Your Profile
+Add your contact information and preferences to personalize your experience.
+
+Step 3: Start Exploring
+Discover features and tools available to you as a {{ user_role }}.
+
+---
+
+WHAT YOU CAN DO:
+
+✓ Access real-time analytics and reports
+✓ Collaborate with team members
+✓ Manage your portfolio and allocations
+✓ Track performance and metrics
+✓ Get support from our team 24/7
+
+---
+
+CREATE YOUR FIRST LOGIN:
+{{ login_url }}
+
+---
+
+NEED HELP GETTING STARTED?
+
+We have resources to help you:
+- View our Help Center: {{ help_center }}
+- Email our support team: {{ support_email }}
+- Check your welcome guide
+
+---
+
+PRO TIP: Bookmark your dashboard for quick access:
+{{ dashboard_url }}
+
+---
+
+If you have any questions or encounter any issues, don't hesitate to reach out to our support team at {{ support_email }}
+
+---
+
+{{ company_name }} | Onboarding Team
+
+Welcome aboard! We're thrilled to have you join us.

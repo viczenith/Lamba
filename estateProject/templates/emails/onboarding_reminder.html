@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f9fafb;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 40px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            color: #1f2937;
+            font-size: 28px;
+            margin: 0;
+        }
+        .company-name {
+            color: #075e54;
+            font-weight: 600;
+        }
+        .content {
+            margin: 30px 0;
+        }
+        .content p {
+            margin: 15px 0;
+            color: #4b5563;
+        }
+        .highlight {
+            background-color: #fef3c7;
+            padding: 15px;
+            border-left: 4px solid #f59e0b;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #075e54;
+            color: #ffffff;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 20px 0;
+            transition: background-color 0.3s;
+        }
+        .cta-button:hover {
+            background-color: #064e47;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .benefits {
+            background-color: #f0fdf4;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .benefit-item {
+            margin: 10px 0;
+            color: #4b5563;
+            padding-left: 20px;
+            position: relative;
+        }
+        .benefit-item:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .steps {
+            margin: 20px 0;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 4px;
+            color: #4b5563;
+        }
+        .step-number {
+            display: inline-block;
+            background-color: #075e54;
+            color: #ffffff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to {{ company_name }}! 🎉</h1>
+            <p>Your {{ user_role|title }} account is ready</p>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ user_name }},</p>
+            
+            <p>Welcome to the <span class="company-name">{{ company_name }}</span> community! We're excited to have you on board. This email will help you get started quickly and maximize your experience.</p>
+            
+            <div class="highlight">
+                <strong>Action Required:</strong> You haven't logged in yet. Let's change that and get you up and running!
+            </div>
+            
+            <h3 style="color: #1f2937;">Getting Started in 3 Steps:</h3>
+            
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <strong>Log In</strong><br/>
+                    Use your credentials to log in to your account and explore the dashboard.
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <strong>Complete Your Profile</strong><br/>
+                    Add your contact information and preferences to personalize your experience.
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <strong>Start Exploring</strong><br/>
+                    Discover features and tools available to you as a {{ user_role|title }}.
+                </div>
+            </div>
+            
+            <h3 style="color: #1f2937;">What You Can Do:</h3>
+            <div class="benefits">
+                <div class="benefit-item">Access real-time analytics and reports</div>
+                <div class="benefit-item">Collaborate with team members</div>
+                <div class="benefit-item">Manage your portfolio and allocations</div>
+                <div class="benefit-item">Track performance and metrics</div>
+                <div class="benefit-item">Get support from our team 24/7</div>
+            </div>
+            
+            <center>
+                <a href="{{ login_url }}" class="cta-button">Create Your First Login</a>
+            </center>
+            
+            <h3 style="color: #1f2937;">Need Help Getting Started?</h3>
+            <p>We have resources to help you:</p>
+            <ul style="color: #4b5563;">
+                <li><a href="{{ help_center }}" style="color: #075e54;">View our Help Center</a></li>
+                <li><a href="mailto:{{ support_email }}" style="color: #075e54;">Email our support team</a></li>
+                <li>Check your welcome guide (attached to this email)</li>
+            </ul>
+            
+            <p>If you have any questions or encounter any issues, don't hesitate to reach out to our support team at <a href="mailto:{{ support_email }}" style="color: #075e54;">{{ support_email }}</a></p>
+            
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                <strong>Pro Tip:</strong> Bookmark your dashboard for quick access: <code style="background-color: #f3f4f6; padding: 2px 6px; border-radius: 3px;">{{ dashboard_url }}</code>
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>{{ company_name }} | Onboarding Team</p>
+            <p>Welcome aboard! We're thrilled to have you join us.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -143,7 +143,7 @@
                       {% for client in clients %}
                         <tr>
                           <td>
-                            <a href="{% url 'client_profile' client.id %}">
+                            <a href="{% url 'client-profile-slug' slug=client.user_ptr.username %}?company={{ company.slug }}">
                               {{ client.full_name }}
                             </a>
                           </td>

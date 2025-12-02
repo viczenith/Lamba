@@ -83,6 +83,29 @@ SUPPORT_ROLES = ('admin', 'support')
 
 
 # ============================================================================
+# HELPER FUNCTION: Generate URL-safe slugs from user full names
+# ============================================================================
+def generate_name_slug(full_name):
+    """
+    Convert full name to URL-safe slug for profile links.
+    Example: "Victor Godwin" -> "victor-godwin"
+    """
+    if not full_name:
+        return None
+    
+    # Convert to lowercase and replace spaces with hyphens
+    slug = full_name.strip().lower().replace(' ', '-')
+    # Remove any special characters except hyphens
+    slug = re.sub(r'[^a-z0-9\-]', '', slug)
+    # Remove multiple consecutive hyphens
+    slug = re.sub(r'-+', '-', slug)
+    # Remove leading/trailing hyphens
+    slug = slug.strip('-')
+    
+    return slug if slug else None
+
+
+# ============================================================================
 # HELPER FUNCTION: Redirect to tenant-aware dashboard
 # ============================================================================
 def get_tenant_dashboard_redirect(request):
@@ -2399,40 +2422,183 @@ def marketer_list(request):
             except Exception:
                 m.company_marketer_id = m.company_uid
 
-    return render(request, 'admin_side/marketer_list.html', {'marketers': combined})
+    return render(request, 'admin_side/marketer_list.html', {'marketers': combined, 'company': company})
 
 
 @login_required
-def admin_marketer_profile(request, pk):
-    marketer = get_object_or_404(CustomUser, pk=pk, role='marketer')
+def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
+    """
+    Display marketer profile with performance metrics and leaderboard.
     
-    # SECURITY: Verify marketer belongs to same company (either via company_profile or MarketerAffiliation)
-    company = request.user.company_profile
-    if marketer.company_profile != company:
-        # Check if marketer belongs to company via MarketerAffiliation
-        if not MarketerAffiliation.objects.filter(marketer_id=pk, company=company).exists():
-            return HttpResponseForbidden("You don't have permission to view this marketer.")
+    Supports multiple URL formats:
+    1. Legacy: /admin-marketer/<pk>/ (with or without ?company=slug)
+    2. UID-based: /<LPLMKT001>.marketer-profile?company=<slug> or without company
+    3. Name-based slug: /<victor-godwin>.marketer-profile?company=<slug>
+    4. Company-namespaced: /<company_slug>/marketer/<identifier>/
     
-    # marketer      = request.user
+    SECURITY: Enforces strict company isolation - only shows marketer data scoped to their company
+    Prevents cross-company data leakage by validating company context in all code paths.
+    """
+    
+    # ============================================================
+    # STEP 1: Determine and validate company context (FLEXIBLE)
+    # ============================================================
+    company = None
+    company_slug_param = None
+    
+    # Priority 1: URL company_slug parameter (most explicit)
+    if company_slug:
+        company = get_object_or_404(Company, slug=company_slug)
+    # Priority 2: Query parameter ?company=slug (modern routing)
+    elif request.GET.get('company'):
+        company_slug_param = request.GET.get('company').strip()
+        if company_slug_param:  # Only use if not empty string
+            company = get_object_or_404(Company, slug=company_slug_param)
+        else:
+            # Empty company parameter provided (?company=) - user must specify a company
+            raise Http404("⚠️  Company parameter is empty. Please specify: ?company=<company-slug>")
+    
+    # Priority 3: User's primary company_profile (fallback for legacy routes ONLY)
+    # Use only if NO company parameter was provided at all
+    if not company and not request.GET.get('company'):
+        if hasattr(request.user, 'company_profile') and request.user.company_profile:
+            company = request.user.company_profile
+    
+    # SECURITY: No company context = deny access (cannot infer company)
+    if not company:
+        raise Http404("❌ No company context provided. Required: ?company=<company-slug> or URL must include company slug.")
+    
+    # ============================================================
+    # STEP 2: Verify requesting user has access to this company
+    # ============================================================
+    user_company = getattr(request.user, 'company_profile', None)
+    if user_company != company:
+        # Restrict to user's primary company to prevent accessing other company's data
+        raise HttpResponseForbidden(f"❌ Access Denied: You can only access profiles within your own company context.")
+    
+    # ============================================================
+    # STEP 3: Find marketer within company context (STRICT FILTERING)
+    # ============================================================
+    marketer = None
+    
+    if slug:
+        # Slug-based lookup supports MULTIPLE formats:
+        # 1. Company-specific UID: "LPLMKT001" (company_marketer_uid)
+        # 2. Name-based slug: "amaka-njoku" (converted from full_name)
+        # 3. Exact name: "Amaka Njoku"
+        
+        # Priority 1: Try company-specific UID lookup (LPLMKT001)
+        # Check BOTH MarketerUser.company_marketer_uid AND CompanyMarketerProfile.company_marketer_uid
+        if company:
+            # First check direct UID on MarketerUser
+            marketer = MarketerUser.objects.filter(
+                company_marketer_uid=slug,
+                company_profile=company
+            ).first()
+            
+            # If not found, check CompanyMarketerProfile (for affiliated users)
+            if not marketer:
+                try:
+                    profile = CompanyMarketerProfile.objects.get(
+                        company_marketer_uid=slug,
+                        company=company
+                    )
+                    marketer = profile.marketer
+                except CompanyMarketerProfile.DoesNotExist:
+                    pass
+        
+        # Priority 2: Try name-based slug (e.g., "amaka-njoku" → "Amaka Njoku")
+        if not marketer:
+            name_from_slug = slug.replace('-', ' ')
+            user = MarketerUser.objects.filter(
+                full_name__iexact=name_from_slug
+            ).first()
+            
+            # Verify user exists in THIS company (via company_profile OR affiliation)
+            if user:
+                has_company_access = (
+                    user.company_profile == company or
+                    MarketerAffiliation.objects.filter(
+                        marketer_id=user.id,
+                        company=company
+                    ).exists()
+                )
+                
+                if has_company_access:
+                    marketer = user
+                else:
+                    raise HttpResponseForbidden(
+                        f"❌ Access Denied: Marketer '{slug}' is not part of {company.company_name}."
+                    )
+        
+        # Priority 3: Try exact name match
+        if not marketer:
+            user = MarketerUser.objects.filter(
+                full_name=slug
+            ).first()
+            
+            if user:
+                has_company_access = (
+                    user.company_profile == company or
+                    MarketerAffiliation.objects.filter(
+                        marketer_id=user.id,
+                        company=company
+                    ).exists()
+                )
+                
+                if has_company_access:
+                    marketer = user
+                else:
+                    raise HttpResponseForbidden(
+                        f"❌ Access Denied: Marketer '{slug}' is not part of {company.company_name}."
+                    )
+        
+        if not marketer:
+            raise Http404(f"❌ Marketer '{slug}' not found in {company.company_name}.")
+    
+    elif pk:
+        # Legacy ID-based lookup: VERIFY marketer belongs to company
+        try:
+            marketer = MarketerUser.objects.get(id=pk)
+        except MarketerUser.DoesNotExist:
+            try:
+                marketer = CustomUser.objects.get(id=pk, role='marketer')
+            except CustomUser.DoesNotExist:
+                raise Http404("❌ Marketer not found.")
+        
+        # SECURITY: Verify marketer belongs to THIS company ONLY
+        marketer_in_company = (
+            marketer.company_profile == company or
+            MarketerAffiliation.objects.filter(
+                marketer_id=marketer.id,
+                company=company
+            ).exists()
+        )
+        
+        if not marketer_in_company:
+            raise HttpResponseForbidden(f"❌ Access Denied: Marketer not associated with {company.company_name}.")
+    else:
+        raise Http404("❌ No marketer identifier provided (slug or pk required).")
+    
+    # ============================================================
+    # STEP 4: Fetch performance data STRICTLY scoped to company
+    # ============================================================
+    
     now           = timezone.now()
     current_year  = now.year
     year_str      = str(current_year)
     current_month = now.strftime("%Y-%m")
     password_response = None
 
-    # Company context (may be None for marketers created without a company)
-    company = getattr(request.user, 'company_profile', None)
-
-
+    # Lifetime stats (STRICT company filter)
     lifetime_closed_deals = Transaction.objects.filter(
-        marketer=marketer
+        marketer=marketer,
+        company=company  # <-- STRICT COMPANY FILTER
     ).count()
 
     lifetime_commission = MarketerPerformanceRecord.objects.filter(
-        marketer=marketer,
-        period_type='monthly'
+        marketer=marketer
     ).aggregate(total=Sum('commission_earned'))['total'] or 0
-
 
     performance = {
         'closed_deals':      lifetime_closed_deals,
@@ -2443,12 +2609,14 @@ def admin_marketer_profile(request, pk):
         'yearly_target_achievement': None,
     }
 
-    # Latest commission rate
-    comm = MarketerCommission.objects.filter(marketer=marketer).order_by('-effective_date').first()
+    # Latest commission rate (STRICT company filter)
+    comm = MarketerCommission.objects.filter(
+        marketer=marketer
+    ).order_by('-effective_date').first()
     if comm:
         performance['commission_rate'] = comm.rate
 
-    # Monthly target %
+    # Monthly target % (STRICT company filter)
     mt = MarketerTarget.objects.filter(
         marketer=marketer,
         period_type='monthly',
@@ -2460,21 +2628,26 @@ def admin_marketer_profile(request, pk):
             performance['total_sales'] / mt.target_amount * 100
         )
 
-    # Ensure company context is available for annual target calculations
-    company = request.user.company_profile
-
-    # Annual target achievement
+    # Annual target achievement (STRICT company filter)
     at = (
-        MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(
+            marketer=marketer, 
+            period_type='annual', 
+            specific_period=year_str
+        )
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(
+            marketer=None, 
+            period_type='annual', 
+            specific_period=year_str
+        )
         .first()
     )
     if at and at.target_amount:
         total_year_sales = Transaction.objects.filter(
             marketer=marketer,
-            company=company,
+            company=company,  # <-- STRICT COMPANY FILTER
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         performance['yearly_target_achievement'] = min(
@@ -2482,33 +2655,42 @@ def admin_marketer_profile(request, pk):
             total_year_sales / at.target_amount * 100
         )
 
-    # — Build leaderboard —
+    # ============================================================
+    # STEP 5: Build leaderboard (COMPANY-SCOPED ONLY)
+    # ============================================================
     sales_data = []
-    # SECURITY: Filter by company to prevent cross-tenant leakage
-    company = getattr(request, 'company', None) or request.user.company_profile
     
-    # Get marketers from both company_profile and MarketerAffiliation
-    company_marketers = MarketerUser.objects.filter(company_profile=company) if company else MarketerUser.objects.none()
+    # Get marketers ONLY from this company (both primary and affiliated)
+    company_marketers = MarketerUser.objects.filter(company_profile=company)
     affiliation_marketer_ids = list(
         MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
-    ) if company else []
-    affiliation_marketers = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
-        id__in=company_marketers.values_list('pk', flat=True)
-    ) if affiliation_marketer_ids else MarketerUser.objects.none()
+    )
+    affiliation_marketers = MarketerUser.objects.filter(
+        id__in=affiliation_marketer_ids
+    ).exclude(id__in=company_marketers.values_list('pk', flat=True))
     
     company_marketers = list(company_marketers) + list(affiliation_marketers)
     
     for m in company_marketers:
+        # STRICT company filter in all calculations
         year_sales = Transaction.objects.filter(
             marketer=m,
-            company=company,
+            company=company,  # <-- STRICT COMPANY FILTER
             transaction_date__year=current_year
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(
+                marketer=m, 
+                period_type='annual', 
+                specific_period=year_str
+            ).first()
             or
-            MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(
+                marketer=None, 
+                period_type='annual', 
+                specific_period=year_str
+            ).first()
         )
         target_amt = tgt.target_amount if tgt else None
         pct = (year_sales / target_amt * 100) if target_amt else None
@@ -2587,6 +2769,7 @@ def admin_marketer_profile(request, pk):
         'top3':        top3,
         'user_entry':  user_entry,
         'current_year': current_year,
+        'company': company,
     })
 
 
@@ -3060,6 +3243,8 @@ def company_profile_view(request):
     # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
     # Include users from company_profile AND from affiliation models (MarketerAffiliation, ClientMarketerAssignment)
+    from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
+    
     primary_clients = CustomUser.objects.filter(role='client', company_profile=company).count()
     affiliation_clients = ClientMarketerAssignment.objects.filter(company=company).values_list('client_id', flat=True).distinct().count()
     total_clients = primary_clients + (affiliation_clients if affiliation_clients > 0 else 0)
@@ -3073,21 +3258,277 @@ def company_profile_view(request):
     total_full_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='full').count() if 'PlotAllocation' in globals() else 0
     total_part_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='part').count() if 'PlotAllocation' in globals() else 0
 
-    # Registered users
-    registered_users = CustomUser.objects.filter(is_active=True, company_profile=company).order_by('-date_joined')[:20]
-
-    # Active vs Inactive app users (active = last_login within 30 days)
+    # Registered users - SECURITY: Filter by company with pagination (50 per page)
+    # This includes ALL users: Clients, Marketers, Admins, Support, and any other role
+    # MultiTable inheritance requires querying parent + children separately, then combining
+    from django.core.paginator import Paginator
     from django.utils import timezone
     from datetime import timedelta
-    thirty_days_ago = timezone.now() - timedelta(days=30)
-    active_users_count = CustomUser.objects.filter(last_login__gte=thirty_days_ago, is_active=True, company_profile=company).count()
-    inactive_users_count = CustomUser.objects.filter(Q(last_login__lt=thirty_days_ago) | Q(last_login__isnull=True), is_active=True, company_profile=company).count()
+    import json
+    from django.db.models import Q
+    from itertools import chain
+    
+    # Query includes ALL user roles by getting both CustomUser and all subclasses
+    # Get all CustomUser instances (but NOT subclass instances)
+    base_users = CustomUser.objects.filter(
+        company_profile=company
+    ).exclude(
+        Q(adminuser__isnull=False) | Q(supportuser__isnull=False)
+    ).order_by('-date_joined')
+    
+    # Get all AdminUser instances
+    admin_users_in_table = AdminUser.objects.filter(
+        company_profile=company
+    ).order_by('-date_joined')
+    
+    # Get all SupportUser instances
+    support_users_in_table = SupportUser.objects.filter(
+        company_profile=company
+    ).order_by('-date_joined')
+    
+    # Get affiliated marketers (added via MarketerAffiliation)
+    affiliated_marketer_ids = set(
+        MarketerAffiliation.objects.filter(
+            company=company
+        ).values_list('marketer_id', flat=True)
+    )
+    
+    # Get affiliated clients (added via ClientMarketerAssignment)
+    affiliated_client_ids = set(
+        ClientMarketerAssignment.objects.filter(
+            company=company
+        ).values_list('client_id', flat=True)
+    )
+    
+    # Collect already-included user IDs from main queries
+    included_ids = set()
+    included_ids.update(base_users.values_list('id', flat=True))
+    included_ids.update(admin_users_in_table.values_list('id', flat=True))
+    included_ids.update(support_users_in_table.values_list('id', flat=True))
+    
+    # Add affiliated users NOT already included
+    additional_user_ids = (affiliated_marketer_ids | affiliated_client_ids) - included_ids
+    additional_users = CustomUser.objects.filter(id__in=additional_user_ids).order_by('-date_joined') if additional_user_ids else CustomUser.objects.none()
+    
+    # Combine all users
+    all_users_list = list(chain(base_users, admin_users_in_table, support_users_in_table, additional_users))
+    # Sort by date_joined descending
+    all_users_list.sort(key=lambda x: x.date_joined, reverse=True)
+    
+    registered_users_total_count = len(all_users_list)
+    
+    # For pagination, we need to work with the list
+    from django.core.paginator import Paginator as DjangoPaginator
+    paginator_obj = DjangoPaginator(all_users_list, 50)  # 50 users per page
+    page_number = request.GET.get('users_page', 1)
+    try:
+        registered_users_page = paginator_obj.page(page_number)
+    except Exception:
+        registered_users_page = paginator_obj.page(1)
+    
+    registered_users = list(registered_users_page.object_list)
+    
+    # For analytics, use ALL users including affiliated ones
+    # This matches what's displayed in all_users_list
+    registered_users_qs = CustomUser.objects.filter(company_profile=company)
+    admin_qs = AdminUser.objects.filter(company_profile=company)
+    support_qs = SupportUser.objects.filter(company_profile=company)
+    
+    # Get affiliated users (not yet in company_profile)
+    affiliated_marketer_ids = set(
+        MarketerAffiliation.objects.filter(
+            company=company
+        ).values_list('marketer_id', flat=True)
+    )
+    affiliated_client_ids = set(
+        ClientMarketerAssignment.objects.filter(
+            company=company
+        ).values_list('client_id', flat=True)
+    )
+    
+    # Collect already-included user IDs
+    included_ids = set()
+    included_ids.update(registered_users_qs.values_list('id', flat=True))
+    included_ids.update(admin_qs.values_list('id', flat=True))
+    included_ids.update(support_qs.values_list('id', flat=True))
+    
+    # Get additional affiliated users NOT already included
+    additional_user_ids = (affiliated_marketer_ids | affiliated_client_ids) - included_ids
+    additional_users = CustomUser.objects.filter(id__in=additional_user_ids) if additional_user_ids else CustomUser.objects.none()
+    
+    # Combine for analytics (all_qs = all users we care about)
+    all_qs = list(chain(registered_users_qs, admin_qs, support_qs, additional_users))
+    
+    # USER ENGAGEMENT ANALYTICS - Calculate before pagination
+    now = timezone.now()
+    last_7_days_cutoff = now - timedelta(days=7)
+    last_30_days_cutoff = now - timedelta(days=30)
+    last_90_days_cutoff = now - timedelta(days=90)
+    
+    # Engagement metrics for all users (used for analytics)
+    # Compare last_login datetime with cutoff datetime
+    active_users_30d = sum(1 for u in all_qs if u.last_login and u.last_login >= last_30_days_cutoff and u.is_active)
+    recently_active_7d = sum(1 for u in all_qs if u.last_login and u.last_login >= last_7_days_cutoff and u.is_active)
+    at_risk_users = sum(1 for u in all_qs if (not u.last_login or u.last_login < last_30_days_cutoff) and u.is_active)
+    dormant_users = sum(1 for u in all_qs if not u.last_login and u.is_active)
+    
+    # Engagement score (0-100) = (active_users / total_users) * 100
+    engagement_score = int((active_users_30d / max(registered_users_total_count, 1)) * 100)
+    
+    # Calculate user statuses for table display
+    user_statuses = {}
+    for user_obj in all_qs:
+        if not user_obj.last_login:
+            user_statuses[user_obj.id] = {'status': 'Never Logged In', 'days_since': None, 'engagement': 'Dormant', 'at_risk': False}
+        else:
+            days_since = (now - user_obj.last_login).days
+            if days_since <= 7:
+                status_str = 'Active'
+                engagement_str = 'Strong'
+                at_risk = False
+            elif days_since <= 30:
+                status_str = 'Idle'
+                engagement_str = 'Moderate'
+                at_risk = False
+            elif days_since <= 60:
+                status_str = 'Low Activity'
+                engagement_str = 'Weak'
+                at_risk = True
+            else:
+                status_str = 'At-Risk'
+                engagement_str = 'Critical'
+                at_risk = True
+            
+            user_statuses[user_obj.id] = {
+                'status': status_str,
+                'days_since': days_since,
+                'engagement': engagement_str,
+                'at_risk': at_risk
+            }
+    
+    # Login frequency by day of week (last 30 days) - for heatmap
+    from django.db.models.functions import ExtractWeekDay
+    from django.db.models import Count
+    login_by_dow = {}
+    dow_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    
+    try:
+        from estateApp.audit_logging import AuditLog
+        login_events = AuditLog.objects.filter(
+            company=company,
+            action='LOGIN',
+            created_at__gte=last_30_days_cutoff
+        ).annotate(
+            dow=ExtractWeekDay('created_at')
+        ).values('dow').annotate(count=Count('id')).order_by('dow')
+        
+        for item in login_events:
+            dow = item['dow']
+            # ExtractWeekDay returns 1-7 (Sunday=1, Monday=2, ..., Saturday=7)
+            # Convert to 0-6 for our dow_names array
+            dow_index = (dow - 2) % 7  # Shift so Monday=0
+            if 0 <= dow_index < 7:
+                login_by_dow[dow_names[dow_index]] = item['count']
+        
+        # Fill in missing days with 0
+        for day_name in dow_names:
+            if day_name not in login_by_dow:
+                login_by_dow[day_name] = 0
+    except Exception:
+        login_by_dow = {day: 0 for day in dow_names}
+    
+    # User status distribution
+    idle_users = sum(1 for u in all_qs if u.last_login and u.last_login >= last_30_days_cutoff and u.last_login < last_7_days_cutoff and u.is_active)
+    status_distribution = {
+        'Active': recently_active_7d,
+        'Idle': idle_users,
+        'At-Risk': at_risk_users,
+        'Dormant': dormant_users
+    }
+    
+    # GEOGRAPHIC ANALYTICS - Location-based insights
+    # Get top login locations from all users
+    location_stats = {}
+    top_locations = []
+    
+    try:
+        # Get users with login locations (last 30 days)
+        location_counts = {}
+        for u in all_qs:
+            if u.last_login and u.last_login >= last_30_days_cutoff and u.last_login_location and u.last_login_location.strip():
+                location_counts[u.last_login_location] = location_counts.get(u.last_login_location, 0) + 1
+        
+        # Sort by count and get top 10
+        sorted_locations = sorted(location_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        users_with_location = [{'last_login_location': loc, 'count': cnt} for loc, cnt in sorted_locations]
+        
+        for item in users_with_location:
+            if isinstance(item, dict):
+                location = item['last_login_location']
+                count = item['count']
+            else:
+                location = item[0]
+                count = item[1]
+            location_stats[location] = count
+            top_locations.append({
+                'location': location,
+                'count': count,
+                'percentage': int((count / max(active_users_30d, 1)) * 100)
+            })
+    except Exception:
+        location_stats = {}
+        top_locations = []
+    
+    # Device/Platform Analytics
+    device_stats = {'web': 0, 'ios': 0, 'android': 0, 'other': 0}
+    
+    try:
+        from estateApp.models import UserDeviceToken
+        device_usage = UserDeviceToken.objects.filter(
+            user__company_profile=company,
+            created_at__gte=last_30_days_cutoff
+        ).values('platform').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        for item in device_usage:
+            platform = item['platform'].lower()
+            if platform == 'web':
+                device_stats['web'] = item['count']
+            elif platform == 'ios':
+                device_stats['ios'] = item['count']
+            elif platform == 'android':
+                device_stats['android'] = item['count']
+            else:
+                device_stats['other'] += item['count']
+    except Exception:
+        device_stats = {'web': 0, 'ios': 0, 'android': 0, 'other': 0}
+    
+    # Prepare chart data for JSON
+    chart_data = {
+        'login_frequency': json.dumps(list(login_by_dow.values())),
+        'login_days': json.dumps(list(login_by_dow.keys())),
+        'status_labels': json.dumps(list(status_distribution.keys())),
+        'status_values': json.dumps(list(status_distribution.values())),
+        'location_labels': json.dumps([loc['location'] for loc in top_locations]),
+        'location_values': json.dumps([loc['count'] for loc in top_locations]),
+        'device_labels': json.dumps(list(device_stats.keys())),
+        'device_values': json.dumps(list(device_stats.values())),
+    }
+    
+    # Attach status info to each user for display (already paginated in registered_users)
+    for user_obj in registered_users:
+        if user_obj.id in user_statuses:
+            user_obj.status_info = user_statuses[user_obj.id]
+
+    # Legacy compatibility
+    active_users_count = active_users_30d
+    inactive_users_count = registered_users_total_count - active_users_count
 
     # Admin and Support users
     # Determine master admin first
     master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
     master_admin_id = master_admin.id if master_admin else None
-    
     # Order admin_users with master admin first, then by date_joined
     from django.db.models import Case, When, Value, IntegerField
     admin_users = AdminUser.objects.filter(company_profile=company).annotate(
@@ -3136,6 +3577,26 @@ def company_profile_view(request):
         if app_metrics:
             total_downloads = app_metrics.total_downloads
 
+    # Subscription - SECURITY: Filter by company
+    subscription = None
+    if company:
+        try:
+            from estateApp.models import Subscription
+            subscription = Subscription.objects.filter(company=company).first()
+        except Exception:
+            subscription = None
+    
+    # EMAIL ENGAGEMENT SYSTEM - Identify users needing re-engagement or onboarding
+    users_needing_reengagement = [u for u in all_qs if u.last_login and u.last_login < last_30_days_cutoff and u.is_active]
+    users_never_logged_in = [u for u in all_qs if not u.last_login and u.is_active]
+    
+    # Prepare email engagement data
+    engagement_email_stats = {
+        'reengagement_count': len(users_needing_reengagement),
+        'onboarding_count': len(users_never_logged_in),
+        'total_to_contact': len(users_needing_reengagement) + len(users_never_logged_in),
+    }
+
     context = {
         'company': company,
         'total_clients': total_clients,
@@ -3144,6 +3605,8 @@ def company_profile_view(request):
         'total_full_allocations': total_full_allocations,
         'total_part_allocations': total_part_allocations,
         'registered_users': registered_users,
+        'registered_users_page': registered_users_page,
+        'registered_users_total_count': registered_users_total_count,
         'active_users_count': active_users_count,
         'inactive_users_count': inactive_users_count,
         'admin_users': admin_users,
@@ -3155,8 +3618,105 @@ def company_profile_view(request):
         'app_metrics': app_metrics,
         'total_downloads': total_downloads,
         'master_admin_id': master_admin_id,
+        'subscription': subscription,
+        # User engagement analytics
+        'active_users_30d': active_users_30d,
+        'recently_active_7d': recently_active_7d,
+        'at_risk_users': at_risk_users,
+        'dormant_users': dormant_users,
+        'engagement_score': engagement_score,
+        'status_distribution': status_distribution,
+        'chart_data': chart_data,
+        # Geographic and device analytics
+        'top_locations': top_locations,
+        'location_stats': location_stats,
+        'device_stats': device_stats,
+        # Email engagement system
+        'users_needing_reengagement': users_needing_reengagement,
+        'users_never_logged_in': users_never_logged_in,
+        'engagement_email_stats': engagement_email_stats,
     }
     return render(request, 'admin_side/company_profile.html', context)
+
+
+@login_required
+@require_POST
+def send_engagement_emails(request):
+    """
+    API endpoint to send re-engagement and onboarding emails to users
+    Requires admin access to the company
+    """
+    from estateApp.engagement_emails import send_bulk_reengagement_emails, send_bulk_onboarding_emails
+    from django.http import JsonResponse
+    
+    user = request.user
+    if getattr(user, 'role', None) != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Only admins can send engagement emails'}, status=403)
+    
+    company = getattr(user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'ok': False, 'error': 'No linked company'}, status=400)
+    
+    email_type = request.POST.get('email_type')  # 'reengagement' or 'onboarding'
+    
+    if email_type not in ['reengagement', 'onboarding']:
+        return JsonResponse({'ok': False, 'error': 'Invalid email type'}, status=400)
+    
+    try:
+        # Get users needing emails (same logic as company_profile_view)
+        from django.utils import timezone
+        from datetime import timedelta
+        from itertools import chain
+        
+        now = timezone.now()
+        last_30_days_cutoff = now - timedelta(days=30)
+        
+        # Get all users
+        registered_users_qs = CustomUser.objects.filter(company_profile=company)
+        admin_qs = AdminUser.objects.filter(company_profile=company)
+        support_qs = SupportUser.objects.filter(company_profile=company)
+        
+        affiliated_marketer_ids = set(
+            MarketerAffiliation.objects.filter(
+                company=company
+            ).values_list('marketer_id', flat=True)
+        )
+        affiliated_client_ids = set(
+            ClientMarketerAssignment.objects.filter(
+                company=company
+            ).values_list('client_id', flat=True)
+        )
+        
+        included_ids = set()
+        included_ids.update(registered_users_qs.values_list('id', flat=True))
+        included_ids.update(admin_qs.values_list('id', flat=True))
+        included_ids.update(support_qs.values_list('id', flat=True))
+        
+        additional_user_ids = (affiliated_marketer_ids | affiliated_client_ids) - included_ids
+        additional_users = CustomUser.objects.filter(id__in=additional_user_ids) if additional_user_ids else CustomUser.objects.none()
+        
+        all_users = list(chain(registered_users_qs, admin_qs, support_qs, additional_users))
+        
+        # Send appropriate emails
+        if email_type == 'reengagement':
+            users = [u for u in all_users if u.last_login and u.last_login < last_30_days_cutoff and u.is_active]
+            stats = send_bulk_reengagement_emails(users, company)
+        else:  # onboarding
+            users = [u for u in all_users if not u.last_login and u.is_active]
+            stats = send_bulk_onboarding_emails(users, company)
+        
+        return JsonResponse({
+            'ok': True,
+            'message': f"Successfully sent {stats['sent']} {email_type} emails",
+            'stats': stats,
+        })
+        
+    except Exception as e:
+        logger.error(f"Error sending {email_type} emails: {str(e)}")
+        return JsonResponse({
+            'ok': False,
+            'error': f'Failed to send emails: {str(e)}'
+        }, status=500)
 
 
 @login_required
@@ -4243,7 +4803,7 @@ def client(request):
             except Exception:
                 c.company_client_id = c.company_uid
 
-    return render(request, 'admin_side/client.html', {'clients': combined})
+    return render(request, 'admin_side/client.html', {'clients': combined, 'company': company})
 
 
 @login_required
@@ -4481,29 +5041,185 @@ def calculate_portfolio_metrics(transactions):
 
 
 @login_required
-def client_profile(request, pk):
-    client = get_object_or_404(ClientUser, id=pk)
+def client_profile(request, slug=None, pk=None, company_slug=None):
+    """
+    Display client profile with portfolio/transactions.
     
-    # Get all transactions with related data
-    # Use client_id to support both ClientUser multi-table instances and plain CustomUser fallbacks
-    transactions = Transaction.objects.filter(client_id=getattr(client, 'id', client)).select_related(
+    Supports multiple URL formats:
+    1. Legacy: /client_profile/<pk>/ (with or without ?company=slug)
+    2. UID-based: /<LPLCLT002>.client-profile?company=<slug> or without company
+    3. Name-based slug: /<victor-godwin>.client-profile?company=<slug>
+    4. Company-namespaced: /<company_slug>/client/<identifier>/
+    
+    SECURITY: Enforces strict company isolation - only shows client and transactions for their company.
+    Prevents cross-company data leakage by validating company context in all code paths.
+    """
+    
+    # ============================================================
+    # STEP 1: Determine and validate company context (FLEXIBLE)
+    # ============================================================
+    company = None
+    company_slug_param = None
+    
+    # Priority 1: URL company_slug parameter (most explicit)
+    if company_slug:
+        company = get_object_or_404(Company, slug=company_slug)
+    # Priority 2: Query parameter ?company=slug (modern routing)
+    elif request.GET.get('company'):
+        company_slug_param = request.GET.get('company').strip()
+        if company_slug_param:  # Only use if not empty string
+            company = get_object_or_404(Company, slug=company_slug_param)
+        else:
+            # Empty company parameter provided (?company=) - user must specify a company
+            raise Http404("⚠️  Company parameter is empty. Please specify: ?company=<company-slug>")
+    
+    # Priority 3: User's primary company_profile (fallback for legacy routes ONLY)
+    # Use only if NO company parameter was provided at all
+    if not company and not request.GET.get('company'):
+        if hasattr(request.user, 'company_profile') and request.user.company_profile:
+            company = request.user.company_profile
+    
+    # SECURITY: No company context = deny access (cannot infer company)
+    if not company:
+        raise Http404("❌ No company context provided. Required: ?company=<company-slug> or URL must include company slug.")
+    
+    # ============================================================
+    # STEP 2: Verify requesting user has access to this company
+    # ============================================================
+    user_company = getattr(request.user, 'company_profile', None)
+    if user_company != company:
+        # Check if user has affiliation with this company (e.g., supports multiple companies)
+        # For now, restrict to user's primary company to prevent admin from viewing other company's data
+        raise HttpResponseForbidden(f"❌ Access Denied: You can only access profiles within your own company context.")
+    
+    # ============================================================
+    # STEP 3: Find client within company context (STRICT FILTERING)
+    # ============================================================
+    client = None
+    
+    if slug:
+        # Slug-based lookup supports MULTIPLE formats:
+        # 1. Company-specific UID: "LPLCLT005" (company_client_uid)
+        # 2. Name-based slug: "victor-godwin" (converted from full_name)
+        # 3. Exact name: "Victor Godwin"
+        
+        # Priority 1: Try company-specific UID lookup (LPLCLT005)
+        # Check BOTH ClientUser.company_client_uid AND CompanyClientProfile.company_client_uid
+        if company:
+            # First check direct UID on ClientUser
+            client = ClientUser.objects.filter(
+                company_client_uid=slug,
+                company_profile=company
+            ).first()
+            
+            # If not found, check CompanyClientProfile (for affiliated users)
+            if not client:
+                try:
+                    profile = CompanyClientProfile.objects.get(
+                        company_client_uid=slug,
+                        company=company
+                    )
+                    client = profile.client
+                except CompanyClientProfile.DoesNotExist:
+                    pass
+        
+        # Priority 2: Try name-based slug (e.g., "victor-godwin" → "Victor Godwin")
+        if not client:
+            name_from_slug = slug.replace('-', ' ')
+            user = ClientUser.objects.filter(
+                full_name__iexact=name_from_slug
+            ).first()
+            
+            # Verify user exists in THIS company (via company_profile OR affiliation)
+            if user:
+                has_company_access = (
+                    user.company_profile == company or
+                    ClientMarketerAssignment.objects.filter(
+                        client_id=user.id,
+                        company=company
+                    ).exists()
+                )
+                
+                if has_company_access:
+                    client = user
+                else:
+                    raise HttpResponseForbidden(
+                        f"❌ Access Denied: User '{slug}' is not part of {company.company_name}."
+                    )
+        
+        # Priority 3: Try exact name match
+        if not client:
+            user = ClientUser.objects.filter(
+                full_name=slug
+            ).first()
+            
+            if user:
+                has_company_access = (
+                    user.company_profile == company or
+                    ClientMarketerAssignment.objects.filter(
+                        client_id=user.id,
+                        company=company
+                    ).exists()
+                )
+                
+                if has_company_access:
+                    client = user
+                else:
+                    raise HttpResponseForbidden(
+                        f"❌ Access Denied: User '{slug}' is not part of {company.company_name}."
+                    )
+        
+        if not client:
+            raise Http404(f"❌ Client '{slug}' not found in {company.company_name}.")
+    
+    elif pk:
+        # Legacy ID-based lookup: VERIFY client belongs to company
+        try:
+            client = ClientUser.objects.get(id=pk)
+        except ClientUser.DoesNotExist:
+            raise Http404("❌ Client not found.")
+        
+        # SECURITY: Verify client belongs to THIS company ONLY
+        client_in_company = (
+            client.company_profile == company or
+            ClientMarketerAssignment.objects.filter(
+                client_id=client.id,
+                company=company
+            ).exists()
+        )
+        
+        if not client_in_company:
+            raise HttpResponseForbidden(f"❌ Access Denied: Client not associated with {company.company_name}.")
+    else:
+        raise Http404("❌ No client identifier provided (slug or pk required).")
+    
+    # ============================================================
+    # STEP 4: Fetch transactions STRICTLY scoped to company
+    # ============================================================
+    # CRITICAL: All transactions must be filtered by company to prevent data leakage
+    transactions = Transaction.objects.filter(
+        client_id=client.id,
+        company=company  # <-- STRICT COMPANY FILTER
+    ).select_related(
         'allocation__estate',
         'allocation__plot_size'
-    )
+    ).order_by('-transaction_date')
     
-    # Calculate appreciation values
+    # ============================================================
+    # STEP 5: Calculate portfolio metrics (company-scoped)
+    # ============================================================
     appreciation_total = Decimal(0)
     growth_rates = []
     highest_growth_rate = Decimal(0)
     highest_growth_property = ""
     
     for transaction in transactions:
-        # Get current price for this property
+        # Get current price for this property (WITHIN company context)
         try:
-            property_price = PropertyPrice.objects.get(
-                estate=transaction.allocation.estate,
+            property_price = PropertyPrice.objects.filter(
+                estate__company=company,  # <-- STRICT COMPANY FILTER
                 plot_unit__plot_size=transaction.allocation.plot_size
-            )
+            ).get(estate=transaction.allocation.estate)
             current_value = property_price.current
         except PropertyPrice.DoesNotExist:
             current_value = transaction.total_amount 
@@ -4538,10 +5254,11 @@ def client_profile(request, pk):
     
     context = {
         'client': client,
+        'company': company,
         'transactions': transactions,
         'properties_count': properties_count,
-        'total_value': sum(t.total_amount for t in transactions),
-        'current_value': sum(t.current_value for t in transactions),
+        'total_value': sum(t.total_amount for t in transactions) if transactions else Decimal(0),
+        'current_value': sum(t.current_value for t in transactions) if transactions else Decimal(0),
         'appreciation_total': appreciation_total,
         'average_growth': average_growth,
         'highest_growth_rate': highest_growth_rate,
@@ -6960,6 +7677,10 @@ def add_transaction(request):
     allocation = get_object_or_404(PlotAllocation, pk=aid)
     existing   = Transaction.objects.filter(client_id=cid, allocation=allocation).first()
     txn        = existing or Transaction(client_id=cid, allocation=allocation)
+
+    # --- 1) Set company from allocation's estate (CRITICAL for multi-tenant isolation) ---
+    if allocation.estate and allocation.estate.company:
+        txn.company = allocation.estate.company
 
     # --- 2) Core fields ---
     txn.transaction_date = txn_date

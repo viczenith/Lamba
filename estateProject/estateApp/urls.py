@@ -35,6 +35,7 @@ urlpatterns = [
     
     path('company-profile/', company_profile_view, name='company-profile'),
     path('company-profile/update/', company_profile_update, name='company-profile-update'),
+    path('company-profile/send-engagement-emails/', send_engagement_emails, name='send-engagement-emails'),
     path('company-profile/ceo/<int:ceo_id>/delete/', delete_company_ceo, name='company-ceo-delete'),
     path('company-profile/admin/<int:user_id>/toggle-mute/', admin_toggle_mute, name='admin-toggle-mute'),
     path('company-profile/admin/<int:user_id>/delete/', admin_delete_admin, name='admin-delete-admin'),
@@ -55,8 +56,13 @@ urlpatterns = [
     path('admin_dashboard/', redirect_admin_dashboard_to_tenant, name="admin-dashboard"),
     path('estate-allocation-data/', estate_allocation_data, name='estate_allocation_data'),
     
-    # path('client_profile', client_profile, name='client-profile'),
+    # Client Profile URLs - Support multiple formats for backward compatibility
+    # Legacy format: /client_profile/<pk>/ - DEPRECATED but supported
     path('client_profile/<int:pk>/', client_profile, name='client-profile'),
+    # Slug-based format: /<username>.client-profile?company=<company_slug> (modern)
+    path('<slug:slug>.client-profile/', client_profile, name='client-profile-slug'),
+    # Company-namespaced format: /<company_slug>/client/<username>/
+    path('<slug:company_slug>/client/<slug:client_slug>/', client_profile, name='client-profile-company'),
     # ⚠️ DEPRECATED: Use /<company-slug>/management/ instead
     # path('management-dashboard', management_dashboard, name='management-dashboard'),
     path('add-plotsize', add_plotsize, name='add-plotsize'),
@@ -137,7 +143,13 @@ urlpatterns = [
 
 
     path('marketer-list', marketer_list, name="marketer-list"),
+    # Marketer Profile URLs - Support multiple formats for backward compatibility
+    # Legacy format: /admin-marketer/<pk>/ - DEPRECATED but supported
     path('admin-marketer/<int:pk>/', admin_marketer_profile, name='admin-marketer-profile'),
+    # Slug-based format: /<username>.marketer-profile?company=<company_slug> (modern)
+    path('<slug:slug>.marketer-profile/', admin_marketer_profile, name='marketer-profile-slug'),
+    # Company-namespaced format: /<company_slug>/marketer/<username>/
+    path('<slug:company_slug>/marketer/<slug:marketer_slug>/', admin_marketer_profile, name='marketer-profile-company'),
     path('marketer/<int:pk>/soft-delete/', marketer_soft_delete, name='marketer-soft-delete'),
     path('marketer/<int:pk>/restore/', marketer_restore, name='marketer-restore'),
     path('client', client, name="client"),
