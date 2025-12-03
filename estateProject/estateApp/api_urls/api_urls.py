@@ -45,7 +45,7 @@ from estateApp.api_views.plot_allocation_delete import delete_allocation
 from estateApp.api_views.download_allocations import download_allocations
 from estateApp.api_views.download_estate_pdf import download_estate_pdf
 from estateApp.api_views.user_registration_views import admin_user_registration
-from estateApp.api_views.marketer_views import marketer_list, marketer_detail
+# from estateApp.api_views.marketer_views import marketer_list, marketer_detail
 from estateApp.api_views.client_views import client_list, client_detail
 from estateApp.api_views.add_estate_plot_views import AddEstatePlotView, get_add_estate_plot_details
 from estateApp.api_views.estate_list_views import get_estate_list, update_estate
@@ -114,7 +114,7 @@ urlpatterns = [
     path('update-work-progress/<int:estate_id>/', update_work_progress, name='upda.te-work-progress'),
     path('update-estate-map/<int:estate_id>/', update_estate_map, name='update_estate_map'),
 
-    path('marketers/', marketer_list, name='marketer_list'),
+    # path('marketers/', marketer_list, name='marketer_list'),
     # path('marketers/<int:pk>/', marketer_detail, name='admin-marketer-profile'),
     #  path('marketers/<int:pk>/', MarketerDetailView.as_view(), name='marketer-detail'),
     path('clients/', client_list, name='client-list'),

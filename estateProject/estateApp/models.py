@@ -3054,6 +3054,15 @@ class PaymentRecord(models.Model):
 
 # Marketers Performance
 class MarketerCommission(models.Model):
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='marketer_commissions',
+        null=True,
+        blank=True,
+        verbose_name="Company"
+    )
     marketer = models.ForeignKey(
         MarketerUser, 
         on_delete=models.CASCADE, 
@@ -3071,15 +3080,27 @@ class MarketerCommission(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         verbose_name = "Commission Rate"
         verbose_name_plural = "Commission Rates"
         ordering = ['-effective_date']
+        unique_together = ('company', 'marketer')  # SECURITY: Unique per company, not globally
+
+    def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from marketer's company_profile
+        if not self.company_id and self.marketer and self.marketer.company_profile:
+            self.company = self.marketer.company_profile
+        super().save(*args, **kwargs)
 
     def __str__(self):
+        company_name = self.company.company_name if self.company else "Unknown Company"
         if self.marketer:
-            return f"{self.marketer.full_name}: {self.rate}% from {self.effective_date}"
-        return f"All Marketers: {self.rate}% from {self.effective_date}"
+            return f"{self.marketer.full_name} - {company_name}: {self.rate}% from {self.effective_date}"
+        return f"All Marketers - {company_name}: {self.rate}% from {self.effective_date}"
 
 class MarketerTarget(models.Model):
     PERIOD_TYPE_CHOICES = [
@@ -3088,6 +3109,15 @@ class MarketerTarget(models.Model):
         ('annual', 'Annual'),
     ]
 
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='marketer_targets',
+        null=True,
+        blank=True,
+        verbose_name="Company"
+    )
     period_type = models.CharField(
         max_length=20,
         choices=PERIOD_TYPE_CHOICES,
@@ -3111,16 +3141,40 @@ class MarketerTarget(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
         verbose_name = "Sales Target"
         verbose_name_plural = "Sales Targets"
-        unique_together = ('period_type', 'specific_period', 'marketer')
+        unique_together = ('company', 'period_type', 'specific_period', 'marketer')  # SECURITY: Unique per company
+        indexes = [
+            models.Index(fields=['company', 'period_type']),
+            models.Index(fields=['company', 'specific_period']),
+        ]
+
+    def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from marketer's company_profile
+        if not self.company_id and self.marketer and self.marketer.company_profile:
+            self.company = self.marketer.company_profile
+        super().save(*args, **kwargs)
 
     def __str__(self):
+        company_name = self.company.company_name if self.company else "Unknown Company"
         marketer_name = self.marketer.full_name if self.marketer else "All Marketers"
-        return f"{marketer_name} - {self.specific_period}: ₦{self.target_amount}"
+        return f"{marketer_name} - {company_name} - {self.specific_period}: ₦{self.target_amount}"
 
 class MarketerPerformanceRecord(models.Model):
+    # SECURITY: Explicit company FK for direct multi-tenant filtering
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='marketer_performance_records',
+        null=True,
+        blank=True,
+        verbose_name="Company"
+    )
     marketer = models.ForeignKey(MarketerUser, on_delete=models.CASCADE)
     period_type = models.CharField(max_length=20, choices=MarketerTarget.PERIOD_TYPE_CHOICES)
     specific_period = models.CharField(max_length=20)
@@ -3130,11 +3184,29 @@ class MarketerPerformanceRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Use CompanyAwareManager for automatic tenant isolation
+    objects = CompanyAwareManager()
+    all_objects = models.Manager()  # Fallback for unfiltered queries
+
     class Meta:
-        unique_together = ('marketer', 'period_type', 'specific_period')
-        
+        unique_together = ('company', 'marketer', 'period_type', 'specific_period')  # SECURITY: Unique per company
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', 'marketer']),
+            models.Index(fields=['company', 'period_type']),
+            models.Index(fields=['company', 'specific_period']),
+            models.Index(fields=['company', 'created_at']),
+        ]
+
+    def save(self, *args, **kwargs):
+        # SECURITY: Auto-populate company from marketer's company_profile
+        if not self.company_id and self.marketer and self.marketer.company_profile:
+            self.company = self.marketer.company_profile
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.marketer.full_name} - {self.specific_period}"
+        company_name = self.company.company_name if self.company else "Unknown Company"
+        return f"{self.marketer.full_name} - {company_name} - {self.specific_period}"
 
 # VALUE EVALUATION
 

@@ -434,6 +434,27 @@
                   <span class="info-label">Commission Rate</span>
                   <span class="info-value">{% if commission_rate %}{{ commission_rate }}%{% else %}Not Set{% endif %}</span>
                 </div>
+                
+                <!-- Yearly Target Achievement -->
+                <div class="metric mb-3">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="info-label">Yearly Target Achieved <strong class="badge bg-success">{{ current_year }}</strong></span>
+                    {% if yearly_target_achievement is not None %}
+                      <strong class="info-value">{{ yearly_target_achievement|floatformat:0 }}%</strong>
+                    {% else %}
+                      <strong class="text-muted">Yet to be set</strong>
+                    {% endif %}
+                  </div>
+                  <div class="progress mt-2" style="height:8px;">
+                    {% if yearly_target_achievement is not None %}
+                      <div class="progress-bar bg-info" role="progressbar"
+                          style="width:{{ yearly_target_achievement }}%">
+                      </div>
+                    {% else %}
+                      <div class="progress-bar bg-secondary" role="progressbar" style="width:0%"></div>
+                    {% endif %}
+                  </div>
+                </div>
               </div>
 
               <div class="btn-group">

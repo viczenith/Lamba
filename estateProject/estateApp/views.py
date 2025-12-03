@@ -2335,94 +2335,118 @@ def add_progress_status(request):
 
 @login_required
 def marketer_list(request):
-    # Use MarketerUser model to access the 'clients' reverse relationship
-    # SECURITY: Filter by company to prevent cross-company data leakage
+    """
+    Display marketer list with company-scoped data and client counts.
+    SECURITY: Strict company isolation prevents cross-company data leakage.
+    """
+    # Get company context with fallback
     company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company context available.")
+        return redirect('home')
 
-    # Primary queryset: marketers with MarketerUser subclass
-    marketers_qs = MarketerUser.objects.filter(company_profile=company).annotate(
-        client_count=Count('clients', filter=Q(clients__is_deleted=False))
+    # Get marketers from both primary company_profile and MarketerAffiliation
+    # Primary marketers (direct company assignment)
+    primary_marketers = MarketerUser.objects.filter(company_profile=company)
+    
+    # Affiliated marketers (added via add_existing_user_to_company)
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company)
+        .values_list('marketer_id', flat=True)
+        .distinct()
     )
+    affiliated_marketers = MarketerUser.objects.filter(
+        id__in=affiliation_marketer_ids
+    ).exclude(id__in=primary_marketers.values_list('pk', flat=True))
+    
+    # Combine and sort by registration date
+    marketers = list(primary_marketers) + list(affiliated_marketers)
+    marketers.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
 
+    # Calculate company-scoped client counts and IDs
+    for marketer in marketers:
+        # Count unique clients assigned to this marketer within the company
+        assign_client_ids = set(
+            ClientMarketerAssignment.objects.filter(
+                company=company, 
+                marketer_id=marketer.id
+            ).values_list('client_id', flat=True)
+        )
+        direct_client_ids = set(
+            ClientUser.objects.filter(
+                company_profile=company, 
+                assigned_marketer_id=marketer.id
+            ).values_list('pk', flat=True)
+        )
+        marketer.client_count = len(assign_client_ids.union(direct_client_ids))
+        
+        # Get company-specific marketer ID
+        try:
+            profile = CompanyMarketerProfile.objects.get(
+                marketer_id=marketer.id, 
+                company=company
+            )
+            marketer.company_marketer_id = profile.company_marketer_id
+            marketer.company_marketer_uid = profile.company_marketer_uid
+        except CompanyMarketerProfile.DoesNotExist:
+            # Fallback: use marketer's primary key for stable ID generation
+            # This ensures the ID never changes regardless of list order
+            marketer.company_marketer_id = marketer.id
+            prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
+            marketer.company_marketer_uid = f"{prefix}MKT{marketer.id:03d}"
+
+    return render(request, 'admin_side/marketer_list.html', {
+        'marketers': marketers, 
+        'company': company
+    })
+
+
+@login_required
+def api_marketer_list(request):
+    """
+    API endpoint to retrieve a list of marketers for the authenticated user's company.
+    Returns JSON data for use in frontend JavaScript.
+    """
+    import json
+    from django.http import JsonResponse
+    from django.core.serializers import serialize
+    
+    user = request.user
+    
+    # Get the user's company
+    company = user.company_profile
+    if not company:
+        return JsonResponse({'error': 'No company associated with your account'}, status=400)
+    
+    # Primary queryset: marketers with MarketerUser subclass
+    marketers_qs = MarketerUser.objects.filter(company_profile=company)
+    
     # ALSO include marketers from MarketerAffiliation (for users added via add_existing_user_to_company)
     affiliation_marketer_ids = list(
         MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
     )
     affiliation_marketers_qs = MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
         id__in=marketers_qs.values_list('pk', flat=True)
-    ).annotate(
-        client_count=Count('clients', filter=Q(clients__is_deleted=False))
     )
-
+    
     # Combine both querysets
-    marketers_qs = list(marketers_qs) + list(affiliation_marketers_qs)
-
-    # Fallback: include any CustomUser(marketer) rows that do not yet have a MarketerUser subclass
-    parent_ids = [m.pk if hasattr(m, 'pk') else m for m in marketers_qs]
-    fallback_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).exclude(id__in=parent_ids).order_by('-date_registered')
-
-    # Combine into a single list
-    combined = list(marketers_qs) + list(fallback_marketers)
-
-    # Sort by registration date descending for display
+    combined = list(marketers_qs) + list(affiliation_marketers_qs)
+    
+    # Sort by registration date descending for consistency
     combined.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
-
-    # Compute company-scoped unique IDs (sequential per company) and client counts
-    try:
-        # Build an ordered list by registration date ascending for deterministic numbering
-        ordered_for_ids = sorted(combined, key=lambda u: getattr(u, 'date_registered', None) or timezone.now())
-        id_map = {u.pk: idx + 1 for idx, u in enumerate(ordered_for_ids)}
-
-        for m in combined:
-            # company_uid: integer sequence per company (use in template as zero-padded)
-            m.company_uid = id_map.get(m.pk, m.pk)
-
-            # Compute client_count as unique clients assigned to this marketer within company
-            # via ClientMarketerAssignment or direct ClientUser.assigned_marketer field
-            try:
-                assign_client_ids = set(ClientMarketerAssignment.objects.filter(company=company, marketer_id=m.pk).values_list('client_id', flat=True))
-            except Exception:
-                assign_client_ids = set()
-
-            try:
-                direct_client_ids = set(ClientUser.objects.filter(company_profile=company, assigned_marketer_id=m.pk).values_list('pk', flat=True))
-            except Exception:
-                direct_client_ids = set()
-
-            unique_clients = assign_client_ids.union(direct_client_ids)
-            m.client_count = len(unique_clients)
-            
-            # Fetch the actual CompanyMarketerProfile for this company
-            try:
-                profile = CompanyMarketerProfile.objects.get(marketer_id=m.pk, company=company)
-                m.company_marketer_id = profile.company_marketer_id
-                m.company_marketer_uid = profile.company_marketer_uid
-            except CompanyMarketerProfile.DoesNotExist:
-                # Fallback: Use company_uid if no profile exists
-                m.company_marketer_id = m.company_uid
-                try:
-                    prefix = company._company_prefix() if company else 'CMP'
-                except Exception:
-                    prefix = getattr(company, 'company_name', 'CMP')[:3].upper()
-                m.company_marketer_uid = f"{prefix}MKT{int(m.company_marketer_id):03d}"
-            except Exception:
-                # Final fallback
-                m.company_marketer_id = m.company_uid
-                m.company_marketer_uid = f"MKT{int(getattr(m, 'company_marketer_id', 0) or 0):03d}"
-    except Exception:
-        # Fallback: ensure attribute exists
-        for m in combined:
-            if not hasattr(m, 'client_count'):
-                m.client_count = getattr(m, 'client_count', 0)
-            if not hasattr(m, 'company_uid'):
-                m.company_uid = getattr(m, 'id', None)
-            try:
-                if not getattr(m, 'company_marketer_id', None):
-                    m.company_marketer_id = m.company_uid
-            except Exception:
-                m.company_marketer_id = m.company_uid
-
-    return render(request, 'admin_side/marketer_list.html', {'marketers': combined, 'company': company})
+    
+    # Serialize the data
+    marketers_data = []
+    for marketer in combined:
+        marketers_data.append({
+            'id': marketer.id,
+            'full_name': marketer.full_name,
+            'email': marketer.email,
+            'phone': getattr(marketer, 'phone', ''),
+            'date_registered': marketer.date_registered.isoformat() if hasattr(marketer, 'date_registered') else None,
+        })
+    
+    return JsonResponse({'marketers': marketers_data})
 
 
 @login_required
@@ -2597,7 +2621,8 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
     ).count()
 
     lifetime_commission = MarketerPerformanceRecord.objects.filter(
-        marketer=marketer
+        marketer=marketer,
+        company=company  # ✅ Added company filter for isolation
     ).aggregate(total=Sum('commission_earned'))['total'] or 0
 
     performance = {
@@ -2611,7 +2636,8 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
 
     # Latest commission rate (STRICT company filter)
     comm = MarketerCommission.objects.filter(
-        marketer=marketer
+        marketer=marketer,
+        company=company  # ✅ Added company filter for isolation
     ).order_by('-effective_date').first()
     if comm:
         performance['commission_rate'] = comm.rate
@@ -2619,6 +2645,7 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
     # Monthly target % (STRICT company filter)
     mt = MarketerTarget.objects.filter(
         marketer=marketer,
+        company=company,  # ✅ Added company filter for isolation
         period_type='monthly',
         specific_period=current_month
     ).first()
@@ -2632,6 +2659,7 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
     at = (
         MarketerTarget.objects.filter(
             marketer=marketer, 
+            company=company,  # ✅ Added company filter for isolation
             period_type='annual', 
             specific_period=year_str
         )
@@ -2639,6 +2667,7 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
         or
         MarketerTarget.objects.filter(
             marketer=None, 
+            company=company,  # ✅ Added company filter for isolation
             period_type='annual', 
             specific_period=year_str
         )
@@ -6266,12 +6295,14 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
 
 @login_required
 def marketer_my_companies(request):
-    """Show companies where the authenticated marketer has transactions/affiliations."""
+    """Show companies where the authenticated marketer has transactions/affiliations.
+    SECURITY: Strict company isolation prevents data leakage between companies.
+    """
     user = request.user
     if getattr(user, 'role', None) != 'marketer':
         return redirect('login')
 
-    # Get companies where marketer has affiliations or transactions
+    # Get companies where marketer has transactions - STRICT isolation
     company_ids = (
         Transaction.objects.filter(marketer=user)
         .values_list('company', flat=True)
@@ -6281,29 +6312,61 @@ def marketer_my_companies(request):
     companies = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
 
     company_list = []
+    current_year = datetime.now().year
+    year_str = str(current_year)
+    
     for comp in companies:
-        # Count closed deals (full payment transactions) - same as marketer profile
+        # Count ALL transactions FOR THIS COMPANY ONLY - STRICT isolation
+        # This matches the logic from section3_marketers_performance.html
         closed_deals = Transaction.objects.filter(
             marketer=user, 
-            company=comp,
-            allocation__payment_type='full'
+            company=comp  # ✅ Ensures data is scoped to this company only
         ).count()
         
-        # Get commission rate for this marketer-company affiliation - same as marketer profile
+        # Get company-specific commission rate from MarketerAffiliation
+        # This ensures commission rates are isolated per company
         affiliation = MarketerAffiliation.objects.filter(
             marketer=user,
             company=comp
         ).first()
         
-        commission_rate = affiliation.commission_rate if affiliation else 0
+        commission_rate = affiliation.commission_rate if affiliation else None
+        
+        # Calculate yearly target achievement for this company
+        yearly_target_achievement = None
+        yearly_target = (
+            MarketerTarget.objects.filter(
+                marketer=user,
+                company=comp,
+                period_type='annual', 
+                specific_period=year_str
+            ).first()
+        )
+        
+        if yearly_target and yearly_target.target_amount:
+            total_year_sales = Transaction.objects.filter(
+                marketer=user,
+                company=comp,  # <-- STRICT COMPANY FILTER
+                transaction_date__year=current_year
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            
+            if total_year_sales > 0 and yearly_target.target_amount > 0:
+                yearly_target_achievement = min(
+                    100,
+                    (total_year_sales / yearly_target.target_amount) * 100
+                )
         
         company_list.append({
             'company': comp, 
             'closed_deals': closed_deals, 
-            'commission_rate': commission_rate
+            'commission_rate': commission_rate,
+            'yearly_target_achievement': yearly_target_achievement
         })
 
-    return render(request, 'marketer_side/my_companies.html', {'companies': company_list})
+    return render(request, 'marketer_side/my_companies.html', {
+        'companies': company_list,
+        'current_year': current_year
+    })
 
 
 @login_required
@@ -6483,6 +6546,7 @@ def marketer_profile(request):
 
     lifetime_commission = MarketerPerformanceRecord.objects.filter(
         marketer=marketer,
+        company=company,  # ✅ Added company filter for isolation
         period_type='monthly'
     ).aggregate(total=Sum('commission_earned'))['total'] or 0
 
@@ -6496,14 +6560,18 @@ def marketer_profile(request):
         'yearly_target_achievement': None,
     }
 
-    # Latest commission rate
-    comm = MarketerCommission.objects.filter(marketer=marketer).order_by('-effective_date').first()
+    # Latest commission rate (STRICT company filter)
+    comm = MarketerCommission.objects.filter(
+        marketer=marketer,
+        company=company  # ✅ Added company filter for isolation
+    ).order_by('-effective_date').first()
     if comm:
         performance['commission_rate'] = comm.rate
 
-    # Monthly target %
+    # Monthly target % (STRICT company filter)
     mt = MarketerTarget.objects.filter(
         marketer=marketer,
+        company=company,  # ✅ Added company filter for isolation
         period_type='monthly',
         specific_period=current_month
     ).first()
@@ -6513,12 +6581,22 @@ def marketer_profile(request):
             performance['total_sales'] / mt.target_amount * 100
         )
 
-    # Annual target achievement
+    # Annual target achievement (STRICT company filter)
     at = (
-        MarketerTarget.objects.filter(marketer=marketer, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(
+            marketer=marketer, 
+            company=company,  # ✅ Added company filter for isolation
+            period_type='annual', 
+            specific_period=year_str
+        )
         .first()
         or
-        MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str)
+        MarketerTarget.objects.filter(
+            marketer=None, 
+            company=company,  # ✅ Added company filter for isolation
+            period_type='annual', 
+            specific_period=year_str
+        )
         .first()
     )
     if at and at.target_amount:
@@ -6556,9 +6634,9 @@ def marketer_profile(request):
         ).aggregate(total=Sum('total_amount'))['total'] or 0
 
         tgt = (
-            MarketerTarget.objects.filter(marketer=m, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
             or
-            MarketerTarget.objects.filter(marketer=None, period_type='annual', specific_period=year_str).first()
+            MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str).first()
         )
         target_amt = tgt.target_amount if tgt else None
         pct = (year_sales / target_amt * 100) if target_amt else None
@@ -8796,9 +8874,10 @@ class SetTargetAPI(View):
         if target_amount is None:
             return JsonResponse({'status':'error','message':'target_amount required'}, status=400)
 
-        # Always write the one global record (marketer=None)
+        # SECURITY: Write company-scoped global record (marketer=None) to prevent cross-company data leakage
         MarketerTarget.objects.update_or_create(
             marketer=None,
+            company=request.user.company_profile,  # ✅ Added company filter for isolation
             period_type=period_type,
             specific_period=specific_period,
             defaults={'target_amount': target_amount}
@@ -8817,6 +8896,7 @@ class GetGlobalTargetAPI(View):
 
         record = MarketerTarget.objects.filter(
             marketer=None,
+            company=request.user.company_profile,  # ✅ Added company filter for isolation
             period_type=period_type,
             specific_period=specific_period
         ).first()
@@ -8870,10 +8950,10 @@ class SetCommissionAPI(View):
         if request.user.admin_level != 'company':
             return JsonResponse({'status':'error','message':'Only company admins can set commissions'}, status=403)
 
-        # Look for the latest commission record for this marketer in this company
+        # Look for the latest commission record for this marketer (COMPANY-SCOPED)
         existing = (
             MarketerCommission.objects
-            .filter(marketer=marketer, company=marketer.company_profile)
+            .filter(marketer=marketer, company=marketer.company_profile)  # ✅ Added company filter for isolation
             .order_by('-effective_date')
             .first()
         )
@@ -8884,12 +8964,12 @@ class SetCommissionAPI(View):
             existing.effective_date = effective_date
             existing.save(update_fields=['rate', 'effective_date'])
         else:
-            # No existing commission—create a new one with company association
+            # No existing commission—create a new one (COMPANY-SCOPED)
             MarketerCommission.objects.create(
                 marketer=marketer,
-                company=marketer.company_profile,
                 rate=rate,
-                effective_date=effective_date
+                effective_date=effective_date,
+                company=marketer.company_profile  # ✅ Added company field for isolation
             )
 
         return JsonResponse({'status':'success'})
@@ -8906,7 +8986,8 @@ class GetCommissionAPI(View):
             return JsonResponse({'status':'error','message':'Marketer not found'}, status=404)
 
         commission = MarketerCommission.objects.filter(
-            marketer=marketer
+            marketer=marketer,
+            company=marketer.company_profile  # ✅ Added company filter for isolation
         ).order_by('-effective_date').first()
 
         if not commission:

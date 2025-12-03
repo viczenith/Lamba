@@ -344,7 +344,8 @@
           // Load marketers from backend
           const marketersResponse = await fetch('/api/marketers/');
           if (!marketersResponse.ok) throw new Error('Failed to load marketers');
-          marketersList = await marketersResponse.json();
+          const response = await marketersResponse.json();
+          marketersList = response.marketers || [];
           
           populateMarketerDropdowns();
           populateSpecificPeriods();
