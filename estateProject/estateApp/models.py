@@ -1,5 +1,5 @@
 import datetime
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 import random
 import re
@@ -13,6 +13,8 @@ from dateutil.relativedelta import relativedelta
 from multiselectfield import MultiSelectField
 from django.db.models import Sum, Count, IntegerField, DecimalField, F, Q
 from django.db.models.functions import Coalesce
+from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
 
 
 class CompanyAwareManager(models.Manager):
@@ -1486,6 +1488,8 @@ class Message(models.Model):
         related_name='messages',
         verbose_name='Company'
     )
+    # Encryption fields for end-to-end encryption
+    is_encrypted = models.BooleanField(default=False, verbose_name="Is Encrypted")
     
     class Meta:
         ordering = ['date_sent']
@@ -1500,6 +1504,522 @@ class Message(models.Model):
         if not user:
             return True
         return user != self.sender
+
+    def get_content(self):
+        """Get decrypted content for display"""
+        from estateApp.encryption_utils import decrypt_message_content
+        return decrypt_message_content(self)
+
+
+# Import signals at the end to avoid circular imports
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from estateApp.encryption_utils import encrypt_message_signal
+
+@receiver(pre_save, sender=Message)
+def encrypt_message_before_save(sender, instance, **kwargs):
+    """Automatically encrypt message content before saving"""
+    encrypt_message_signal(sender, instance, **kwargs)
+
+
+class ChatAssignment(models.Model):
+    """
+    Assigns chat conversations to specific admin users for better tracking and accountability.
+    Ensures every chat gets proper attention and response.
+    """
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_assignments',
+        verbose_name="Client"
+    )
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='chat_assignments',
+        verbose_name="Company"
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='assigned_chats',
+        verbose_name="Assigned Admin"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name="Assigned At")
+    last_message_at = models.DateTimeField(auto_now=True, verbose_name="Last Message At")
+    is_active = models.BooleanField(default=True, verbose_name="Is Active")
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('low', 'Low'),
+            ('medium', 'Medium'),
+            ('high', 'High'),
+            ('urgent', 'Urgent')
+        ],
+        default='medium',
+        verbose_name="Priority"
+    )
+    response_time_target = models.DurationField(
+        default=timedelta(hours=24),
+        verbose_name="Response Time Target"
+    )
+    first_response_time = models.DurationField(
+        null=True,
+        blank=True,
+        verbose_name="First Response Time"
+    )
+    last_response_time = models.DurationField(
+        null=True,
+        blank=True,
+        verbose_name="Last Response Time"
+    )
+    
+    class Meta:
+        unique_together = ['client', 'company']
+        ordering = ['-last_message_at']
+    
+    def __str__(self):
+        return f"{self.client} - {self.company} assigned to {self.assigned_to}"
+    
+    def calculate_response_times(self):
+        """Calculate and update response times for performance tracking."""
+        # Get first message from client
+        first_client_msg = Message.objects.filter(
+            sender=self.client,
+            company=self.company,
+            date_sent__gte=self.assigned_at
+        ).order_by('date_sent').first()
+        
+        # Get first response from assigned admin
+        first_admin_response = Message.objects.filter(
+            sender=self.assigned_to,
+            company=self.company,
+            date_sent__gte=first_client_msg.date_sent if first_client_msg else self.assigned_at
+        ).order_by('date_sent').first()
+        
+        if first_client_msg and first_admin_response:
+            self.first_response_time = first_admin_response.date_sent - first_client_msg.date_sent
+        
+        # Get last message from client
+        last_client_msg = Message.objects.filter(
+            sender=self.client,
+            company=self.company,
+            date_sent__gte=self.assigned_at
+        ).order_by('-date_sent').first()
+        
+        # Get last response from assigned admin
+        last_admin_response = Message.objects.filter(
+            sender=self.assigned_to,
+            company=self.company,
+            date_sent__gte=last_client_msg.date_sent if last_client_msg else self.assigned_at
+        ).order_by('-date_sent').first()
+        
+        if last_client_msg and last_admin_response:
+            self.last_response_time = last_admin_response.date_sent - last_client_msg.date_sent
+        
+        self.save()
+
+
+class ChatNotification(models.Model):
+    """
+    Manages chat notifications for admins to ensure no messages are missed.
+    Tracks unread counts and sends alerts for urgent conversations.
+    """
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_notifications',
+        verbose_name="Recipient"
+    )
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='chat_notifications',
+        verbose_name="Company"
+    )
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='client_notifications',
+        verbose_name="Client"
+    )
+    unread_count = models.PositiveIntegerField(default=0, verbose_name="Unread Count")
+    last_message = models.ForeignKey(
+        'Message',
+        on_delete=models.CASCADE,
+        related_name='notification_for',
+        verbose_name="Last Message"
+    )
+    last_message_at = models.DateTimeField(auto_now=True, verbose_name="Last Message At")
+    is_urgent = models.BooleanField(default=False, verbose_name="Is Urgent")
+    notified_at = models.DateTimeField(null=True, blank=True, verbose_name="Notified At")
+    dismissed_at = models.DateTimeField(null=True, blank=True, verbose_name="Dismissed At")
+    
+    class Meta:
+        unique_together = ['recipient', 'company', 'client']
+        ordering = ['-last_message_at']
+    
+    def __str__(self):
+        return f"{self.recipient} - {self.company} - {self.unread_count} unread"
+    
+    def mark_as_read(self):
+        """Mark all messages as read and update notification."""
+        Message.objects.filter(
+            sender=self.client,
+            recipient=self.recipient,
+            company=self.company,
+            is_read=False
+        ).update(is_read=True, status='read')
+        
+        self.unread_count = 0
+        self.dismissed_at = timezone.now()
+        self.save()
+    
+    def increment_unread(self):
+        """Increment unread count when new message arrives."""
+        self.unread_count += 1
+        self.save()
+
+
+class ChatSLA(models.Model):
+    """
+    Defines Service Level Agreements for chat responses.
+    Tracks response times and compliance for each company.
+    """
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='chat_slas',
+        verbose_name="Company"
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('low', 'Low'),
+            ('medium', 'Medium'),
+            ('high', 'High'),
+            ('urgent', 'Urgent')
+        ],
+        verbose_name="Priority"
+    )
+    response_time_hours = models.PositiveIntegerField(verbose_name="Response Time (Hours)")
+    resolution_time_hours = models.PositiveIntegerField(verbose_name="Resolution Time (Hours)")
+    working_hours_start = models.TimeField(default=time(9, 0), verbose_name="Working Hours Start")
+    working_hours_end = models.TimeField(default=time(17, 0), verbose_name="Working Hours End")
+    include_weekends = models.BooleanField(default=False, verbose_name="Include Weekends")
+    
+    class Meta:
+        unique_together = ['company', 'priority']
+    
+    def __str__(self):
+        return f"{self.company} - {self.priority} - {self.response_time_hours}h response"
+
+
+class ChatQueue(models.Model):
+    """
+    Manages incoming chat queues to ensure proper response management.
+    Prevents duplicate entries and tracks chat status across the system.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed')
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent')
+    ]
+    
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_queues',
+        verbose_name="Client"
+    )
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='chat_queues',
+        verbose_name="Company"
+    )
+    first_message = models.ForeignKey(
+        'Message',
+        on_delete=models.CASCADE,
+        related_name='queue_entries',
+        verbose_name="First Message"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="Status"
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default='medium',
+        verbose_name="Priority"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="Resolved At")
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    
+    objects = CompanyAwareManager()
+    
+    class Meta:
+        verbose_name = "Chat Queue"
+        verbose_name_plural = "Chat Queues"
+        ordering = ['-created_at']
+        unique_together = [['client', 'company']]
+        indexes = [
+            models.Index(fields=['status', 'priority']),
+            models.Index(fields=['company', 'status']),
+            models.Index(fields=['client', 'company']),
+        ]
+    
+    def __str__(self):
+        return f"{self.client} - {self.company} - {self.status}"
+    
+    def save(self, *args, **kwargs):
+        """Ensure proper queue management."""
+        if self.status == 'resolved' and not self.resolved_at:
+            self.resolved_at = timezone.now()
+        
+        super().save(*args, **kwargs)
+    
+    def mark_as_resolved(self):
+        """Mark the chat queue as resolved."""
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.save()
+    
+    def update_priority(self, priority):
+        """Update the priority of the chat queue."""
+        self.priority = priority
+        self.save()
+
+
+class ChatAssignment(models.Model):
+    """
+    Tracks chat assignments to ensure proper response management.
+    Monitors SLA compliance and response times for each company.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('escalated', 'Escalated'),
+        ('closed', 'Closed')
+    ]
+    
+    SLA_STATUS_CHOICES = [
+        ('compliant', 'Compliant'),
+        ('at_risk', 'At Risk'),
+        ('breached', 'Breached'),
+        ('resolved', 'Resolved')
+    ]
+    
+    chat_queue = models.ForeignKey(
+        'ChatQueue',
+        on_delete=models.CASCADE,
+        related_name='assignments',
+        verbose_name="Chat Queue"
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_assignments',
+        verbose_name="Assigned To"
+    )
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='chat_assignments',
+        verbose_name="Company"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="Status"
+    )
+    sla_status = models.CharField(
+        max_length=20,
+        choices=SLA_STATUS_CHOICES,
+        default='compliant',
+        verbose_name="SLA Status"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name="Assigned At")
+    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="Accepted At")
+    first_response_at = models.DateTimeField(null=True, blank=True, verbose_name="First Response At")
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="Resolved At")
+    response_time = models.DurationField(null=True, blank=True, verbose_name="Response Time")
+    resolution_time = models.DurationField(null=True, blank=True, verbose_name="Resolution Time")
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('low', 'Low'),
+            ('medium', 'Medium'),
+            ('high', 'High'),
+            ('urgent', 'Urgent')
+        ],
+        default='medium',
+        verbose_name="Priority"
+    )
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    is_urgent = models.BooleanField(default=False, verbose_name="Is Urgent")
+    escalation_level = models.PositiveIntegerField(default=0, verbose_name="Escalation Level")
+    
+    objects = CompanyAwareManager()
+    
+    class Meta:
+        verbose_name = "Chat Assignment"
+        verbose_name_plural = "Chat Assignments"
+        ordering = ['-assigned_at']
+        indexes = [
+            models.Index(fields=['chat_queue', 'assigned_to']),
+            models.Index(fields=['status', 'assigned_at']),
+            models.Index(fields=['sla_status', 'response_time']),
+        ]
+        unique_together = [['chat_queue', 'assigned_to']]
+    
+    def __str__(self):
+        return f"{self.chat_queue} - Assigned to {self.assigned_to}"
+    
+    def save(self, *args, **kwargs):
+        """Update SLA status based on response times."""
+        if self.pk:
+            old_assignment = ChatAssignment.objects.get(pk=self.pk)
+            
+            # Calculate response time if first response was made
+            if self.first_response_at and not old_assignment.first_response_at:
+                self.response_time = self.first_response_at - self.assigned_at
+            
+            # Calculate resolution time if resolved
+            if self.resolved_at and not old_assignment.resolved_at:
+                self.resolution_time = self.resolved_at - self.assigned_at
+                self.status = 'resolved'
+                self.sla_status = 'resolved'
+        
+        # Update SLA status based on timing
+        self._update_sla_status()
+        
+        super().save(*args, **kwargs)
+    
+    def _update_sla_status(self):
+        """Update SLA compliance status based on response times."""
+        if self.status == 'resolved':
+            self.sla_status = 'resolved'
+            return
+        
+        if self.first_response_at:
+            response_time = self.first_response_at - self.assigned_at
+            sla = ChatSLA.objects.filter(
+                company=self.company,
+                priority=self.priority
+            ).first()
+            
+            if sla:
+                sla_hours = timedelta(hours=sla.response_time_hours)
+                if response_time > sla_hours:
+                    self.sla_status = 'breached'
+                elif response_time > sla_hours * 0.8:
+                    self.sla_status = 'at_risk'
+                else:
+                    self.sla_status = 'compliant'
+    
+    def accept_assignment(self, user):
+        """Accept the chat assignment."""
+        if self.assigned_to != user:
+            raise ValidationError("You cannot accept this assignment.")
+        
+        self.status = 'in_progress'
+        self.accepted_at = timezone.now()
+        self.save()
+    
+    def resolve_assignment(self, user):
+        """Resolve the chat assignment."""
+        if self.assigned_to != user:
+            raise ValidationError("You cannot resolve this assignment.")
+        
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.sla_status = 'resolved'
+        self.save()
+    
+    def escalate_assignment(self, user, notes=""):
+        """Escalate the chat assignment."""
+        if self.assigned_to != user:
+            raise ValidationError("You cannot escalate this assignment.")
+        
+        self.status = 'escalated'
+        self.escalation_level += 1
+        self.notes = notes
+        self.save()
+
+
+class ChatResponseTracking(models.Model):
+    """
+    Tracks chat response metrics for management oversight.
+    Provides insights into response times and SLA compliance.
+    """
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='response_tracking',
+        verbose_name="Company"
+    )
+    date = models.DateField(default=date.today, verbose_name="Date")
+    total_chats = models.PositiveIntegerField(default=0, verbose_name="Total Chats")
+    responded_chats = models.PositiveIntegerField(default=0, verbose_name="Responded Chats")
+    average_response_time = models.DurationField(null=True, blank=True, verbose_name="Average Response Time")
+    sla_compliance_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name="SLA Compliance Rate (%)"
+    )
+    breached_chats = models.PositiveIntegerField(default=0, verbose_name="Breached Chats")
+    
+    class Meta:
+        unique_together = ['company', 'date']
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"{self.company} - {self.date} - {self.total_chats} chats"
+    
+    def update_metrics(self):
+        """Update response tracking metrics for the day."""
+        today_assignments = ChatAssignment.objects.filter(
+            company=self.company,
+            assigned_at__date=self.date
+        )
+        
+        self.total_chats = today_assignments.count()
+        self.responded_chats = today_assignments.exclude(first_response_at=None).count()
+        
+        # Calculate average response time
+        response_times = [
+            assignment.response_time for assignment in today_assignments
+            if assignment.response_time
+        ]
+        if response_times:
+            self.average_response_time = sum(response_times, timedelta()) / len(response_times)
+        
+        # Calculate SLA compliance rate
+        compliant_assignments = today_assignments.filter(sla_status='compliant')
+        if self.total_chats > 0:
+            self.sla_compliance_rate = (compliant_assignments.count() / self.total_chats) * 100
+        
+        # Count breached chats
+        self.breached_chats = today_assignments.filter(sla_status='breached').count()
+        
+        self.save()
 
 # ADD ESTATE
 

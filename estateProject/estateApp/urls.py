@@ -201,6 +201,7 @@ urlpatterns = [
     path('chat/', chat_view, name='chat'),
     # path('chat/<int:client_id>/', chat_view, name='chat'),
     path('chat/delete/<int:message_id>/', delete_message, name='delete_message'),
+    path('chat/dashboard/', chat_dashboard_view, name='chat_dashboard'),
     path('client-new-property-request', client_new_property_request, name="client-new-property-request"),
     path('view-all-requests', view_all_requests, name="view-all-requests"),
     path('property-list', property_list, name="property-list"),

@@ -593,7 +593,7 @@
             {% if msg.deleted_for_everyone %}
                 🚫 This message was deleted
             {% else %}
-                {{ msg.content|linebreaks }}
+                {{ msg.get_content|linebreaks }}
             {% endif %}
         </div>
         

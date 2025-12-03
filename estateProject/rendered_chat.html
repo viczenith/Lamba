@@ -1,7 +1,572 @@
-{% extends 'client_base.html' %}
-{% load static %}
-{% load custom_filters %}
-{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Lamba</title>
+  <meta name="description" content="">
+  <meta name="keywords" content="">
+
+  <!-- Favicons -->
+  <link href="/static/assets/img/favicon.png" rel="icon">
+  <link href="/static/assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.bubble.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon/fonts/remixicon.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/style.css" rel="stylesheet">
+  <link href="/static/assets/css/style.css" rel="stylesheet">
+
+  
+  
+</head>
+
+<body>
+
+
+  <!-- Sidebar -->
+  
+
+<!-- ======= Header ======= -->
+<header id="header" class="header fixed-top d-flex align-items-center" data-theme="light">
+
+  <div class="d-flex align-items-center justify-content-between">
+    <div class="logo d-flex align-items-center">
+      
+      
+        <a href=""><img src="/static/assets/img/logo.png?v=1763937497" alt=""></a>
+      
+    </div>
+    <i class="bi bi-list toggle-sidebar-btn"></i>
+  </div><!-- End Logo -->
+
+  <nav class="header-nav ms-auto">
+    <ul class="d-flex align-items-center">
+
+      <!-- Notification Nav - Only for Client and Marketer -->
+      
+      <li class="nav-item dropdown">
+        <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-bell"></i>
+        
+      </a>
+      <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications">
+        <li class="dropdown-header">
+          
+            No new notifications
+          
+          <!-- Single dynamic “View all” link for every role -->
+          <a href="/notifications/" class="badge rounded-pill bg-primary p-2 ms-2">
+            View all
+          </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        
+          <li class="text-center py-2 text-muted">No new notifications</li>
+        
+      </ul>
+      </li>
+      
+      <!-- End Notification Nav -->
+
+
+      <!-- Chat Messages Icon -->
+      
+        <!-- CLIENT/MARKETER: Message icon with badge only (no dropdown) -->
+        <li class="nav-item">
+          <a class="nav-link nav-icon" href="/chat/" title="Messages from Admin">
+            <i class="bi bi-chat-left-text"></i>
+            
+              <span id="global-messages-badge" class="badge bg-success badge-number" style="display:none">0</span>
+            
+          </a>
+        </li>
+      
+      <!-- End Chat Messages Icon -->
+
+      <!-- Profile Nav -->
+      <li class="nav-item dropdown pe-3">
+        
+          <a class="nav-link" href="/login/">Login</a>
+        
+      </li><!-- End Profile Nav -->
+    </ul>
+  </nav><!-- End Icons Navigation -->
+
+  <style>
+    :root {
+      --header-bg: #ffffff;
+      --header-text: #000000;
+      --header-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --dropdown-bg: #ffffff;
+      --dropdown-text: #212529;
+      --dropdown-border: rgba(0, 0, 0, 0.15);
+      --dropdown-divider: rgba(0, 0, 0, 0.1);
+      --dropdown-hover: #f8f9fa;
+      --nav-icon-color: #495057;
+      --nav-icon-hover: #4a6cf7;
+      --profile-dropdown-header: #f8f9fa;
+    }
+
+    [data-theme="dark"] {
+      --header-bg: #1e1e1e;
+      --header-text: #ffffff;
+      --header-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      --dropdown-bg: #2d2d2d;
+      --dropdown-text: #ffffff;
+      --dropdown-border: rgba(255, 255, 255, 0.1);
+      --dropdown-divider: rgba(255, 255, 255, 0.1);
+      --dropdown-hover: #3e3e3e;
+      --nav-icon-color: #adb5bd;
+      --nav-icon-hover: #6c8af8;
+      --profile-dropdown-header: #333333;
+    }
+
+    /* Header Base Styles */
+    .header {
+      background-color: var(--header-bg);
+      color: var(--header-text);
+      box-shadow: var(--header-shadow);
+      padding: 0.5rem 1rem;
+      z-index: 999;
+      transition: all 0.3s ease;
+    }
+
+    .logo img {
+      height: auto;                 /* allow height to scale */
+      max-height: 40px;            /* constrain maximum height in header */
+      width: auto;                 /* preserve aspect ratio */
+      max-width: 100%;             /* don't overflow container */
+      object-fit: contain;         /* keep image contained and not cropped */
+      transition: all 0.15s ease;
+      display: block;
+    }
+
+    .logo span {
+      font-weight: 600;
+      color: var(--header-text);
+      margin-left: 10px;
+    }
+
+    .toggle-sidebar-btn {
+      font-size: 1.5rem;
+      color: var(--nav-icon-color);
+      cursor: pointer;
+      margin-left: 15px;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-sidebar-btn:hover {
+      color: var(--nav-icon-hover);
+    }
+
+    /* Navigation Icons */
+    .nav-link.nav-icon {
+      color: var(--nav-icon-color);
+      font-size: 1.25rem;
+      position: relative;
+      margin: 0 0.5rem;
+      transition: all 0.3s ease;
+      border: none !important;
+      overflow: visible; 
+    }
+
+    .nav-link.nav-icon:hover {
+      color: var(--nav-icon-hover);
+    }
+
+    .badge-number {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      z-index: 1000;                      /* Ensure it sits above any borders */
+      pointer-events: none;               /* Avoid capturing clicks */
+      box-shadow: 0 0 0 2px var(--header-bg); /* Contrast ring so it’s always visible */
+    }
+
+    /* Dropdown Menus */
+    .dropdown-menu {
+      background-color: var(--dropdown-bg);
+      border: 1px solid var(--dropdown-border);
+      color: var(--dropdown-text);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .dropdown-header {
+      background-color: var(--profile-dropdown-header);
+      color: var(--dropdown-text);
+    }
+
+    .dropdown-divider {
+      border-color: var(--dropdown-divider);
+    }
+
+    .dropdown-item {
+      color: var(--dropdown-text);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+      background-color: var(--dropdown-hover);
+      color: var(--dropdown-text);
+    }
+
+    /* Profile Dropdown */
+    .nav-profile img {
+      width: 36px;
+      height: 36px;
+      object-fit: cover;
+    }
+
+    .dropdown-menu.profile {
+      min-width: 250px;
+    }
+
+    .dropdown-menu.profile .dropdown-header h6 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .dropdown-menu.profile .dropdown-header span {
+      font-size: 0.85rem;
+      color: var(--dropdown-text);
+      opacity: 0.8;
+    }
+
+    /* Notification Items */
+    .notification-item i {
+      font-size: 1.25rem;
+      margin-right: 1rem;
+    }
+
+    .notification-item div h4 {
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .notification-item div p {
+      font-size: 0.85rem;
+      margin-bottom: 0;
+    }
+
+    .notification-item div p:last-child {
+      font-size: 0.75rem;
+      color: var(--dropdown-text);
+      opacity: 0.7;
+    }
+
+    /* Message Items */
+    .message-item .avatar-initials {
+      font-weight: 600;
+    }
+
+    .message-item h6 {
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .message-item .text-muted {
+      font-size: 0.85rem;
+    }
+
+    /* Pulse Animation */
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .logo span {
+        display: none;
+      }
+      
+      .nav-profile span {
+        display: none;
+      }
+      
+      .header {
+        padding: 0.5rem;
+      }
+      
+      .nav-link.nav-icon {
+        margin: 0 0.25rem;
+        font-size: 1.1rem;
+      }
+      /* slightly reduce logo max-height on small screens */
+      .logo img {
+        max-height: 32px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo img { max-height: 26px; }
+    }
+  </style>
+
+  <script>
+    let chatAlertAudioContext = null;
+
+    function playChatAlert() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+          return;
+        }
+
+        if (!chatAlertAudioContext) {
+          chatAlertAudioContext = new AudioCtx();
+        }
+
+        // Some browsers require resuming the context after user gesture
+        if (chatAlertAudioContext.state === 'suspended') {
+          chatAlertAudioContext.resume().catch(() => {});
+        }
+
+        const oscillator = chatAlertAudioContext.createOscillator();
+        const gain = chatAlertAudioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 1200;
+        gain.gain.setValueAtTime(0.12, chatAlertAudioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, chatAlertAudioContext.currentTime + 0.25);
+
+        oscillator.connect(gain);
+        gain.connect(chatAlertAudioContext.destination);
+
+        oscillator.start();
+        oscillator.stop(chatAlertAudioContext.currentTime + 0.25);
+      } catch (error) {
+        // Silently ignore audio errors (e.g. autoplay restrictions)
+        console.debug('chat alert audio failed', error);
+      }
+    }
+
+    const badgeCounters = window.__chatBadgeCounters || {};
+    window.__chatBadgeCounters = badgeCounters;
+
+    // Update header theme when system theme changes
+    function updateHeaderTheme() {
+      const header = document.getElementById('header');
+      if (header) {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        header.setAttribute('data-theme', currentTheme);
+      }
+    }
+
+    // Initialize header theme
+    document.addEventListener('DOMContentLoaded', () => {
+      updateHeaderTheme();
+      
+      // Watch for theme changes
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.attributeName === 'data-theme') {
+            updateHeaderTheme();
+          }
+        });
+      });
+      
+      observer.observe(document.documentElement, {
+        attributes: true
+      });
+
+      // Ensure sidebar toggle works on desktop as well
+      const toggleBtn = document.querySelector('.toggle-sidebar-btn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          document.body.classList.toggle('toggle-sidebar');
+        });
+      }
+    });
+
+    // Chat badge polling function
+    function updateBadge(elementId, count) {
+      const badge = document.getElementById(elementId);
+      if (!badge) return;
+
+      const previousCount = badgeCounters[elementId] || 0;
+      badgeCounters[elementId] = count;
+
+      badge.textContent = count;
+      if (count > 0) {
+        badge.style.display = 'inline-block';
+        badge.classList.add('pulse');
+        if (count > previousCount) {
+          playChatAlert();
+        }
+      } else {
+        badge.style.display = 'none';
+        badge.classList.remove('pulse');
+      }
+    }
+
+    function pollUnreadCounts() {
+      fetch("/chat_unread_count/", {credentials: 'same-origin'})
+        .then(response => response.json())
+        .then(data => {
+          const msgBadge = document.getElementById("global-messages-badge");
+          let count;
+          
+          
+            count = data.global_message_count || 0;
+          
+          
+          msgBadge.textContent = count;
+          if (count > 0) {
+            msgBadge.classList.add('pulse');
+          } else {
+            msgBadge.classList.remove('pulse');
+          }
+          
+          
+            const clientMarketerCount = data.global_message_count || 0;
+            updateBadge('global-messages-badge', clientMarketerCount);
+            ['sidebar-chat-badge', 'sidebar-client-chat-badge'].forEach(function(id) {
+              updateBadge(id, clientMarketerCount);
+            });
+          
+        })
+        .catch(console.error);
+      setTimeout(pollUnreadCounts, 3000);
+    }
+    document.addEventListener('DOMContentLoaded', pollUnreadCounts);
+  </script>
+</header><!-- End Header -->
+    
+  <!-- ======= Sidebar ======= -->
+  <aside id="sidebar" class="sidebar">
+
+    <ul class="sidebar-nav" id="sidebar-nav">
+
+      <li class="nav-item">
+        <a class="nav-link " href="/client-dashboard">
+          <i class="bi bi-grid"></i>
+          <span>Dashboard</span>
+        </a>
+      </li><!-- End Dashboard Nav -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/my-client-profile">
+          <i class="bi bi-person"></i>
+          <span>Profile</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/my-companies/">
+          <i class="bi bi-building"></i>
+          <span>My Companies</span>
+        </a>
+      </li>
+
+      <!-- <li class="nav-item">
+        <a class="nav-link collapsed" href="/property-list">
+          <i class="bi bi-question-circle"></i>
+          <span>My Properties</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/client-new-property-request">
+          <i class="bi bi-envelope"></i>
+          <span> Request New Property</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/view-all-requests">
+          <i class="bi bi-envelope"></i>
+          <span>View Requests</span>
+        </a>
+      </li> -->
+      
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/notifications/">
+          <span class="position-relative d-inline-block">
+            <i class="bi bi-bell" style="font-size: 1.25rem;"></i>
+            
+          </span>
+          <span> Notifications</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/chat/">
+            <i class="bi bi-chat-dots"></i>
+            <span>Chat Admin</span>
+            <span id="sidebar-client-chat-badge" class="badge bg-success" 
+                  style="display: none;">
+                
+            </span>
+        </a>
+    </li>
+    
+    <script>
+        function updateBadge(elementId, count) {
+            const badge = document.getElementById(elementId);
+            if (badge) {
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'inline-block' : 'none';
+                // Pulse animation handling
+                if (count > 0) {
+                    badge.classList.add('pulse');
+                } else {
+                    badge.classList.remove('pulse');
+                }
+            }
+        }
+    
+        function pollUnreadCounts() {
+            fetch("/chat_unread_count/", {credentials: 'same-origin'})
+                .then(response => response.json())
+                .then(data => {
+                    // For client side only
+                    if ("" !== "admin") {
+                        updateBadge('sidebar-client-chat-badge', data.global_message_count || 0);
+                        updateBadge('global-messages-badge', data.global_message_count || 0);
+                    }
+                })
+                .catch(console.error);
+            setTimeout(pollUnreadCounts, 2000);
+        }
+        document.addEventListener('DOMContentLoaded', pollUnreadCounts);
+    </script>
+    
+    <style>
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+    </ul>
+
+  </aside>
+
+  <!-- Main -->
+  
 
 <style>
     /* Simplified Chat Interface Styles */
@@ -419,15 +984,13 @@
 <main id="main" class="main">
     <div class="pagetitle">
         <h1><i class="bi bi-chat-dots"></i>
-            {% if selected_company %}
-                Chat — {{ selected_company.company_name }}
-            {% else %}
-                Chat with Admin Support
-            {% endif %}
+            
+                Chat — Lamba Property Limited
+            
         </h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="/client-dashboard">Home</a></li>
                 <li class="breadcrumb-item active">Chat</li>
             </ol>
         </nav>
@@ -439,22 +1002,25 @@
                 <h4>My Companies</h4>
             </div>
             <div class="explorer-list">
-                {% if companies %}
-                    {% for company in companies %}
-                        <div class="explorer-item" data-company-id="{{ company.id }}" data-company-name="{{ company.company_name }}" data-company-logo="{% if company.logo %}{{ company.logo.url }}{% else %}{% endif %}">
-                            {% if company.logo %}
-                                <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" loading="lazy" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; border: 2px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            {% else %}
-                                <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 12px; font-weight: 800; color: white; border: 2px solid white;">
-                                    {{ company.company_name|first|upper }}
-                                </div>
-                            {% endif %}
-                            {{ company.company_name }}
+                
+                    
+                        <div class="explorer-item" data-company-id="8" data-company-name="Lamba Property Limited" data-company-logo="/media/company_logos/logoo_9BXuf31.png">
+                            
+                                <img src="/media/company_logos/logoo_9BXuf31.png" alt="Lamba Property Limited" loading="lazy" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; border: 2px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            
+                            Lamba Property Limited
                         </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="explorer-empty">You have no companies yet.</div>
-                {% endif %}
+                    
+                        <div class="explorer-item" data-company-id="7" data-company-name="Lamba Real Homes" data-company-logo="">
+                            
+                                <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 12px; font-weight: 800; color: white; border: 2px solid white;">
+                                    L
+                                </div>
+                            
+                            Lamba Real Homes
+                        </div>
+                    
+                
             </div>
         </aside>
 
@@ -463,54 +1029,38 @@
             <!-- Chat Header -->
             <div class="chat-header">
                 <div class="chat-header-avatar" id="chat-header-avatar">
-                    {% if selected_company and selected_company.logo %}
-                        <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.company_name }}" loading="lazy">
+                    
+                        <img src="/media/company_logos/logoo_9BXuf31.png" alt="Lamba Property Limited" loading="lazy">
                         <div class="company-logo-badge">
                             <i class="bi bi-building"></i>
                         </div>
-                    {% else %}
-                        {% if selected_company %}
-                            {{ selected_company.company_name|first|upper }}
-                            <div class="company-logo-badge">
-                                <i class="bi bi-building"></i>
-                            </div>
-                        {% else %}
-                            {{ client.full_name|first|upper }}
-                        {% endif %}
-                    {% endif %}
+                    
                 </div>
                 <div class="chat-header-info" id="chat-header-info">
-                    {% if selected_company %}
-                        <h3 id="chat-header-title">{{ selected_company.company_name }}</h3>
+                    
+                        <h3 id="chat-header-title">Lamba Property Limited</h3>
                         <p id="chat-header-subtitle">Company conversation</p>
-                    {% else %}
-                        <h3 id="chat-header-title">{{ client.full_name }}</h3>
-                        <p id="chat-header-subtitle">Active now</p>
-                    {% endif %}
+                    
                 </div>
             </div>
 
         <!-- Chat Window -->
         <div id="chat-window" class="chat-window">
-            {% for msg in messages %}
-                {% include 'client_side/chat_message.html' with msg=msg %}
-            {% empty %}
+            
                 <div class="chat-empty-state">
                     <i class="bi bi-chat-heart"></i>
                     <p>No messages yet. Start the conversation!</p>
                 </div>
-            {% endfor %}
+            
             </div>
 
             <!-- Chat Input Area -->
-            {% if companies %}
-            <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'chat' %}">
-                {% csrf_token %}
-                {% if companies and companies.0 %}
-                    <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.id }}">
-                {% else %}
+            
+            <form id="chat-form" method="post" enctype="multipart/form-data" action="/chat/">
+                
+                
                     <input type="hidden" name="company_id" id="company-id-input" value="">
-                {% endif %}
+                
                 <div class="chat-input-form">
                     <input type="file" id="file-input" name="file">
                     
@@ -526,12 +1076,7 @@
                     </button>
                 </div>
             </form>
-            {% else %}
-            <div class="chat-input-form" style="align-items:center;">
-                <div style="flex:1; padding:12px; color:rgba(0,0,0,0.6);">Chat disabled — you have no companies associated with your account.</div>
-                <button class="send-btn" disabled title="No companies"><i class="bi bi-send-fill"></i></button>
-            </div>
-            {% endif %}
+            
             </div>
         </section>
     </div>
@@ -731,11 +1276,11 @@ document.addEventListener("DOMContentLoaded", function() {
   
     // Poll for new messages every 1.5 seconds (faster for real-time feel)
     // Initialize lastMessageId using the last message in the conversation or 0.
-    let lastMessageId = {{ messages.last.id|default:0 }};
+    let lastMessageId = 0;
     let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
     
     function pollNewMessages() {
-        let url = `{% url 'chat' %}?last_msg=${lastMessageId}`;
+        let url = `/chat/?last_msg=${lastMessageId}`;
         if (selectedCompanyId) url += `&company_id=${selectedCompanyId}`;
         fetch(url, {credentials: 'same-origin'})
             .then(response => response.json())
@@ -791,10 +1336,6 @@ document.addEventListener("DOMContentLoaded", function() {
         const headerSubtitle = document.getElementById('chat-header-subtitle');
         
         if (companyId && companyName) {
-            // Update selected company variables
-            selectedCompanyId = companyId;
-            currentSelectedCompanyId = companyId;
-            
             // Update header title
             headerTitle.textContent = companyName;
             headerSubtitle.textContent = 'Company conversation';
@@ -816,13 +1357,16 @@ document.addEventListener("DOMContentLoaded", function() {
             if (companyInput) {
                 companyInput.value = companyId;
             }
+            
+            // Update selected company state
+            currentSelectedCompanyId = companyId;
         } else {
             // Reset to default (no company selected)
-            headerTitle.textContent = '{{ client.full_name }}';
+            headerTitle.textContent = 'Victor Client';
             headerSubtitle.textContent = 'Active now';
             
             headerAvatar.innerHTML = '';
-            headerAvatar.textContent = '{{ client.full_name|first|upper }}';
+            headerAvatar.textContent = 'V';
             
             if (document.getElementById('company-id-input')) {
                 document.getElementById('company-id-input').value = '';
@@ -852,16 +1396,6 @@ document.addEventListener("DOMContentLoaded", function() {
             
             if (!companyId) return;
             
-            // Update selected company variables
-            selectedCompanyId = companyId;
-            currentSelectedCompanyId = companyId;
-            
-            // Update form hidden field for message sending
-            const companyInput = document.getElementById('company-id-input');
-            if (companyInput) {
-                companyInput.value = companyId;
-            }
-            
             // Update chat header with company info
             updateChatHeader(companyId, companyName, companyLogo);
             
@@ -881,4 +1415,380 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
-{% endblock %}
+
+
+
+    
+
+<style>
+  /* CSS Variables */
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --dark-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    --footer-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    --footer-shadow-dark: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Light Theme */
+    --primary: #6C5CE7;
+    --primary-dark: #5649C0;
+    --primary-light: #A29BFE;
+    --background-color: #ffffff;
+    --text-color: #2d3436;
+    --text-secondary: #636e72;
+    --sidebar-bg: #f8f9fa;
+    --sidebar-text: #000000;
+    --nav-bg: transparent;
+    --nav-text: #000000;
+    --nav-hover-bg: rgba(0,0,0,0.05);
+    --nav-hover-text: #000000;
+    --nav-hover-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    --card-bg: #ffffff;
+    --card-text: #000000;
+    --theme-toggle-bg: #ffffff;
+    --theme-toggle-border: #e0e0e0;
+    --theme-toggle-active: #4a6cf7;
+    --footer-bg: #ffffff;
+    --footer-border: rgba(102, 126, 234, 0.1);
+  }
+
+  [data-theme="dark"] {
+    --background-color: #121212;
+    --card-color: #1e1e1e;
+    --text-color: #e8e8e8;
+    --text-secondary: #b2bec3;
+    --sidebar-bg: #1e1e1e;
+    --sidebar-text: #ffffff;
+    --nav-bg: #2d2d2d;
+    --nav-text: #ffffff;
+    --nav-hover-bg: #3e3e3e;
+    --nav-hover-text: #ffffff;
+    --nav-hover-shadow: 0 4px 12px rgba(255,255,255,0.15);
+    --card-bg: #333333;
+    --card-text: #ffffff;
+    --theme-toggle-bg: #2d2d2d;
+    --theme-toggle-border: #444;
+    --theme-toggle-active: #6c8af8;
+    --footer-bg: #1e1e1e;
+    --footer-border: rgba(162, 155, 254, 0.2);
+    --footer-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  @keyframes gradientShift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Body Styles */
+  body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    transition: var(--transition);
+  }
+
+  .primary {
+    background-color: var(--primary);
+    color: var(--text-color);
+  }
+
+  .card-color {
+    background-color: var(--card-color) !important;
+  }
+
+  .text-color {
+    color: var(--text-color) !important;
+  }
+
+  .table-hover {
+    color: var(--text-color) !important;
+  }
+
+  /* Footer Styles */
+  #footer {
+    position: relative;
+    background: var(--footer-bg);
+    color: var(--text-color);
+    padding: 24px 0;
+    margin-top: auto;
+    border-top: 2px solid var(--footer-border);
+    box-shadow: var(--footer-shadow);
+    transition: var(--transition);
+    animation: fadeInUp 0.6s ease-out;
+    overflow: hidden;
+  }
+
+  #footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-gradient);
+    opacity: 0.8;
+  }
+
+  #footer::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: -100%;
+    width: 300%;
+    height: 300%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .copyright {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+    position: relative;
+  }
+
+  .copyright::before {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--primary-gradient);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .copyright:hover::before {
+    width: 100%;
+  }
+
+  .copyright span {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .credits {
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition);
+  }
+
+  .credits .text-color {
+    font-weight: 500;
+  }
+
+  .credits a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    position: relative;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .credits a::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--primary-gradient);
+    opacity: 0;
+    border-radius: 6px;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
+
+  .credits a::after {
+    content: '→';
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s ease;
+  }
+
+  .credits a:hover {
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .credits a:hover::before {
+    opacity: 1;
+  }
+
+  .credits a:hover::after {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    #footer {
+      padding: 20px 0;
+    }
+
+    .footer {
+      gap: 10px;
+    }
+
+    .copyright {
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .credits {
+      font-size: 13px;
+      text-align: center;
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    #footer {
+      padding: 16px 0;
+    }
+
+    .copyright {
+      font-size: 13px;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .credits {
+      font-size: 12px;
+    }
+
+    .credits a {
+      padding: 2px 6px;
+    }
+  }
+
+  /* Dark Mode Enhancements */
+  [data-theme="dark"] #footer {
+    border-top-color: rgba(162, 155, 254, 0.2);
+  }
+
+  [data-theme="dark"] .copyright {
+    color: #e8e8e8;
+  }
+
+  [data-theme="dark"] .credits {
+    color: #b2bec3;
+  }
+
+  [data-theme="dark"] .credits a:hover {
+    box-shadow: 0 4px 12px rgba(162, 155, 254, 0.4);
+  }
+
+  /* Print Styles */
+  @media print {
+    #footer {
+      box-shadow: none;
+      border-top: 1px solid #ddd;
+    }
+
+    #footer::before,
+    #footer::after {
+      display: none;
+    }
+
+    .credits a {
+      color: #000;
+      text-decoration: underline;
+    }
+  }
+</style>
+
+<!-- ======= Footer ======= -->
+<footer id="footer" class="footer">
+  <div class="copyright text-color">
+    &copy; Copyright <span>2025</span> All Rights Reserved
+  </div>
+  <div class="credits">
+    <span class="text-color">Developed by</span> 
+    <a href="https://fescode.com/" target="_blank" rel="noopener noreferrer">FesCode Academy Limited</a>
+  </div>
+</footer>
+<!-- End Footer -->
+
+  <!-- Back-to-top -->
+  <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.40.0/dist/apexcharts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.3/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tinymce@6.7.0/tinymce.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/twbs/form-validation/dist/js/validate.min.js"></script>
+
+  <!-- Template Main JS File -->
+  <script src="/static/assets/js/main.js"></script>
+
+
+  
+  
+</body>
+
+</html>

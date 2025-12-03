@@ -230,15 +230,20 @@ class SupportUserAdmin(CustomUserAdmin):
     )
 
 
-class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'recipient', 'message_type', 'content', 'date_sent')
-    search_fields = ('sender__username', 'recipient__username', 'message_type')
-    list_filter = ('message_type', 'date_sent')
-
-    def save_model(self, request, obj, form, change):
-        if obj.reply:
-            obj.date_replied = timezone.now()
-        super().save_model(request, obj, form, change)
+class MessageAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['sender', 'recipient', 'company', 'date_sent', 'is_read', 'status', 'is_encrypted']
+    list_filter = ['is_read', 'status', 'company', 'date_sent', 'is_encrypted']
+    search_fields = ['sender__username', 'recipient__username', 'content']
+    readonly_fields = ['date_sent', 'is_encrypted']
+    actions = ['mark_as_read', 'mark_as_unread']
+    
+    def mark_as_read(self, request, queryset):
+        queryset.update(is_read=True, status='read')
+    mark_as_read.short_description = "Mark selected messages as read"
+    
+    def mark_as_unread(self, request, queryset):
+        queryset.update(is_read=False, status='unread')
+    mark_as_unread.short_description = "Mark selected messages as unread"
 
 admin.site.register(Message, MessageAdmin)
 
@@ -509,4 +514,67 @@ class ClientPropertyViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Views are created via API"""
         return False
+    
+    def mark_as_unread(self, request, queryset):
+        queryset.update(is_read=False, status='unread')
+    mark_as_unread.short_description = "Mark selected messages as unread"
+
+
+@admin.register(ChatQueue)
+class ChatQueueAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['company', 'client', 'first_message', 'status', 'priority', 'created_at', 'assigned_count']
+    list_filter = ['status', 'priority', 'company', 'created_at']
+    search_fields = ['company__name', 'client__username', 'first_message']
+    readonly_fields = ['created_at', 'updated_at', 'assigned_count']
+    
+    def assigned_count(self, obj):
+        return obj.assignments.count()
+    assigned_count.short_description = "Assignments"
+
+
+@admin.register(ChatAssignment)
+class ChatAssignmentAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['chat_queue', 'assigned_to', 'status', 'sla_status', 'assigned_at', 'response_time', 'priority']
+    list_filter = ['status', 'sla_status', 'priority', 'assigned_at']
+    search_fields = ['chat_queue__company__name', 'assigned_to__username', 'chat_queue__client__username']
+    readonly_fields = ['assigned_at', 'accepted_at', 'first_response_at', 'resolved_at', 'response_time', 'resolution_time']
+    actions = ['accept_assignments', 'resolve_assignments', 'escalate_assignments']
+    
+    def accept_assignments(self, request, queryset):
+        for assignment in queryset:
+            assignment.accept_assignment(request.user)
+    accept_assignments.short_description = "Accept selected assignments"
+    
+    def resolve_assignments(self, request, queryset):
+        for assignment in queryset:
+            assignment.resolve_assignment(request.user)
+    resolve_assignments.short_description = "Resolve selected assignments"
+    
+    def escalate_assignments(self, request, queryset):
+        for assignment in queryset:
+            assignment.escalate_assignment(request.user, "Escalated via admin")
+    escalate_assignments.short_description = "Escalate selected assignments"
+
+
+@admin.register(ChatNotification)
+class ChatNotificationAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['recipient', 'company', 'client', 'unread_count', 'is_urgent', 'last_message_at']
+    list_filter = ['is_urgent', 'company', 'last_message_at']
+    search_fields = ['recipient__username', 'company__name', 'client__username']
+    readonly_fields = ['last_message_at', 'notified_at', 'dismissed_at']
+
+
+@admin.register(ChatSLA)
+class ChatSLAAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['company', 'priority', 'response_time_hours', 'resolution_time_hours', 'include_weekends']
+    list_filter = ['priority', 'company', 'include_weekends']
+    search_fields = ['company__name']
+
+
+@admin.register(ChatResponseTracking)
+class ChatResponseTrackingAdmin(TenantAwareAdminMixin, admin.ModelAdmin):
+    list_display = ['company', 'date', 'total_chats', 'responded_chats', 'sla_compliance_rate', 'breached_chats']
+    list_filter = ['company', 'date']
+    search_fields = ['company__name']
+    readonly_fields = ['total_chats', 'responded_chats', 'average_response_time', 'sla_compliance_rate', 'breached_chats']
 

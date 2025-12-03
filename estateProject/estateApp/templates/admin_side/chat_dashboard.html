@@ -1,0 +1,338 @@
+{% extends 'admin_side/base.html' %}
+{% load static %}
+
+{% block title %}Chat Dashboard - {{ company.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-0">Chat Response Dashboard</h1>
+            <p class="text-muted">Monitor chat response times and SLA compliance</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Total Chats</h6>
+                            <h2 class="mb-0">{{ total_chats }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-comments fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Responded</h6>
+                            <h2 class="mb-0">{{ responded_chats }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Breached</h6>
+                            <h2 class="mb-0">{{ breached_chats }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Avg Response Time</h6>
+                            <h2 class="mb-0">
+                                {% if avg_response_time %}
+                                    {{ avg_response_time|timesince }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLA Settings -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">SLA Settings</h5>
+                </div>
+                <div class="card-body">
+                    {% if sla_settings %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Priority</th>
+                                        <th>Response Time</th>
+                                        <th>Resolution Time</th>
+                                        <th>Working Hours</th>
+                                        <th>Include Weekends</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for sla in sla_settings %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge badge-{{ sla.priority|default:'secondary' }}">
+                                                {{ sla.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ sla.response_time_hours }} hours</td>
+                                        <td>{{ sla.resolution_time_hours }} hours</td>
+                                        <td>{{ sla.working_hours_start|time:"H:i" }} - {{ sla.working_hours_end|time:"H:i" }}</td>
+                                        <td>
+                                            {% if sla.include_weekends %}
+                                                <span class="badge badge-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge badge-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No SLA settings configured. Please configure SLA settings for optimal chat management.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Metrics Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Daily Response Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="responseChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Tracking Data -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Detailed Tracking Data</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary" id="refreshData">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="exportData">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Total Chats</th>
+                                    <th>Responded</th>
+                                    <th>Response Rate</th>
+                                    <th>Avg Response Time</th>
+                                    <th>SLA Compliance</th>
+                                    <th>Breached</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for data in tracking_data %}
+                                <tr>
+                                    <td>{{ data.date|date:"M d, Y" }}</td>
+                                    <td>{{ data.total_chats }}</td>
+                                    <td>{{ data.responded_chats }}</td>
+                                    <td>
+                                        {% if data.total_chats > 0 %}
+                                            {% widthratio data.responded_chats data.total_chats 100 %}%
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if data.average_response_time %}
+                                            {{ data.average_response_time|timesince }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ data.sla_compliance_rate|floatformat:0|add:'0' >= 90|yesno:'success,danger' }}">
+                                            {{ data.sla_compliance_rate|floatformat:2 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ data.breached_chats|yesno:'danger,success' }}">
+                                            {{ data.breached_chats }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary view-details" data-date="{{ data.date }}">
+                                            <i class="fas fa-eye"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Chat Details -->
+<div class="modal fade" id="chatDetailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chat Details</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="chatDetailsContent">
+                    <!-- Dynamic content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Prepare data for chart
+    var dates = [];
+    var responseRates = [];
+    var breachedCounts = [];
+    
+    {% for data in tracking_data %}
+    dates.push('{{ data.date|date:"M d" }}');
+    {% if data.total_chats > 0 %}
+    responseRates.push({{ data.responded_chats|div:data.total_chats|mul:100|floatformat:2 }});
+    {% else %}
+    responseRates.push(0);
+    {% endif %}
+    breachedCounts.push({{ data.breached_chats }});
+    {% endfor %}
+    
+    // Create chart
+    var ctx = document.getElementById('responseChart').getContext('2d');
+    var chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dates.reverse(),
+            datasets: [{
+                label: 'Response Rate (%)',
+                data: responseRates.reverse(),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Breached Chats',
+                data: breachedCounts.reverse(),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    
+    // View details button click handler
+    $('.view-details').click(function() {
+        var date = $(this).data('date');
+        $('#chatDetailsContent').html('<p>Loading details for ' + date + '...</p>');
+        $('#chatDetailsModal').modal('show');
+        
+        // Here you could load detailed chat data via AJAX
+        // For now, just show a message
+        $('#chatDetailsContent').html(
+            '<p>Detailed chat information for ' + date + '</p>' +
+            '<p>This would typically show individual chat assignments, response times, and SLA compliance details.</p>'
+        );
+    });
+    
+    // Refresh data button
+    $('#refreshData').click(function() {
+        location.reload();
+    });
+    
+    // Export data button
+    $('#exportData').click(function() {
+        // Simple CSV export
+        var csv = 'Date,Total Chats,Responded,Response Rate,Avg Response Time,SLA Compliance,Breached\n';
+        {% for data in tracking_data %}
+        csv += '{{ data.date|date:"Y-m-d" }},{{ data.total_chats }},{{ data.responded_chats }},{% if data.total_chats > 0 %}{{ data.responded_chats|div:data.total_chats|mul:100|floatformat:2 }}{% else %}0{% endif %},{{ data.average_response_time|default:"N/A" }},{{ data.sla_compliance_rate|floatformat:2 }},{{ data.breached_chats }}\n';
+        {% endfor %}
+        
+        var blob = new Blob([csv], { type: 'text/csv' });
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'chat_metrics_{{ company.name }}.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    });
+});
+</script>
+{% endblock %}
