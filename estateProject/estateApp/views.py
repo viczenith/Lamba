@@ -1,3 +1,4 @@
+import math
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import login, authenticate
 
@@ -6323,25 +6324,52 @@ def marketer_my_companies(request):
             company=comp  # ✅ Ensures data is scoped to this company only
         ).count()
         
-        # Get company-specific commission rate from MarketerAffiliation
-        # This ensures commission rates are isolated per company
-        affiliation = MarketerAffiliation.objects.filter(
-            marketer=user,
-            company=comp
-        ).first()
+        # Get company-specific commission rate from MarketerCommission (COMPANY-SCOPED)
+        # Use the same logic as PerformanceDataAPI for consistency
+        today = datetime.now().date()
         
-        commission_rate = affiliation.commission_rate if affiliation else None
+        # Get the most recent commission rate for this marketer in this specific company
+        # COMMISSIONS ARE STRICTLY COMPANY-BASED AND MARKETER-SPECIFIC - NO GLOBAL COMMISSIONS
+        commission = (
+            MarketerCommission.objects
+            .filter(
+                marketer=user,  # ✅ Only marketer-specific commissions
+                company=comp,   # ✅ Company-scoped
+                effective_date__lte=today
+            )
+            .order_by('-effective_date')
+            .first()
+        )
+        
+        # Only use marketer-specific commissions - NO GLOBAL COMMISSION FALLBACK
+        commission_rate = commission.rate if commission and commission.rate > 0 else None
         
         # Calculate yearly target achievement for this company
+        # Use the same logic as PerformanceDataAPI for consistency
         yearly_target_achievement = None
-        yearly_target = (
+        total_year_sales = 0
+        
+        # Get the target for this marketer in this company (marketer-specific OR global)
+        specific_tgt = (
             MarketerTarget.objects.filter(
                 marketer=user,
                 company=comp,
-                period_type='annual', 
+                period_type='annual',
                 specific_period=year_str
             ).first()
         )
+        
+        global_tgt = (
+            MarketerTarget.objects.filter(
+                marketer=None,
+                company=comp,
+                period_type='annual',
+                specific_period=year_str
+            ).first()
+        )
+        
+        # Use marketer-specific if available, otherwise use global target
+        yearly_target = specific_tgt or global_tgt
         
         if yearly_target and yearly_target.target_amount:
             total_year_sales = Transaction.objects.filter(
@@ -6350,17 +6378,94 @@ def marketer_my_companies(request):
                 transaction_date__year=current_year
             ).aggregate(total=Sum('total_amount'))['total'] or 0
             
-            if total_year_sales > 0 and yearly_target.target_amount > 0:
+            # Calculate achievement percentage (even if sales are 0)
+            if yearly_target.target_amount > 0:
                 yearly_target_achievement = min(
                     100,
                     (total_year_sales / yearly_target.target_amount) * 100
                 )
         
+        # Get target information for all periods
+        today = datetime.now().date()
+        current_month = today.strftime('%Y-%m')
+        current_quarter = f"{today.year}-Q{math.ceil(today.month / 3)}"
+        current_year_str = str(current_year)
+        
+        # Get monthly target
+        monthly_target = (
+            MarketerTarget.objects.filter(
+                marketer=user,
+                company=comp,
+                period_type='monthly',
+                specific_period=current_month
+            ).first() or
+            MarketerTarget.objects.filter(
+                marketer=None,
+                company=comp,
+                period_type='monthly',
+                specific_period=current_month
+            ).first()
+        )
+        
+        # Get quarterly target
+        quarterly_target = (
+            MarketerTarget.objects.filter(
+                marketer=user,
+                company=comp,
+                period_type='quarterly',
+                specific_period=current_quarter
+            ).first() or
+            MarketerTarget.objects.filter(
+                marketer=None,
+                company=comp,
+                period_type='quarterly',
+                specific_period=current_quarter
+            ).first()
+        )
+        
+        # Calculate monthly sales
+        monthly_sales = Transaction.objects.filter(
+            marketer=user,
+            company=comp,
+            transaction_date__year=today.year,
+            transaction_date__month=today.month
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        # Calculate quarterly sales
+        quarter_start_month = (math.ceil(today.month / 3) - 1) * 3 + 1
+        quarterly_sales = Transaction.objects.filter(
+            marketer=user,
+            company=comp,
+            transaction_date__year=today.year,
+            transaction_date__month__gte=quarter_start_month,
+            transaction_date__month__lte=quarter_start_month + 2
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        # Calculate target achievements
+        monthly_achievement = None
+        quarterly_achievement = None
+        
+        if monthly_target and monthly_target.target_amount > 0:
+            monthly_achievement = min(100, (monthly_sales / monthly_target.target_amount) * 100)
+            
+        if quarterly_target and quarterly_target.target_amount > 0:
+            quarterly_achievement = min(100, (quarterly_sales / quarterly_target.target_amount) * 100)
+        
         company_list.append({
             'company': comp, 
             'closed_deals': closed_deals, 
             'commission_rate': commission_rate,
-            'yearly_target_achievement': yearly_target_achievement
+            'yearly_target_achievement': yearly_target_achievement,
+            'yearly_target': yearly_target,
+            'total_year_sales': total_year_sales,
+            'monthly_target': monthly_target,
+            'quarterly_target': quarterly_target,
+            'monthly_sales': monthly_sales,
+            'quarterly_sales': quarterly_sales,
+            'monthly_achievement': monthly_achievement,
+            'quarterly_achievement': quarterly_achievement,
+            'current_month': current_month,
+            'current_quarter': current_quarter
         })
 
     return render(request, 'marketer_side/my_companies.html', {
@@ -8755,39 +8860,49 @@ class PerformanceDataAPI(View):
             closed_deals  = txns.count()
             total_sales   = txns.aggregate(total=Sum('total_amount'))['total'] or 0
 
-            # commission lookup
+            # commission lookup (COMPANY-SCOPED)
+            # Get the most recent commission rate for this marketer in this specific company
+            # COMMISSIONS ARE STRICTLY COMPANY-BASED AND MARKETER-SPECIFIC - NO GLOBAL COMMISSIONS
             commission = (
                 MarketerCommission.objects
-                .filter(Q(marketer=marketer) | Q(marketer=None),
-                        effective_date__lte=today)
+                .filter(
+                    marketer=marketer,  # ✅ Only marketer-specific commissions
+                    company=company,    # ✅ Company-scoped
+                    effective_date__lte=today
+                )
                 .order_by('-effective_date')
                 .first()
             )
             rate               = commission.rate if commission else 0
             commission_earned  = total_sales * rate / 100
 
-            # target lookup: specific → global → none
+            # target lookup: specific → none (COMPANY-SCOPED ONLY)
             specific_tgt = MarketerTarget.objects.filter(
-                marketer=marketer,
+                marketer=marketer,  # ✅ Marketer-specific
+                company=company,    # ✅ Company-scoped
                 period_type=period_type,
                 specific_period=specific_period
             ).first()
             if specific_tgt:
                 tgt_amt = specific_tgt.target_amount
             else:
-                global_tgt = MarketerTarget.objects.filter(
-                    marketer=None,
-                    period_type=period_type,
-                    specific_period=specific_period
-                ).first()
-                tgt_amt = global_tgt.target_amount if global_tgt else 0
+                tgt_amt = 0  # No global targets - each company has its own targets
 
             target_percent = round((total_sales / tgt_amt * 100), 1) if tgt_amt else 0
+
+            # Get profile image URL
+            profile_image_url = None
+            if marketer.profile_image:
+                try:
+                    profile_image_url = marketer.profile_image.url
+                except Exception:
+                    profile_image_url = None
 
             # stash for JSON
             response_data.append({
                 'marketer_id':       marketer.id,
                 'marketer_name':     marketer.full_name,
+                'profile_image':     profile_image_url,
                 'closed_deals':      closed_deals,
                 'total_sales':       float(total_sales),
                 'commission_rate':   float(rate),
@@ -8824,7 +8939,20 @@ class PerformanceDataAPI(View):
                 # Skip on DB lock or other error
                 continue
 
-        return JsonResponse(response_data, safe=False)
+        # 3) Get company-wide target for this period
+        company_target_record = MarketerTarget.objects.filter(
+            marketer=None,
+            company=company,
+            period_type=period_type,
+            specific_period=specific_period
+        ).first()
+        company_target = float(company_target_record.target_amount) if company_target_record else 0
+
+        # Return both performance data and company target
+        return JsonResponse({
+            'performance_data': response_data,
+            'company_target': company_target
+        }, safe=False)
 
     def get_date_range(self, period_type, specific_period):
         today = timezone.now().date()
@@ -8854,6 +8982,10 @@ class PerformanceDataAPI(View):
 
 
 class SetTargetAPI(View):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+        
     def get(self, request):
         return HttpResponseNotAllowed(['POST'])
 
@@ -8867,6 +8999,7 @@ class SetTargetAPI(View):
         period_type     = data.get('period_type')
         specific_period = data.get('specific_period')
         target_amount   = data.get('target_amount')
+        marketer_id     = data.get('marketer')  # Can be 'all' or a specific marketer ID
 
         # Validate
         if not period_type or not specific_period:
@@ -8874,14 +9007,31 @@ class SetTargetAPI(View):
         if target_amount is None:
             return JsonResponse({'status':'error','message':'target_amount required'}, status=400)
 
-        # SECURITY: Write company-scoped global record (marketer=None) to prevent cross-company data leakage
-        MarketerTarget.objects.update_or_create(
-            marketer=None,
-            company=request.user.company_profile,  # ✅ Added company filter for isolation
-            period_type=period_type,
-            specific_period=specific_period,
-            defaults={'target_amount': target_amount}
-        )
+        # SECURITY: Company-scoped target setting
+        company = request.user.company_profile
+        
+        if marketer_id == 'all' or not marketer_id:
+            # Set company-wide target (marketer=None)
+            MarketerTarget.objects.update_or_create(
+                marketer=None,
+                company=company,
+                period_type=period_type,
+                specific_period=specific_period,
+                defaults={'target_amount': target_amount}
+            )
+        else:
+            # Set individual marketer target
+            try:
+                marketer = MarketerUser.objects.get(id=int(marketer_id), company_profile=company)
+                MarketerTarget.objects.update_or_create(
+                    marketer=marketer,
+                    company=company,
+                    period_type=period_type,
+                    specific_period=specific_period,
+                    defaults={'target_amount': target_amount}
+                )
+            except (MarketerUser.DoesNotExist, ValueError):
+                return JsonResponse({'status':'error','message':'Invalid marketer ID'}, status=400)
 
         return JsonResponse({'status':'success'})
 
@@ -8890,19 +9040,36 @@ class GetGlobalTargetAPI(View):
     def get(self, request):
         period_type     = request.GET.get('period_type')
         specific_period = request.GET.get('specific_period')
+        marketer_id     = request.GET.get('marketer')  # Can be 'all' or a specific marketer ID
 
         if not period_type or not specific_period:
             return JsonResponse({'status':'error','message':'period_type & specific_period required'}, status=400)
 
-        record = MarketerTarget.objects.filter(
-            marketer=None,
-            company=request.user.company_profile,  # ✅ Added company filter for isolation
-            period_type=period_type,
-            specific_period=specific_period
-        ).first()
+        company = request.user.company_profile
+        
+        if marketer_id == 'all' or not marketer_id:
+            # Get company-wide target
+            record = MarketerTarget.objects.filter(
+                marketer=None,
+                company=company,
+                period_type=period_type,
+                specific_period=specific_period
+            ).first()
+        else:
+            # Get individual marketer target
+            try:
+                marketer = MarketerUser.objects.get(id=int(marketer_id), company_profile=company)
+                record = MarketerTarget.objects.filter(
+                    marketer=marketer,
+                    company=company,
+                    period_type=period_type,
+                    specific_period=specific_period
+                ).first()
+            except (MarketerUser.DoesNotExist, ValueError):
+                return JsonResponse({'target_amount': None})
 
         return JsonResponse({
-            'target_amount': record.target_amount if record else None
+            'target_amount': float(record.target_amount) if record else None
         })
 
 
@@ -8941,36 +9108,31 @@ class SetCommissionAPI(View):
         except MarketerUser.DoesNotExist:
             return JsonResponse({'status':'error','message':'Marketer not found'}, status=404)
 
-        # SECURITY: Verify marketer belongs to the same company as the requesting admin
-        if marketer.company_profile != request.user.company_profile:
-            return JsonResponse({'status':'error','message':'Access denied: Marketer not in your company'}, status=403)
-
         # SECURITY: Verify the admin has permission to set commissions for this company
         # Only company admins (not system admins) should be able to set commissions for their company
         if request.user.admin_level != 'company':
             return JsonResponse({'status':'error','message':'Only company admins can set commissions'}, status=403)
 
-        # Look for the latest commission record for this marketer (COMPANY-SCOPED)
-        existing = (
-            MarketerCommission.objects
-            .filter(marketer=marketer, company=marketer.company_profile)  # ✅ Added company filter for isolation
-            .order_by('-effective_date')
-            .first()
-        )
+        # SECURITY: Verify marketer is affiliated with the admin's company
+        # Check if marketer has direct company_profile OR MarketerAffiliation with this company
+        marketer_company = marketer.company_profile
+        marketer_affiliation = MarketerAffiliation.objects.filter(
+            marketer=marketer,
+            company=request.user.company_profile
+        ).first()
+        
+        if marketer_company != request.user.company_profile and not marketer_affiliation:
+            return JsonResponse({'status':'error','message':'Access denied: Marketer not in your company'}, status=403)
 
-        if existing:
-            # Update the most recent record
-            existing.rate = rate
-            existing.effective_date = effective_date
-            existing.save(update_fields=['rate', 'effective_date'])
-        else:
-            # No existing commission—create a new one (COMPANY-SCOPED)
-            MarketerCommission.objects.create(
-                marketer=marketer,
-                rate=rate,
-                effective_date=effective_date,
-                company=marketer.company_profile  # ✅ Added company field for isolation
-            )
+        # ALWAYS create a new commission record for this company
+        # This ensures complete isolation - each company maintains their own commission rates
+        # regardless of what other companies have set for the same marketer
+        MarketerCommission.objects.create(
+            marketer=marketer,
+            rate=rate,
+            effective_date=effective_date,
+            company=request.user.company_profile  # ✅ Use admin's company for isolation
+        )
 
         return JsonResponse({'status':'success'})
 

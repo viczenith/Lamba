@@ -1,5 +1,7 @@
 <!-- Marketers Performance Tab -->
 <div class="tab-pane fade show active" id="ranking" role="tabpanel" aria-labelledby="ranking-tab">
+    <!-- CSRF Token for AJAX requests -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="card-title mb-0 text-primary">
             <i class="bi bi-trophy-fill me-2"></i>Performance Rankings
@@ -67,19 +69,87 @@
 
     <!-- Full Marketers Table -->
     <div class="card mb-4" id="allMarketersTable" style="display: none;">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-table me-2 text-primary"></i>All Marketers Performance - 
-                <span id="tablePeriodLabel">Current Period</span> 
-                <span id="tableTargetLabel" class="ms-2">No Target Set</span>
-            </h5>
-            <div>
-                <button class="btn btn-outline-secondary btn-sm me-2" id="downloadPdfBtn">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-                </button>
-                <button class="btn btn-outline-success btn-sm" id="downloadExcelBtn">
-                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
-                </button>
+        <!-- Beautiful Target Overview Section -->
+        <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="card-title mb-0 text-white">
+                        <i class="bi bi-table me-2"></i>All Marketers Performance - 
+                        <span id="tablePeriodLabel">Current Period</span>
+                    </h5>
+                    <div class="target-overview mt-2">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="target-card bg-white rounded p-3 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <div class="text-muted small" id="targetTypeLabel">Monthly Target</div>
+                                            <div class="h5 mb-0 fw-bold text-primary" id="companyTarget">₦0.00</div>
+                                        </div>
+                                        <div class="bg-primary rounded-circle p-2">
+                                            <i class="bi bi-bullseye text-white"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="target-card bg-white rounded p-3 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <div class="text-muted small">Total Sales</div>
+                                            <div class="h5 mb-0 fw-bold text-success" id="totalSales">₦0.00</div>
+                                        </div>
+                                        <div class="bg-success rounded-circle p-2">
+                                            <i class="bi bi-currency-naira text-white"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="target-card bg-white rounded p-3 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <div class="text-muted small">Total Marketers</div>
+                                            <div class="h5 mb-0 fw-bold text-info" id="totalMarketers">0</div>
+                                        </div>
+                                        <div class="bg-info rounded-circle p-2">
+                                            <i class="bi bi-people text-white"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="progress-overview bg-white rounded p-3 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Progress to Target</span>
+                            <span class="badge bg-light text-dark" id="progressPercentage">0%</span>
+                        </div>
+                        <div class="progress" style="height: 20px; background-color: #e9ecef; border-radius: 10px;">
+                            <div class="progress-bar" id="targetProgress" role="progressbar" style="width: 0%; border-radius: 10px;">
+                            </div>
+                        </div>
+                        <div class="text-center mt-1">
+                            <span class="fw-bold text-dark" id="progressText" style="font-size: 14px;">0%</span>
+                        </div>
+                        <div class="row mt-2 text-center">
+                            <div class="col-4">
+                                <div class="text-muted small">Below Target</div>
+                                <div class="text-danger fw-bold" id="belowTarget">0</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">On Track</div>
+                                <div class="text-warning fw-bold" id="onTrack">0</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">Above Target</div>
+                                <div class="text-success fw-bold" id="aboveTarget">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="card-body">
@@ -93,7 +163,7 @@
                             <th>Total Sales (₦)</th>
                             <th>Commission %</th>
                             <th>Commission Earned (₦)</th>
-                            <th>Target Status</th>
+                            <th id="targetStatusHeader">Target Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -262,6 +332,7 @@
     let marketersList = [];
     let debounceTimer;
     let currentPeriods = [];
+    let currentCompanyTarget = 0; // Store company-wide target
 
     // Get human-readable period label
     function getPeriodLabel(periodType, specificPeriod) {
@@ -564,12 +635,34 @@
             // Fetch from backend
             const response = await fetch(`/api/performance-data/?period_type=${pt}&specific_period=${sp}`);
             if (!response.ok) throw new Error('Network response was not ok');
-            currentPerformanceData = await response.json();
+            const apiResponse = await response.json();
+            
+            // Handle new response format
+            if (apiResponse.performance_data) {
+                currentPerformanceData = apiResponse.performance_data;
+                currentCompanyTarget = apiResponse.company_target || 0;
+            } else {
+                // Backward compatibility: old format returned array directly
+                currentPerformanceData = apiResponse;
+                currentCompanyTarget = 0;
+            }
             
             // Get period label
             const periodLabel = getPeriodLabel(pt, sp);
             document.getElementById("leaderboardPeriodLabel").textContent = periodLabel;
             document.getElementById("tablePeriodLabel").textContent = periodLabel;
+            
+            // Update target type label based on period type
+            const targetTypeLabel = document.getElementById("targetTypeLabel");
+            if (targetTypeLabel) {
+                if (pt === 'monthly') {
+                    targetTypeLabel.textContent = 'Monthly Target';
+                } else if (pt === 'quarterly') {
+                    targetTypeLabel.textContent = 'Quarterly Target';
+                } else if (pt === 'annual') {
+                    targetTypeLabel.textContent = 'Annual Target';
+                }
+            }
             
             // Update target label
             updateTargetLabel(currentPerformanceData);
@@ -634,6 +727,102 @@
         }
     }
 
+    // Update target overview section
+    function updateTargetOverview(data) {
+        // Calculate totals and statistics
+        const totalSales = data.reduce((sum, item) => sum + (item.total_sales || 0), 0);
+        
+        // Use company-wide target for the selected period (for progress bar)
+        const companyTarget = currentCompanyTarget;
+        
+        // Calculate progress percentage based on company target
+        const progressPercent = companyTarget > 0 ? Math.min(100, (totalSales / companyTarget) * 100) : 0;
+        
+        // Count marketers by performance against their INDIVIDUAL targets for the selected period
+        // Only count marketers who have both a target AND sales activity
+        const activeMarketersWithTargets = data.filter(item => 
+            item.target_amount > 0 && (item.total_sales > 0 || item.closed_deals > 0)
+        );
+        
+        // Below Target: Sales < 90% of their individual period target
+        const belowTarget = activeMarketersWithTargets.filter(item => {
+            const percentAchieved = (item.total_sales / item.target_amount) * 100;
+            return percentAchieved < 90;
+        }).length;
+        
+        // On Track: Sales between 90% and 99% of their individual period target
+        const onTrack = activeMarketersWithTargets.filter(item => {
+            const percentAchieved = (item.total_sales / item.target_amount) * 100;
+            return percentAchieved >= 90 && percentAchieved < 100;
+        }).length;
+        
+        // Above Target: Sales >= 100% of their individual period target
+        const aboveTarget = activeMarketersWithTargets.filter(item => {
+            const percentAchieved = (item.total_sales / item.target_amount) * 100;
+            return percentAchieved >= 100;
+        }).length;
+        
+        // Total marketers count
+        const totalMarketers = data.length;
+
+        // Update DOM elements
+        const companyTargetEl = document.getElementById('companyTarget');
+        const totalSalesEl = document.getElementById('totalSales');
+        const totalMarketersEl = document.getElementById('totalMarketers');
+        const progressPercentageEl = document.getElementById('progressPercentage');
+        const targetProgressEl = document.getElementById('targetProgress');
+        const progressTextEl = document.getElementById('progressText');
+        const belowTargetEl = document.getElementById('belowTarget');
+        const onTrackEl = document.getElementById('onTrack');
+        const aboveTargetEl = document.getElementById('aboveTarget');
+
+        // Update company target display
+        if (companyTargetEl) {
+            if (companyTarget > 0) {
+                companyTargetEl.textContent = `₦${formatNumber(companyTarget)}`;
+            } else {
+                companyTargetEl.textContent = 'Not Set';
+            }
+        }
+        
+        if (totalSalesEl) totalSalesEl.textContent = `₦${formatNumber(totalSales)}`;
+        if (totalMarketersEl) totalMarketersEl.textContent = totalMarketers;
+        if (progressPercentageEl) progressPercentageEl.textContent = `${Math.round(progressPercent)}%`;
+        
+        // Update progress bar with vibrant colors
+        if (targetProgressEl) {
+            targetProgressEl.style.width = `${progressPercent}%`;
+            // Update progress bar color based on achievement
+            if (progressPercent < 30) {
+                targetProgressEl.style.background = '#dc3545'; // Red
+            } else if (progressPercent < 50) {
+                targetProgressEl.style.background = '#fd7e14'; // Orange
+            } else if (progressPercent < 70) {
+                targetProgressEl.style.background = '#ffc107'; // Yellow
+            } else if (progressPercent < 90) {
+                targetProgressEl.style.background = '#20c997'; // Teal
+            } else {
+                targetProgressEl.style.background = '#28a745'; // Green
+            }
+        }
+        
+        if (progressTextEl) {
+            progressTextEl.textContent = `${Math.round(progressPercent)}%`;
+            // Color the text based on performance
+            if (progressPercent < 50) {
+                progressTextEl.style.color = '#dc3545';
+            } else if (progressPercent < 80) {
+                progressTextEl.style.color = '#fd7e14';
+            } else {
+                progressTextEl.style.color = '#28a745';
+            }
+        }
+        
+        if (belowTargetEl) belowTargetEl.textContent = belowTarget;
+        if (onTrackEl) onTrackEl.textContent = onTrack;
+        if (aboveTargetEl) aboveTargetEl.textContent = aboveTarget;
+    }
+
 
     // Render leaderboard
     function renderLeaderboard(data) {
@@ -696,6 +885,20 @@
         
         tbody.innerHTML = '';
         
+        // Dynamically update the Target Status column header based on period type
+        const targetStatusHeader = document.getElementById('targetStatusHeader');
+        if (targetStatusHeader) {
+            if (periodType === 'monthly') {
+                targetStatusHeader.textContent = 'Monthly Target Status';
+            } else if (periodType === 'quarterly') {
+                targetStatusHeader.textContent = 'Quarterly Target Status';
+            } else if (periodType === 'annual') {
+                targetStatusHeader.textContent = 'Annual Target Status';
+            } else {
+                targetStatusHeader.textContent = 'Target Status';
+            }
+        }
+        
         if (!data || data.length === 0) {
             return tbody.innerHTML = `
                 <tr><td colspan="8" class="text-center py-5 text-muted">
@@ -703,6 +906,9 @@
                     <p class="mt-3">No performance records for the selected period</p>
                 </td></tr>`;
         }
+        
+        // Update target overview section
+        updateTargetOverview(data);
         
         // Separate marketers with data and without
         const marketersWithData = data.filter(item => item.total_sales > 0 || item.closed_deals > 0);
@@ -719,7 +925,8 @@
             const hasData = item.total_sales > 0 || item.closed_deals > 0;
             const commClass = item.commission_rate >= 10 ? 'text-success fw-bold' : 'text-primary';
             
-            // Calculate target status with beautiful badges
+            // Calculate target status for this marketer based on the selected period (Monthly/Quarterly/Annual)
+            // The target_amount from backend is the marketer's individual target for the selected period type
             let targetStatus = '';
             let targetClass = '';
             
@@ -732,31 +939,31 @@
                         targetStatus = 'Target Achieved';
                         targetClass = 'bg-primary';
                     } else if (above <= 10) {
-                        targetStatus = `${above}% Above Target`;
+                        targetStatus = `${above}% Above`;
                         targetClass = 'bg-success';
                     } else if (above <= 25) {
-                        targetStatus = `${above}% Above Target`;
+                        targetStatus = `${above}% Above`;
                         targetClass = 'bg-teal';
                     } else if (above <= 50) {
-                        targetStatus = `${above}% Above Target`;
+                        targetStatus = `${above}% Above`;
                         targetClass = 'bg-indigo';
                     } else {
-                        targetStatus = `${above}% Above Target`;
+                        targetStatus = `${above}% Above`;
                         targetClass = 'bg-purple';
                     }
                 } else {
                     const below = 100 - targetPercent;
                     if (below <= 10) {
-                        targetStatus = `${below}% Below Target`;
+                        targetStatus = `${below}% Below`;
                         targetClass = 'bg-warning';
                     } else if (below <= 25) {
-                        targetStatus = `${below}% Below Target`;
+                        targetStatus = `${below}% Below`;
                         targetClass = 'bg-orange';
                     } else if (below <= 50) {
-                        targetStatus = `${below}% Below Target`;
+                        targetStatus = `${below}% Below`;
                         targetClass = 'bg-coral';
                     } else {
-                        targetStatus = `${below}% Below Target`;
+                        targetStatus = `${below}% Below`;
                         targetClass = 'bg-danger';
                     }
                 }
@@ -770,14 +977,22 @@
 
             const rowClass = hasData ? '' : 'no-data-row';
             
+            // Generate avatar - use profile image if available, else use first letter
+            let avatarHtml = '';
+            if (item.profile_image) {
+                avatarHtml = `<img src="${item.profile_image}" alt="${item.marketer_name}" class="avatar-img rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">`;
+            } else {
+                avatarHtml = `<div class="avatar-sm bg-light rounded-circle me-2 d-flex align-items-center justify-content-center">
+                    <span class="text-primary fw-bold">${item.marketer_name.charAt(0)}</span>
+                </div>`;
+            }
+            
             tbody.insertAdjacentHTML('beforeend', `
                 <tr class="${rowClass}">
                     <td>${hasData ? rank++ : '-'}</td>
                     <td>
                         <div class="d-flex align-items-center">
-                            <div class="avatar-sm bg-light rounded-circle me-2 d-flex align-items-center justify-content-center">
-                                <span class="text-primary fw-bold">${item.marketer_name.charAt(0)}</span>
-                            </div>
+                            ${avatarHtml}
                             ${item.marketer_name}
                         </div>
                     </td>
@@ -882,7 +1097,32 @@
       };
 
       try {
-        const csrftoken = getCookie('csrftoken');
+        // Try to get CSRF token from cookie first
+        let csrftoken = getCookie('csrftoken');
+        
+        // If not found in cookie, try to get from meta tag (Django's standard approach)
+        if (!csrftoken) {
+          const csrfTokenMeta = document.querySelector('meta[name=csrf-token]');
+          if (csrfTokenMeta) {
+            csrftoken = csrfTokenMeta.getAttribute('content');
+          }
+        }
+        
+        // If still not found, try to get from window.csrf_token (alternative approach)
+        if (!csrftoken && window.csrf_token) {
+          csrftoken = window.csrf_token;
+        }
+        
+        // Debug: Check if CSRF token exists
+        if (!csrftoken) {
+          throw new Error('CSRF token not found. Please refresh the page and try again.');
+        }
+        
+        // Debug: Check CSRF token length
+        if (csrftoken.length < 10) {
+          throw new Error('CSRF token appears to be invalid. Please refresh the page and try again.');
+        }
+        
         const res = await fetch('/api/set-target/', {
           method: 'POST',
           headers: {
@@ -900,7 +1140,7 @@
         form.reset();
         updatePerformance();
       } catch (err) {
-        console.error(err);
+        console.error('Save target error:', err);
         showToast('Failed to set target: ' + err.message, 'danger');
       }
     }
@@ -1211,5 +1451,119 @@
       background-clip: padding-box;
       border: 1px solid rgba(0, 0, 0, 0.1);
       box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+
+  /* Target Overview Styling */
+  .bg-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .target-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border: none;
+  }
+
+  .target-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .progress-overview {
+      border: none;
+      transition: box-shadow 0.3s ease;
+  }
+
+  .progress-overview:hover {
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .progress-bar.bg-gradient {
+      transition: width 1s ease, background 0.5s ease;
+      position: relative;
+      overflow: visible;
+  }
+
+  .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+      pointer-events: none;
+  }
+
+  @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+  }
+
+  .target-card .bg-primary,
+  .target-card .bg-success,
+  .target-card .bg-warning {
+      transition: transform 0.3s ease;
+  }
+
+  .target-card:hover .bg-primary,
+  .target-card:hover .bg-success,
+  .target-card:hover .bg-warning {
+      transform: scale(1.1);
+  }
+
+  .badge.bg-light {
+      color: #495057 !important;
+      border: 1px solid #e9ecef;
+  }
+
+  /* Enhanced table header styling */
+  .card-header.bg-gradient {
+      position: relative;
+      overflow: hidden;
+  }
+
+  .card-header.bg-gradient::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: float 6s ease-in-out infinite;
+      pointer-events: none;
+  }
+
+  @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(180deg); }
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+      .target-overview .row {
+          gap: 1rem;
+      }
+      
+      .progress-overview {
+          margin-top: 1rem;
+      }
+  }
+
+  /* Avatar Image Styling */
+  .avatar-img {
+      border: 2px solid #e9ecef;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  /* Progress Bar Enhancements */
+  #targetProgress {
+      transition: width 0.8s ease, background 0.5s ease;
+  }
+
+  .progress {
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
   }
 </style>
