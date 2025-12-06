@@ -17,28 +17,28 @@ urlpatterns = [
          name='get_subscription_status'),
     
     # ===== SUBSCRIPTION MANAGEMENT =====
-    path('admin/subscription/dashboard/', 
+    path('subscription/dashboard/', 
          subscription_views.subscription_dashboard, 
          name='subscription_dashboard'),
     
-    path('admin/subscription/renew/', 
+    path('subscription/renew/', 
          subscription_views.renew_subscription, 
          name='renew_subscription'),
     
-    path('admin/subscription/upgrade/', 
+    path('subscription/upgrade/', 
          subscription_views.upgrade_subscription, 
          name='upgrade_subscription'),
     
     # ===== PAYMENT PROCESSING =====
-    path('admin/payment/process/', 
+    path('subscription/payment/process/', 
          subscription_views.process_payment, 
          name='process_payment'),
     
-    path('admin/payment/stripe/confirm/', 
+    path('subscription/payment/stripe/confirm/', 
          subscription_views.confirm_stripe_payment, 
          name='confirm_stripe_payment'),
     
-    path('admin/payment/paystack/confirm/', 
+    path('subscription/payment/paystack/confirm/', 
          subscription_views.confirm_paystack_payment, 
          name='confirm_paystack_payment'),
     
@@ -47,7 +47,12 @@ urlpatterns = [
          subscription_views.get_billing_history, 
          name='get_billing_history'),
     
-    path('admin/billing/invoice/<int:invoice_id>/download/', 
+    path('subscription/billing/invoice/<int:invoice_id>/download/', 
          subscription_views.download_invoice, 
          name='download_invoice'),
+    
+    # ===== SUBSCRIPTION RECEIPTS =====
+    path('subscription/receipt/<int:transaction_id>/', 
+         subscription_views.generate_subscription_receipt, 
+         name='subscription-receipt'),
 ]

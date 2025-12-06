@@ -31,24 +31,35 @@ def get_subscription_plans(request):
     """
     API endpoint to fetch all available subscription plans
     Used by JavaScript to populate plan selection UI
+    Returns plans with monthly/annual pricing and full features
     """
     try:
-        plans = SubscriptionPlan.objects.all().values(
-            'id', 'name', 'price', 'properties_limit', 'users_limit', 
-            'marketers_limit', 'has_analytics', 'description'
-        )
+        plans = SubscriptionPlan.objects.filter(is_active=True).order_by('monthly_price')
         
         plans_data = []
         for plan in plans:
+            # Calculate annual savings (2 months free)
+            annual_price = plan.annual_price or (plan.monthly_price * 10)
+            annual_savings = (plan.monthly_price * 12) - annual_price
+            
             plans_data.append({
-                'id': plan['id'],
-                'name': plan['name'],
-                'price': float(plan['price']),
-                'properties_limit': plan['properties_limit'],
-                'users_limit': plan['users_limit'],
-                'marketers_limit': plan['marketers_limit'],
-                'has_analytics': plan['has_analytics'],
-                'description': plan['description']
+                'id': plan.id,
+                'name': plan.name,
+                'tier': plan.tier,
+                'description': plan.description,
+                # Pricing
+                'monthly_price': float(plan.monthly_price),
+                'annual_price': float(annual_price),
+                'annual_savings': float(annual_savings),
+                # Limits
+                'max_plots': plan.max_plots,
+                'max_agents': plan.max_agents,
+                'max_api_calls_daily': plan.max_api_calls_daily,
+                # Features from JSON
+                'features': plan.features or {},
+                # UI flags
+                'is_popular': plan.tier == 'professional',
+                'is_preferred': plan.tier == 'enterprise',
             })
         
         return JsonResponse({'ok': True, 'plans': plans_data})
@@ -571,3 +582,260 @@ def subscription_context_for_company_profile(request, company):
         }
     
     return context
+
+
+# ============================================================================
+# SUBSCRIPTION RECEIPT GENERATION
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+def generate_subscription_receipt(request, transaction_id):
+    """
+    Generate and download a PDF receipt for a subscription payment
+    """
+    from django.http import HttpResponse
+    from django.template.loader import render_to_string
+    from xhtml2pdf import pisa
+    import io
+    
+    try:
+        # Get the user's company
+        company = getattr(request.user, 'company_profile', None)
+        if not company:
+            return HttpResponse("Company not found", status=404)
+        
+        # Try to get from BillingHistory first
+        try:
+            billing_transaction = BillingHistory.objects.get(
+                id=transaction_id,
+                billing__company=company
+            )
+            
+            receipt_data = {
+                'transaction_id': billing_transaction.id,
+                'invoice_number': billing_transaction.invoice_number,
+                'transaction_date': billing_transaction.created_at,
+                'transaction_type': billing_transaction.transaction_type,
+                'description': billing_transaction.description or 'Subscription Payment',
+                'amount': billing_transaction.amount,
+                'payment_method': billing_transaction.payment_method or 'N/A',
+                'reference': billing_transaction.transaction_id or f'TXN-{billing_transaction.id:06d}',
+                'status': 'Completed',
+                'company_name': company.company_name,
+                'company_address': getattr(company, 'address', '') or 'N/A',
+                'company_email': getattr(company, 'email', '') or 'N/A',
+                'plan_name': company.subscription_tier or 'N/A',
+            }
+        except BillingHistory.DoesNotExist:
+            return HttpResponse("Transaction not found", status=404)
+        
+        # Generate HTML for PDF conversion
+        receipt_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Payment Receipt - {receipt_data['invoice_number']}</title>
+            <style>
+                @page {{
+                    size: A4;
+                    margin: 1.5cm;
+                }}
+                body {{
+                    font-family: Helvetica, Arial, sans-serif;
+                    font-size: 12px;
+                    color: #333;
+                    line-height: 1.4;
+                }}
+                .header {{
+                    text-align: center;
+                    border-bottom: 3px solid #16a34a;
+                    padding-bottom: 15px;
+                    margin-bottom: 25px;
+                }}
+                .header h1 {{
+                    color: #16a34a;
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .header p {{
+                    margin: 5px 0;
+                    color: #666;
+                    font-size: 11px;
+                }}
+                .receipt-badge {{
+                    background: #dcfce7;
+                    color: #16a34a;
+                    padding: 8px 20px;
+                    display: inline-block;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    font-size: 14px;
+                    margin-top: 10px;
+                }}
+                .info-section {{
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background: #f9fafb;
+                    border-radius: 8px;
+                }}
+                .info-section h3 {{
+                    color: #16a34a;
+                    margin: 0 0 10px 0;
+                    font-size: 14px;
+                    border-bottom: 1px solid #e5e7eb;
+                    padding-bottom: 5px;
+                }}
+                .info-row {{
+                    margin: 8px 0;
+                }}
+                .info-label {{
+                    color: #6b7280;
+                    font-size: 11px;
+                }}
+                .info-value {{
+                    font-weight: bold;
+                    color: #111;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                }}
+                th {{
+                    background: #16a34a;
+                    color: white;
+                    padding: 12px;
+                    text-align: left;
+                    font-size: 12px;
+                }}
+                td {{
+                    padding: 12px;
+                    border-bottom: 1px solid #e5e7eb;
+                }}
+                .amount-cell {{
+                    text-align: right;
+                    font-weight: bold;
+                }}
+                .total-row td {{
+                    background: #f0fdf4;
+                    font-weight: bold;
+                    font-size: 14px;
+                }}
+                .total-amount {{
+                    color: #16a34a;
+                    font-size: 18px;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e5e7eb;
+                    color: #6b7280;
+                    font-size: 10px;
+                }}
+                .watermark {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-45deg);
+                    font-size: 80px;
+                    color: rgba(22, 163, 74, 0.05);
+                    font-weight: bold;
+                    z-index: -1;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="watermark">PAID</div>
+            
+            <div class="header">
+                <h1>PAYMENT RECEIPT</h1>
+                <p>Invoice: {receipt_data['invoice_number']}</p>
+                <div class="receipt-badge">✓ PAYMENT SUCCESSFUL</div>
+            </div>
+            
+            <table style="margin-bottom: 25px;">
+                <tr>
+                    <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                        <div class="info-section">
+                            <h3>BILL TO</h3>
+                            <div class="info-row">
+                                <div class="info-value">{receipt_data['company_name']}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">{receipt_data['company_address']}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">{receipt_data['company_email']}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="width: 50%; vertical-align: top; border: none; padding: 0 0 0 15px;">
+                        <div class="info-section">
+                            <h3>RECEIPT DETAILS</h3>
+                            <div class="info-row">
+                                <span class="info-label">Date: </span>
+                                <span class="info-value">{receipt_data['transaction_date'].strftime('%B %d, %Y')}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Reference: </span>
+                                <span class="info-value">{receipt_data['reference']}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Payment Method: </span>
+                                <span class="info-value">{receipt_data['payment_method']}</span>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Description</th>
+                        <th style="width: 25%;">Plan</th>
+                        <th style="width: 25%; text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{receipt_data['description']}</td>
+                        <td>{receipt_data['plan_name'].title()}</td>
+                        <td class="amount-cell">₦{receipt_data['amount']:,.2f}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="2" style="text-align: right;">TOTAL PAID:</td>
+                        <td class="amount-cell total-amount">₦{receipt_data['amount']:,.2f}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <div class="footer">
+                <p><strong>Thank you for your payment!</strong></p>
+                <p>This is a computer-generated receipt and does not require a signature.</p>
+                <p>For any inquiries, please contact our support team.</p>
+                <p style="margin-top: 15px; color: #9ca3af;">Generated on {receipt_data['transaction_date'].strftime('%B %d, %Y at %I:%M %p')}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Create PDF from HTML using xhtml2pdf
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(receipt_html.encode("UTF-8")), result)
+        
+        if pdf.err:
+            return HttpResponse("Error generating PDF", status=500)
+        
+        # Return PDF response
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="Receipt_{receipt_data["invoice_number"]}.pdf"'
+        return response
+        
+    except Exception as e:
+        return HttpResponse(f"Error generating receipt: {str(e)}", status=500)

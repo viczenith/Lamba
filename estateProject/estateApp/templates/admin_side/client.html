@@ -900,11 +900,6 @@
                 <i class="fas fa-search search-icon"></i>
                 <input type="text" class="search-input" id="clientSearch" placeholder="Search by name, email, phone, or marketer...">
               </div>
-
-              <!-- Download Button -->
-              <button class="btn btn-success btn-download" id="downloadCSV">
-                <i class="fas fa-download"></i> Download CSV
-              </button>
             </div>
           </div>
 
@@ -1321,73 +1316,7 @@
     }
   });
 
-  // ==================== CSV DOWNLOAD FUNCTIONALITY ====================
-  document.getElementById('downloadCSV').addEventListener('click', function() {
-    const table = document.getElementById('clientTable');
-    const rows = table.querySelectorAll('tbody .client-row');
-    
-    if (rows.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No Data',
-        text: 'There are no clients to download.',
-        confirmButtonColor: '#6C5CE7'
-      });
-      return;
-    }
-
-    // CSV Headers
-    let csv = 'No,Client Name,Client ID,Assigned Marketer,Email,Phone\n';
-
-    // CSV Data
-    let rowNum = 1;
-    rows.forEach(row => {
-      if (row.style.display !== 'none') {
-        const name = row.querySelector('.client-info h6').textContent.trim();
-        const id = row.querySelector('.client-info small').textContent.replace('ID: ', '').trim();
-        
-        // Get marketer name - check if marketer column exists
-        const marketerCell = row.cells[2]; // 3rd column (0-indexed)
-        let marketer = 'Not Assigned';
-        const marketerNameElem = marketerCell.querySelector('h6');
-        if (marketerNameElem) {
-          marketer = marketerNameElem.textContent.trim();
-        }
-        
-        const email = row.querySelector('.contact-item a[href^="mailto:"]').textContent.trim();
-        const phone = row.querySelectorAll('.contact-item a')[1].textContent.trim();
-
-        csv += `${rowNum},"${name}","${id}","${marketer}","${email}","${phone}"\n`;
-        rowNum++;
-      }
-    });
-
-    // Create download link
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `clients_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Success notification
-    Swal.fire({
-      icon: 'success',
-      title: 'Download Complete!',
-      text: `Successfully downloaded ${rowNum - 1} client records.`,
-      timer: 2000,
-      showConfirmButton: false,
-      toast: true,
-      position: 'top-end'
-    });
-  });
-
-  // ==================== DELETE CONFIRMATION ====================
+  // ==================== DELETE CONFIRMATION ==
   let currentClientId = null;
   let currentClientName = null;
 
@@ -1612,12 +1541,6 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
       searchInput.focus();
-    }
-    
-    // Ctrl/Cmd + D to download CSV
-    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-      e.preventDefault();
-      document.getElementById('downloadCSV').click();
     }
   });
 </script>

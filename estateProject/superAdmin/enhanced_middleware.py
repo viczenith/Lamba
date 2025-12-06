@@ -308,7 +308,7 @@ class SubscriptionEnforcementMiddleware(MiddlewareMixin):
         if not subscription.is_active():
             logger.warning(
                 f"Subscription inactive for {company.company_name}: "
-                f"{subscription.status}"
+                f"{subscription.payment_status}"
             )
             # Return 402 Payment Required
             from django.http import JsonResponse

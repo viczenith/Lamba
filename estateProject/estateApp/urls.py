@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import *
@@ -301,6 +301,8 @@ urlpatterns = [
     path('api/transaction-export-count/', TransactionExportCountAPI.as_view(), name='transaction_export_count_api'),
     path('api/transaction-export-preview/', TransactionExportPreviewAPI.as_view(), name='transaction_export_preview_api'),
     path('api/transaction-export/', TransactionExportAPI.as_view(), name='transaction_export_api'),
+    path('api/marketer-export/', MarketerExportAPI.as_view(), name='marketer_export_api'),
+    path('api/client-export/', ClientExportAPI.as_view(), name='client_export_api'),
     path('api/set-target/', SetTargetAPI.as_view(), name='set_target_api'),
     path('api/get-target/', GetGlobalTargetAPI.as_view(), name='get_target_api'),
     path('api/set-commission/', SetCommissionAPI.as_view(), name='set_commission_api'),
@@ -388,6 +390,11 @@ tenant_patterns = [
 
 # Add tenant patterns to main urlpatterns
 urlpatterns += tenant_patterns
+
+# Include subscription admin URLs
+urlpatterns += [
+    path('', include('estateApp.subscription_admin_urls')),
+]
         
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

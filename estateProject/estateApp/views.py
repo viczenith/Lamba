@@ -3356,20 +3356,45 @@ def company_profile_view(request):
     # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
     # Include users from company_profile AND from affiliation models (MarketerAffiliation, ClientMarketerAssignment)
+    # IMPORTANT: Exclude duplicates - users with company_profile should not be double-counted if also in affiliation tables
     from estateApp.models import MarketerAffiliation, ClientMarketerAssignment
     
-    primary_clients = CustomUser.objects.filter(role='client', company_profile=company).count()
-    affiliation_clients = ClientMarketerAssignment.objects.filter(company=company).values_list('client_id', flat=True).distinct().count()
-    total_clients = primary_clients + (affiliation_clients if affiliation_clients > 0 else 0)
+    # Get primary client IDs
+    primary_client_ids = set(CustomUser.objects.filter(role='client', company_profile=company).values_list('id', flat=True))
+    # Get affiliated client IDs that are NOT already primary
+    affiliation_client_ids = set(
+        ClientMarketerAssignment.objects.filter(company=company)
+        .values_list('client_id', flat=True)
+        .distinct()
+    ) - primary_client_ids
+    total_clients = len(primary_client_ids) + len(affiliation_client_ids)
     
-    primary_marketers = CustomUser.objects.filter(role='marketer', company_profile=company).count()
-    affiliation_marketers = MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct().count()
-    total_marketers = primary_marketers + (affiliation_marketers if affiliation_marketers > 0 else 0)
+    # Get primary marketer IDs
+    primary_marketer_ids = set(CustomUser.objects.filter(role='marketer', company_profile=company).values_list('id', flat=True))
+    # Get affiliated marketer IDs that are NOT already primary
+    affiliation_marketer_ids = set(
+        MarketerAffiliation.objects.filter(company=company)
+        .values_list('marketer_id', flat=True)
+        .distinct()
+    ) - primary_marketer_ids
+    total_marketers = len(primary_marketer_ids) + len(affiliation_marketer_ids)
 
-    # Estates and allocations
+    # Estates and allocations (calculated from TRANSACTIONS as per business logic)
     total_estates = Estate.objects.filter(company=company).count() if 'Estate' in globals() else 0
-    total_full_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='full').count() if 'PlotAllocation' in globals() else 0
-    total_part_allocations = PlotAllocation.objects.filter(estate__company=company, payment_type='part').count() if 'PlotAllocation' in globals() else 0
+    
+    # ALLOCATION IS CALCULATED FROM THE NUMBER OF TRANSACTIONS MADE
+    # Full payments = transactions linked to full payment allocations
+    # Part payments = transactions linked to part payment allocations
+    from estateApp.models import Transaction
+    total_full_allocations = Transaction.objects.filter(
+        company=company, 
+        allocation__payment_type='full'
+    ).count()
+    total_part_allocations = Transaction.objects.filter(
+        company=company, 
+        allocation__payment_type='part'
+    ).count()
+    total_allocations = total_full_allocations + total_part_allocations
 
     # Registered users - SECURITY: Filter by company with pagination (50 per page)
     # This includes ALL users: Clients, Marketers, Admins, Support, and any other role
@@ -3696,14 +3721,121 @@ def company_profile_view(request):
         if app_metrics:
             total_downloads = app_metrics.total_downloads
 
-    # Subscription - SECURITY: Filter by company
+    # Subscription - Built from Company model subscription fields
     subscription = None
     if company:
         try:
-            from estateApp.models import Subscription
-            subscription = Subscription.objects.filter(company=company).first()
-        except Exception:
+            from datetime import datetime, timedelta
+            from estateApp.models import SubscriptionPlan
+            
+            # Get the subscription plan for pricing
+            subscription_plan = None
+            try:
+                subscription_plan = SubscriptionPlan.objects.get(tier=company.subscription_tier)
+            except SubscriptionPlan.DoesNotExist:
+                pass
+            
+            # Calculate days remaining
+            days_remaining = 0
+            if company.subscription_ends_at:
+                now = timezone.now()
+                if company.subscription_ends_at > now:
+                    days_remaining = (company.subscription_ends_at - now).days
+            elif company.trial_ends_at:
+                now = timezone.now()
+                if company.trial_ends_at > now:
+                    days_remaining = (company.trial_ends_at - now).days
+            
+            # Check if in grace period
+            is_in_grace_period = False
+            if company.grace_period_ends_at:
+                now = timezone.now()
+                is_in_grace_period = now < company.grace_period_ends_at and days_remaining <= 0
+            
+            # Warning level for expiring soon
+            warning_level = None
+            if days_remaining <= 7 and days_remaining > 0:
+                warning_level = 'critical'
+            elif days_remaining <= 14 and days_remaining > 7:
+                warning_level = 'warning'
+            elif days_remaining <= 30 and days_remaining > 14:
+                warning_level = 'notice'
+            
+            # Get limits from features
+            features = subscription_plan.features if subscription_plan else {}
+            max_estates = features.get('estate_properties', company.max_plots) if isinstance(features.get('estate_properties'), int) else company.max_plots
+            max_allocations = features.get('allocations', 30) if isinstance(features.get('allocations'), int) else (999999 if features.get('allocations') == 'unlimited' else 30)
+            max_clients = features.get('clients', 30) if isinstance(features.get('clients'), int) else (999999 if features.get('clients') == 'unlimited' else 30)
+            max_affiliates = features.get('affiliates', 20) if isinstance(features.get('affiliates'), int) else (999999 if features.get('affiliates') == 'unlimited' else 20)
+            
+            # Build subscription dict
+            subscription = {
+                'subscription_plan': subscription_plan,
+                'plan_name': subscription_plan.name if subscription_plan else company.get_subscription_tier_display(),
+                'tier': company.subscription_tier,
+                'status': company.subscription_status,
+                'amount': subscription_plan.monthly_price if subscription_plan else 0,
+                'monthly_price': subscription_plan.monthly_price if subscription_plan else 0,
+                'annual_price': subscription_plan.annual_price if subscription_plan else 0,
+                'subscription_starts_at': company.subscription_started_at,
+                'subscription_ends_at': company.subscription_ends_at or company.trial_ends_at,
+                'days_remaining': days_remaining,
+                'is_in_grace_period': is_in_grace_period,
+                'warning_level': warning_level,
+                'get_current_status': company.get_subscription_status_display(),
+                'is_trial': company.subscription_status == 'trial',
+                'is_active': company.subscription_status == 'active',
+                'max_plots': company.max_plots,
+                'max_agents': company.max_agents,
+                'current_plots_count': company.current_plots_count,
+                'current_agents_count': company.current_agents_count,
+                'features': features,
+                # Limits from plan features
+                'max_estates': max_estates,
+                'max_allocations': max_allocations,
+                'max_clients': max_clients,
+                'max_affiliates': max_affiliates,
+            }
+        except Exception as e:
             subscription = None
+    
+    # Get all subscription plans for the upgrade/select plan modal
+    subscription_plans = []
+    subscription_plans_json = '[]'
+    try:
+        from estateApp.models import SubscriptionPlan
+        import json
+        plans_qs = SubscriptionPlan.objects.filter(is_active=True).order_by('monthly_price')
+        subscription_plans = list(plans_qs)
+        
+        # Create JSON-serializable list for JavaScript
+        plans_data = []
+        for plan in plans_qs:
+            plans_data.append({
+                'id': plan.id,
+                'name': plan.name,
+                'tier': plan.tier,
+                'description': plan.description or '',
+                'monthly_price': float(plan.monthly_price) if plan.monthly_price else 0,
+                'annual_price': float(plan.annual_price) if plan.annual_price else 0,
+                'max_plots': plan.max_plots or 50,
+                'max_agents': plan.max_agents or 1,
+                'features': plan.features or {},
+                'is_popular': plan.tier == 'professional',
+            })
+        subscription_plans_json = json.dumps(plans_data)
+    except Exception:
+        pass
+
+    # Get billing history for recent transactions
+    billing_history = []
+    try:
+        from estateApp.subscription_billing_models import SubscriptionBillingModel, BillingHistory
+        billing = SubscriptionBillingModel.objects.filter(company=company).first()
+        if billing:
+            billing_history = list(BillingHistory.objects.filter(billing=billing).order_by('-billing_date')[:10])
+    except Exception:
+        pass
     
     # EMAIL ENGAGEMENT SYSTEM - Identify users needing re-engagement or onboarding
     users_needing_reengagement = [u for u in all_qs if u.last_login and u.last_login < last_30_days_cutoff and u.is_active]
@@ -3723,6 +3855,7 @@ def company_profile_view(request):
         'total_estates': total_estates,
         'total_full_allocations': total_full_allocations,
         'total_part_allocations': total_part_allocations,
+        'total_allocations': total_allocations,
         'registered_users': registered_users,
         'registered_users_page': registered_users_page,
         'registered_users_total_count': registered_users_total_count,
@@ -3740,6 +3873,9 @@ def company_profile_view(request):
         'is_master_admin': is_current_user_master,
         'user_has_full_control': user_has_full_control,
         'subscription': subscription,
+        'subscription_plans': subscription_plans,
+        'subscription_plans_json': subscription_plans_json,
+        'billing_history': billing_history,
         # User engagement analytics
         'active_users_30d': active_users_30d,
         'recently_active_7d': recently_active_7d,
@@ -5052,9 +5188,16 @@ def client_dashboard_cross_company(request):
 
 @login_required
 def client(request):
+    """
+    Display client list with company-scoped data.
+    SECURITY: Strict company isolation prevents cross-company data leakage.
+    """
     # Get all clients with their assigned marketers using select_related for optimization
     # SECURITY: Filter by company to prevent cross-company data leakage
     company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company context available.")
+        return redirect('home')
 
     # Primary queryset: clients represented by ClientUser subclass
     clients_qs = ClientUser.objects.filter(role='client', company_profile=company).select_related('assigned_marketer').order_by('-date_registered')
@@ -10131,6 +10274,388 @@ class TransactionExportAPI(View):
             # Fallback if reportlab is not installed
             return JsonResponse({
                 'error': 'PDF generation requires reportlab library. Please install it or use Excel/CSV format.'
+            }, status=400)
+
+
+class MarketerExportAPI(View):
+    """
+    API to export all marketers to Excel or PDF.
+    SECURITY: Only exports marketers within the authenticated user's company.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        export_format = request.GET.get('format', 'excel')
+        marketers = self._get_company_marketers(company)
+        
+        if export_format == 'excel':
+            return self._export_excel(marketers, company)
+        elif export_format == 'pdf':
+            return self._export_pdf(marketers, company)
+        else:
+            return JsonResponse({'error': 'Invalid format. Use excel or pdf.'}, status=400)
+    
+    def _get_company_marketers(self, company):
+        """Get all marketers (primary + affiliated) for a company."""
+        # Primary marketers (direct company assignment)
+        primary_marketers = MarketerUser.objects.filter(company_profile=company)
+        
+        # Affiliated marketers (added via MarketerAffiliation)
+        affiliation_marketer_ids = list(
+            MarketerAffiliation.objects.filter(company=company)
+            .values_list('marketer_id', flat=True)
+            .distinct()
+        )
+        affiliated_marketers = MarketerUser.objects.filter(
+            id__in=affiliation_marketer_ids
+        ).exclude(id__in=primary_marketers.values_list('pk', flat=True))
+        
+        # Combine and sort by registration date
+        marketers = list(primary_marketers) + list(affiliated_marketers)
+        marketers.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+        
+        # Calculate client counts for each marketer
+        for marketer in marketers:
+            assign_client_ids = set(
+                ClientMarketerAssignment.objects.filter(
+                    company=company, 
+                    marketer_id=marketer.id
+                ).values_list('client_id', flat=True)
+            )
+            direct_client_ids = set(
+                ClientUser.objects.filter(
+                    company_profile=company, 
+                    assigned_marketer_id=marketer.id
+                ).values_list('pk', flat=True)
+            )
+            marketer.client_count = len(assign_client_ids.union(direct_client_ids))
+        
+        return marketers
+    
+    def _export_excel(self, marketers, company):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from io import BytesIO
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Marketers'
+        
+        # Header styling
+        header_fill = PatternFill(start_color='28a745', end_color='28a745', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Headers
+        headers = ['S/N', 'Full Name', 'Email', 'Phone', 'Clients', 'Date Registered']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # Data rows
+        for idx, marketer in enumerate(marketers, 1):
+            row = idx + 1
+            ws.cell(row=row, column=1, value=idx)
+            ws.cell(row=row, column=2, value=marketer.full_name or 'N/A')
+            ws.cell(row=row, column=3, value=marketer.email or 'N/A')
+            ws.cell(row=row, column=4, value=getattr(marketer, 'phone', '') or 'N/A')
+            ws.cell(row=row, column=5, value=getattr(marketer, 'client_count', 0))
+            ws.cell(row=row, column=6, value=marketer.date_registered.strftime('%Y-%m-%d') if hasattr(marketer, 'date_registered') and marketer.date_registered else 'N/A')
+            
+            for col in range(1, 7):
+                ws.cell(row=row, column=col).border = thin_border
+        
+        # Summary row
+        summary_row = len(marketers) + 3
+        ws.cell(row=summary_row, column=1, value=f'Total Marketers: {len(marketers)}')
+        ws.cell(row=summary_row, column=1).font = Font(bold=True)
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[column].width = min(max_length + 2, 50)
+        
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=marketers_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.xlsx'
+        return response
+    
+    def _export_pdf(self, marketers, company):
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            from io import BytesIO
+            
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+            elements = []
+            
+            styles = getSampleStyleSheet()
+            elements.append(Paragraph(f'Marketers Report - {company.company_name}', styles['Heading1']))
+            elements.append(Paragraph(f'Generated: {timezone.now().strftime("%Y-%m-%d %H:%M")}', styles['Normal']))
+            elements.append(Spacer(1, 20))
+            
+            # Table data
+            data = [['S/N', 'Full Name', 'Email', 'Phone', 'Clients', 'Status']]
+            
+            for idx, marketer in enumerate(marketers, 1):
+                data.append([
+                    str(idx),
+                    (marketer.full_name or 'N/A')[:25],
+                    (marketer.email or 'N/A')[:30],
+                    (getattr(marketer, 'phone', '') or 'N/A')[:15],
+                    str(getattr(marketer, 'client_count', 0)),
+                    'Active' if marketer.is_active else 'Inactive'
+                ])
+            
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#28a745')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')])
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+            elements.append(Paragraph(f'Total Marketers: {len(marketers)}', styles['Normal']))
+            
+            doc.build(elements)
+            buffer.seek(0)
+            
+            response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename=marketers_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
+            return response
+            
+        except ImportError:
+            return JsonResponse({
+                'error': 'PDF generation requires reportlab library. Please install it or use Excel format.'
+            }, status=400)
+
+
+class ClientExportAPI(View):
+    """
+    API to export all clients to Excel or PDF.
+    SECURITY: Only exports clients within the authenticated user's company.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        export_format = request.GET.get('format', 'excel')
+        clients = self._get_company_clients(company)
+        
+        if export_format == 'excel':
+            return self._export_excel(clients, company)
+        elif export_format == 'pdf':
+            return self._export_pdf(clients, company)
+        else:
+            return JsonResponse({'error': 'Invalid format. Use excel or pdf.'}, status=400)
+    
+    def _get_company_clients(self, company):
+        """Get all clients (primary + affiliated) for a company."""
+        # Primary clients (direct company assignment)
+        primary_clients = ClientUser.objects.filter(company_profile=company)
+        
+        # Affiliated clients (added via ClientMarketerAssignment)
+        affiliation_client_ids = list(
+            ClientMarketerAssignment.objects.filter(company=company)
+            .values_list('client_id', flat=True)
+            .distinct()
+        )
+        affiliated_clients = ClientUser.objects.filter(
+            id__in=affiliation_client_ids
+        ).exclude(id__in=primary_clients.values_list('pk', flat=True))
+        
+        # Combine and sort by registration date
+        clients = list(primary_clients) + list(affiliated_clients)
+        clients.sort(key=lambda u: getattr(u, 'date_registered', None) or timezone.now(), reverse=True)
+        
+        # Get marketer info for each client
+        for client in clients:
+            # Check for assigned marketer
+            assignment = ClientMarketerAssignment.objects.filter(
+                company=company, 
+                client_id=client.id
+            ).first()
+            if assignment:
+                try:
+                    marketer = MarketerUser.objects.get(id=assignment.marketer_id)
+                    client.assigned_marketer_name = marketer.full_name
+                except MarketerUser.DoesNotExist:
+                    client.assigned_marketer_name = 'N/A'
+            elif hasattr(client, 'assigned_marketer') and client.assigned_marketer:
+                client.assigned_marketer_name = client.assigned_marketer.full_name
+            else:
+                client.assigned_marketer_name = 'N/A'
+        
+        return clients
+    
+    def _export_excel(self, clients, company):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from io import BytesIO
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Clients'
+        
+        # Header styling
+        header_fill = PatternFill(start_color='007bff', end_color='007bff', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Headers
+        headers = ['S/N', 'Full Name', 'Email', 'Phone', 'Assigned Marketer', 'Date Registered']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # Data rows
+        for idx, client in enumerate(clients, 1):
+            row = idx + 1
+            ws.cell(row=row, column=1, value=idx)
+            ws.cell(row=row, column=2, value=client.full_name or 'N/A')
+            ws.cell(row=row, column=3, value=client.email or 'N/A')
+            ws.cell(row=row, column=4, value=getattr(client, 'phone', '') or 'N/A')
+            ws.cell(row=row, column=5, value=getattr(client, 'assigned_marketer_name', 'N/A'))
+            ws.cell(row=row, column=6, value=client.date_registered.strftime('%Y-%m-%d') if hasattr(client, 'date_registered') and client.date_registered else 'N/A')
+            
+            for col in range(1, 7):
+                ws.cell(row=row, column=col).border = thin_border
+        
+        # Summary row
+        summary_row = len(clients) + 3
+        ws.cell(row=summary_row, column=1, value=f'Total Clients: {len(clients)}')
+        ws.cell(row=summary_row, column=1).font = Font(bold=True)
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[column].width = min(max_length + 2, 50)
+        
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=clients_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.xlsx'
+        return response
+    
+    def _export_pdf(self, clients, company):
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            from io import BytesIO
+            
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+            elements = []
+            
+            styles = getSampleStyleSheet()
+            elements.append(Paragraph(f'Clients Report - {company.company_name}', styles['Heading1']))
+            elements.append(Paragraph(f'Generated: {timezone.now().strftime("%Y-%m-%d %H:%M")}', styles['Normal']))
+            elements.append(Spacer(1, 20))
+            
+            # Table data
+            data = [['S/N', 'Full Name', 'Email', 'Phone', 'Marketer', 'Status']]
+            
+            for idx, client in enumerate(clients, 1):
+                data.append([
+                    str(idx),
+                    (client.full_name or 'N/A')[:25],
+                    (client.email or 'N/A')[:30],
+                    (getattr(client, 'phone', '') or 'N/A')[:15],
+                    (getattr(client, 'assigned_marketer_name', 'N/A') or 'N/A')[:20],
+                    'Active' if client.is_active else 'Inactive'
+                ])
+            
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#007bff')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')])
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+            elements.append(Paragraph(f'Total Clients: {len(clients)}', styles['Normal']))
+            
+            doc.build(elements)
+            buffer.seek(0)
+            
+            response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename=clients_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
+            return response
+            
+        except ImportError:
+            return JsonResponse({
+                'error': 'PDF generation requires reportlab library. Please install it or use Excel format.'
             }, status=400)
 
 

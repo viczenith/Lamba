@@ -935,11 +935,6 @@
                 <i class="fas fa-search search-icon"></i>
                 <input type="text" class="search-input" id="marketerSearch" placeholder="Search by name, email, or phone...">
               </div>
-
-              <!-- Download Button -->
-              <button class="btn btn-success btn-download" id="downloadCSV">
-                <i class="fas fa-download"></i> Download CSV
-              </button>
             </div>
           </div>
 
@@ -1275,64 +1270,6 @@
     }
   });
 
-  // ==================== CSV DOWNLOAD FUNCTIONALITY ====================
-  document.getElementById('downloadCSV').addEventListener('click', function() {
-    const table = document.getElementById('marketerTable');
-    const rows = table.querySelectorAll('tbody .marketer-row');
-    
-    if (rows.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No Data',
-        text: 'There are no marketers to download.',
-        confirmButtonColor: '#6C5CE7'
-      });
-      return;
-    }
-
-    // CSV Headers
-    let csv = 'No,Marketer Name,Marketer ID,Email,Phone,Clients Assigned\n';
-
-    // CSV Data
-    let rowNum = 1;
-    rows.forEach(row => {
-      if (row.style.display !== 'none') {
-        const name = row.querySelector('.marketer-info h6').textContent.trim();
-        const id = row.querySelector('.marketer-info small').textContent.replace('ID: ', '').trim();
-        const email = row.querySelector('.contact-item a[href^="mailto:"]').textContent.trim();
-        const phone = row.querySelectorAll('.contact-item a')[1].textContent.trim();
-        const clientCount = row.querySelector('.count-number').textContent.trim();
-
-        csv += `${rowNum},"${name}","${id}","${email}","${phone}","${clientCount}"\n`;
-        rowNum++;
-      }
-    });
-
-    // Create download link
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `marketers_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Success notification
-    Swal.fire({
-      icon: 'success',
-      title: 'Download Complete!',
-      text: `Successfully downloaded ${rowNum - 1} marketer records.`,
-      timer: 2000,
-      showConfirmButton: false,
-      toast: true,
-      position: 'top-end'
-    });
-  });
-
   // ==================== DELETE CONFIRMATION ====================
   let currentMarketerId = null;
   let currentMarketerName = null;
@@ -1558,12 +1495,6 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
       searchInput.focus();
-    }
-    
-    // Ctrl/Cmd + D to download CSV
-    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-      e.preventDefault();
-      document.getElementById('downloadCSV').click();
     }
   });
 </script>
