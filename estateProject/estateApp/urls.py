@@ -292,11 +292,13 @@ urlpatterns = [
     # MARKETERS PERFORMANCE
     path('marketer-performance/', MarketerPerformanceView.as_view(), name='marketer_performance'),
     path('api/performance-data/', PerformanceDataAPI.as_view(), name='performance_data_api'),
+    path('api/available-years/', GetAvailableYearsAPI.as_view(), name='available_years_api'),
     path('api/set-target/', SetTargetAPI.as_view(), name='set_target_api'),
     path('api/get-target/', GetGlobalTargetAPI.as_view(), name='get_target_api'),
     path('api/set-commission/', SetCommissionAPI.as_view(), name='set_commission_api'),
     path('api/get-commission/', GetCommissionAPI.as_view(), name='get_commission_api'),
     path('api/export-performance/', ExportPerformanceAPI.as_view(), name='export_performance_api'),
+    path('api/send-marketer-message/', SendMarketerMessageAPI.as_view(), name='send_marketer_message_api'),
 
     # VALUE EVALUATION
     path("api/estate/<int:estate_id>/plot-sizes/", estate_plot_sizes, name="estate-plot-sizes"),

@@ -164,6 +164,16 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="apps-tab" data-bs-toggle="tab" data-bs-target="#apps" type="button" role="tab">App Metrics</button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                    <i class="bi bi-graph-up-arrow me-1"></i>Analytics
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="historical-tab" data-bs-toggle="tab" data-bs-target="#historical" type="button" role="tab">
+                    <i class="bi bi-archive me-1"></i>Historical Records
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content pt-3">
@@ -641,6 +651,11 @@
 
                 <!-- Chart.js Scripts for Analytics -->
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <!-- Excel Export Library -->
+                <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+                <!-- PDF Export Library -->
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
                 <script>
                     // User Status Distribution Pie Chart
                     var statusCtx = document.getElementById('statusChart');
@@ -996,6 +1011,490 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== ANALYTICS DASHBOARD ==================== -->
+            <div class="tab-pane fade" id="analytics" role="tabpanel" aria-labelledby="analytics-tab">
+                <!-- Analytics Header with Gradient -->
+                <div class="analytics-header mb-4 p-4 rounded-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h3 class="text-white mb-2 fw-bold">
+                                <i class="bi bi-graph-up-arrow me-2"></i>Business Analytics Dashboard
+                            </h3>
+                            <p class="text-white-50 mb-0">Gain insights into your company's performance with descriptive, predictive, and prescriptive analytics</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-light btn-sm" id="analyticsRefreshBtn">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                                <button class="btn btn-light btn-sm" id="analyticsExportBtn">
+                                    <i class="bi bi-download me-1"></i>Export Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Period Selector -->
+                <div class="card border-0 shadow-sm mb-4 analytics-filter-card">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold text-muted small">ANALYSIS PERIOD</label>
+                                <select class="form-select" id="analyticsPeriodType">
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="annual" selected>Annual</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold text-muted small">SELECT YEAR</label>
+                                <select class="form-select" id="analyticsYear">
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold text-muted small">COMPARE WITH</label>
+                                <select class="form-select" id="analyticsCompareYear">
+                                    <option value="">No Comparison</option>
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn w-100" id="analyticsApplyBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                    <i class="bi bi-funnel me-1"></i>Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Cards with Animation -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="analytics-kpi-card" style="--delay: 0.1s;">
+                            <div class="kpi-icon bg-primary">
+                                <i class="bi bi-currency-exchange"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Revenue</span>
+                                <h3 class="kpi-value" id="totalRevenueKPI">₦0</h3>
+                                <span class="kpi-change positive" id="revenueChange">
+                                    <i class="bi bi-arrow-up"></i> +0%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-kpi-card" style="--delay: 0.2s;">
+                            <div class="kpi-icon bg-success">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Closed Deals</span>
+                                <h3 class="kpi-value" id="closedDealsKPI">0</h3>
+                                <span class="kpi-change positive" id="dealsChange">
+                                    <i class="bi bi-arrow-up"></i> +0%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-kpi-card" style="--delay: 0.3s;">
+                            <div class="kpi-icon bg-warning">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Active Marketers</span>
+                                <h3 class="kpi-value" id="activeMarketersKPI">0</h3>
+                                <span class="kpi-change neutral" id="marketersChange">
+                                    <i class="bi bi-dash"></i> 0%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="analytics-kpi-card" style="--delay: 0.4s;">
+                            <div class="kpi-icon bg-info">
+                                <i class="bi bi-bullseye"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Target Achievement</span>
+                                <h3 class="kpi-value" id="targetAchievementKPI">0%</h3>
+                                <span class="kpi-change" id="targetChange">
+                                    <i class="bi bi-dash"></i> --
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="row g-4 mb-4">
+                    <!-- Revenue Trend Chart -->
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm h-100 analytics-chart-card">
+                            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-graph-up text-primary me-2"></i>Revenue Trend
+                                </h5>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary active" data-chart-view="line">Line</button>
+                                    <button class="btn btn-outline-primary" data-chart-view="bar">Bar</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                                    <canvas id="revenueTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Performance Distribution -->
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm h-100 analytics-chart-card">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-pie-chart text-success me-2"></i>Performance Distribution
+                                </h5>
+                            </div>
+                            <div class="card-body d-flex align-items-center justify-content-center">
+                                <div class="chart-container" style="position: relative; height: 250px; width: 100%;">
+                                    <canvas id="performanceDistChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Descriptive Analytics Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm analytics-section-card">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-bar-chart-line text-primary me-2"></i>Descriptive Analytics
+                                    <span class="badge bg-primary ms-2">What Happened?</span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-4">
+                                    <!-- Monthly Breakdown -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-2"></i>Monthly Breakdown</h6>
+                                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                            <canvas id="monthlyBreakdownChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <!-- Top Performers -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-trophy me-2"></i>Top Performers</h6>
+                                        <div id="topPerformersContainer">
+                                            <!-- Populated by JavaScript -->
+                                            <div class="text-center py-4 text-muted">
+                                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                                <p class="mt-2 mb-0">Loading top performers...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Predictive Analytics Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm analytics-section-card predictive-card">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-lightning-charge text-warning me-2"></i>Predictive Analytics
+                                    <span class="badge bg-warning text-dark ms-2">What Will Happen?</span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-4">
+                                    <!-- Forecast Chart -->
+                                    <div class="col-md-8">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Sales Forecast (Next 6 Months)</h6>
+                                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                            <canvas id="forecastChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <!-- Forecast Cards -->
+                                    <div class="col-md-4">
+                                        <div class="forecast-scenario-card optimistic mb-3">
+                                            <div class="scenario-header">
+                                                <i class="bi bi-emoji-smile"></i>
+                                                <span>Optimistic</span>
+                                            </div>
+                                            <h4 class="scenario-value" id="forecastOptimistic">₦0</h4>
+                                            <span class="scenario-growth">+25% growth</span>
+                                        </div>
+                                        <div class="forecast-scenario-card realistic mb-3">
+                                            <div class="scenario-header">
+                                                <i class="bi bi-emoji-neutral"></i>
+                                                <span>Realistic</span>
+                                            </div>
+                                            <h4 class="scenario-value" id="forecastRealistic">₦0</h4>
+                                            <span class="scenario-growth">+15% growth</span>
+                                        </div>
+                                        <div class="forecast-scenario-card conservative">
+                                            <div class="scenario-header">
+                                                <i class="bi bi-shield-check"></i>
+                                                <span>Conservative</span>
+                                            </div>
+                                            <h4 class="scenario-value" id="forecastConservative">₦0</h4>
+                                            <span class="scenario-growth">+5% growth</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prescriptive Analytics Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm analytics-section-card prescriptive-card">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-lightbulb text-success me-2"></i>Prescriptive Analytics
+                                    <span class="badge bg-success ms-2">What Should We Do?</span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-4" id="recommendationsContainer">
+                                    <!-- AI Recommendations will be loaded here -->
+                                    <div class="col-12 text-center py-4 text-muted">
+                                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                                        <p class="mt-2 mb-0">Generating recommendations...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Growth Insights -->
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-speedometer2 text-info me-2"></i>Growth Velocity
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                    <canvas id="growthVelocityChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white border-0">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-calendar-week text-danger me-2"></i>Seasonal Patterns
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                    <canvas id="seasonalPatternChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== HISTORICAL RECORDS ==================== -->
+            <div class="tab-pane fade" id="historical" role="tabpanel" aria-labelledby="historical-tab">
+                <!-- Historical Records Header -->
+                <div class="historical-header mb-4 p-4 rounded-4" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h3 class="text-white mb-2 fw-bold">
+                                <i class="bi bi-archive me-2"></i>Historical Records & Data Export
+                            </h3>
+                            <p class="text-white-50 mb-0">Access, filter, and download your company's complete historical performance data</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-light btn-sm" id="bulkExportBtn">
+                                    <i class="bi bi-file-earmark-arrow-down me-1"></i>Bulk Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters -->
+                <div class="card border-0 shadow-sm mb-4 historical-filter-card">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold text-muted small">FROM YEAR</label>
+                                <select class="form-select" id="historyFromYear">
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold text-muted small">TO YEAR</label>
+                                <select class="form-select" id="historyToYear">
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold text-muted small">PERIOD TYPE</label>
+                                <select class="form-select" id="historyPeriodType">
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="annual">Annual</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold text-muted small">MARKETER</label>
+                                <select class="form-select" id="historyMarketer">
+                                    <option value="all">All Marketers</option>
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold text-muted small">STATUS</label>
+                                <select class="form-select" id="historyStatus">
+                                    <option value="all">All Records</option>
+                                    <option value="above_target">Above Target</option>
+                                    <option value="on_track">On Track</option>
+                                    <option value="below_target">Below Target</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn w-100" id="historyApplyBtn" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                                    <i class="bi bi-search me-1"></i>Search
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="historical-summary-card" style="--accent: #667eea;">
+                            <div class="summary-icon"><i class="bi bi-folder2-open"></i></div>
+                            <div class="summary-content">
+                                <span class="summary-label">Total Records</span>
+                                <h3 class="summary-value" id="totalRecordsCount">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="historical-summary-card" style="--accent: #28a745;">
+                            <div class="summary-icon"><i class="bi bi-calendar-range"></i></div>
+                            <div class="summary-content">
+                                <span class="summary-label">Date Range</span>
+                                <h3 class="summary-value" id="dateRangeDisplay">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="historical-summary-card" style="--accent: #ffc107;">
+                            <div class="summary-icon"><i class="bi bi-cash-stack"></i></div>
+                            <div class="summary-content">
+                                <span class="summary-label">Period Revenue</span>
+                                <h3 class="summary-value" id="periodRevenueDisplay">₦0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="historical-summary-card" style="--accent: #dc3545;">
+                            <div class="summary-icon"><i class="bi bi-percent"></i></div>
+                            <div class="summary-content">
+                                <span class="summary-label">Avg Commission</span>
+                                <h3 class="summary-value" id="avgCommissionDisplay">0%</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Year-over-Year Comparison Toggle -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="bi bi-bar-chart-steps text-primary me-2"></i>Year-over-Year Comparison
+                        </h5>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="yoyComparisonToggle" checked>
+                            <label class="form-check-label" for="yoyComparisonToggle">Show Comparison</label>
+                        </div>
+                    </div>
+                    <div class="card-body" id="yoyComparisonContainer">
+                        <div class="chart-container" style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="yoyComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historical Records Table -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="bi bi-table text-success me-2"></i>Performance Records
+                        </h5>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary" id="exportCsvBtn">
+                                <i class="bi bi-filetype-csv me-1"></i>CSV
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" id="exportExcelBtn">
+                                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" id="exportPdfBtn">
+                                <i class="bi bi-filetype-pdf me-1"></i>PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="historicalRecordsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="sortable" data-sort="period">Period <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th class="sortable" data-sort="marketer">Marketer <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th class="sortable" data-sort="deals">Closed Deals <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th class="sortable" data-sort="sales">Total Sales <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th class="sortable" data-sort="commission_rate">Commission % <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th class="sortable" data-sort="commission">Commission Earned <i class="bi bi-arrow-down-up ms-1"></i></th>
+                                        <th>Target Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historicalRecordsBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5">
+                                            <div class="spinner-border text-primary" role="status"></div>
+                                            <p class="mt-2 text-muted mb-0">Loading historical records...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Pagination -->
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
+                        <span class="text-muted" id="recordsPagination">Showing 0-0 of 0 records</span>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                                <!-- Populated by JavaScript -->
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -3498,6 +3997,2143 @@
             });
         });
     });
+</script>
+
+<!-- ==================== ANALYTICS & HISTORICAL RECORDS STYLES ==================== -->
+<style>
+    /* Analytics KPI Cards */
+    .analytics-kpi-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.5s ease forwards;
+        animation-delay: var(--delay, 0s);
+        opacity: 0;
+    }
+
+    .analytics-kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .kpi-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+    }
+
+    .kpi-icon.bg-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .kpi-icon.bg-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .kpi-icon.bg-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .kpi-icon.bg-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+    .kpi-content {
+        flex: 1;
+    }
+
+    .kpi-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 4px 0;
+    }
+
+    .kpi-change {
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+
+    .kpi-change.positive { background: #d1fae5; color: #059669; }
+    .kpi-change.negative { background: #fee2e2; color: #dc2626; }
+    .kpi-change.neutral { background: #f3f4f6; color: #6b7280; }
+
+    /* Analytics Chart Cards */
+    .analytics-chart-card {
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .analytics-chart-card:hover {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Forecast Scenario Cards */
+    .forecast-scenario-card {
+        padding: 16px;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .forecast-scenario-card:hover {
+        transform: translateX(4px);
+    }
+
+    .forecast-scenario-card.optimistic {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #10b981;
+    }
+
+    .forecast-scenario-card.realistic {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-left: 4px solid #3b82f6;
+    }
+
+    .forecast-scenario-card.conservative {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-left: 4px solid #f59e0b;
+    }
+
+    .scenario-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .scenario-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .scenario-growth {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    /* Historical Summary Cards */
+.historical-summary-card {
+                background: white;
+                border-radius: 16px;
+                padding: 20px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                transition: all 0.3s ease;
+            }
+            
+            /* Hide horizontal scrollbar for Historical Records table */
+            #historicalRecordsTab .table-responsive {
+                scrollbar-width: none; /* Firefox */
+                -ms-overflow-style: none; /* IE/Edge */
+            }
+            #historicalRecordsTab .table-responsive::-webkit-scrollbar {
+                display: none; /* Chrome, Safari, Opera */
+            }    .historical-summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+
+    .summary-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        background: var(--accent);
+        color: white;
+    }
+
+    .summary-label {
+        font-size: 12px;
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .summary-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 4px 0 0 0;
+    }
+
+    /* Table Sorting */
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+    }
+
+    .sortable:hover {
+        background: #f3f4f6;
+    }
+
+    .sortable.asc i::before { content: "\F128"; }
+    .sortable.desc i::before { content: "\F127"; }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .loading-pulse {
+        animation: pulse 1.5s infinite;
+    }
+
+    /* Analytics Section Cards */
+    .analytics-section-card {
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .analytics-section-card .card-header {
+        padding: 20px 24px;
+    }
+
+    .analytics-section-card .card-body {
+        padding: 24px;
+    }
+
+    /* Top Performers List */
+    .top-performer-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-bottom: 8px;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .top-performer-item:hover {
+        background: #e0e7ff;
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .performer-rank {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        margin-right: 12px;
+    }
+
+    .performer-rank.gold { background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%); color: #000; }
+    .performer-rank.silver { background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%); color: #000; }
+    .performer-rank.bronze { background: linear-gradient(135deg, #cd7f32 0%, #b5651d 100%); color: #fff; }
+    .performer-rank.default { background: #e5e7eb; color: #374151; }
+
+    .performer-info {
+        flex: 1;
+    }
+
+    .performer-name {
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .performer-deals {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .performer-sales {
+        font-weight: 700;
+        color: #059669;
+    }
+
+    /* Recommendation Cards */
+    .recommendation-card {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 20px;
+        border-left: 4px solid;
+        transition: all 0.3s ease;
+    }
+
+    .recommendation-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .recommendation-card.high-priority {
+        border-color: #ef4444;
+        background: #fef2f2;
+    }
+
+    .recommendation-card.medium-priority {
+        border-color: #f59e0b;
+        background: #fffbeb;
+    }
+
+    .recommendation-card.low-priority {
+        border-color: #10b981;
+        background: #ecfdf5;
+    }
+
+    .recommendation-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+    .recommendation-card.high-priority .recommendation-icon {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .recommendation-card.medium-priority .recommendation-icon {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .recommendation-card.low-priority .recommendation-icon {
+        background: #d1fae5;
+        color: #059669;
+    }
+
+    /* Recommendation Action Button */
+    .recommendation-action-btn {
+        transition: all 0.3s ease;
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-weight: 500;
+    }
+
+    .recommendation-action-btn:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .recommendation-card.high-priority .recommendation-action-btn {
+        border-color: #dc2626;
+        color: #dc2626;
+    }
+
+    .recommendation-card.high-priority .recommendation-action-btn:hover {
+        background: #dc2626;
+        color: white;
+    }
+
+    .recommendation-card.medium-priority .recommendation-action-btn {
+        border-color: #d97706;
+        color: #d97706;
+    }
+
+    .recommendation-card.medium-priority .recommendation-action-btn:hover {
+        background: #d97706;
+        color: white;
+    }
+
+    .recommendation-card.low-priority .recommendation-action-btn {
+        border-color: #059669;
+        color: #059669;
+    }
+
+    .recommendation-card.low-priority .recommendation-action-btn:hover {
+        background: #059669;
+        color: white;
+    }
+
+    /* Historical Table Row Hover */
+    #historicalRecordsTable tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    #historicalRecordsTable tbody tr:hover {
+        background: #f8fafc;
+        transform: scale(1.002);
+    }
+
+    /* Filter Cards */
+    .analytics-filter-card,
+    .historical-filter-card {
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .analytics-kpi-card {
+            padding: 16px;
+        }
+
+        .kpi-value {
+            font-size: 22px;
+        }
+
+        .forecast-scenario-card {
+            padding: 12px;
+        }
+
+        .scenario-value {
+            font-size: 18px;
+        }
+    }
+
+    /* Target Status Badge Colors - Matching section3_marketers_performance.html */
+    .badge.bg-teal { background-color: #20c997 !important; }
+    .badge.bg-indigo { background-color: #6610f2 !important; }
+    .badge.bg-purple { background-color: #6f42c1 !important; }
+    .badge.bg-orange { background-color: #fd7e14 !important; }
+    .badge.bg-coral { background-color: #ff6b6b !important; }
+</style>
+
+<!-- ==================== ANALYTICS & HISTORICAL RECORDS SCRIPTS ==================== -->
+<script>
+(function() {
+    // State variables
+    let analyticsData = {
+        currentPeriod: [],
+        previousPeriod: [],
+        allRecords: []
+    };
+    let historicalRecords = [];
+    let currentPage = 1;
+    const recordsPerPage = 15;
+    let sortColumn = 'period';
+    let sortDirection = 'desc';
+
+    // Initialization flags to prevent duplicate loading
+    let analyticsInitialized = false;
+    let historicalInitialized = false;
+    let isLoadingAnalytics = false;
+    let isLoadingHistorical = false;
+
+    // Chart instances
+    let revenueTrendChart = null;
+    let performanceDistChart = null;
+    let monthlyBreakdownChart = null;
+    let forecastChart = null;
+    let growthVelocityChart = null;
+    let seasonalPatternChart = null;
+    let yoyComparisonChart = null;
+
+    // Destroy a chart safely
+    function destroyChart(chartInstance) {
+        if (chartInstance && typeof chartInstance.destroy === 'function') {
+            chartInstance.destroy();
+        }
+        return null;
+    }
+
+    // Initialize when Analytics tab is shown
+    document.addEventListener('DOMContentLoaded', function() {
+        // Populate year dropdowns
+        populateYearDropdowns();
+
+        // Check for tab query parameter and auto-switch to that tab
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam) {
+            const tabElement = document.getElementById(`${tabParam}-tab`);
+            if (tabElement) {
+                const tab = new bootstrap.Tab(tabElement);
+                tab.show();
+            }
+        }
+
+        // Tab switch handlers - only init once
+        document.getElementById('analytics-tab')?.addEventListener('shown.bs.tab', function() {
+            if (!analyticsInitialized) {
+                initAnalytics();
+                analyticsInitialized = true;
+            }
+        });
+
+        document.getElementById('historical-tab')?.addEventListener('shown.bs.tab', function() {
+            if (!historicalInitialized) {
+                initHistoricalRecords();
+                historicalInitialized = true;
+            }
+        });
+
+        // Event listeners for analytics
+        document.getElementById('analyticsApplyBtn')?.addEventListener('click', function() {
+            if (!isLoadingAnalytics) loadAnalyticsData();
+        });
+        document.getElementById('analyticsRefreshBtn')?.addEventListener('click', function() {
+            if (!isLoadingAnalytics) loadAnalyticsData();
+        });
+        
+        // Auto-reload when period type or year changes (optional quick filters)
+        document.getElementById('analyticsPeriodType')?.addEventListener('change', function() {
+            // Reset the analyticsInitialized flag to force reload with new period type
+            analyticsInitialized = false;
+            if (!isLoadingAnalytics) loadAnalyticsData();
+        });
+        
+        document.getElementById('analyticsYear')?.addEventListener('change', function() {
+            // Auto-apply when year changes
+            if (!isLoadingAnalytics) loadAnalyticsData();
+        });
+
+        // Event listeners for historical records
+        document.getElementById('historyApplyBtn')?.addEventListener('click', function() {
+            if (!isLoadingHistorical) loadHistoricalRecords();
+        });
+        document.getElementById('yoyComparisonToggle')?.addEventListener('change', toggleYoYComparison);
+        
+        // Dynamic filter listeners for Historical Records - auto-reload on change
+        document.getElementById('historyStatus')?.addEventListener('change', function() {
+            if (!isLoadingHistorical && allHistoricalRecords.length > 0) {
+                // Re-apply status filter without reloading from API
+                applyStatusFilter();
+            } else if (!isLoadingHistorical) {
+                // No data loaded yet, show notification
+                showNotification('Please load records first using the Search button', 'warning');
+            }
+        });
+        
+        document.getElementById('historyPeriodType')?.addEventListener('change', function() {
+            // Period type change requires new API fetch
+            if (!isLoadingHistorical) loadHistoricalRecords();
+        });
+        
+        document.getElementById('historyMarketer')?.addEventListener('change', function() {
+            // Marketer change requires new API fetch
+            if (!isLoadingHistorical) loadHistoricalRecords();
+        });
+        
+        // Year dropdowns also trigger reload
+        document.getElementById('historyFromYear')?.addEventListener('change', function() {
+            if (!isLoadingHistorical) loadHistoricalRecords();
+        });
+        
+        document.getElementById('historyToYear')?.addEventListener('change', function() {
+            if (!isLoadingHistorical) loadHistoricalRecords();
+        });
+
+        // Export buttons
+        document.getElementById('exportCsvBtn')?.addEventListener('click', () => exportHistoricalData('csv'));
+        document.getElementById('exportExcelBtn')?.addEventListener('click', () => exportHistoricalData('excel'));
+        document.getElementById('exportPdfBtn')?.addEventListener('click', () => exportHistoricalData('pdf'));
+        document.getElementById('bulkExportBtn')?.addEventListener('click', bulkExportHistoricalData);
+        document.getElementById('analyticsExportBtn')?.addEventListener('click', exportAnalyticsReport);
+
+        // Chart view toggle
+        document.querySelectorAll('[data-chart-view]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-chart-view]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                updateRevenueTrendChart(this.dataset.chartView);
+            });
+        });
+
+        // Table sorting
+        document.querySelectorAll('.sortable').forEach(th => {
+            th.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                if (sortColumn === column) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = column;
+                    sortDirection = 'desc';
+                }
+                
+                document.querySelectorAll('.sortable').forEach(h => h.classList.remove('asc', 'desc'));
+                this.classList.add(sortDirection);
+                
+                renderHistoricalTable();
+            });
+        });
+        
+        // Event delegation for recommendation action buttons (use document for dynamic content)
+        document.addEventListener('click', function(e) {
+            // Check if click is on a recommendation button
+            const btn = e.target.closest('#recommendationsContainer button');
+            if (btn) {
+                e.preventDefault();
+                const actionText = btn.textContent.trim();
+                handleRecommendationAction(actionText);
+                return;
+            }
+            
+            // Check if click is on a top performer item
+            const performerItem = e.target.closest('#topPerformersContainer .top-performer-item');
+            if (performerItem) {
+                const marketerName = performerItem.querySelector('.performer-name')?.textContent;
+                if (marketerName) {
+                    showNotification(`Viewing details for ${marketerName}`, 'info');
+                }
+            }
+        });
+    });
+
+    // Populate year dropdowns
+    // Populate year dropdowns dynamically from API
+    async function populateYearDropdowns() {
+        try {
+            // Fetch available years from API
+            const response = await fetch('/api/available-years/');
+            let years = [];
+            
+            if (response.ok) {
+                const data = await response.json();
+                years = data.years || [];
+            }
+            
+            // Fallback: If API fails or returns empty, generate from current year
+            if (years.length === 0) {
+                const currentYear = new Date().getFullYear();
+                // Default range: 10 years back to 1 year forward
+                for (let y = currentYear + 1; y >= currentYear - 10; y--) {
+                    years.push(y);
+                }
+            }
+
+            const analyticsYear = document.getElementById('analyticsYear');
+            const compareYear = document.getElementById('analyticsCompareYear');
+            const fromYear = document.getElementById('historyFromYear');
+            const toYear = document.getElementById('historyToYear');
+
+            // Clear existing options first
+            if (analyticsYear) analyticsYear.innerHTML = '';
+            if (compareYear) compareYear.innerHTML = '<option value="">No Comparison</option>';
+            if (fromYear) fromYear.innerHTML = '';
+            if (toYear) toYear.innerHTML = '';
+
+            const currentYear = new Date().getFullYear();
+            
+            years.forEach((year, idx) => {
+                if (analyticsYear) {
+                    const opt = document.createElement('option');
+                    opt.value = year;
+                    opt.textContent = year;
+                    if (year === currentYear) opt.selected = true;
+                    analyticsYear.appendChild(opt);
+                }
+                if (compareYear) {
+                    const opt = document.createElement('option');
+                    opt.value = year;
+                    opt.textContent = year;
+                    compareYear.appendChild(opt);
+                }
+                if (fromYear) {
+                    const opt = document.createElement('option');
+                    opt.value = year;
+                    opt.textContent = year;
+                    // Select the earliest year for "from"
+                    if (idx === years.length - 1) opt.selected = true;
+                    fromYear.appendChild(opt);
+                }
+                if (toYear) {
+                    const opt = document.createElement('option');
+                    opt.value = year;
+                    opt.textContent = year;
+                    // Select current year for "to"
+                    if (year === currentYear) opt.selected = true;
+                    toYear.appendChild(opt);
+                }
+            });
+
+            // Populate marketer dropdown
+            await populateMarketerDropdown();
+            
+        } catch (err) {
+            console.error('Failed to populate year dropdowns:', err);
+            // Fallback to static generation
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            for (let y = currentYear + 1; y >= currentYear - 10; y--) {
+                years.push(y);
+            }
+            
+            const analyticsYear = document.getElementById('analyticsYear');
+            if (analyticsYear) {
+                years.forEach(year => {
+                    const opt = document.createElement('option');
+                    opt.value = year;
+                    opt.textContent = year;
+                    if (year === currentYear) opt.selected = true;
+                    analyticsYear.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    // Populate marketer dropdown from API
+    async function populateMarketerDropdown() {
+        try {
+            const response = await fetch('/api/marketers/');
+            if (!response.ok) return;
+            const data = await response.json();
+            const marketers = data.marketers || [];
+            
+            const dropdown = document.getElementById('historyMarketer');
+            if (dropdown) {
+                marketers.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.full_name;
+                    dropdown.appendChild(opt);
+                });
+            }
+        } catch (err) {
+            console.error('Failed to load marketers:', err);
+        }
+    }
+
+    // Initialize Analytics
+    function initAnalytics() {
+        if (!isLoadingAnalytics) {
+            loadAnalyticsData();
+        }
+    }
+
+    // Load Analytics Data
+    async function loadAnalyticsData() {
+        if (isLoadingAnalytics) return;
+        isLoadingAnalytics = true;
+        
+        const periodType = document.getElementById('analyticsPeriodType')?.value || 'annual';
+        const year = document.getElementById('analyticsYear')?.value || new Date().getFullYear();
+        const compareYear = document.getElementById('analyticsCompareYear')?.value || '';
+        
+        // Show loading state on Apply button
+        const applyBtn = document.getElementById('analyticsApplyBtn');
+        const refreshBtn = document.getElementById('analyticsRefreshBtn');
+        const originalApplyText = applyBtn?.innerHTML || '';
+        const originalRefreshText = refreshBtn?.innerHTML || '';
+        
+        if (applyBtn) {
+            applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+            applyBtn.disabled = true;
+        }
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            refreshBtn.disabled = true;
+        }
+
+        try {
+            // Destroy all existing charts first
+            revenueTrendChart = destroyChart(revenueTrendChart);
+            performanceDistChart = destroyChart(performanceDistChart);
+            monthlyBreakdownChart = destroyChart(monthlyBreakdownChart);
+            forecastChart = destroyChart(forecastChart);
+            growthVelocityChart = destroyChart(growthVelocityChart);
+            seasonalPatternChart = destroyChart(seasonalPatternChart);
+            
+            // Fetch current period data
+            const periods = generatePeriods(periodType, year);
+            let allData = [];
+
+            for (const period of periods) {
+                const response = await fetch(`/api/performance-data/?period_type=${periodType}&specific_period=${period}`);
+                if (response.ok) {
+                    const result = await response.json();
+                    const perfData = result.performance_data || result || [];
+                    perfData.forEach(item => {
+                        item.period = period;
+                        item.period_type = periodType;
+                    });
+                    allData = allData.concat(perfData);
+                }
+            }
+
+            analyticsData.currentPeriod = allData;
+
+            // Fetch comparison period data if selected
+            if (compareYear) {
+                const comparePeriods = generatePeriods(periodType, compareYear);
+                let compareData = [];
+
+                for (const period of comparePeriods) {
+                    const response = await fetch(`/api/performance-data/?period_type=${periodType}&specific_period=${period}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        const perfData = result.performance_data || result || [];
+                        perfData.forEach(item => {
+                            item.period = period;
+                            item.period_type = periodType;
+                        });
+                        compareData = compareData.concat(perfData);
+                    }
+                }
+                analyticsData.previousPeriod = compareData;
+            }
+
+            // Update all analytics displays
+            updateKPIs();
+            renderCharts();
+            renderTopPerformers();
+            generateRecommendations();
+            
+            showNotification(`Analytics loaded for ${year} (${periodType})`, 'success');
+
+        } catch (err) {
+            console.error('Failed to load analytics data:', err);
+            showNotification('Failed to load analytics data. Please try again.', 'warning');
+        } finally {
+            isLoadingAnalytics = false;
+            // Restore button states
+            if (applyBtn) {
+                applyBtn.innerHTML = originalApplyText;
+                applyBtn.disabled = false;
+            }
+            if (refreshBtn) {
+                refreshBtn.innerHTML = originalRefreshText;
+                refreshBtn.disabled = false;
+            }
+        }
+    }
+
+    // Generate periods based on type and year
+    function generatePeriods(periodType, year) {
+        const periods = [];
+        if (periodType === 'monthly') {
+            for (let m = 1; m <= 12; m++) {
+                periods.push(`${year}-${String(m).padStart(2, '0')}`);
+            }
+        } else if (periodType === 'quarterly') {
+            for (let q = 1; q <= 4; q++) {
+                periods.push(`${year}-Q${q}`);
+            }
+        } else {
+            periods.push(String(year));
+        }
+        return periods;
+    }
+
+    // Update KPI cards
+    function updateKPIs() {
+        const data = analyticsData.currentPeriod;
+        const prevData = analyticsData.previousPeriod;
+
+        // Calculate totals
+        const totalRevenue = data.reduce((sum, item) => sum + (item.total_sales || 0), 0);
+        const totalDeals = data.reduce((sum, item) => sum + (item.closed_deals || 0), 0);
+        const uniqueMarketers = [...new Set(data.filter(d => d.total_sales > 0).map(d => d.marketer_id))].length;
+        
+        // Calculate target achievement
+        const totalTarget = data.reduce((sum, item) => sum + (item.target_amount || 0), 0);
+        const targetAchievement = totalTarget > 0 ? Math.round((totalRevenue / totalTarget) * 100) : 0;
+
+        // Update KPI elements
+        document.getElementById('totalRevenueKPI').textContent = `₦${formatNumber(totalRevenue)}`;
+        document.getElementById('closedDealsKPI').textContent = totalDeals.toLocaleString();
+        document.getElementById('activeMarketersKPI').textContent = uniqueMarketers;
+        document.getElementById('targetAchievementKPI').textContent = `${targetAchievement}%`;
+
+        // Calculate and display changes
+        if (prevData.length > 0) {
+            const prevRevenue = prevData.reduce((sum, item) => sum + (item.total_sales || 0), 0);
+            const prevDeals = prevData.reduce((sum, item) => sum + (item.closed_deals || 0), 0);
+            const prevMarketers = [...new Set(prevData.filter(d => d.total_sales > 0).map(d => d.marketer_id))].length;
+
+            updateChangeIndicator('revenueChange', totalRevenue, prevRevenue);
+            updateChangeIndicator('dealsChange', totalDeals, prevDeals);
+            updateChangeIndicator('marketersChange', uniqueMarketers, prevMarketers);
+        }
+
+        // Update forecasts
+        updateForecasts(totalRevenue);
+    }
+
+    // Update change indicator
+    function updateChangeIndicator(elementId, current, previous) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+
+        const change = previous > 0 ? Math.round(((current - previous) / previous) * 100) : 0;
+        const isPositive = change >= 0;
+
+        element.className = `kpi-change ${isPositive ? 'positive' : 'negative'}`;
+        element.innerHTML = `<i class="bi bi-arrow-${isPositive ? 'up' : 'down'}"></i> ${isPositive ? '+' : ''}${change}%`;
+    }
+
+    // Update forecast values
+    function updateForecasts(currentRevenue) {
+        const optimistic = currentRevenue * 1.25;
+        const realistic = currentRevenue * 1.15;
+        const conservative = currentRevenue * 1.05;
+
+        document.getElementById('forecastOptimistic').textContent = `₦${formatNumber(optimistic)}`;
+        document.getElementById('forecastRealistic').textContent = `₦${formatNumber(realistic)}`;
+        document.getElementById('forecastConservative').textContent = `₦${formatNumber(conservative)}`;
+    }
+
+    // Render all charts
+    function renderCharts() {
+        renderRevenueTrendChart();
+        renderPerformanceDistChart();
+        renderMonthlyBreakdownChart();
+        renderForecastChart();
+        renderGrowthVelocityChart();
+        renderSeasonalPatternChart();
+    }
+
+    // Revenue Trend Chart
+    function renderRevenueTrendChart() {
+        const ctx = document.getElementById('revenueTrendChart');
+        if (!ctx) return;
+
+        const data = analyticsData.currentPeriod;
+        const periodData = aggregateByPeriod(data);
+
+        revenueTrendChart = destroyChart(revenueTrendChart);
+
+        revenueTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: periodData.labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: periodData.values,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `₦${formatNumber(ctx.raw)}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => `₦${formatNumber(value)}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Update Revenue Trend Chart type
+    function updateRevenueTrendChart(chartType) {
+        if (!revenueTrendChart) return;
+        revenueTrendChart.config.type = chartType === 'bar' ? 'bar' : 'line';
+        revenueTrendChart.update();
+    }
+
+    // Performance Distribution Chart
+    function renderPerformanceDistChart() {
+        const ctx = document.getElementById('performanceDistChart');
+        if (!ctx) return;
+
+        const data = analyticsData.currentPeriod;
+        
+        const aboveTarget = data.filter(d => d.target_percent >= 100).length;
+        const onTrack = data.filter(d => d.target_percent >= 70 && d.target_percent < 100).length;
+        const belowTarget = data.filter(d => d.target_percent < 70 && d.total_sales > 0).length;
+        const noSales = data.filter(d => !d.total_sales || d.total_sales === 0).length;
+
+        performanceDistChart = destroyChart(performanceDistChart);
+
+        performanceDistChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Above Target', 'On Track', 'Below Target', 'No Sales'],
+                datasets: [{
+                    data: [aboveTarget, onTrack, belowTarget, noSales],
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Monthly Breakdown Chart
+    function renderMonthlyBreakdownChart() {
+        const ctx = document.getElementById('monthlyBreakdownChart');
+        if (!ctx) return;
+
+        const data = analyticsData.currentPeriod;
+        const periodData = aggregateByPeriod(data);
+
+        monthlyBreakdownChart = destroyChart(monthlyBreakdownChart);
+
+        monthlyBreakdownChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: periodData.labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: periodData.values,
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (v) => `₦${formatNumber(v)}` }
+                    }
+                }
+            }
+        });
+    }
+
+    // Forecast Chart
+    function renderForecastChart() {
+        const ctx = document.getElementById('forecastChart');
+        if (!ctx) return;
+
+        const currentData = aggregateByPeriod(analyticsData.currentPeriod);
+        const avgGrowth = calculateAverageGrowth(currentData.values);
+
+        // Generate forecast for next 6 periods
+        const lastValue = currentData.values[currentData.values.length - 1] || 0;
+        const forecastLabels = [];
+        const forecastValues = [];
+        const lowerBound = [];
+        const upperBound = [];
+
+        for (let i = 1; i <= 6; i++) {
+            forecastLabels.push(`+${i} Month`);
+            const forecast = lastValue * Math.pow(1 + avgGrowth, i);
+            forecastValues.push(forecast);
+            lowerBound.push(forecast * 0.85);
+            upperBound.push(forecast * 1.15);
+        }
+
+        forecastChart = destroyChart(forecastChart);
+
+        forecastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: forecastLabels,
+                datasets: [
+                    {
+                        label: 'Forecast',
+                        data: forecastValues,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: false,
+                        borderDash: [5, 5],
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Upper Bound',
+                        data: upperBound,
+                        borderColor: 'rgba(16, 185, 129, 0.5)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: '+1',
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Lower Bound',
+                        data: lowerBound,
+                        borderColor: 'rgba(239, 68, 68, 0.5)',
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (v) => `₦${formatNumber(v)}` }
+                    }
+                }
+            }
+        });
+    }
+
+    // Growth Velocity Chart
+    function renderGrowthVelocityChart() {
+        const ctx = document.getElementById('growthVelocityChart');
+        if (!ctx) return;
+
+        const data = aggregateByPeriod(analyticsData.currentPeriod);
+        const growthRates = [];
+        
+        for (let i = 1; i < data.values.length; i++) {
+            const prev = data.values[i - 1];
+            const curr = data.values[i];
+            const rate = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+            growthRates.push(Math.round(rate));
+        }
+
+        growthVelocityChart = destroyChart(growthVelocityChart);
+
+        growthVelocityChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels.slice(1),
+                datasets: [{
+                    label: 'Growth Rate (%)',
+                    data: growthRates,
+                    backgroundColor: growthRates.map(r => r >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        ticks: { callback: (v) => `${v}%` }
+                    }
+                }
+            }
+        });
+    }
+
+    // Seasonal Pattern Chart
+    function renderSeasonalPatternChart() {
+        const ctx = document.getElementById('seasonalPatternChart');
+        if (!ctx) return;
+
+        // Aggregate data by month across all years
+        const monthlyTotals = {};
+        analyticsData.currentPeriod.forEach(item => {
+            if (item.period && item.period.includes('-')) {
+                const month = item.period.split('-')[1];
+                if (!monthlyTotals[month]) monthlyTotals[month] = 0;
+                monthlyTotals[month] += item.total_sales || 0;
+            }
+        });
+
+        const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const values = months.map(m => monthlyTotals[m] || 0);
+
+        seasonalPatternChart = destroyChart(seasonalPatternChart);
+
+        seasonalPatternChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: monthNames,
+                datasets: [{
+                    label: 'Seasonal Revenue',
+                    data: values,
+                    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                    borderColor: '#dc3545',
+                    pointBackgroundColor: '#dc3545'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        ticks: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // Aggregate data by period
+    function aggregateByPeriod(data) {
+        const periodTotals = {};
+        data.forEach(item => {
+            const period = item.period || 'Unknown';
+            if (!periodTotals[period]) periodTotals[period] = 0;
+            periodTotals[period] += item.total_sales || 0;
+        });
+
+        const sorted = Object.entries(periodTotals).sort((a, b) => a[0].localeCompare(b[0]));
+        return {
+            labels: sorted.map(([period]) => formatPeriodLabel(period)),
+            values: sorted.map(([, total]) => total)
+        };
+    }
+
+    // Format period label
+    function formatPeriodLabel(period) {
+        if (period.includes('-Q')) {
+            return period.replace('-', ' ');
+        } else if (period.includes('-')) {
+            const [year, month] = period.split('-');
+            const date = new Date(year, parseInt(month) - 1, 1);
+            return date.toLocaleString('default', { month: 'short', year: '2-digit' });
+        }
+        return period;
+    }
+
+    // Calculate average growth
+    function calculateAverageGrowth(values) {
+        if (values.length < 2) return 0.05;
+        let totalGrowth = 0;
+        let count = 0;
+        for (let i = 1; i < values.length; i++) {
+            if (values[i - 1] > 0) {
+                totalGrowth += (values[i] - values[i - 1]) / values[i - 1];
+                count++;
+            }
+        }
+        return count > 0 ? totalGrowth / count : 0.05;
+    }
+
+    // Render Top Performers
+    function renderTopPerformers() {
+        const container = document.getElementById('topPerformersContainer');
+        if (!container) return;
+
+        const data = analyticsData.currentPeriod;
+        
+        // Aggregate by marketer
+        const marketerTotals = {};
+        data.forEach(item => {
+            const id = item.marketer_id;
+            if (!marketerTotals[id]) {
+                marketerTotals[id] = {
+                    name: item.marketer_name,
+                    profile_image: item.profile_image,
+                    totalSales: 0,
+                    totalDeals: 0
+                };
+            }
+            marketerTotals[id].totalSales += item.total_sales || 0;
+            marketerTotals[id].totalDeals += item.closed_deals || 0;
+        });
+
+        const sorted = Object.values(marketerTotals)
+            .filter(m => m.totalSales > 0)
+            .sort((a, b) => b.totalSales - a.totalSales)
+            .slice(0, 5);
+
+        if (sorted.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-muted">No performance data available</div>';
+            return;
+        }
+
+        container.innerHTML = sorted.map((m, idx) => {
+            const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : 'default';
+            // Only show profile image if available, otherwise show initial
+            const avatarHtml = m.profile_image 
+                ? `<img src="${m.profile_image}" alt="${m.name}" class="performer-avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 10px;">`
+                : `<div class="performer-avatar-initial" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; margin-right: 10px;"><span class="text-white fw-bold">${m.name?.charAt(0) || 'M'}</span></div>`;
+            return `
+                <div class="top-performer-item d-flex align-items-center">
+                    <div class="performer-rank ${rankClass}">${idx + 1}</div>
+                    ${avatarHtml}
+                    <div class="performer-info flex-grow-1">
+                        <div class="performer-name">${m.name}</div>
+                        <div class="performer-deals">${m.totalDeals} deals closed</div>
+                    </div>
+                    <div class="performer-sales">₦${formatNumber(m.totalSales)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Generate AI Recommendations
+    function generateRecommendations() {
+        const container = document.getElementById('recommendationsContainer');
+        if (!container) return;
+
+        const data = analyticsData.currentPeriod;
+        const recommendations = [];
+
+        // Analyze data and generate recommendations
+        const marketerTotals = {};
+        data.forEach(item => {
+            const id = item.marketer_id;
+            if (!marketerTotals[id]) {
+                marketerTotals[id] = { name: item.marketer_name, sales: 0, target: 0 };
+            }
+            marketerTotals[id].sales += item.total_sales || 0;
+            marketerTotals[id].target += item.target_amount || 0;
+        });
+
+        const underperformers = Object.values(marketerTotals).filter(m => m.target > 0 && (m.sales / m.target) < 0.5);
+        const topPerformers = Object.values(marketerTotals).filter(m => m.target > 0 && (m.sales / m.target) >= 1);
+
+        // High priority: Underperforming marketers
+        if (underperformers.length > 0) {
+            recommendations.push({
+                priority: 'high',
+                icon: 'bi-exclamation-triangle',
+                title: `${underperformers.length} Marketer${underperformers.length > 1 ? 's' : ''} Below 50% Target`,
+                description: `Schedule performance review meetings with ${underperformers.slice(0, 3).map(m => m.name).join(', ')}${underperformers.length > 3 ? ' and others' : ''} to identify blockers and provide support.`,
+                action: 'Schedule Review'
+            });
+        }
+
+        // Medium priority: Target adjustment
+        const avgAchievement = data.reduce((sum, d) => sum + (d.target_percent || 0), 0) / (data.length || 1);
+        if (avgAchievement > 90) {
+            recommendations.push({
+                priority: 'medium',
+                icon: 'bi-graph-up-arrow',
+                title: 'Consider Increasing Targets',
+                description: `Average target achievement is ${Math.round(avgAchievement)}%. Consider raising targets by 15-20% for the next period to drive growth.`,
+                action: 'Adjust Targets'
+            });
+        }
+
+        // Low priority: Recognize top performers
+        if (topPerformers.length > 0) {
+            recommendations.push({
+                priority: 'low',
+                icon: 'bi-trophy',
+                title: 'Recognize Top Performers',
+                description: `${topPerformers.length} marketer${topPerformers.length > 1 ? 's have' : ' has'} exceeded targets. Consider public recognition or bonus incentives to maintain motivation.`,
+                action: 'Send Recognition'
+            });
+        }
+
+        // Growth opportunity
+        recommendations.push({
+            priority: 'medium',
+            icon: 'bi-lightbulb',
+            title: 'Seasonal Opportunity Detected',
+            description: 'Historical data shows Q4 typically has 25% higher sales. Consider increasing marketing spend and inventory for the upcoming quarter.',
+            action: 'View Analysis'
+        });
+
+        container.innerHTML = recommendations.map(rec => `
+            <div class="col-md-6">
+                <div class="recommendation-card ${rec.priority}-priority">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="recommendation-icon">
+                            <i class="bi ${rec.icon}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-1">${rec.title}</h6>
+                            <p class="text-muted small mb-2">${rec.description}</p>
+                            <button class="btn btn-sm btn-outline-primary recommendation-action-btn" data-action="${rec.action}">
+                                <i class="bi bi-arrow-right-circle me-1"></i>${rec.action}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ==================== HISTORICAL RECORDS ====================
+
+    function initHistoricalRecords() {
+        if (!isLoadingHistorical) {
+            loadHistoricalRecords();
+        }
+    }
+
+    async function loadHistoricalRecords() {
+        if (isLoadingHistorical) return;
+        isLoadingHistorical = true;
+        
+        const fromYear = document.getElementById('historyFromYear')?.value || new Date().getFullYear() - 2;
+        const toYear = document.getElementById('historyToYear')?.value || new Date().getFullYear();
+        const periodType = document.getElementById('historyPeriodType')?.value || 'monthly';
+        const marketerId = document.getElementById('historyMarketer')?.value || 'all';
+        const status = document.getElementById('historyStatus')?.value || 'all';
+        
+        // Show loading state
+        const applyBtn = document.getElementById('historyApplyBtn');
+        const originalBtnText = applyBtn?.innerHTML || '';
+        if (applyBtn) {
+            applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+            applyBtn.disabled = true;
+        }
+
+        try {
+            // Destroy the YoY chart before loading new data
+            yoyComparisonChart = destroyChart(yoyComparisonChart);
+            
+            historicalRecords = [];
+            
+            // Calculate total periods for progress
+            const totalYears = parseInt(toYear) - parseInt(fromYear) + 1;
+            let processedYears = 0;
+            
+            // Fetch data for each year in range
+            for (let year = parseInt(fromYear); year <= parseInt(toYear); year++) {
+                const periods = generatePeriods(periodType, year);
+                
+                for (const period of periods) {
+                    const response = await fetch(`/api/performance-data/?period_type=${periodType}&specific_period=${period}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        let perfData = result.performance_data || result || [];
+                        
+                        // Filter by marketer if specified
+                        if (marketerId !== 'all') {
+                            perfData = perfData.filter(d => String(d.marketer_id) === String(marketerId));
+                        }
+                        
+                        perfData.forEach(item => {
+                            item.period = period;
+                            item.period_type = periodType;
+                        });
+                        
+                        historicalRecords = historicalRecords.concat(perfData);
+                    }
+                }
+                
+                processedYears++;
+                // Update progress
+                if (applyBtn) {
+                    const progress = Math.round((processedYears / totalYears) * 100);
+                    applyBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${progress}%`;
+                }
+            }
+
+            // Store all records before status filtering (for dynamic re-filtering)
+            allHistoricalRecords = [...historicalRecords];
+
+            // Filter by status if specified
+            if (status !== 'all') {
+                historicalRecords = historicalRecords.filter(record => {
+                    const achievement = record.target_amount > 0 ? (record.total_sales / record.target_amount) * 100 : 0;
+                    if (status === 'above_target') return achievement >= 100;
+                    if (status === 'on_track') return achievement >= 70 && achievement < 100;
+                    if (status === 'below_target') return achievement < 70;
+                    return true;
+                });
+            }
+
+            // Update summary cards
+            updateHistoricalSummary();
+            
+            // Render table
+            currentPage = 1;
+            renderHistoricalTable();
+            
+            // Render YoY comparison chart
+            renderYoYComparisonChart();
+            
+            showNotification(`Loaded ${historicalRecords.length} records from ${fromYear} to ${toYear}`, 'success');
+
+        } catch (err) {
+            console.error('Failed to load historical records:', err);
+            showNotification('Failed to load historical records. Please try again.', 'warning');
+        } finally {
+            isLoadingHistorical = false;
+            // Restore button state
+            if (applyBtn) {
+                applyBtn.innerHTML = originalBtnText;
+                applyBtn.disabled = false;
+            }
+        }
+    }
+
+    function updateHistoricalSummary() {
+        document.getElementById('totalRecordsCount').textContent = historicalRecords.length.toLocaleString();
+        
+        const fromYear = document.getElementById('historyFromYear')?.value || '';
+        const toYear = document.getElementById('historyToYear')?.value || '';
+        document.getElementById('dateRangeDisplay').textContent = fromYear === toYear ? fromYear : `${fromYear}-${toYear}`;
+        
+        const totalRevenue = historicalRecords.reduce((sum, r) => sum + (r.total_sales || 0), 0);
+        document.getElementById('periodRevenueDisplay').textContent = `₦${formatNumber(totalRevenue)}`;
+        
+        const avgCommission = historicalRecords.length > 0
+            ? historicalRecords.reduce((sum, r) => sum + (r.commission_rate || 0), 0) / historicalRecords.length
+            : 0;
+        document.getElementById('avgCommissionDisplay').textContent = `${avgCommission.toFixed(1)}%`;
+    }
+
+    // Store all records before status filtering (for dynamic re-filtering)
+    let allHistoricalRecords = [];
+    
+    // Apply status filter dynamically without API call
+    function applyStatusFilter() {
+        const status = document.getElementById('historyStatus')?.value || 'all';
+        
+        if (status === 'all') {
+            historicalRecords = [...allHistoricalRecords];
+        } else {
+            historicalRecords = allHistoricalRecords.filter(record => {
+                const achievement = record.target_amount > 0 ? (record.total_sales / record.target_amount) * 100 : 0;
+                if (status === 'above_target') return achievement >= 100;
+                if (status === 'on_track') return achievement >= 70 && achievement < 100;
+                if (status === 'below_target') return achievement < 70;
+                return true;
+            });
+        }
+        
+        // Update summary cards
+        updateHistoricalSummary();
+        
+        // Re-render table with filtered data
+        currentPage = 1;
+        renderHistoricalTable();
+        
+        // Update YoY chart with filtered data
+        renderYoYComparisonChart();
+        
+        // Show status label
+        const statusLabels = {
+            'all': 'All Records',
+            'above_target': 'Above Target',
+            'on_track': 'On Track',
+            'below_target': 'Below Target'
+        };
+        showNotification(`Showing ${historicalRecords.length} of ${allHistoricalRecords.length} records - ${statusLabels[status] || status}`, 'info');
+    }
+
+    function renderHistoricalTable() {
+        const tbody = document.getElementById('historicalRecordsBody');
+        if (!tbody) return;
+
+        // Sort records
+        const sorted = [...historicalRecords].sort((a, b) => {
+            let aVal = a[sortColumn];
+            let bVal = b[sortColumn];
+            
+            if (sortColumn === 'sales') { aVal = a.total_sales; bVal = b.total_sales; }
+            if (sortColumn === 'deals') { aVal = a.closed_deals; bVal = b.closed_deals; }
+            if (sortColumn === 'commission') { aVal = a.commission_earned; bVal = b.commission_earned; }
+            if (sortColumn === 'marketer') { aVal = a.marketer_name; bVal = b.marketer_name; }
+            
+            if (typeof aVal === 'string') {
+                return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }
+            return sortDirection === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0);
+        });
+
+        // Paginate
+        const start = (currentPage - 1) * recordsPerPage;
+        const end = start + recordsPerPage;
+        const pageRecords = sorted.slice(start, end);
+
+        if (pageRecords.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">No records found for the selected criteria</td></tr>';
+            document.getElementById('recordsPagination').textContent = 'Showing 0 records';
+            document.getElementById('paginationControls').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = pageRecords.map(record => {
+            const hasData = record.total_sales > 0 || record.closed_deals > 0;
+            
+            // Calculate target status - same logic as section3_marketers_performance.html
+            let statusBadge = '';
+            
+            if (record.target_amount > 0 && hasData) {
+                const targetPercent = Math.round((record.total_sales / record.target_amount) * 100) || 0;
+                
+                if (targetPercent >= 100) {
+                    const above = targetPercent - 100;
+                    if (above === 0) {
+                        statusBadge = '<span class="badge bg-primary">Target Achieved</span>';
+                    } else if (above <= 10) {
+                        statusBadge = `<span class="badge bg-success">${above}% Above</span>`;
+                    } else if (above <= 25) {
+                        statusBadge = `<span class="badge bg-teal">${above}% Above</span>`;
+                    } else if (above <= 50) {
+                        statusBadge = `<span class="badge bg-indigo">${above}% Above</span>`;
+                    } else {
+                        statusBadge = `<span class="badge bg-purple">${above}% Above</span>`;
+                    }
+                } else {
+                    const below = 100 - targetPercent;
+                    if (below <= 10) {
+                        statusBadge = `<span class="badge bg-warning text-dark">${below}% Below</span>`;
+                    } else if (below <= 25) {
+                        statusBadge = `<span class="badge bg-orange">${below}% Below</span>`;
+                    } else if (below <= 50) {
+                        statusBadge = `<span class="badge bg-coral">${below}% Below</span>`;
+                    } else {
+                        statusBadge = `<span class="badge bg-danger">${below}% Below</span>`;
+                    }
+                }
+            } else if (record.target_amount > 0 && !hasData) {
+                statusBadge = '<span class="badge bg-secondary">No Sales Yet</span>';
+            } else {
+                statusBadge = '<span class="badge bg-secondary">No Target Set</span>';
+            }
+            
+            // Marketer cell with optional profile image
+            const marketerCell = record.profile_image 
+                ? `<div class="d-flex align-items-center"><img src="${record.profile_image}" alt="${record.marketer_name}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px;">${record.marketer_name}</div>`
+                : record.marketer_name;
+
+            return `
+                <tr>
+                    <td><strong>${formatPeriodLabel(record.period)}</strong></td>
+                    <td>${marketerCell}</td>
+                    <td>${record.closed_deals || 0}</td>
+                    <td class="fw-bold">₦${formatNumber(record.total_sales || 0)}</td>
+                    <td>${record.commission_rate || 0}%</td>
+                    <td class="text-success">₦${formatNumber(record.commission_earned || 0)}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewRecordDetails(${record.marketer_id}, '${record.period}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Update pagination
+        document.getElementById('recordsPagination').textContent = 
+            `Showing ${start + 1}-${Math.min(end, sorted.length)} of ${sorted.length} records`;
+
+        // Render pagination controls
+        const totalPages = Math.ceil(sorted.length / recordsPerPage);
+        const paginationHtml = [];
+        
+        paginationHtml.push(`<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">«</a>
+        </li>`);
+        
+        for (let p = 1; p <= totalPages; p++) {
+            if (p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)) {
+                paginationHtml.push(`<li class="page-item ${p === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${p}); return false;">${p}</a>
+                </li>`);
+            } else if (p === currentPage - 3 || p === currentPage + 3) {
+                paginationHtml.push('<li class="page-item disabled"><span class="page-link">...</span></li>');
+            }
+        }
+        
+        paginationHtml.push(`<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">»</a>
+        </li>`);
+        
+        document.getElementById('paginationControls').innerHTML = paginationHtml.join('');
+    }
+
+    // Global function for pagination
+    window.changePage = function(page) {
+        const totalPages = Math.ceil(historicalRecords.length / recordsPerPage);
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            renderHistoricalTable();
+        }
+    };
+
+    // YoY Comparison Chart
+    function renderYoYComparisonChart() {
+        const ctx = document.getElementById('yoyComparisonChart');
+        if (!ctx) return;
+
+        // Group by year
+        const yearTotals = {};
+        historicalRecords.forEach(record => {
+            const year = record.period?.split('-')[0] || 'Unknown';
+            if (!yearTotals[year]) yearTotals[year] = 0;
+            yearTotals[year] += record.total_sales || 0;
+        });
+
+        const sorted = Object.entries(yearTotals).sort((a, b) => a[0].localeCompare(b[0]));
+
+        yoyComparisonChart = destroyChart(yoyComparisonChart);
+
+        yoyComparisonChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sorted.map(([year]) => year),
+                datasets: [{
+                    label: 'Annual Revenue',
+                    data: sorted.map(([, total]) => total),
+                    backgroundColor: sorted.map((_, i) => 
+                        `rgba(17, 153, 142, ${0.5 + (i * 0.1)})`
+                    ),
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (v) => `₦${formatNumber(v)}` }
+                    }
+                }
+            }
+        });
+    }
+
+    function toggleYoYComparison() {
+        const container = document.getElementById('yoyComparisonContainer');
+        const toggle = document.getElementById('yoyComparisonToggle');
+        if (container) {
+            container.style.display = toggle?.checked ? 'block' : 'none';
+        }
+    }
+
+    // Export functions
+    function exportHistoricalData(format) {
+        if (!historicalRecords.length) {
+            alert('No data to export');
+            return;
+        }
+
+        const fromYear = document.getElementById('historyFromYear')?.value || '';
+        const toYear = document.getElementById('historyToYear')?.value || '';
+        const filename = `historical_records_${fromYear}_${toYear}`;
+
+        if (format === 'csv') {
+            let csv = 'Period,Marketer,Closed Deals,Total Sales,Commission %,Commission Earned,Target Status\n';
+            historicalRecords.forEach(r => {
+                const status = getTargetStatus(r);
+                csv += `"${r.period}","${r.marketer_name}",${r.closed_deals || 0},${r.total_sales || 0},${r.commission_rate || 0},${r.commission_earned || 0},"${status}"\n`;
+            });
+            downloadFile(csv, `${filename}.csv`, 'text/csv');
+        } else if (format === 'excel' && typeof XLSX !== 'undefined') {
+            const wsData = [['Period', 'Marketer', 'Closed Deals', 'Total Sales', 'Commission %', 'Commission Earned', 'Target Status']];
+            historicalRecords.forEach(r => {
+                wsData.push([r.period, r.marketer_name, r.closed_deals || 0, r.total_sales || 0, r.commission_rate || 0, r.commission_earned || 0, getTargetStatus(r)]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Records');
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+        } else if (format === 'pdf' && typeof jspdf !== 'undefined') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(`Historical Records (${fromYear}-${toYear})`, 14, 15);
+            doc.autoTable({
+                head: [['Period', 'Marketer', 'Deals', 'Sales', 'Comm %', 'Earned', 'Status']],
+                body: historicalRecords.slice(0, 50).map(r => [
+                    r.period, r.marketer_name, r.closed_deals || 0, 
+                    `₦${formatNumber(r.total_sales || 0)}`, `${r.commission_rate || 0}%`,
+                    `₦${formatNumber(r.commission_earned || 0)}`, getTargetStatus(r)
+                ]),
+                startY: 25,
+                styles: { fontSize: 8 }
+            });
+            doc.save(`${filename}.pdf`);
+        }
+    }
+
+    function getTargetStatus(record) {
+        const hasData = record.total_sales > 0 || record.closed_deals > 0;
+        
+        if (record.target_amount > 0 && hasData) {
+            const targetPercent = Math.round((record.total_sales / record.target_amount) * 100) || 0;
+            
+            if (targetPercent >= 100) {
+                const above = targetPercent - 100;
+                if (above === 0) return 'Target Achieved';
+                return `${above}% Above Target`;
+            } else {
+                const below = 100 - targetPercent;
+                return `${below}% Below Target`;
+            }
+        } else if (record.target_amount > 0 && !hasData) {
+            return 'No Sales Yet';
+        }
+        return 'No Target Set';
+    }
+
+    function downloadFile(content, filename, type) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // View record details - shows a modal or navigates to details page
+    window.viewRecordDetails = function(marketerId, period) {
+        // Find the record
+        const record = historicalRecords.find(r => r.marketer_id === marketerId && r.period === period);
+        if (!record) {
+            showNotification('Record not found', 'warning');
+            return;
+        }
+        
+        // Create and show a details modal
+        const hasData = record.total_sales > 0 || record.closed_deals > 0;
+        const achievement = record.target_amount > 0 
+            ? Math.round((record.total_sales / record.target_amount) * 100) 
+            : 0;
+        
+        // Calculate status class and text - matching section3_marketers_performance.html
+        let statusClass = 'secondary';
+        let statusText = 'No Target Set';
+        
+        if (record.target_amount > 0 && hasData) {
+            const targetPercent = achievement;
+            
+            if (targetPercent >= 100) {
+                const above = targetPercent - 100;
+                if (above === 0) {
+                    statusText = 'Target Achieved';
+                    statusClass = 'primary';
+                } else if (above <= 10) {
+                    statusText = `${above}% Above`;
+                    statusClass = 'success';
+                } else if (above <= 25) {
+                    statusText = `${above}% Above`;
+                    statusClass = 'teal';
+                } else if (above <= 50) {
+                    statusText = `${above}% Above`;
+                    statusClass = 'indigo';
+                } else {
+                    statusText = `${above}% Above`;
+                    statusClass = 'purple';
+                }
+            } else {
+                const below = 100 - targetPercent;
+                if (below <= 10) {
+                    statusText = `${below}% Below`;
+                    statusClass = 'warning';
+                } else if (below <= 25) {
+                    statusText = `${below}% Below`;
+                    statusClass = 'orange';
+                } else if (below <= 50) {
+                    statusText = `${below}% Below`;
+                    statusClass = 'coral';
+                } else {
+                    statusText = `${below}% Below`;
+                    statusClass = 'danger';
+                }
+            }
+        } else if (record.target_amount > 0 && !hasData) {
+            statusText = 'No Sales Yet';
+            statusClass = 'secondary';
+        }
+        
+        // Progress bar color
+        const progressColor = statusClass === 'warning' ? '#ffc107' : 
+                              statusClass === 'orange' ? '#fd7e14' : 
+                              statusClass === 'coral' ? '#ff6b6b' : 
+                              statusClass === 'danger' ? '#dc3545' : 
+                              statusClass === 'teal' ? '#20c997' : 
+                              statusClass === 'indigo' ? '#6610f2' : 
+                              statusClass === 'purple' ? '#6f42c1' : 
+                              statusClass === 'success' ? '#28a745' : 
+                              statusClass === 'primary' ? '#0d6efd' : '#6c757d';
+        
+        // Avatar HTML - show profile image if available, otherwise show initial
+        const avatarHtml = record.profile_image 
+            ? `<img src="${record.profile_image}" alt="${record.marketer_name}" class="mx-auto mb-2" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">`
+            : `<div class="avatar-circle mx-auto mb-2" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span class="text-white fw-bold fs-4">${record.marketer_name?.charAt(0) || 'M'}</span></div>`;
+        
+        const modalHtml = `
+            <div class="modal fade" id="recordDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                            <h5 class="modal-title text-white">
+                                <i class="bi bi-file-earmark-bar-graph me-2"></i>Record Details
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="text-center mb-4">
+                                ${avatarHtml}
+                                <h5 class="fw-bold mb-1">${record.marketer_name}</h5>
+                                <span class="badge bg-secondary">${formatPeriodLabel(record.period)}</span>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 bg-light text-center">
+                                        <small class="text-muted d-block">Closed Deals</small>
+                                        <h4 class="mb-0 fw-bold text-primary">${record.closed_deals || 0}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 bg-light text-center">
+                                        <small class="text-muted d-block">Total Sales</small>
+                                        <h4 class="mb-0 fw-bold text-success">₦${formatNumber(record.total_sales || 0)}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 bg-light text-center">
+                                        <small class="text-muted d-block">Commission Rate</small>
+                                        <h4 class="mb-0 fw-bold">${record.commission_rate || 0}%</h4>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 rounded-3 bg-light text-center">
+                                        <small class="text-muted d-block">Commission Earned</small>
+                                        <h4 class="mb-0 fw-bold text-info">₦${formatNumber(record.commission_earned || 0)}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="p-3 rounded-3 bg-light">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="text-muted">Target Achievement</small>
+                                            <span class="badge bg-${statusClass}">${statusText}</span>
+                                        </div>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar" style="width: ${Math.min(achievement, 100)}%; background-color: ${progressColor};"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <small class="text-muted">₦${formatNumber(record.total_sales || 0)}</small>
+                                            <small class="text-muted fw-bold">${achievement}%</small>
+                                            <small class="text-muted">₦${formatNumber(record.target_amount || 0)}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('analytics-tab')?.click(); bootstrap.Modal.getInstance(document.getElementById('recordDetailsModal')).hide();">
+                                <i class="bi bi-graph-up me-1"></i>View Analytics
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        document.getElementById('recordDetailsModal')?.remove();
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('recordDetailsModal'));
+        modal.show();
+        
+        // Cleanup when hidden
+        document.getElementById('recordDetailsModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    };
+
+    // Bulk export function
+    function bulkExportHistoricalData() {
+        if (!historicalRecords.length) {
+            showNotification('No data to export. Please load records first.', 'warning');
+            return;
+        }
+        
+        // Show export format selection
+        const formatHtml = `
+            <div class="modal fade" id="bulkExportModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                            <h5 class="modal-title text-white">
+                                <i class="bi bi-download me-2"></i>Export Data
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">Choose export format:</p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" onclick="exportHistoricalData('csv'); bootstrap.Modal.getInstance(document.getElementById('bulkExportModal')).hide();">
+                                    <i class="bi bi-filetype-csv me-2"></i>CSV Format
+                                </button>
+                                <button class="btn btn-outline-success" onclick="exportHistoricalData('excel'); bootstrap.Modal.getInstance(document.getElementById('bulkExportModal')).hide();">
+                                    <i class="bi bi-file-earmark-excel me-2"></i>Excel Format
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="exportHistoricalData('pdf'); bootstrap.Modal.getInstance(document.getElementById('bulkExportModal')).hide();">
+                                    <i class="bi bi-filetype-pdf me-2"></i>PDF Format
+                                </button>
+                            </div>
+                            <div class="mt-3 text-center text-muted small">
+                                <i class="bi bi-info-circle me-1"></i>${historicalRecords.length} records will be exported
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        document.getElementById('bulkExportModal')?.remove();
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', formatHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('bulkExportModal'));
+        modal.show();
+    }
+
+    function exportAnalyticsReport() {
+        // Export full analytics as PDF or CSV
+        const year = document.getElementById('analyticsYear')?.value || new Date().getFullYear();
+        const periodType = document.getElementById('analyticsPeriodType')?.value || 'annual';
+        
+        if (!analyticsData.currentPeriod || analyticsData.currentPeriod.length === 0) {
+            showNotification('No analytics data to export. Please apply filters first.', 'warning');
+            return;
+        }
+        
+        // Calculate summary metrics
+        const totalRevenue = analyticsData.currentPeriod.reduce((sum, item) => sum + (item.total_sales || 0), 0);
+        const totalDeals = analyticsData.currentPeriod.reduce((sum, item) => sum + (item.closed_deals || 0), 0);
+        const totalCommission = analyticsData.currentPeriod.reduce((sum, item) => sum + (item.commission_earned || 0), 0);
+        const uniqueMarketers = [...new Set(analyticsData.currentPeriod.map(d => d.marketer_id))].length;
+        
+        // Create CSV export
+        let csv = `Analytics Report - ${year} (${periodType})\n\n`;
+        csv += `Summary Metrics\n`;
+        csv += `Total Revenue,₦${formatNumber(totalRevenue)}\n`;
+        csv += `Total Deals,${totalDeals}\n`;
+        csv += `Total Commission,₦${formatNumber(totalCommission)}\n`;
+        csv += `Active Marketers,${uniqueMarketers}\n\n`;
+        csv += `Detailed Data\n`;
+        csv += `Period,Marketer,Closed Deals,Total Sales,Commission Rate,Commission Earned,Target Amount,Target %\n`;
+        
+        analyticsData.currentPeriod.forEach(r => {
+            csv += `"${r.period || ''}","${r.marketer_name || ''}",${r.closed_deals || 0},${r.total_sales || 0},${r.commission_rate || 0},${r.commission_earned || 0},${r.target_amount || 0},${r.target_percent || 0}\n`;
+        });
+        
+        downloadFile(csv, `analytics_report_${year}_${periodType}.csv`, 'text/csv');
+        showNotification('Analytics report exported successfully!', 'success');
+    }
+
+    // Handle recommendation action buttons
+    function handleRecommendationAction(actionText) {
+        switch(actionText) {
+            case 'Schedule Review':
+                // Navigate to scheduling or show modal
+                showNotification('Opening performance review scheduler...', 'info');
+                // Could redirect to a scheduling page or open a modal
+                // window.location.href = '/admin/schedule-review/';
+                break;
+            case 'Adjust Targets':
+                // Navigate to targets page
+                showNotification('Redirecting to target settings...', 'info');
+                // Switch to management tab or open marketer settings
+                document.getElementById('analytics-tab')?.click();
+                break;
+            case 'Send Recognition':
+                // Open messaging modal or page
+                showNotification('Opening recognition message composer...', 'info');
+                // Could trigger messaging functionality
+                break;
+            case 'View Analysis':
+                // Scroll to seasonal patterns chart with highlight effect
+                const seasonalChart = document.getElementById('seasonalPatternChart');
+                if (seasonalChart) {
+                    // Find the parent card
+                    const parentCard = seasonalChart.closest('.card');
+                    
+                    // Scroll to the chart
+                    seasonalChart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Add highlight effect to the card
+                    if (parentCard) {
+                        parentCard.style.transition = 'all 0.3s ease';
+                        parentCard.style.boxShadow = '0 0 20px 5px rgba(102, 126, 234, 0.5)';
+                        parentCard.style.transform = 'scale(1.02)';
+                        
+                        // Remove highlight after 2 seconds
+                        setTimeout(() => {
+                            parentCard.style.boxShadow = '';
+                            parentCard.style.transform = '';
+                        }, 2000);
+                    }
+                    
+                    showNotification('Viewing seasonal patterns analysis', 'success');
+                } else {
+                    showNotification('Seasonal chart not available. Please load analytics data first.', 'warning');
+                }
+                break;
+            default:
+                showNotification(`Action: ${actionText}`, 'info');
+        }
+    }
+
+    // Notification helper
+    function showNotification(message, type = 'info') {
+        // Create a toast notification
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info'} position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; animation: fadeIn 0.3s ease;';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                <span>${message}</span>
+                <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // Utility function
+    function formatNumber(num) {
+        return new Intl.NumberFormat('en-NG', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function showAnalyticsError(message) {
+        console.error(message);
+    }
+
+})();
 </script>
 
 {% endblock %}

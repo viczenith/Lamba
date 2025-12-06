@@ -8813,10 +8813,12 @@ class MarketersAPI(View):
         return JsonResponse(all_marketers, safe=False)
 
 class MarketerPerformanceView(View):
-    template_name = 'dashboard/performance.html'
+    """Redirects to Company Profile with Analytics tab active"""
     
     def get(self, request):
-        return render(request, self.template_name)
+        # Redirect to company profile page with analytics tab
+        from django.shortcuts import redirect
+        return redirect('/company-profile/?tab=analytics')
     
     def post(self, request):
         return JsonResponse({'status': 'error'}, status=400)
@@ -8876,17 +8878,44 @@ class PerformanceDataAPI(View):
             rate               = commission.rate if commission else 0
             commission_earned  = total_sales * rate / 100
 
-            # target lookup: specific → none (COMPANY-SCOPED ONLY)
+            # target lookup: individual marketer target first, then fall back to company-wide target
+            # 1. Try marketer-specific target for this period
             specific_tgt = MarketerTarget.objects.filter(
-                marketer=marketer,  # ✅ Marketer-specific
+                marketer=marketer,  # ✅ Marketer-specific only
                 company=company,    # ✅ Company-scoped
                 period_type=period_type,
                 specific_period=specific_period
             ).first()
-            if specific_tgt:
-                tgt_amt = specific_tgt.target_amount
-            else:
-                tgt_amt = 0  # No global targets - each company has its own targets
+            
+            # 2. If no marketer-specific target, try company-wide target for this period
+            if not specific_tgt:
+                specific_tgt = MarketerTarget.objects.filter(
+                    marketer=None,      # Company-wide target (no specific marketer)
+                    company=company,
+                    period_type=period_type,
+                    specific_period=specific_period
+                ).first()
+            
+            # 3. If still no target, try to get a general annual target for the year
+            if not specific_tgt and specific_period:
+                year = specific_period.split('-')[0] if '-' in specific_period else specific_period
+                # Try marketer-specific annual target
+                specific_tgt = MarketerTarget.objects.filter(
+                    marketer=marketer,
+                    company=company,
+                    period_type='annual',
+                    specific_period=year
+                ).first()
+                # If not, try company-wide annual target
+                if not specific_tgt:
+                    specific_tgt = MarketerTarget.objects.filter(
+                        marketer=None,
+                        company=company,
+                        period_type='annual',
+                        specific_period=year
+                    ).first()
+            
+            tgt_amt = specific_tgt.target_amount if specific_tgt else 0
 
             target_percent = round((total_sales / tgt_amt * 100), 1) if tgt_amt else 0
 
@@ -9021,8 +9050,28 @@ class SetTargetAPI(View):
             )
         else:
             # Set individual marketer target
+            # SECURITY: Check both direct company_profile AND MarketerAffiliation
             try:
-                marketer = MarketerUser.objects.get(id=int(marketer_id), company_profile=company)
+                marketer_id_int = int(marketer_id)
+                
+                # First try direct company_profile match
+                marketer = MarketerUser.objects.filter(
+                    id=marketer_id_int, 
+                    company_profile=company
+                ).first()
+                
+                # If not found, check MarketerAffiliation
+                if not marketer:
+                    affiliation = MarketerAffiliation.objects.filter(
+                        marketer_id=marketer_id_int,
+                        company=company
+                    ).first()
+                    if affiliation:
+                        marketer = affiliation.marketer
+                
+                if not marketer:
+                    return JsonResponse({'status':'error','message':'Invalid marketer ID or not in your company'}, status=400)
+                
                 MarketerTarget.objects.update_or_create(
                     marketer=marketer,
                     company=company,
@@ -9030,7 +9079,7 @@ class SetTargetAPI(View):
                     specific_period=specific_period,
                     defaults={'target_amount': target_amount}
                 )
-            except (MarketerUser.DoesNotExist, ValueError):
+            except ValueError:
                 return JsonResponse({'status':'error','message':'Invalid marketer ID'}, status=400)
 
         return JsonResponse({'status':'success'})
@@ -9057,15 +9106,35 @@ class GetGlobalTargetAPI(View):
             ).first()
         else:
             # Get individual marketer target
+            # SECURITY: Check both direct company_profile AND MarketerAffiliation
             try:
-                marketer = MarketerUser.objects.get(id=int(marketer_id), company_profile=company)
+                marketer_id_int = int(marketer_id)
+                
+                # First try direct company_profile match
+                marketer = MarketerUser.objects.filter(
+                    id=marketer_id_int, 
+                    company_profile=company
+                ).first()
+                
+                # If not found, check MarketerAffiliation
+                if not marketer:
+                    affiliation = MarketerAffiliation.objects.filter(
+                        marketer_id=marketer_id_int,
+                        company=company
+                    ).first()
+                    if affiliation:
+                        marketer = affiliation.marketer
+                
+                if not marketer:
+                    return JsonResponse({'target_amount': None})
+                
                 record = MarketerTarget.objects.filter(
                     marketer=marketer,
                     company=company,
                     period_type=period_type,
                     specific_period=specific_period
                 ).first()
-            except (MarketerUser.DoesNotExist, ValueError):
+            except ValueError:
                 return JsonResponse({'target_amount': None})
 
         return JsonResponse({
@@ -9147,9 +9216,22 @@ class GetCommissionAPI(View):
         except MarketerUser.DoesNotExist:
             return JsonResponse({'status':'error','message':'Marketer not found'}, status=404)
 
+        # SECURITY: Verify marketer is affiliated with the requesting user's company
+        # This prevents unauthorized access to marketer commission data
+        company = request.user.company_profile
+        marketer_in_company = (
+            marketer.company_profile == company or
+            MarketerAffiliation.objects.filter(marketer=marketer, company=company).exists()
+        )
+        
+        if not marketer_in_company:
+            return JsonResponse({'status':'error','message':'Access denied: Marketer not in your company'}, status=403)
+
+        # SECURITY: Use request.user.company_profile to ensure company isolation
+        # This prevents cross-company data leakage when a marketer works for multiple companies
         commission = MarketerCommission.objects.filter(
             marketer=marketer,
-            company=marketer.company_profile  # ✅ Added company filter for isolation
+            company=request.user.company_profile  # ✅ Use requesting user's company for isolation
         ).order_by('-effective_date').first()
 
         if not commission:
@@ -9159,6 +9241,95 @@ class GetCommissionAPI(View):
         return JsonResponse({
             'commission_rate': commission.rate,
             'effective_date': commission.effective_date.isoformat()
+        })
+
+
+class GetAvailableYearsAPI(View):
+    """
+    API to get dynamically available years from the database.
+    Returns years from:
+    1. Transactions (earliest to current year)
+    2. Company creation date
+    3. Performance records
+    This allows companies to view data from any year they have records.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        current_year = timezone.now().year
+        years_set = set()
+        
+        # Always include current year and next year (for planning)
+        years_set.add(current_year)
+        years_set.add(current_year + 1)
+        
+        # 1. Get years from company creation date
+        if company.created_at:
+            company_start_year = company.created_at.year
+            # Add all years from company creation to current
+            for y in range(company_start_year, current_year + 1):
+                years_set.add(y)
+        
+        # 2. Get years from transactions
+        try:
+            transaction_years = Transaction.objects.filter(
+                company=company
+            ).dates('transaction_date', 'year').distinct()
+            
+            for date_obj in transaction_years:
+                years_set.add(date_obj.year)
+        except Exception:
+            pass
+        
+        # 3. Get years from performance records
+        try:
+            from .models import PerformanceRecord
+            performance_periods = PerformanceRecord.objects.filter(
+                marketer__company_profile=company
+            ).values_list('specific_period', flat=True).distinct()
+            
+            for period in performance_periods:
+                if period and '-' in period:
+                    year = int(period.split('-')[0])
+                    years_set.add(year)
+                elif period and period.isdigit():
+                    years_set.add(int(period))
+        except Exception:
+            pass
+        
+        # 4. Get years from targets
+        try:
+            target_periods = MarketerTarget.objects.filter(
+                company=company
+            ).values_list('specific_period', flat=True).distinct()
+            
+            for period in target_periods:
+                if period and '-' in period:
+                    year = int(period.split('-')[0])
+                    years_set.add(year)
+                elif period and period.isdigit():
+                    years_set.add(int(period))
+        except Exception:
+            pass
+        
+        # Sort years descending (most recent first)
+        years_list = sorted(list(years_set), reverse=True)
+        
+        # Also return some metadata
+        earliest_year = min(years_list) if years_list else current_year
+        latest_year = max(years_list) if years_list else current_year
+        
+        return JsonResponse({
+            'years': years_list,
+            'earliest_year': earliest_year,
+            'latest_year': latest_year,
+            'current_year': current_year,
+            'total_years': len(years_list)
         })
 
 
@@ -9174,6 +9345,193 @@ class ExportPerformanceAPI(View):
             'status': 'success',
             'message': f'Exported {period_type} {specific_period} in {format.upper()} format'
         })
+
+
+class SendMarketerMessageAPI(View):
+    """
+    API endpoint to send messages to marketers via Email, SMS, and/or In-App notifications.
+    Supports single marketer, multiple marketers, or bulk sending.
+    SECURITY: Only allows sending to marketers within the admin's company.
+    """
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request):
+        # SECURITY: Verify user is authenticated
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
+        
+        # SECURITY: Verify user is an admin
+        if request.user.role != 'admin':
+            return JsonResponse({'status': 'error', 'message': 'Admin access required'}, status=403)
+        
+        # SECURITY: Verify user has a company profile
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'status': 'error', 'message': 'No company associated with your account'}, status=403)
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+        
+        marketer_id = data.get('marketer_id')  # Single marketer
+        marketer_ids = data.get('marketer_ids', [])  # Multiple marketers
+        recipient_type = data.get('recipient_type', 'single')  # single, no_sales, all
+        subject = data.get('subject', 'Message from Management')
+        message = data.get('message', '')
+        channels = data.get('channels', {})
+        
+        if not message.strip():
+            return JsonResponse({'status': 'error', 'message': 'Message content required'}, status=400)
+        
+        # Import utility functions
+        from adminSupport.utils import send_email_message, send_sms_message, send_inapp_message
+        
+        # Determine which marketers to send to
+        if recipient_type == 'single':
+            if not marketer_id:
+                return JsonResponse({'status': 'error', 'message': 'Marketer ID required'}, status=400)
+            
+            try:
+                marketer = MarketerUser.objects.get(id=int(marketer_id))
+            except (MarketerUser.DoesNotExist, ValueError):
+                return JsonResponse({'status': 'error', 'message': 'Marketer not found'}, status=404)
+            
+            # Check if marketer is in admin's company
+            marketer_in_company = (
+                marketer.company_profile == company or
+                MarketerAffiliation.objects.filter(marketer=marketer, company=company).exists()
+            )
+            
+            if not marketer_in_company:
+                return JsonResponse({'status': 'error', 'message': 'Access denied: Marketer not in your company'}, status=403)
+            
+            # Send to single marketer
+            result = self._send_to_marketer(marketer, subject, message, channels, send_email_message, send_sms_message, send_inapp_message)
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Message sent successfully',
+                'email_sent': result['email_sent'],
+                'sms_sent': result['sms_sent'],
+                'app_sent': result['app_sent'],
+                'errors': result['errors'] if result['errors'] else None
+            })
+        
+        else:
+            # Bulk send to multiple marketers
+            if not marketer_ids:
+                return JsonResponse({'status': 'error', 'message': 'No marketers specified'}, status=400)
+            
+            # Get all marketers in admin's company (filter for security)
+            company_marketer_ids = set()
+            
+            # Direct company profile marketers
+            direct_marketers = MarketerUser.objects.filter(
+                id__in=marketer_ids,
+                company_profile=company
+            ).values_list('id', flat=True)
+            company_marketer_ids.update(direct_marketers)
+            
+            # Affiliated marketers
+            affiliated_marketers = MarketerAffiliation.objects.filter(
+                marketer_id__in=marketer_ids,
+                company=company
+            ).values_list('marketer_id', flat=True)
+            company_marketer_ids.update(affiliated_marketers)
+            
+            # Get the actual marketer objects
+            marketers = MarketerUser.objects.filter(id__in=company_marketer_ids)
+            
+            if not marketers.exists():
+                return JsonResponse({'status': 'error', 'message': 'No valid marketers found'}, status=400)
+            
+            # Send to all marketers
+            total_count = marketers.count()
+            sent_count = 0
+            emails_sent = 0
+            sms_count = 0
+            app_count = 0
+            all_errors = []
+            
+            for marketer in marketers:
+                result = self._send_to_marketer(marketer, subject, message, channels, send_email_message, send_sms_message, send_inapp_message)
+                
+                if result['email_sent'] or result['sms_sent'] or result['app_sent']:
+                    sent_count += 1
+                
+                if result['email_sent']:
+                    emails_sent += 1
+                if result['sms_sent']:
+                    sms_count += 1
+                if result['app_sent']:
+                    app_count += 1
+                
+                if result['errors']:
+                    all_errors.extend(result['errors'])
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Message sent to {sent_count} of {total_count} marketers',
+                'total_count': total_count,
+                'sent_count': sent_count,
+                'emails_sent': emails_sent,
+                'sms_count': sms_count,
+                'app_count': app_count,
+                'errors': all_errors[:10] if all_errors else None  # Limit errors to first 10
+            })
+    
+    def _send_to_marketer(self, marketer, subject, message, channels, send_email_message, send_sms_message, send_inapp_message):
+        """Helper method to send message to a single marketer"""
+        # Personalize message with placeholders
+        first_name = marketer.full_name.split()[0] if marketer.full_name else ''
+        personalized_message = message.replace('{firstName}', first_name)
+        personalized_message = personalized_message.replace('{fullName}', marketer.full_name or '')
+        personalized_message = personalized_message.replace('{email}', marketer.email or '')
+        
+        email_sent = False
+        sms_sent = False
+        app_sent = False
+        errors = []
+        
+        # Send via Email
+        if channels.get('email') and marketer.email:
+            try:
+                success, error = send_email_message(subject, personalized_message, marketer.email)
+                email_sent = success
+                if error:
+                    errors.append(f'{marketer.full_name} - Email: {error}')
+            except Exception as e:
+                errors.append(f'{marketer.full_name} - Email: {str(e)}')
+        
+        # Send via SMS
+        if channels.get('sms') and hasattr(marketer, 'phone') and marketer.phone:
+            try:
+                success, error = send_sms_message(personalized_message, marketer.phone)
+                sms_sent = success
+                if error:
+                    errors.append(f'{marketer.full_name} - SMS: {error}')
+            except Exception as e:
+                errors.append(f'{marketer.full_name} - SMS: {str(e)}')
+        
+        # Send via In-App notification
+        if channels.get('app'):
+            try:
+                success, error = send_inapp_message(personalized_message, marketer)
+                app_sent = success
+                if error:
+                    errors.append(f'{marketer.full_name} - In-App: {error}')
+            except Exception as e:
+                errors.append(f'{marketer.full_name} - In-App: {str(e)}')
+        
+        return {
+            'email_sent': email_sent,
+            'sms_sent': sms_sent,
+            'app_sent': app_sent,
+            'errors': errors
+        }
 
 
 # VALUE REGULATION
