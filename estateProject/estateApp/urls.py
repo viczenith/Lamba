@@ -34,6 +34,7 @@ urlpatterns = [
     # Note: AdminSupport users can ONLY be created by Company Admins (no public registration)
     
     path('company-profile/', company_profile_view, name='company-profile'),
+    path('company-profile/verify/', company_profile_verify_view, name='company-profile-verify'),
     path('company-profile/update/', company_profile_update, name='company-profile-update'),
     path('company-profile/send-engagement-emails/', send_engagement_emails, name='send-engagement-emails'),
     path('company-profile/ceo/<int:ceo_id>/delete/', delete_company_ceo, name='company-ceo-delete'),
@@ -45,6 +46,8 @@ urlpatterns = [
 
 
     path('company-profile/verify-master-password/', verify_master_password, name='verify-master-password'),
+    path('company-profile/toggle-full-control/', toggle_full_control, name='toggle-full-control'),
+    path('company-profile/check-full-control/', check_full_control, name='check-full-control'),
 
 
     path('', login_required(HomeView.as_view()), name="home"),
@@ -293,6 +296,11 @@ urlpatterns = [
     path('marketer-performance/', MarketerPerformanceView.as_view(), name='marketer_performance'),
     path('api/performance-data/', PerformanceDataAPI.as_view(), name='performance_data_api'),
     path('api/available-years/', GetAvailableYearsAPI.as_view(), name='available_years_api'),
+    path('api/payment-health/', PaymentHealthAPI.as_view(), name='payment_health_api'),
+    path('api/transaction-export-filters/', TransactionExportFiltersAPI.as_view(), name='transaction_export_filters_api'),
+    path('api/transaction-export-count/', TransactionExportCountAPI.as_view(), name='transaction_export_count_api'),
+    path('api/transaction-export-preview/', TransactionExportPreviewAPI.as_view(), name='transaction_export_preview_api'),
+    path('api/transaction-export/', TransactionExportAPI.as_view(), name='transaction_export_api'),
     path('api/set-target/', SetTargetAPI.as_view(), name='set_target_api'),
     path('api/get-target/', GetGlobalTargetAPI.as_view(), name='get_target_api'),
     path('api/set-commission/', SetCommissionAPI.as_view(), name='set_commission_api'),

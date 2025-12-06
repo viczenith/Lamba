@@ -997,6 +997,13 @@ class CustomUser(AbstractUser):
     last_login_ip = models.CharField(max_length=45, blank=True, null=True, verbose_name="Last Login IP")
     last_login_location = models.CharField(max_length=255, blank=True, null=True, verbose_name="Last Login Location")
 
+    # Full control permission (allows bypassing master admin password for company profile)
+    has_full_control = models.BooleanField(
+        default=False, 
+        verbose_name="Has Full Control",
+        help_text="When enabled, this admin can access company profile without master admin password verification"
+    )
+
     # Soft delete fields
     is_deleted = models.BooleanField(default=False, verbose_name="Is Deleted")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Deleted At")

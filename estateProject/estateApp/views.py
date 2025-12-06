@@ -3255,6 +3255,57 @@ def message_detail(request, message_id):
     return render(request, 'message_detail.html', {'message': message})
 
 
+def verify_company_profile_access(request, company):
+    """
+    Backend security helper to verify user has proper access to company profile.
+    Returns tuple: (has_access: bool, error_message: str or None)
+    
+    Security checks:
+    1. User must be admin role
+    2. User must belong to the company
+    3. User must either have full_control OR valid session verification
+    """
+    user = request.user
+    
+    # Check 1: Must be admin
+    if getattr(user, 'role', None) != 'admin':
+        return False, 'Access denied: Admin role required'
+    
+    # Check 2: Must belong to this company
+    if user.company_profile != company:
+        return False, 'Access denied: Company mismatch'
+    
+    # Check 3: Master admin always has access
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+    is_master = master_admin and user.id == master_admin.id
+    if is_master:
+        return True, None
+    
+    # Check 4: User with has_full_control=True has access
+    if getattr(user, 'has_full_control', False):
+        return True, None
+    
+    # Check 5: Session-based verification (for users without full control)
+    if request.session.get('company_profile_verified'):
+        verified_at = request.session.get('company_profile_verified_at')
+        verified_company = request.session.get('company_profile_company_id')
+        
+        if verified_at and verified_company == company.id:
+            try:
+                expiry_time = timezone.datetime.fromisoformat(verified_at)
+                if timezone.now() < expiry_time:
+                    return True, None
+                else:
+                    # Session expired
+                    request.session.pop('company_profile_verified', None)
+                    request.session.pop('company_profile_verified_at', None)
+                    request.session.pop('company_profile_company_id', None)
+            except (ValueError, TypeError):
+                pass
+    
+    return False, 'Access denied: Password verification required'
+
+
 @login_required
 def company_profile_view(request):
     """Admin-only page showing the current company's profile and key real estate stats."""
@@ -3262,8 +3313,6 @@ def company_profile_view(request):
     if getattr(user, 'role', None) != 'admin':
         return redirect('home')
 
-    # Support both direct company_profile and query parameter (?company=slug)
-    # Similar to: http://127.0.0.1:8000/client?company=lamba-real-homes
     try:
         company = get_user_company_from_slug(request)
     except HttpResponseForbidden as e:
@@ -3274,6 +3323,35 @@ def company_profile_view(request):
     
     if not company:
         return redirect('home')
+
+    # SECURITY CHECK: Determine if user needs password verification
+    from django.utils import timezone
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+    is_master = bool(master_admin and user.id == master_admin.id)
+    has_full_control = is_master or bool(getattr(user, 'has_full_control', False))
+    
+    # If user doesn't have full control, check session verification
+    if not has_full_control:
+        session_verified = False
+        if request.session.get('company_profile_verified'):
+            verified_at = request.session.get('company_profile_verified_at')
+            verified_company = request.session.get('company_profile_company_id')
+            if verified_at and verified_company == company.id:
+                try:
+                    expiry_time = timezone.datetime.fromisoformat(verified_at)
+                    if timezone.now() < expiry_time:
+                        session_verified = True
+                    else:
+                        # Session expired, clear it
+                        request.session.pop('company_profile_verified', None)
+                        request.session.pop('company_profile_verified_at', None)
+                        request.session.pop('company_profile_company_id', None)
+                except (ValueError, TypeError):
+                    pass
+        
+        # If not verified, redirect to verification page
+        if not session_verified:
+            return redirect('company-profile-verify')
 
     # SECURITY: Filter all metrics by company
     # Basic aggregates for dashboard-style overview
@@ -3564,6 +3642,12 @@ def company_profile_view(request):
     # Determine master admin first
     master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
     master_admin_id = master_admin.id if master_admin else None
+    
+    # Determine if current user is master admin or has full control
+    is_current_user_master = bool(master_admin and user.id == master_admin.id)
+    has_full_control_attr = bool(getattr(user, 'has_full_control', False))
+    user_has_full_control = is_current_user_master or has_full_control_attr
+    
     # Order admin_users with master admin first, then by date_joined
     from django.db.models import Case, When, Value, IntegerField
     admin_users = AdminUser.objects.filter(company_profile=company).annotate(
@@ -3653,6 +3737,8 @@ def company_profile_view(request):
         'app_metrics': app_metrics,
         'total_downloads': total_downloads,
         'master_admin_id': master_admin_id,
+        'is_master_admin': is_current_user_master,
+        'user_has_full_control': user_has_full_control,
         'subscription': subscription,
         # User engagement analytics
         'active_users_30d': active_users_30d,
@@ -3755,10 +3841,80 @@ def send_engagement_emails(request):
 
 
 @login_required
+def company_profile_verify_view(request):
+    """
+    Standalone verification page for company profile access.
+    Non-full-control admins are redirected here to verify with master password.
+    """
+    from django.utils import timezone
+    
+    if request.user.role != 'admin':
+        return redirect('login')
+    
+    company = request.user.company_profile
+    if not company:
+        messages.error(request, 'No company profile found')
+        return redirect('login')
+    
+    # Check if user already has access
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+    is_master = master_admin and request.user.id == master_admin.id
+    has_full_control = is_master or getattr(request.user, 'has_full_control', False)
+    
+    # If user has full control, redirect directly to company profile
+    if has_full_control:
+        return redirect('company-profile')
+    
+    # Check if session is already verified
+    if request.session.get('company_profile_verified'):
+        verified_at = request.session.get('company_profile_verified_at')
+        verified_company = request.session.get('company_profile_company_id')
+        if verified_at and verified_company == company.id:
+            try:
+                expiry_time = timezone.datetime.fromisoformat(verified_at)
+                if timezone.now() < expiry_time:
+                    return redirect('company-profile')
+            except (ValueError, TypeError):
+                pass
+    
+    return render(request, 'admin_side/company_profile_verify.html', {
+        'company': company,
+        'master_admin_email': master_admin.email if master_admin else None,
+    })
+
+
+@login_required
 @require_POST
 def verify_master_password(request):
+    """
+    Verify master admin password and store verification in session.
+    Security features:
+    - Rate limiting: Max 5 attempts per 15 minutes
+    - Session-based verification with 5-minute expiry
+    - Logging of failed attempts
+    """
     if request.user.role != 'admin':
-        return JsonResponse({'ok': False, 'error': 'Unauthorized'})
+        return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=403)
+
+    # Rate limiting check
+    attempt_key = f'password_attempts_{request.user.id}'
+    lockout_key = f'password_lockout_{request.user.id}'
+    
+    # Check if user is locked out
+    lockout_until = request.session.get(lockout_key)
+    if lockout_until:
+        lockout_time = timezone.datetime.fromisoformat(lockout_until)
+        if timezone.now() < lockout_time:
+            remaining = (lockout_time - timezone.now()).seconds // 60
+            return JsonResponse({
+                'ok': False, 
+                'error': f'Too many failed attempts. Try again in {remaining + 1} minutes.',
+                'locked': True
+            }, status=429)
+        else:
+            # Lockout expired, reset
+            request.session.pop(lockout_key, None)
+            request.session.pop(attempt_key, None)
 
     password = request.POST.get('password')
     if not password:
@@ -3766,16 +3922,137 @@ def verify_master_password(request):
 
     company = request.user.company_profile
     if not company:
-        return JsonResponse({'ok': False, 'error': 'No company'})
+        return JsonResponse({'ok': False, 'error': 'No company'}, status=400)
 
     master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
     if not master_admin:
-        return JsonResponse({'ok': False, 'error': 'No master admin'})
+        return JsonResponse({'ok': False, 'error': 'No master admin found'}, status=400)
 
     if master_admin.check_password(password):
+        # Success - store verification in session with expiry timestamp
+        verification_expiry = timezone.now() + timedelta(minutes=5)
+        request.session['company_profile_verified'] = True
+        request.session['company_profile_verified_at'] = verification_expiry.isoformat()
+        request.session['company_profile_company_id'] = company.id
+        
+        # Reset failed attempts on success
+        request.session.pop(attempt_key, None)
+        request.session.pop(lockout_key, None)
+        
+        logger.info(f"Company profile access granted to user {request.user.id} for company {company.id}")
         return JsonResponse({'ok': True})
     else:
-        return JsonResponse({'ok': False, 'error': 'Invalid password'})
+        # Failed attempt - increment counter
+        attempts = request.session.get(attempt_key, 0) + 1
+        request.session[attempt_key] = attempts
+        
+        if attempts >= 5:
+            # Lock out for 15 minutes
+            lockout_until = timezone.now() + timedelta(minutes=15)
+            request.session[lockout_key] = lockout_until.isoformat()
+            logger.warning(f"User {request.user.id} locked out after {attempts} failed password attempts")
+            return JsonResponse({
+                'ok': False, 
+                'error': 'Too many failed attempts. Account locked for 15 minutes.',
+                'locked': True
+            }, status=429)
+        
+        remaining = 5 - attempts
+        logger.warning(f"Failed password attempt by user {request.user.id} ({remaining} attempts remaining)")
+        return JsonResponse({
+            'ok': False, 
+            'error': f'Invalid password. {remaining} attempts remaining.'
+        })
+
+
+@login_required
+@require_POST
+def toggle_full_control(request):
+    """Toggle full control permission for an admin user. Only master admin can do this."""
+    if request.user.role != 'admin':
+        return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=403)
+
+    company = request.user.company_profile
+    if not company:
+        return JsonResponse({'ok': False, 'error': 'No company'}, status=400)
+    
+    # SECURITY: Backend verification - prevent frontend bypass
+    has_access, error = verify_company_profile_access(request, company)
+    if not has_access:
+        logger.warning(f"Unauthorized toggle_full_control attempt by user {request.user.id}: {error}")
+        return JsonResponse({'ok': False, 'error': error}, status=403)
+
+    # Check if current user is master admin
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+    if not master_admin or request.user.id != master_admin.id:
+        return JsonResponse({'ok': False, 'error': 'Only master admin can grant/revoke full control'}, status=403)
+
+    user_id = request.POST.get('user_id')
+    if not user_id:
+        return JsonResponse({'ok': False, 'error': 'User ID required'}, status=400)
+
+    try:
+        target_user = AdminUser.objects.get(id=user_id, company_profile=company)
+    except AdminUser.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Admin user not found'}, status=404)
+
+    # Cannot toggle for master admin
+    if target_user.id == master_admin.id:
+        return JsonResponse({'ok': False, 'error': 'Cannot change master admin permissions'}, status=400)
+
+    # Toggle the permission
+    target_user.has_full_control = not target_user.has_full_control
+    target_user.save(update_fields=['has_full_control'])
+
+    action = 'granted' if target_user.has_full_control else 'revoked'
+    return JsonResponse({
+        'ok': True, 
+        'has_full_control': target_user.has_full_control,
+        'message': f'Full control {action} for {target_user.full_name}'
+    })
+
+
+@login_required
+def check_full_control(request):
+    """
+    Check if current user has full control (master admin or has_full_control=True).
+    Also checks if session verification is valid (for non-full-control users).
+    """
+    if request.user.role != 'admin':
+        return JsonResponse({'has_full_control': False, 'is_master': False, 'session_verified': False})
+
+    company = request.user.company_profile
+    if not company:
+        return JsonResponse({'has_full_control': False, 'is_master': False, 'session_verified': False})
+
+    master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+    is_master = bool(master_admin and request.user.id == master_admin.id)
+    has_full_control_attr = bool(getattr(request.user, 'has_full_control', False))
+    has_full_control = is_master or has_full_control_attr
+    
+    # Check session verification status (for audit/security tracking)
+    session_verified = False
+    if request.session.get('company_profile_verified'):
+        verified_at = request.session.get('company_profile_verified_at')
+        verified_company = request.session.get('company_profile_company_id')
+        if verified_at and verified_company == company.id:
+            try:
+                expiry_time = timezone.datetime.fromisoformat(verified_at)
+                if timezone.now() < expiry_time:
+                    session_verified = True
+                else:
+                    # Session expired, clear it
+                    request.session.pop('company_profile_verified', None)
+                    request.session.pop('company_profile_verified_at', None)
+                    request.session.pop('company_profile_company_id', None)
+            except (ValueError, TypeError):
+                pass
+
+    return JsonResponse({
+        'has_full_control': bool(has_full_control),
+        'is_master': bool(is_master),
+        'session_verified': bool(session_verified)
+    })
 
 
 @login_required
@@ -3796,6 +4073,12 @@ def company_profile_update(request):
     
     if not company:
         return JsonResponse({'ok': False, 'error': 'No linked company'}, status=400)
+    
+    # SECURITY: Backend verification - prevent frontend bypass
+    has_access, error = verify_company_profile_access(request, company)
+    if not has_access:
+        logger.warning(f"Unauthorized company_profile_update attempt by user {user.id}: {error}")
+        return JsonResponse({'ok': False, 'error': error}, status=403)
 
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Invalid method'}, status=405)
@@ -3944,6 +4227,12 @@ def admin_toggle_mute(request, user_id: int):
         if not company:
             company = request.user.company_profile
         
+        # SECURITY: Backend verification - prevent frontend bypass
+        has_access, error = verify_company_profile_access(request, company)
+        if not has_access:
+            logger.warning(f"Unauthorized admin_toggle_mute attempt by user {request.user.id}: {error}")
+            return JsonResponse({'ok': False, 'error': error}, status=403)
+        
         try:
             target = AdminUser.objects.get(id=user_id, company_profile=company)
         except AdminUser.DoesNotExist:
@@ -3995,7 +4284,7 @@ def admin_toggle_mute(request, user_id: int):
 @login_required
 @require_POST
 def admin_delete_admin(request, user_id: int):
-    """Soft-delete an admin or support user: mark is_deleted, disable login, set reason/timestamp."""
+    """Delete an admin or support user. Supports soft delete (default) or permanent delete."""
     if getattr(request.user, 'role', None) != 'admin':
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
@@ -4012,6 +4301,17 @@ def admin_delete_admin(request, user_id: int):
         
         if not company:
             company = request.user.company_profile
+        
+        # SECURITY: Backend verification - prevent frontend bypass
+        has_access, error = verify_company_profile_access(request, company)
+        if not has_access:
+            logger.warning(f"Unauthorized admin_delete_admin attempt by user {request.user.id}: {error}")
+            return JsonResponse({'ok': False, 'error': error}, status=403)
+        
+        # Verify current user is Master admin
+        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
+        if not master_admin or request.user.id != master_admin.id:
+            return JsonResponse({'ok': False, 'error': 'Only the Master admin can delete other admins.'}, status=403)
         
         try:
             target = AdminUser.objects.get(id=user_id, company_profile=company)
@@ -4032,32 +4332,27 @@ def admin_delete_admin(request, user_id: int):
         if remaining_active == 0:
             return JsonResponse({'ok': False, 'error': 'Cannot delete the last active admin.'}, status=400)
 
-    # Prevent deleting the Master admin (company-registered primary admin)
-    try:
-        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
-        if master_admin and target.id == master_admin.id:
-            return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin.'}, status=400)
-    except Exception:
-        pass
-
-    # Protect Master admin from deletion
-    try:
-        master_admin = AdminUser.objects.filter(company_profile=company).order_by('date_joined').first()
-        if master_admin and target.id == master_admin.id:
-            return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin account.'}, status=400)
-    except Exception:
-        pass
+    # Prevent deleting the Master admin
+    if master_admin and target.id == master_admin.id:
+        return JsonResponse({'ok': False, 'error': 'Cannot delete the Master admin account.'}, status=400)
 
     reason = request.POST.get('reason', '').strip()
-
-    target.is_deleted = True
-    target.is_active = False
-    target.deleted_at = timezone.now()
-    if reason:
-        target.deletion_reason = reason
-    target.save(update_fields=['is_deleted', 'is_active', 'deleted_at', 'deletion_reason'])
-
-    return JsonResponse({'ok': True, 'message': 'Admin deleted (soft).', 'status': 'deleted'})
+    permanent = request.POST.get('permanent', 'false').lower() == 'true'
+    
+    if permanent:
+        # Permanent deletion - remove from database entirely
+        target_name = target.full_name
+        target.delete()
+        return JsonResponse({'ok': True, 'message': f'{target_name} permanently deleted.', 'status': 'deleted'})
+    else:
+        # Soft delete - mark as deleted but keep in database
+        target.is_deleted = True
+        target.is_active = False
+        target.deleted_at = timezone.now()
+        if reason:
+            target.deletion_reason = reason
+        target.save(update_fields=['is_deleted', 'is_active', 'deleted_at', 'deletion_reason'])
+        return JsonResponse({'ok': True, 'message': 'Admin deactivated successfully.', 'status': 'deleted'})
 
 
 
@@ -9331,6 +9626,512 @@ class GetAvailableYearsAPI(View):
             'current_year': current_year,
             'total_years': len(years_list)
         })
+
+
+class PaymentHealthAPI(View):
+    """
+    API endpoint for Payment Health Analytics.
+    Provides comprehensive payment collection data for company growth tracking:
+    - Total sales, collected, outstanding, overdue amounts
+    - Payment status distribution
+    - Monthly collection trends
+    - Estate-wise sales breakdown
+    - Overdue clients list
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        try:
+            # Get all transactions for this company
+            transactions = Transaction.objects.filter(company=company)
+            
+            # Calculate totals
+            total_sales = Decimal('0')
+            collected = Decimal('0')
+            outstanding = Decimal('0')
+            overdue = Decimal('0')
+            
+            status_counts = {
+                'Fully Paid': 0,
+                'Paid Complete': 0,
+                'Part Payment': 0,
+                'Pending': 0,
+                'Overdue': 0
+            }
+            
+            overdue_clients = []
+            estate_sales = {}
+            today = timezone.now().date()
+            
+            for txn in transactions:
+                total_sales += txn.total_amount
+                
+                # Get status
+                status = txn.status
+                status_counts[status] = status_counts.get(status, 0) + 1
+                
+                # Calculate collected and outstanding
+                txn_paid = txn.total_paid
+                txn_balance = txn.balance
+                collected += txn_paid
+                
+                if txn_balance > 0:
+                    outstanding += txn_balance
+                    
+                    # Check if overdue
+                    if status == 'Overdue' or (txn.due_date and today > txn.due_date):
+                        overdue += txn_balance
+                        days_overdue = (today - txn.due_date).days if txn.due_date else 0
+                        
+                        # Get client profile picture
+                        profile_pic = None
+                        if hasattr(txn.client, 'profile_picture') and txn.client.profile_picture:
+                            profile_pic = txn.client.profile_picture.url
+                        
+                        overdue_clients.append({
+                            'transaction_id': txn.id,
+                            'client_name': txn.client.full_name if txn.client else 'Unknown',
+                            'profile_picture': profile_pic,
+                            'estate': txn.allocation.estate.name if txn.allocation and txn.allocation.estate else '-',
+                            'outstanding': float(txn_balance),
+                            'days_overdue': max(0, days_overdue)
+                        })
+                
+                # Estate sales aggregation
+                estate_name = txn.allocation.estate.name if txn.allocation and txn.allocation.estate else 'Other'
+                if estate_name not in estate_sales:
+                    estate_sales[estate_name] = Decimal('0')
+                estate_sales[estate_name] += txn.total_amount
+            
+            # Sort overdue clients by days overdue (most overdue first)
+            overdue_clients.sort(key=lambda x: x['days_overdue'], reverse=True)
+            
+            # Get monthly collection trend (last 6 months)
+            from django.db.models import Sum
+            from django.db.models.functions import TruncMonth
+            from dateutil.relativedelta import relativedelta
+            
+            six_months_ago = today - relativedelta(months=6)
+            
+            # Get payment records grouped by month
+            monthly_collections = PaymentRecord.objects.filter(
+                transaction__company=company,
+                payment_date__gte=six_months_ago
+            ).annotate(
+                month=TruncMonth('payment_date')
+            ).values('month').annotate(
+                amount=Sum('amount_paid')
+            ).order_by('month')
+            
+            monthly_collection_list = []
+            for item in monthly_collections:
+                if item['month']:
+                    monthly_collection_list.append({
+                        'month': item['month'].strftime('%b %Y'),
+                        'amount': float(item['amount'] or 0)
+                    })
+            
+            # Estate sales list
+            estate_sales_list = [
+                {'estate': estate, 'sales': float(amount)} 
+                for estate, amount in sorted(estate_sales.items(), key=lambda x: x[1], reverse=True)
+            ][:8]  # Top 8 estates
+            
+            # Combine Fully Paid and Paid Complete for display
+            combined_paid = status_counts.get('Fully Paid', 0) + status_counts.get('Paid Complete', 0)
+            status_distribution = {
+                'Fully Paid': combined_paid,
+                'Part Payment': status_counts.get('Part Payment', 0),
+                'Pending': status_counts.get('Pending', 0),
+                'Overdue': status_counts.get('Overdue', 0)
+            }
+            
+            return JsonResponse({
+                'total_sales': float(total_sales),
+                'collected': float(collected),
+                'outstanding': float(outstanding),
+                'overdue': float(overdue),
+                'total_count': transactions.count(),
+                'pending_count': status_counts.get('Part Payment', 0) + status_counts.get('Pending', 0),
+                'overdue_count': status_counts.get('Overdue', 0),
+                'status_distribution': status_distribution,
+                'monthly_collection': monthly_collection_list,
+                'estate_sales': estate_sales_list,
+                'overdue_clients': overdue_clients[:10]  # Limit to 10
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class TransactionExportFiltersAPI(View):
+    """API to get available filter options for transaction export."""
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        # Get unique estates from transactions
+        estates = list(Transaction.objects.filter(company=company)
+            .values_list('allocation__estate__name', flat=True)
+            .distinct()
+            .order_by('allocation__estate__name'))
+        
+        # Get marketers
+        marketers = []
+        marketer_qs = MarketerUser.objects.filter(company_profile=company)
+        for m in marketer_qs:
+            marketers.append({'id': m.id, 'name': m.full_name})
+        
+        return JsonResponse({
+            'estates': [e for e in estates if e],
+            'marketers': marketers
+        })
+
+
+class TransactionExportCountAPI(View):
+    """API to get count and total value of transactions matching filters."""
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        transactions = self._get_filtered_transactions(request, company)
+        
+        total_value = sum(t.total_amount for t in transactions)
+        
+        return JsonResponse({
+            'count': transactions.count(),
+            'total_value': float(total_value)
+        })
+    
+    def _get_filtered_transactions(self, request, company):
+        transactions = Transaction.objects.filter(company=company)
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        estate = request.GET.get('estate')
+        status = request.GET.get('status')
+        marketer = request.GET.get('marketer')
+        
+        if from_date:
+            transactions = transactions.filter(transaction_date__gte=from_date)
+        if to_date:
+            transactions = transactions.filter(transaction_date__lte=to_date)
+        if estate:
+            transactions = transactions.filter(allocation__estate__name=estate)
+        if marketer:
+            transactions = transactions.filter(marketer_id=marketer)
+        
+        # Filter by computed status
+        if status:
+            # Since status is a property, we need to filter in Python
+            transactions = [t for t in transactions if t.status == status]
+            return transactions
+        
+        return transactions
+
+
+class TransactionExportPreviewAPI(View):
+    """API to get preview of transactions for export."""
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        transactions = self._get_filtered_transactions(request, company)
+        
+        # Limit to first 50 for preview
+        if hasattr(transactions, '__iter__') and not hasattr(transactions, 'count'):
+            transactions = transactions[:50]
+        else:
+            transactions = transactions[:50]
+        
+        result = []
+        for txn in transactions:
+            result.append({
+                'id': txn.id,
+                'date': txn.transaction_date.strftime('%d %b %Y'),
+                'client': txn.client.full_name if txn.client else 'Unknown',
+                'estate': txn.allocation.estate.name if txn.allocation and txn.allocation.estate else 'N/A',
+                'plot_size': str(txn.allocation.plot_size_unit.plot_size.size) if txn.allocation and txn.allocation.plot_size_unit else 'N/A',
+                'marketer': txn.marketer.full_name if txn.marketer else 'N/A',
+                'total_amount': float(txn.total_amount),
+                'paid': float(txn.total_paid),
+                'balance': float(txn.balance),
+                'status': txn.status
+            })
+        
+        return JsonResponse({'transactions': result})
+    
+    def _get_filtered_transactions(self, request, company):
+        transactions = Transaction.objects.filter(company=company).select_related(
+            'client', 'marketer', 'allocation__estate', 'allocation__plot_size_unit__plot_size'
+        ).order_by('-transaction_date')
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        estate = request.GET.get('estate')
+        status = request.GET.get('status')
+        marketer = request.GET.get('marketer')
+        
+        if from_date:
+            transactions = transactions.filter(transaction_date__gte=from_date)
+        if to_date:
+            transactions = transactions.filter(transaction_date__lte=to_date)
+        if estate:
+            transactions = transactions.filter(allocation__estate__name=estate)
+        if marketer:
+            transactions = transactions.filter(marketer_id=marketer)
+        
+        # Filter by computed status
+        if status:
+            transactions = [t for t in transactions if t.status == status]
+        
+        return transactions
+
+
+class TransactionExportAPI(View):
+    """API to export transactions to Excel, CSV, or PDF."""
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'Company profile not found'}, status=404)
+        
+        export_format = request.GET.get('format', 'excel')
+        transactions = self._get_filtered_transactions(request, company)
+        
+        if export_format == 'excel':
+            return self._export_excel(transactions, company)
+        elif export_format == 'csv':
+            return self._export_csv(transactions, company)
+        elif export_format == 'pdf':
+            return self._export_pdf(transactions, company)
+        else:
+            return JsonResponse({'error': 'Invalid format'}, status=400)
+    
+    def _get_filtered_transactions(self, request, company):
+        transactions = Transaction.objects.filter(company=company).select_related(
+            'client', 'marketer', 'allocation__estate', 'allocation__plot_size_unit__plot_size'
+        ).order_by('-transaction_date')
+        
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        estate = request.GET.get('estate')
+        status = request.GET.get('status')
+        marketer = request.GET.get('marketer')
+        
+        if from_date:
+            transactions = transactions.filter(transaction_date__gte=from_date)
+        if to_date:
+            transactions = transactions.filter(transaction_date__lte=to_date)
+        if estate:
+            transactions = transactions.filter(allocation__estate__name=estate)
+        if marketer:
+            transactions = transactions.filter(marketer_id=marketer)
+        
+        # Filter by computed status
+        if status:
+            transactions = [t for t in transactions if t.status == status]
+        
+        return transactions
+    
+    def _export_excel(self, transactions, company):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from io import BytesIO
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Transactions'
+        
+        # Header styling
+        header_fill = PatternFill(start_color='667eea', end_color='667eea', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Headers
+        headers = ['Date', 'Client', 'Estate', 'Plot Size', 'Marketer', 
+                   'Total Amount (₦)', 'Paid (₦)', 'Balance (₦)', 'Status', 'Reference']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # Data rows
+        row = 2
+        for txn in transactions:
+            ws.cell(row=row, column=1, value=txn.transaction_date.strftime('%Y-%m-%d'))
+            ws.cell(row=row, column=2, value=txn.client.full_name if txn.client else 'Unknown')
+            ws.cell(row=row, column=3, value=txn.allocation.estate.name if txn.allocation and txn.allocation.estate else 'N/A')
+            ws.cell(row=row, column=4, value=str(txn.allocation.plot_size_unit.plot_size.size) if txn.allocation and txn.allocation.plot_size_unit else 'N/A')
+            ws.cell(row=row, column=5, value=txn.marketer.full_name if txn.marketer else 'N/A')
+            ws.cell(row=row, column=6, value=float(txn.total_amount))
+            ws.cell(row=row, column=7, value=float(txn.total_paid))
+            ws.cell(row=row, column=8, value=float(txn.balance))
+            ws.cell(row=row, column=9, value=txn.status)
+            ws.cell(row=row, column=10, value=txn.reference_code or '')
+            
+            for col in range(1, 11):
+                ws.cell(row=row, column=col).border = thin_border
+            
+            row += 1
+        
+        # Summary row
+        if hasattr(transactions, 'count'):
+            total_count = transactions.count()
+        else:
+            total_count = len(transactions)
+        
+        ws.cell(row=row + 1, column=1, value=f'Total: {total_count} transactions')
+        ws.cell(row=row + 1, column=1).font = Font(bold=True)
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[column].width = min(max_length + 2, 50)
+        
+        # Save to buffer
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=transactions_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.xlsx'
+        return response
+    
+    def _export_csv(self, transactions, company):
+        import csv
+        from io import StringIO
+        
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        
+        # Headers
+        writer.writerow(['Date', 'Client', 'Estate', 'Plot Size', 'Marketer', 
+                        'Total Amount', 'Paid', 'Balance', 'Status', 'Reference'])
+        
+        # Data rows
+        for txn in transactions:
+            writer.writerow([
+                txn.transaction_date.strftime('%Y-%m-%d'),
+                txn.client.full_name if txn.client else 'Unknown',
+                txn.allocation.estate.name if txn.allocation and txn.allocation.estate else 'N/A',
+                str(txn.allocation.plot_size_unit.plot_size.size) if txn.allocation and txn.allocation.plot_size_unit else 'N/A',
+                txn.marketer.full_name if txn.marketer else 'N/A',
+                float(txn.total_amount),
+                float(txn.total_paid),
+                float(txn.balance),
+                txn.status,
+                txn.reference_code or ''
+            ])
+        
+        response = HttpResponse(buffer.getvalue(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename=transactions_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.csv'
+        return response
+    
+    def _export_pdf(self, transactions, company):
+        # For PDF, we'll return a simple text response indicating PDF generation
+        # In production, you'd use reportlab or weasyprint
+        from django.http import HttpResponse
+        
+        # Basic PDF using reportlab if available
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            from io import BytesIO
+            
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+            elements = []
+            
+            styles = getSampleStyleSheet()
+            elements.append(Paragraph(f'Transaction Report - {company.company_name}', styles['Heading1']))
+            elements.append(Paragraph(f'Generated: {timezone.now().strftime("%Y-%m-%d %H:%M")}', styles['Normal']))
+            elements.append(Spacer(1, 20))
+            
+            # Table data
+            data = [['Date', 'Client', 'Estate', 'Amount', 'Paid', 'Balance', 'Status']]
+            
+            for txn in transactions:
+                data.append([
+                    txn.transaction_date.strftime('%Y-%m-%d'),
+                    (txn.client.full_name if txn.client else 'Unknown')[:20],
+                    (txn.allocation.estate.name if txn.allocation and txn.allocation.estate else 'N/A')[:15],
+                    f'₦{float(txn.total_amount):,.2f}',
+                    f'₦{float(txn.total_paid):,.2f}',
+                    f'₦{float(txn.balance):,.2f}',
+                    txn.status
+                ])
+            
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')])
+            ]))
+            
+            elements.append(table)
+            doc.build(elements)
+            
+            buffer.seek(0)
+            response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename=transactions_{company.company_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
+            return response
+            
+        except ImportError:
+            # Fallback if reportlab is not installed
+            return JsonResponse({
+                'error': 'PDF generation requires reportlab library. Please install it or use Excel/CSV format.'
+            }, status=400)
 
 
 class ExportPerformanceAPI(View):

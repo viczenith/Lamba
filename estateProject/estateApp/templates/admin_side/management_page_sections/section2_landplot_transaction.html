@@ -1,6 +1,17 @@
 {% load static %}
 
 <!-- Land Plot Transactions Tab -->
+<style>
+    /* Hide horizontal scrollbar for transactions table */
+    #transactions .table-responsive {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    #transactions .table-responsive::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+</style>
+
 <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="payments-tab">
     <section class="section">
         <div class="row">

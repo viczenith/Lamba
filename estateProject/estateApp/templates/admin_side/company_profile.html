@@ -14,79 +14,7 @@
         </nav>
     </div>
 
-    <!-- Password Verification Modal -->
-    <div class="modal fade" id="passwordModal" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 16px; overflow: hidden;">
-                <div class="modal-header" style="background: linear-gradient(135deg, #22c55e 0%, #0f7c3a 100%); color: white; border: none; position: relative;">
-                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 60%);"></div>
-                    <div style="position: relative; z-index: 1;">
-                        <h5 class="modal-title" id="passwordModalLabel" style="font-weight: 700; letter-spacing: -0.5px;">
-                            <i class="bi bi-shield-lock-fill me-2" style="font-size: 1.2rem;"></i>Master Admin Verification
-                        </h5>
-                        <small style="opacity: 0.95; display: block; margin-top: 4px;">Secure access to company profile</small>
-                    </div>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="text-center mb-4">
-                        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #22c55e 0%, #0f7c3a 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3);">
-                            <i class="bi bi-shield-lock-fill" style="font-size: 28px; color: white;"></i>
-                        </div>
-                        <p class="mb-4" style="color: #374151; font-size: 1.1rem; line-height: 1.5;">Please enter the master admin password to access the company profile.</p>
-                    </div>
-                    <form id="passwordForm">
-                        <div class="mb-3">
-                            <label for="masterPassword" class="form-label fw-semibold" style="color: #1f2937;">Master Admin Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control form-control-lg border-end-0" id="masterPassword" name="password" required style="border-radius: 8px 0 0 8px; border: 2px solid #e5e7eb; border-right: none; padding: 12px 16px; font-size: 1rem;">
-                                <button type="button" class="btn btn-outline-secondary border-start-0" id="togglePassword" style="border-radius: 0 8px 8px 0; border: 2px solid #e5e7eb; border-left: none; background: white;">
-                                    <i class="bi bi-eye" id="passwordIcon"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div id="passwordError" class="alert alert-danger d-none border-0" role="alert" style="border-radius: 8px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); color: #dc2626;">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <span id="errorText"></span>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer border-0 p-4" style="background: #f8fafc;">
-                    <button type="button" class="btn btn-primary btn-lg px-4" id="verifyBtn" style="background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); border: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); transition: all 0.3s ease;">
-                        <i class="bi bi-check-circle-fill me-2"></i>Verify Access
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Blur overlay for modal background -->
     <style>
-        #passwordModal.show {
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        #passwordModal .modal-backdrop {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        #passwordModal .form-control:focus {
-            border-color: #22c55e;
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
-        }
-
-        #passwordModal .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        #passwordModal #togglePassword:hover {
-            background: #f8fafc !important;
-            border-color: #22c55e !important;
-            color: #16a34a !important;
-        }
-
         /* Analytics Dashboard Gradients */
         .bg-gradient-primary {
             background: linear-gradient(135deg, #0d6efd 0%, #0857ca 100%) !important;
@@ -813,19 +741,37 @@
                                                 </td>
                                                 <td class="text-end">
                                                     {% if master_admin_id and a.id == master_admin_id %}
-                                                        <span class="text-muted">Master admin (protected)</span>
+                                                        <span class="badge bg-success-subtle text-success px-3 py-2">
+                                                            <i class="bi bi-shield-check me-1"></i>Master Admin (Full Control)
+                                                        </span>
                                                     {% elif master_admin_id and request.user.id == master_admin_id %}
-                                                        <button class="btn btn-sm btn-outline-primary me-2" data-action="edit-user" data-user-id="{{ a.id }}" data-user-type="admin" data-user-name="{{ a.full_name }}" data-user-email="{{ a.email }}" data-user-phone="{{ a.phone|default:'' }}" data-user-address="{{ a.address|default:'' }}">
-                                                            <i class="bi bi-pencil"></i> Update
-                                                        </button>
-                                                        <button class="btn btn-sm btn-outline-warning me-2" data-action="toggle-mute" data-user-id="{{ a.id }}" data-current="{{ a.is_active|yesno:'active,muted' }}">
-                                                            {% if a.is_active %}<i class="bi bi-volume-mute"></i> Mute{% else %}<i class="bi bi-volume-up"></i> Unmute{% endif %}
-                                                        </button>
-                                                        <button class="btn btn-sm btn-outline-danger" data-action="delete-admin" data-user-id="{{ a.id }}" data-name="{{ a.full_name }}">
-                                                            <i class="bi bi-trash"></i> Delete
-                                                        </button>
+                                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                                            <button class="btn btn-sm {% if a.has_full_control %}btn-success{% else %}btn-outline-secondary{% endif %}" 
+                                                                    data-action="toggle-full-control" 
+                                                                    data-user-id="{{ a.id }}" 
+                                                                    data-has-control="{{ a.has_full_control|yesno:'true,false' }}"
+                                                                    title="{% if a.has_full_control %}Revoke Full Control{% else %}Grant Full Control{% endif %}">
+                                                                <i class="bi {% if a.has_full_control %}bi-shield-fill-check{% else %}bi-shield{% endif %}"></i>
+                                                                {% if a.has_full_control %}Full Control{% else %}Grant Control{% endif %}
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-primary" data-action="edit-user" data-user-id="{{ a.id }}" data-user-type="admin" data-user-name="{{ a.full_name }}" data-user-email="{{ a.email }}" data-user-phone="{{ a.phone|default:'' }}" data-user-address="{{ a.address|default:'' }}">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-warning" data-action="toggle-mute" data-user-id="{{ a.id }}" data-current="{{ a.is_active|yesno:'active,muted' }}">
+                                                                {% if a.is_active %}<i class="bi bi-volume-mute"></i>{% else %}<i class="bi bi-volume-up"></i>{% endif %}
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" data-action="delete-admin" data-user-id="{{ a.id }}" data-name="{{ a.full_name }}">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
                                                     {% else %}
-                                                        <span class="text-muted">Only master admin can Update</span>
+                                                        {% if a.has_full_control %}
+                                                            <span class="badge bg-success-subtle text-success px-3 py-2">
+                                                                <i class="bi bi-shield-fill-check me-1"></i>Full Control Granted
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="text-muted small">Only master admin can manage</span>
+                                                        {% endif %}
                                                     {% endif %}
                                                 </td>
                                 </tr>
@@ -1308,6 +1254,295 @@
                             <div class="card-body">
                                 <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
                                     <canvas id="seasonalPatternChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== COLLECTIONS & PAYMENT HEALTH ==================== -->
+                <div class="row g-4 mt-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm analytics-section-card">
+                            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="bi bi-cash-coin text-success me-2"></i>Collections & Payment Health
+                                    <span class="badge bg-success ms-2">Financial Insights</span>
+                                </h5>
+                                <button class="btn btn-sm btn-outline-success" id="refreshPaymentHealthBtn">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <!-- Payment Health KPIs -->
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-3">
+                                        <div class="payment-health-card bg-gradient-primary text-white rounded-4 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                                    <i class="bi bi-currency-exchange fs-5"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="small opacity-75">Total Sales Value</div>
+                                                    <div class="fs-5 fw-bold" id="phTotalSales">₦0</div>
+                                                    <div class="small" id="phTotalCount">0 transactions</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="payment-health-card bg-gradient-success text-white rounded-4 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                                    <i class="bi bi-check-circle fs-5"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="small opacity-75">Collected Amount</div>
+                                                    <div class="fs-5 fw-bold" id="phCollected">₦0</div>
+                                                    <div class="small" id="phCollectionRate">0% collection rate</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="payment-health-card bg-gradient-warning text-white rounded-4 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                                    <i class="bi bi-hourglass-split fs-5"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="small opacity-75">Outstanding Balance</div>
+                                                    <div class="fs-5 fw-bold" id="phOutstanding">₦0</div>
+                                                    <div class="small" id="phPendingCount">0 pending payments</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="payment-health-card bg-gradient-danger text-white rounded-4 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                                    <i class="bi bi-exclamation-triangle fs-5"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="small opacity-75">Overdue Amount</div>
+                                                    <div class="fs-5 fw-bold" id="phOverdue">₦0</div>
+                                                    <div class="small" id="phOverdueCount">0 overdue</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-4">
+                                    <!-- Payment Status Distribution -->
+                                    <div class="col-md-4">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-pie-chart me-2"></i>Payment Status Distribution</h6>
+                                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                            <canvas id="paymentStatusChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <!-- Collection Trend -->
+                                    <div class="col-md-4">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-graph-up me-2"></i>Monthly Collection Trend</h6>
+                                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                            <canvas id="collectionTrendChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <!-- Estate Performance -->
+                                    <div class="col-md-4">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-building me-2"></i>Sales by Estate</h6>
+                                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                                            <canvas id="estatePerformanceChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Health Insights -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <div class="alert alert-light border-0 shadow-sm" id="paymentHealthInsights">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-lightbulb text-warning fs-4 me-3"></i>
+                                                <div>
+                                                    <strong>Collection Insights:</strong>
+                                                    <span id="phInsightText">Loading payment health analysis...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Overdue Clients List (Collapsible) -->
+                                <div class="accordion mt-3" id="overdueAccordion">
+                                    <div class="accordion-item border-0 shadow-sm">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#overdueClientsList">
+                                                <i class="bi bi-people text-danger me-2"></i>
+                                                <span>Overdue Clients Requiring Attention</span>
+                                                <span class="badge bg-danger ms-2" id="overdueClientsBadge">0</span>
+                                            </button>
+                                        </h2>
+                                        <div id="overdueClientsList" class="accordion-collapse collapse" data-bs-parent="#overdueAccordion">
+                                            <div class="accordion-body p-0">
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover mb-0">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th>Client</th>
+                                                                <th>Estate</th>
+                                                                <th>Outstanding</th>
+                                                                <th>Days Overdue</th>
+                                                                <th>Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="overdueClientsTableBody">
+                                                            <tr>
+                                                                <td colspan="5" class="text-center text-muted py-3">Loading...</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Transaction Export Section -->
+                                <div class="accordion mt-3" id="transactionExportAccordion">
+                                    <div class="accordion-item border-0 shadow-sm">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#transactionExportPanel">
+                                                <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>
+                                                <span>Export All Transactions</span>
+                                                <span class="badge bg-success ms-2">Since Inception</span>
+                                            </button>
+                                        </h2>
+                                        <div id="transactionExportPanel" class="accordion-collapse collapse" data-bs-parent="#transactionExportAccordion">
+                                            <div class="accordion-body">
+                                                <!-- Export Filters -->
+                                                <div class="row g-3 mb-4 align-items-end">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">FROM DATE</label>
+                                                        <input type="date" class="form-control form-control-sm txn-filter-input w-100" id="txnExportFromDate" placeholder="Start date">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">TO DATE</label>
+                                                        <input type="date" class="form-control form-control-sm txn-filter-input w-100" id="txnExportToDate" placeholder="End date">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">ESTATE</label>
+                                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportEstate">
+                                                            <option value="">All Estates</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">STATUS</label>
+                                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportStatus">
+                                                            <option value="">All Statuses</option>
+                                                            <option value="Fully Paid">Fully Paid</option>
+                                                            <option value="Paid Complete">Paid Complete</option>
+                                                            <option value="Part Payment">Part Payment</option>
+                                                            <option value="Pending">Pending</option>
+                                                            <option value="Overdue">Overdue</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">MARKETER</label>
+                                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportMarketer">
+                                                            <option value="">All Marketers</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">FORMAT</label>
+                                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportFormat">
+                                                            <option value="excel">Excel (.xlsx)</option>
+                                                            <option value="csv">CSV</option>
+                                                            <option value="pdf">PDF</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <style>
+                                                    .txn-filter-input {
+                                                        border: 1px solid #dee2e6;
+                                                        border-radius: 6px;
+                                                        padding: 0.5rem 0.75rem;
+                                                        font-size: 0.875rem;
+                                                        background-color: #fff;
+                                                        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+                                                        height: 38px;
+                                                        display: flex;
+                                                        align-items: center;
+                                                    }
+                                                    .txn-filter-input:focus {
+                                                        border-color: #667eea;
+                                                        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+                                                        outline: none;
+                                                    }
+                                                    .txn-filter-input:hover {
+                                                        border-color: #adb5bd;
+                                                    }
+                                                    select.txn-filter-input {
+                                                        cursor: pointer;
+                                                        appearance: none;
+                                                        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+                                                        background-repeat: no-repeat;
+                                                        background-position: right 0.75rem center;
+                                                        background-size: 12px;
+                                                        padding-right: 2.25rem;
+                                                    }
+                                                </style>
+
+                                                <!-- Export Summary & Actions -->
+                                                <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3">
+                                                    <div>
+                                                        <span class="text-muted">Transactions matching filters:</span>
+                                                        <strong class="ms-2" id="txnExportCount">Loading...</strong>
+                                                        <span class="text-muted ms-3">|</span>
+                                                        <span class="text-muted ms-3">Total Value:</span>
+                                                        <strong class="text-success ms-2" id="txnExportValue">₦0</strong>
+                                                    </div>
+                                                    <div class="btn-group">
+                                                        <button class="btn btn-outline-secondary btn-sm" id="txnPreviewBtn">
+                                                            <i class="bi bi-eye me-1"></i>Preview
+                                                        </button>
+                                                        <button class="btn btn-success btn-sm" id="txnExportBtn">
+                                                            <i class="bi bi-download me-1"></i>Export
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Preview Table (hidden by default) -->
+                                                <div id="txnPreviewContainer" class="mt-3" style="display: none;">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-hover mb-0">
+                                                            <thead class="table-light sticky-top">
+                                                                <tr>
+                                                                    <th>Date</th>
+                                                                    <th>Client</th>
+                                                                    <th>Estate</th>
+                                                                    <th>Plot Size</th>
+                                                                    <th>Marketer</th>
+                                                                    <th>Total Amount</th>
+                                                                    <th>Paid</th>
+                                                                    <th>Balance</th>
+                                                                    <th>Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="txnPreviewTableBody">
+                                                                <tr>
+                                                                    <td colspan="9" class="text-center text-muted py-3">Click Preview to load data...</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="text-muted small mt-2">
+                                                        <i class="bi bi-info-circle me-1"></i>Showing first 50 records. Export to see all records.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2789,6 +3024,7 @@
             margin-top: 4px;
         }
     </style>
+
     <script>
         // Modern file upload UI for logo and cashier signature
         document.addEventListener('DOMContentLoaded', function() {
@@ -3042,97 +3278,276 @@
         })();
 
             // Admin actions: mute/unmute and delete with confirmation modals
-                (function() {
-                    const adminTab = document.getElementById('admins');
-                    if (!adminTab) return;
+            (function() {
+                // Use document-level event delegation for reliability
 
-                // Create reusable modal elements
-                const confirmModal = document.createElement('div');
-                confirmModal.className = 'modal fade';
-                confirmModal.id = 'confirmActionModal';
-                confirmModal.tabIndex = -1;
-                confirmModal.innerHTML = `
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="confirmActionTitle">Confirm Action</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="d-flex align-items-start">
-                                    <div class="me-3 text-warning"><i class="bi bi-exclamation-triangle" style="font-size:2rem"></i></div>
-                                    <div>
-                                        <p class="mb-1" id="confirmActionText"></p>
-                                        <small class="text-muted" id="confirmActionCaption"></small>
-                                    </div>
-                                </div>
-                                <div class="mt-3" id="confirmExtra"></div>
-                                <div class="alert d-none mt-3" id="confirmFeedback"></div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" id="confirmActionBtn">Proceed</button>
-                            </div>
-                        </div>
-                    </div>`;
-                document.body.appendChild(confirmModal);
-                const bsConfirmModal = new bootstrap.Modal(confirmModal);
-
-                let pending = null; // {type, userId, desired}
-                    adminTab.addEventListener('click', function(e) {
-                    const btn = e.target.closest('button[data-action]');
-                    if (!btn) return;
-                    const userId = btn.getAttribute('data-user-id');
-                    const action = btn.getAttribute('data-action');
-                    const feedback = confirmModal.querySelector('#confirmFeedback');
-                    feedback.classList.add('d-none');
-                    feedback.textContent = '';
-
-                    if (action === 'toggle-mute') {
-                        const current = btn.getAttribute('data-current'); // 'active' or 'muted'
-                        const desired = current === 'active' ? 'mute' : 'unmute';
-                        pending = { type: 'mute', userId, desired };
-                        confirmModal.querySelector('#confirmActionTitle').textContent = desired === 'mute' ? 'Mute Admin' : 'Unmute Admin';
-                        confirmModal.querySelector('#confirmActionText').textContent = desired === 'mute' ? 'Are you sure you want to mute this admin account?' : 'Unmute this admin account?';
-                        confirmModal.querySelector('#confirmActionCaption').textContent = desired === 'mute' ? 'Muted admins cannot log in until unmuted.' : '';
-                        confirmModal.querySelector('#confirmExtra').innerHTML = '';
-                        bsConfirmModal.show();
-                    }
-                    if (action === 'delete-admin') {
-                        const name = btn.getAttribute('data-name') || 'this admin';
-                        pending = { type: 'delete', userId };
-                        confirmModal.querySelector('#confirmActionTitle').textContent = 'Delete Admin Account';
-                        confirmModal.querySelector('#confirmActionText').innerHTML = `You are about to <strong>delete</strong> ${name}.`;
-                        confirmModal.querySelector('#confirmActionCaption').textContent = 'This is a soft delete: the user will be deactivated and cannot log in.';
-                        confirmModal.querySelector('#confirmExtra').innerHTML = `
-                            <label class="form-label mt-2">Reason (optional)</label>
-                            <textarea class="form-control" id="deleteReason" rows="2" placeholder="Add a note..."></textarea>`;
-                        bsConfirmModal.show();
-                    }
-                });
-
+                    // Helper function to get cookie
                     function getCookie(name) {
                         const value = `; ${document.cookie}`;
                         const parts = value.split(`; ${name}=`);
                         if (parts.length === 2) return parts.pop().split(';').shift();
                     }
 
-                    confirmModal.querySelector('#confirmActionBtn').addEventListener('click', async function() {
-                        if (!pending) return;
-                        const feedback = confirmModal.querySelector('#confirmFeedback');
-                        try {
-                            let url = '';
-                            const form = new FormData();
-                            const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
-                            const companySlug = '{{ company.slug }}';
-                            form.append('csrfmiddlewaretoken', csrfToken);
+                    // Helper function to show toast notification
+                    function showToast(message, type = 'info') {
+                        const toast = document.createElement('div');
+                        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+                        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; animation: fadeIn 0.3s ease;';
+                        toast.innerHTML = `
+                            ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 4000);
+                    }
+
+                // Create beautiful confirmation modal
+                const confirmModal = document.createElement('div');
+                confirmModal.className = 'modal fade';
+                confirmModal.id = 'confirmActionModal';
+                confirmModal.tabIndex = -1;
+                confirmModal.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                            <div class="modal-header border-0 text-white" style="padding: 20px 24px;">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3" style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-shield-check" style="font-size: 24px;"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="modal-title mb-0" id="confirmActionTitle" style="font-weight: 600;">Confirm Action</h5>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body p-4">
+                                <div class="text-center mb-3">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <div class="me-3 text-warning" style="width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,193,7,0.1);">
+                                            <i class="bi bi-exclamation-triangle" style="font-size:2rem"></i>
+                                        </div>
+                                        <div class="text-start">
+                                            <p class="mb-1 fs-5 fw-semibold" id="confirmActionText" style="color: #1f2937;"></p>
+                                            <small class="text-muted" id="confirmActionCaption"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="confirmExtra"></div>
+                                <div class="alert d-none mt-3" id="confirmFeedback" style="border-radius: 10px;"></div>
+                            </div>
+                            <div class="modal-footer border-0 pt-0 px-4 pb-4">
+                                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                                <button type="button" class="btn btn-primary px-4" id="confirmActionBtn" style="border-radius: 10px; min-width: 140px;">Confirm</button>
+                            </div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(confirmModal);
+                const bsConfirmModal = new bootstrap.Modal(confirmModal);
+
+                let pending = null; // {type, userId, desired, btn}
+                
+                // Use document for event delegation to ensure it works
+                document.addEventListener('click', async function(e) {
+                    // Only handle clicks on admin action buttons within the admins tab
+                    const btn = e.target.closest('#admins button[data-action]');
+                    if (!btn) return;
+                    
+                    const userId = btn.getAttribute('data-user-id');
+                    const action = btn.getAttribute('data-action');
+                    const feedback = confirmModal.querySelector('#confirmFeedback');
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
+
+                    // Handle toggle full control with beautiful modal
+                    if (action === 'toggle-full-control') {
+                        const hasControl = btn.getAttribute('data-has-control') === 'true';
+                        
+                        // Configure modal for full control action
+                        const header = confirmModal.querySelector('.modal-header');
+                        const headerIcon = header.querySelector('.me-3 i');
+                        const bodyIcon = confirmModal.querySelector('.modal-body .me-3');
+                        const confirmBtn = confirmModal.querySelector('#confirmActionBtn');
+                        
+                        if (hasControl) {
+                            header.style.background = 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)';
+                            if (headerIcon) headerIcon.className = 'bi bi-shield-x';
+                            bodyIcon.style.background = 'rgba(220, 53, 69, 0.1)';
+                            bodyIcon.innerHTML = '<i class="bi bi-shield-x text-danger" style="font-size:2rem"></i>';
+                            confirmBtn.className = 'btn btn-danger px-4';
+                            confirmBtn.style.borderRadius = '10px';
+                            confirmBtn.textContent = 'Revoke Access';
+                        } else {
+                            header.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+                            if (headerIcon) headerIcon.className = 'bi bi-shield-fill-check';
+                            bodyIcon.style.background = 'rgba(25, 135, 84, 0.1)';
+                            bodyIcon.innerHTML = '<i class="bi bi-shield-fill-check text-success" style="font-size:2rem"></i>';
+                            confirmBtn.className = 'btn btn-success px-4';
+                            confirmBtn.style.borderRadius = '10px';
+                            confirmBtn.textContent = 'Grant Access';
+                        }
+                        
+                        confirmModal.querySelector('#confirmActionTitle').textContent = hasControl ? 'Revoke Full Control' : 'Grant Full Control';
+                        confirmModal.querySelector('#confirmActionText').textContent = hasControl 
+                            ? 'Are you sure you want to revoke full control for this admin?' 
+                            : 'Are you sure you want to grant full control to this admin?';
+                        confirmModal.querySelector('#confirmActionCaption').textContent = hasControl 
+                            ? 'This admin will need to enter the master admin password to access company profile.'
+                            : 'This admin will have the same access as the master admin without password verification.';
+                        confirmModal.querySelector('#confirmExtra').innerHTML = '';
+                        
+                        pending = { type: 'full-control', userId, hasControl, btn };
+                        bsConfirmModal.show();
+                        return;
+                    }
+
+                    if (action === 'toggle-mute') {
+                        const current = btn.getAttribute('data-current'); // 'active' or 'muted'
+                        const desired = current === 'active' ? 'mute' : 'unmute';
+                        
+                        // Configure modal for mute action
+                        const header = confirmModal.querySelector('.modal-header');
+                        const headerIcon = header.querySelector('.me-3 i');
+                        const bodyIcon = confirmModal.querySelector('.modal-body .me-3');
+                        const confirmBtn = confirmModal.querySelector('#confirmActionBtn');
+                        
+                        if (desired === 'mute') {
+                            header.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                            if (headerIcon) headerIcon.className = 'bi bi-volume-mute-fill';
+                            bodyIcon.style.background = 'rgba(255, 193, 7, 0.1)';
+                            bodyIcon.innerHTML = '<i class="bi bi-volume-mute-fill text-warning" style="font-size:2rem"></i>';
+                            confirmBtn.className = 'btn btn-warning px-4';
+                            confirmBtn.style.borderRadius = '10px';
+                            confirmBtn.textContent = 'Mute Admin';
+                        } else {
+                            header.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                            if (headerIcon) headerIcon.className = 'bi bi-volume-up-fill';
+                            bodyIcon.style.background = 'rgba(13, 110, 253, 0.1)';
+                            bodyIcon.innerHTML = '<i class="bi bi-volume-up-fill text-primary" style="font-size:2rem"></i>';
+                            confirmBtn.className = 'btn btn-primary px-4';
+                            confirmBtn.style.borderRadius = '10px';
+                            confirmBtn.textContent = 'Unmute Admin';
+                        }
+                        
+                        pending = { type: 'mute', userId, desired };
+                        confirmModal.querySelector('#confirmActionTitle').textContent = desired === 'mute' ? 'Mute Admin Account' : 'Unmute Admin Account';
+                        confirmModal.querySelector('#confirmActionText').textContent = desired === 'mute' ? 'Are you sure you want to mute this admin account?' : 'Unmute this admin account?';
+                        confirmModal.querySelector('#confirmActionCaption').textContent = desired === 'mute' ? 'Muted admins cannot log in until unmuted.' : 'This admin will be able to log in again.';
+                        confirmModal.querySelector('#confirmExtra').innerHTML = '';
+                        bsConfirmModal.show();
+                        return;
+                    }
+                    
+                    if (action === 'delete-admin') {
+                        const name = btn.getAttribute('data-name') || 'this admin';
+                        
+                        // Configure modal for delete action
+                        const header = confirmModal.querySelector('.modal-header');
+                        const headerIcon = header.querySelector('.me-3 i');
+                        const bodyIcon = confirmModal.querySelector('.modal-body .me-3');
+                        const confirmBtn = confirmModal.querySelector('#confirmActionBtn');
+                        
+                        header.style.background = 'linear-gradient(135deg, #e53935 0%, #b71c1c 100%)';
+                        if (headerIcon) headerIcon.className = 'bi bi-trash3-fill';
+                        bodyIcon.style.background = 'rgba(220, 53, 69, 0.1)';
+                        bodyIcon.innerHTML = '<i class="bi bi-trash3-fill text-danger" style="font-size:2rem"></i>';
+                        confirmBtn.className = 'btn btn-danger px-4';
+                        confirmBtn.style.borderRadius = '10px';
+                        confirmBtn.textContent = 'Delete Permanently';
+                        
+                        pending = { type: 'delete', userId };
+                        confirmModal.querySelector('#confirmActionTitle').textContent = 'Delete Admin Account';
+                        confirmModal.querySelector('#confirmActionText').innerHTML = `You are about to <strong>permanently delete</strong> <span class="fw-bold">${name}</span>.`;
+                        confirmModal.querySelector('#confirmActionCaption').textContent = 'This action cannot be undone. The admin will be permanently removed from the system.';
+                        confirmModal.querySelector('#confirmExtra').innerHTML = `
+                            <div class="mt-3 p-3 bg-light rounded-3">
+                                <label class="form-label fw-semibold mb-2">Reason for deletion (optional)</label>
+                                <textarea class="form-control" id="deleteReason" rows="2" placeholder="Enter reason for documentation..."></textarea>
+                                
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" id="permanentDelete" checked>
+                                    <label class="form-check-label text-danger fw-semibold" for="permanentDelete">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>Permanently remove from database
+                                    </label>
+                                    <small class="d-block text-muted">If unchecked, admin will be deactivated but can be restored later.</small>
+                                </div>
+                            </div>`;
+                        bsConfirmModal.show();
+                        return;
+                    }
+                });
+
+                // Confirm Action Button handler
+                confirmModal.querySelector('#confirmActionBtn').addEventListener('click', async function() {
+                    if (!pending) return;
+                    const feedback = confirmModal.querySelector('#confirmFeedback');
+                    const confirmBtn = this;
+                    confirmBtn.disabled = true;
+                    const originalText = confirmBtn.textContent;
+                    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+                    
+                    try {
+                        let url = '';
+                        const form = new FormData();
+                        const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || '';
+                        const companySlug = '{{ company.slug }}';
+                        form.append('csrfmiddlewaretoken', csrfToken);
+                        
+                        if (pending.type === 'full-control') {
+                            // Handle full control toggle
+                            url = '{% url "toggle-full-control" %}';
+                            form.append('user_id', pending.userId);
+                            
+                            const res = await fetch(url, {
+                            const res = await fetch(url, {
+                                method: 'POST',
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                body: form
+                            });
+                            const data = await res.json();
+                                
+                                feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
+                                if (data.ok) {
+                                    feedback.classList.add('alert-success');
+                                    feedback.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message || 'Permission updated successfully'}`;
+                                    
+                                    // Update the button in the table
+                                    if (pending.btn) {
+                                        if (data.has_full_control) {
+                                            pending.btn.className = 'btn btn-sm btn-success';
+                                            pending.btn.innerHTML = '<i class="bi bi-shield-fill-check"></i> Full Control';
+                                            pending.btn.setAttribute('data-has-control', 'true');
+                                            pending.btn.title = 'Revoke Full Control';
+                                        } else {
+                                            pending.btn.className = 'btn btn-sm btn-outline-secondary';
+                                            pending.btn.innerHTML = '<i class="bi bi-shield"></i> Grant Control';
+                                            pending.btn.setAttribute('data-has-control', 'false');
+                                            pending.btn.title = 'Grant Full Control';
+                                        }
+                                    }
+                                    
+                                    setTimeout(() => { 
+                                        bsConfirmModal.hide(); 
+                                        pending = null;
+                                    }, 1500);
+                                } else {
+                                    feedback.classList.add('alert-danger');
+                                    feedback.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${data.error || 'Failed to update permission'}`;
+                                }
+                                
+                                confirmBtn.disabled = false;
+                                confirmBtn.textContent = originalText;
+                                return;
+                            }
+                            
                             if (pending.type === 'mute') {
                                 url = `/company-profile/admin/${pending.userId}/toggle-mute/?company=${companySlug}`;
                                 form.append('desired', pending.desired);
                             } else if (pending.type === 'delete') {
                                 url = `/company-profile/admin/${pending.userId}/delete/?company=${companySlug}`;
                                 const reason = confirmModal.querySelector('#deleteReason')?.value || '';
+                                const permanent = confirmModal.querySelector('#permanentDelete')?.checked ? 'true' : 'false';
                                 form.append('reason', reason);
+                                form.append('permanent', permanent);
                             }
 
                             const res = await fetch(url, {
@@ -3144,16 +3559,26 @@
                             feedback.classList.remove('d-none', 'alert-danger', 'alert-success');
                             if (data.ok) {
                                 feedback.classList.add('alert-success');
-                                feedback.textContent = data.message || 'Success';
-                                setTimeout(() => { window.location.reload(); }, 600);
+                                feedback.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message || 'Success'}`;
+                                setTimeout(() => { window.location.reload(); }, 1000);
                             } else {
                                 feedback.classList.add('alert-danger');
-                                feedback.textContent = data.error || 'Action failed';
+                                // Check if access denied due to session expiration
+                                if (data.error && data.error.includes('verification required')) {
+                                    feedback.innerHTML = `<i class="bi bi-shield-lock me-2"></i>Session expired. Reloading page...`;
+                                    setTimeout(() => { window.location.reload(); }, 1500);
+                                } else {
+                                    feedback.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${data.error || 'Action failed'}`;
+                                    confirmBtn.disabled = false;
+                                    confirmBtn.textContent = originalText;
+                                }
                             }
                         } catch (err) {
                             feedback.classList.remove('d-none');
                             feedback.classList.add('alert-danger');
-                            feedback.textContent = 'Network or server error. Please try again.';
+                            feedback.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Network or server error. Please try again.';
+                            confirmBtn.disabled = false;
+                            confirmBtn.textContent = originalText;
                         }
                     });
             })();
@@ -3588,24 +4013,77 @@
         }
 
         // Password verification modal with session timeout
-        document.addEventListener('DOMContentLoaded', function() {
-            const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'), {
-                backdrop: 'static',
-                keyboard: false
-            });
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('[CompanyProfile] DOMContentLoaded - Initializing...');
+            
+            const passwordModalElement = document.getElementById('passwordModal');
+            const protectedContentElement = document.getElementById('protectedContent');
+            const blurOverlay = document.getElementById('blurOverlay');
+            
+            if (!passwordModalElement || !protectedContentElement || !blurOverlay) {
+                console.error('[CompanyProfile] ERROR: Required elements not found!');
+                return;
+            }
+            
+            // Server-side values (rendered by Django template)
+            const serverSideHasFullControl = {{ user_has_full_control|yesno:"true,false" }};
+            const serverSideIsMaster = {{ is_master_admin|yesno:"true,false" }};
+            
+            console.log('[CompanyProfile] Server-side userHasFullControl:', serverSideHasFullControl);
+            console.log('[CompanyProfile] Server-side isMasterAdmin:', serverSideIsMaster);
+            
+            // If server says user has full control, content is already visible - just return
+            if (serverSideHasFullControl) {
+                console.log('[CompanyProfile] User has full control - content already visible');
+                protectedContentElement.style.display = 'block';
+                blurOverlay.style.display = 'none';
+                passwordModalElement.style.display = 'none';
+                passwordModalElement.classList.remove('show');
+                return;
+            }
+            
+            // User does NOT have full control - modal is already shown by server-side template
+            // Just initialize Bootstrap Modal instance for later use (hide on successful verification)
+            console.log('[CompanyProfile] User does NOT have full control - modal already shown by server');
+            
+            let passwordModal = null;
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                // Get existing modal instance or create new one
+                passwordModal = bootstrap.Modal.getInstance(passwordModalElement);
+                if (!passwordModal) {
+                    passwordModal = new bootstrap.Modal(passwordModalElement, {
+                        backdrop: false,
+                        keyboard: false
+                    });
+                }
+            }
+            
+            // Ensure modal is visible (should already be set by server)
+            passwordModalElement.classList.add('show');
+            passwordModalElement.style.display = 'block';
+            blurOverlay.style.display = 'block';
+            protectedContentElement.style.display = 'none';
 
             // Session timeout configuration
             const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
             const WARNING_TIME = 1 * 60 * 1000; // Show warning 1 minute before timeout
             let sessionTimer;
             let warningTimer;
-            let isModalShown = false;
+            let isModalShown = true; // Modal is already shown
 
-            // Function to show password modal
+            // Function to show password modal (for session timeout)
             function showPasswordModal() {
                 if (!isModalShown) {
                     document.getElementById('protectedContent').style.display = 'none';
-                    passwordModal.show();
+                    blurOverlay.style.display = 'block';
+                    // Try to use Bootstrap modal, fallback to CSS
+                    if (passwordModal && typeof passwordModal.show === 'function') {
+                        passwordModal.show();
+                    } else {
+                        passwordModalElement.classList.add('show');
+                        passwordModalElement.style.display = 'block';
+                        passwordModalElement.setAttribute('aria-hidden', 'false');
+                    }
                     isModalShown = true;
                 }
             }
@@ -3709,7 +4187,14 @@
                         this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
 
                         setTimeout(() => {
-                            passwordModal.hide();
+                            // Hide modal - try Bootstrap first, then fallback to CSS
+                            if (passwordModal && typeof passwordModal.hide === 'function') {
+                                passwordModal.hide();
+                            } else {
+                                passwordModalElement.classList.remove('show');
+                                passwordModalElement.style.display = 'none';
+                            }
+                            blurOverlay.style.display = 'none'; // Hide blur overlay
                             document.getElementById('protectedContent').style.display = 'block';
                             isModalShown = false; // Reset modal state
                             hideSessionWarning(); // Hide any warning
@@ -3720,7 +4205,15 @@
                         this.disabled = false;
                         this.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verify Access';
 
-                        errorText.textContent = data.error || 'Invalid password.';
+                        // Check if account is locked
+                        if (data.locked) {
+                            errorDiv.style.background = 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)';
+                            errorText.innerHTML = `<strong>Account Locked</strong><br>${data.error}`;
+                            passwordInput.disabled = true;
+                            this.disabled = true;
+                        } else {
+                            errorText.textContent = data.error || 'Invalid password.';
+                        }
                         errorDiv.classList.remove('d-none');
 
                         // Shake animation for error
@@ -3860,7 +4353,9 @@
     </div>
 
 </main>
+{% endblock content %}
 
+{% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle for new password field
@@ -4421,6 +4916,43 @@
     .badge.bg-purple { background-color: #6f42c1 !important; }
     .badge.bg-orange { background-color: #fd7e14 !important; }
     .badge.bg-coral { background-color: #ff6b6b !important; }
+
+    /* Payment Health Cards */
+    .payment-health-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .payment-health-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .payment-health-card .icon-circle {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Overdue Table Row */
+    #overdueClientsTableBody tr {
+        transition: background-color 0.2s ease;
+    }
+    #overdueClientsTableBody tr:hover {
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    /* Collection Rate Progress */
+    .collection-rate-progress {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+        overflow: hidden;
+    }
+    .collection-rate-bar {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 1s ease;
+    }
 </style>
 
 <!-- ==================== ANALYTICS & HISTORICAL RECORDS SCRIPTS ==================== -->
@@ -4452,6 +4984,21 @@
     let growthVelocityChart = null;
     let seasonalPatternChart = null;
     let yoyComparisonChart = null;
+    
+    // Payment Health Chart instances
+    let paymentStatusChart = null;
+    let collectionTrendChart = null;
+    let estatePerformanceChart = null;
+    
+    // Payment Health Data
+    let paymentHealthData = {
+        transactions: [],
+        totalSales: 0,
+        collected: 0,
+        outstanding: 0,
+        overdue: 0,
+        overdueClients: []
+    };
 
     // Destroy a chart safely
     function destroyChart(chartInstance) {
@@ -4465,6 +5012,19 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Populate year dropdowns
         populateYearDropdowns();
+        
+        // Initialize Payment Health refresh button
+        const refreshPaymentHealthBtn = document.getElementById('refreshPaymentHealthBtn');
+        if (refreshPaymentHealthBtn) {
+            refreshPaymentHealthBtn.addEventListener('click', function() {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+                loadPaymentHealthData().finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh';
+                });
+            });
+        }
 
         // Check for tab query parameter and auto-switch to that tab
         const urlParams = new URLSearchParams(window.location.search);
@@ -4481,6 +5041,7 @@
         document.getElementById('analytics-tab')?.addEventListener('shown.bs.tab', function() {
             if (!analyticsInitialized) {
                 initAnalytics();
+                loadPaymentHealthData(); // Load payment health when analytics tab opens
                 analyticsInitialized = true;
             }
         });
@@ -6133,8 +6694,453 @@
         console.error(message);
     }
 
+    // ==================== PAYMENT HEALTH FUNCTIONS ====================
+    
+    async function loadPaymentHealthData() {
+        try {
+            const response = await fetch('/api/payment-health/');
+            if (!response.ok) throw new Error('Failed to load payment health data');
+            
+            const data = await response.json();
+            paymentHealthData = data;
+            
+            updatePaymentHealthKPIs(data);
+            renderPaymentStatusChart(data);
+            renderCollectionTrendChart(data);
+            renderEstatePerformanceChart(data);
+            updatePaymentHealthInsights(data);
+            renderOverdueClientsTable(data.overdue_clients || []);
+            
+        } catch (error) {
+            console.error('Error loading payment health:', error);
+            // Show fallback message
+            document.getElementById('phInsightText').textContent = 
+                'Unable to load payment health data. Please refresh to try again.';
+        }
+    }
+    
+    function updatePaymentHealthKPIs(data) {
+        const totalSales = data.total_sales || 0;
+        const collected = data.collected || 0;
+        const outstanding = data.outstanding || 0;
+        const overdue = data.overdue || 0;
+        const collectionRate = totalSales > 0 ? Math.round((collected / totalSales) * 100) : 0;
+        
+        document.getElementById('phTotalSales').textContent = `₦${formatNumber(totalSales)}`;
+        document.getElementById('phTotalCount').textContent = `${data.total_count || 0} transactions`;
+        
+        document.getElementById('phCollected').textContent = `₦${formatNumber(collected)}`;
+        document.getElementById('phCollectionRate').textContent = `${collectionRate}% collection rate`;
+        
+        document.getElementById('phOutstanding').textContent = `₦${formatNumber(outstanding)}`;
+        document.getElementById('phPendingCount').textContent = `${data.pending_count || 0} pending payments`;
+        
+        document.getElementById('phOverdue').textContent = `₦${formatNumber(overdue)}`;
+        document.getElementById('phOverdueCount').textContent = `${data.overdue_count || 0} overdue`;
+        
+        document.getElementById('overdueClientsBadge').textContent = data.overdue_count || 0;
+    }
+    
+    function renderPaymentStatusChart(data) {
+        const ctx = document.getElementById('paymentStatusChart');
+        if (!ctx) return;
+        
+        paymentStatusChart = destroyChart(paymentStatusChart);
+        
+        const statusData = data.status_distribution || {
+            'Fully Paid': 0,
+            'Part Payment': 0,
+            'Pending': 0,
+            'Overdue': 0
+        };
+        
+        paymentStatusChart = new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(statusData),
+                datasets: [{
+                    data: Object.values(statusData),
+                    backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+    
+    function renderCollectionTrendChart(data) {
+        const ctx = document.getElementById('collectionTrendChart');
+        if (!ctx) return;
+        
+        collectionTrendChart = destroyChart(collectionTrendChart);
+        
+        const trendData = data.monthly_collection || [];
+        const labels = trendData.map(item => item.month);
+        const values = trendData.map(item => item.amount);
+        
+        collectionTrendChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Collections',
+                    data: values,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₦' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderEstatePerformanceChart(data) {
+        const ctx = document.getElementById('estatePerformanceChart');
+        if (!ctx) return;
+        
+        estatePerformanceChart = destroyChart(estatePerformanceChart);
+        
+        const estateData = data.estate_sales || [];
+        const labels = estateData.map(item => item.estate);
+        const values = estateData.map(item => item.sales);
+        
+        estatePerformanceChart = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Sales',
+                    data: values,
+                    backgroundColor: [
+                        '#667eea', '#764ba2', '#11998e', '#38ef7d', 
+                        '#f093fb', '#f5576c', '#4facfe', '#00f2fe'
+                    ],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₦' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updatePaymentHealthInsights(data) {
+        const collectionRate = data.total_sales > 0 
+            ? Math.round((data.collected / data.total_sales) * 100) 
+            : 0;
+        
+        let insight = '';
+        
+        if (collectionRate >= 90) {
+            insight = `Excellent! Your collection rate is ${collectionRate}%. Keep up the great work!`;
+        } else if (collectionRate >= 70) {
+            insight = `Good collection rate of ${collectionRate}%. Consider following up on ${data.pending_count || 0} pending payments to improve further.`;
+        } else if (collectionRate >= 50) {
+            insight = `Collection rate is ${collectionRate}%. Focus on reducing the ₦${formatNumber(data.outstanding)} outstanding balance. ${data.overdue_count || 0} clients are overdue.`;
+        } else {
+            insight = `⚠️ Collection rate is low at ${collectionRate}%. Urgent attention needed for ₦${formatNumber(data.overdue)} in overdue payments from ${data.overdue_count || 0} clients.`;
+        }
+        
+        document.getElementById('phInsightText').textContent = insight;
+    }
+    
+    function renderOverdueClientsTable(clients) {
+        const tbody = document.getElementById('overdueClientsTableBody');
+        if (!tbody) return;
+        
+        if (!clients || clients.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-3">
+                        <i class="bi bi-check-circle text-success fs-4 d-block mb-2"></i>
+                        No overdue payments. Great job!
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = clients.slice(0, 10).map(client => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-sm bg-light rounded-circle me-2 d-flex align-items-center justify-content-center">
+                            ${client.profile_picture 
+                                ? `<img src="${client.profile_picture}" class="rounded-circle" width="32" height="32" alt="">` 
+                                : `<span class="text-primary fw-bold">${(client.client_name || 'U').charAt(0)}</span>`
+                            }
+                        </div>
+                        <span>${client.client_name || 'Unknown'}</span>
+                    </div>
+                </td>
+                <td>${client.estate || '-'}</td>
+                <td class="text-danger fw-bold">₦${formatNumber(client.outstanding || 0)}</td>
+                <td>
+                    <span class="badge ${client.days_overdue > 30 ? 'bg-danger' : 'bg-warning text-dark'}">
+                        ${client.days_overdue || 0} days
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-warning" 
+                            onclick="sendPaymentReminder(${client.transaction_id})"
+                            title="Send Reminder">
+                        <i class="bi bi-envelope"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    // Send payment reminder (placeholder - connect to actual reminder system)
+    window.sendPaymentReminder = function(transactionId) {
+        showNotification('Opening reminder dialog for transaction #' + transactionId, 'info');
+        // This could open a modal or trigger the existing reminder functionality
+    };
+
+    // ==================== TRANSACTION EXPORT FUNCTIONS ====================
+    
+    let transactionExportData = [];
+    
+    // Initialize transaction export when panel is opened
+    document.getElementById('transactionExportPanel')?.addEventListener('shown.bs.collapse', function() {
+        loadTransactionExportFilters();
+        updateTransactionExportCount();
+    });
+    
+    // Load filter dropdowns
+    async function loadTransactionExportFilters() {
+        try {
+            const response = await fetch('/api/transaction-export-filters/');
+            if (!response.ok) throw new Error('Failed to load filters');
+            
+            const data = await response.json();
+            
+            // Populate estates dropdown
+            const estateSelect = document.getElementById('txnExportEstate');
+            if (estateSelect && data.estates) {
+                estateSelect.innerHTML = '<option value="">All Estates</option>';
+                data.estates.forEach(estate => {
+                    estateSelect.innerHTML += `<option value="${estate}">${estate}</option>`;
+                });
+            }
+            
+            // Populate marketers dropdown
+            const marketerSelect = document.getElementById('txnExportMarketer');
+            if (marketerSelect && data.marketers) {
+                marketerSelect.innerHTML = '<option value="">All Marketers</option>';
+                data.marketers.forEach(marketer => {
+                    marketerSelect.innerHTML += `<option value="${marketer.id}">${marketer.name}</option>`;
+                });
+            }
+            
+            // Set default dates (last year to today)
+            const today = new Date();
+            const lastYear = new Date();
+            lastYear.setFullYear(lastYear.getFullYear() - 1);
+            
+            document.getElementById('txnExportToDate').value = today.toISOString().split('T')[0];
+            // Leave from date empty to get all transactions since inception
+            
+        } catch (error) {
+            console.error('Error loading export filters:', error);
+        }
+    }
+    
+    // Update transaction count when filters change
+    ['txnExportFromDate', 'txnExportToDate', 'txnExportEstate', 'txnExportStatus', 'txnExportMarketer'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateTransactionExportCount);
+    });
+    
+    async function updateTransactionExportCount() {
+        const countEl = document.getElementById('txnExportCount');
+        const valueEl = document.getElementById('txnExportValue');
+        
+        countEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
+        try {
+            const params = getExportFilterParams();
+            const response = await fetch(`/api/transaction-export-count/?${params}`);
+            if (!response.ok) throw new Error('Failed to get count');
+            
+            const data = await response.json();
+            countEl.textContent = `${data.count} transactions`;
+            valueEl.textContent = `₦${formatNumber(data.total_value)}`;
+            
+        } catch (error) {
+            countEl.textContent = 'Error loading';
+            console.error('Error:', error);
+        }
+    }
+    
+    function getExportFilterParams() {
+        const params = new URLSearchParams();
+        
+        const fromDate = document.getElementById('txnExportFromDate').value;
+        const toDate = document.getElementById('txnExportToDate').value;
+        const estate = document.getElementById('txnExportEstate').value;
+        const status = document.getElementById('txnExportStatus').value;
+        const marketer = document.getElementById('txnExportMarketer').value;
+        
+        if (fromDate) params.append('from_date', fromDate);
+        if (toDate) params.append('to_date', toDate);
+        if (estate) params.append('estate', estate);
+        if (status) params.append('status', status);
+        if (marketer) params.append('marketer', marketer);
+        
+        return params.toString();
+    }
+    
+    // Preview button
+    document.getElementById('txnPreviewBtn')?.addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+        
+        try {
+            const params = getExportFilterParams();
+            const response = await fetch(`/api/transaction-export-preview/?${params}`);
+            if (!response.ok) throw new Error('Failed to load preview');
+            
+            const data = await response.json();
+            transactionExportData = data.transactions;
+            
+            renderTransactionPreview(data.transactions);
+            document.getElementById('txnPreviewContainer').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Failed to load preview', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-eye me-1"></i>Preview';
+        }
+    });
+    
+    function renderTransactionPreview(transactions) {
+        const tbody = document.getElementById('txnPreviewTableBody');
+        
+        if (!transactions || transactions.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">No transactions found matching filters</td></tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = transactions.slice(0, 50).map(txn => `
+            <tr>
+                <td>${txn.date}</td>
+                <td>${txn.client}</td>
+                <td>${txn.estate}</td>
+                <td>${txn.plot_size}</td>
+                <td>${txn.marketer}</td>
+                <td>₦${formatNumber(txn.total_amount)}</td>
+                <td class="text-success">₦${formatNumber(txn.paid)}</td>
+                <td class="text-danger">₦${formatNumber(txn.balance)}</td>
+                <td>
+                    <span class="badge ${getStatusBadgeClass(txn.status)}">${txn.status}</span>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function getStatusBadgeClass(status) {
+        switch(status) {
+            case 'Fully Paid':
+            case 'Paid Complete': return 'bg-success';
+            case 'Part Payment': return 'bg-info';
+            case 'Pending': return 'bg-warning text-dark';
+            case 'Overdue': return 'bg-danger';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    // Export button
+    document.getElementById('txnExportBtn')?.addEventListener('click', async function() {
+        const btn = this;
+        const format = document.getElementById('txnExportFormat').value;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Exporting...';
+        
+        try {
+            let params = getExportFilterParams();
+            // Add format parameter
+            params = params ? `${params}&format=${format}` : `format=${format}`;
+            
+            const response = await fetch(`/api/transaction-export/?${params}`);
+            if (!response.ok) throw new Error('Export failed');
+            
+            // Get filename from response headers or generate one
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `transactions_export_${new Date().toISOString().split('T')[0]}`;
+            
+            if (format === 'excel') filename += '.xlsx';
+            else if (format === 'csv') filename += '.csv';
+            else if (format === 'pdf') filename += '.pdf';
+            
+            // Download file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            
+            showNotification('Export downloaded successfully!', 'success');
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Export failed. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-download me-1"></i>Export';
+        }
+    });
+
 })();
 </script>
 
-{% endblock %}
+{% endblock extra_js %}
 
