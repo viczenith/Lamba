@@ -259,113 +259,121 @@
   <!-- Latest Price Increments -->
   <section class="mt-5">
     <div class="card p-3 border-0 shadow-sm small-header">
-      <div class="d-flex justify-content-between align-items-start mb-2 gap-3">
+      <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
         <div>
           <h3 class="m-0 fw-bold">Latest Price Increments</h3>
-          <p class="mb-0 text-muted small">Recent, relevant price moves across estates — search, filter, and sort.</p>
+          <p class="mb-0 text-muted small">Recent price changes organized by company — expand to see details.</p>
         </div>
 
         <div class="d-flex gap-2 align-items-center flex-wrap">
           <div class="input-group input-group-sm me-1" style="min-width:200px;">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input id="priceSearch" class="form-control form-control-sm" placeholder="Search estate or size" aria-label="Search price updates">
+            <input id="priceSearch" class="form-control form-control-sm" placeholder="Search company or estate" aria-label="Search price updates">
           </div>
 
-          <select id="priceSort" class="form-select form-select-sm" aria-label="Sort price updates">
-            <option value="newest" selected>Newest</option>
-            <option value="biggest_up">Largest increase</option>
-            <option value="biggest_down">Largest decrease</option>
-            <option value="highest_price">Highest price</option>
-            <option value="promo_first">Promo first</option>
-          </select>
+          <button id="expandAllBtn" class="btn btn-sm btn-outline-secondary" type="button" title="Expand all">
+            <i class="bi bi-arrows-expand"></i> Expand All
+          </button>
 
-          <div class="form-check form-check-inline ms-1">
-            <input class="form-check-input" type="checkbox" id="promoOnly">
-            <label class="form-check-label small" for="promoOnly">Promo only</label>
-          </div>
-
-          <button id="resetPriceFilters" class="btn btn-sm btn-outline-secondary ms-2" type="button" title="Reset filters">Reset</button>
+          <button id="collapseAllBtn" class="btn btn-sm btn-outline-secondary" type="button" title="Collapse all">
+            <i class="bi bi-arrows-collapse"></i> Collapse All
+          </button>
 
           <div class="ms-2 text-muted small align-self-end" id="priceCount">
-            {% if latest_value %}{{ latest_value|length }} updates{% endif %}
+            {% if latest_value_by_company %}{{ latest_value_by_company|length }} companies{% endif %}
           </div>
         </div>
       </div>
 
-      {% if latest_value %}
-      <div id="priceCardsWrapper" class="position-relative">
-        <button class="btn btn-sm btn-light price-scroll-btn left" aria-hidden="true" title="Scroll left" type="button">&#10094;</button>
-        <button class="btn btn-sm btn-light price-scroll-btn right" aria-hidden="true" title="Scroll right" type="button">&#10095;</button>
-
-        <div id="priceCards" class="price-grid">
-          {% for update in latest_value %}
-            <article class="price-card shadow-sm" tabindex="0"
-                     data-estate-name="{{ update.price.estate.name|lower }}"
-                     data-size="{{ update.price.plot_unit.plot_size.size|lower }}"
-                     data-current="{{ update.current|default:0|floatformat:2 }}"
-                     data-previous="{{ update.previous|default:0|floatformat:2 }}"
-                     data-percent-change="{{ update.percent_change|default:0|floatformat:2 }}"
-                     data-effective="{{ update.effective|date:'Y-m-d' }}"
-                     data-has-promo="{% if update.promo %}1{% else %}0{% endif %}"
-                     data-promo-discount="{% if update.promo %}{{ update.promo.discount }}{% else %}0{% endif %}">
-              <div class="card-body p-3 d-flex flex-column gap-2">
-                <div class="d-flex justify-content-between align-items-start">
-                  <div class="minw-0">
-                    <div class="fw-semibold text-truncate" title="{{ update.price.estate.name }}">{{ update.price.estate.name }}</div>
-                    <div class="small text-muted text-truncate" title="{{ update.price.plot_unit.plot_size.size }}">{{ update.price.plot_unit.plot_size.size }}</div>
-                  </div>
-
-                  {% if update.promo %}
-                    <div class="text-end ms-2">
-                      <span class="badge promo-badge-sm">-{{ update.promo.discount }}% Off</span>
-                      <div class="small text-muted">Promo</div>
-                    </div>
+      {% if latest_value_by_company %}
+      <div class="accordion accordion-flush price-accordion" id="priceAccordion">
+        {% for company_group in latest_value_by_company %}
+        <div class="accordion-item company-accordion-item" data-company-name="{{ company_group.company_name|lower }}">
+          <h2 class="accordion-header" id="heading-{{ forloop.counter }}">
+            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#collapse-{{ forloop.counter }}" 
+                    aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                    aria-controls="collapse-{{ forloop.counter }}">
+              <div class="d-flex align-items-center justify-content-between w-100 me-3">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-building company-icon"></i>
+                  <span class="company-name fw-semibold">{{ company_group.company_name }}</span>
+                  {% if company_group.has_new %}
+                  <span class="badge new-badge pulse-badge">NEW</span>
                   {% endif %}
                 </div>
-
-                <div class="d-flex justify-content-between align-items-end gap-3">
-                  <div class="minw-0">
-                    {% if update.promo and update.promo_price %}
-                      <div class="small text-muted text-decoration-line-through badge text-success" style="color: #0b6b2e !important;">₦{{ update.current|intcomma }}</div>
-                      <div class="fw-bold fs-6 price-current promo-badge-sm">₦{{ update.promo_price|floatformat:2|intcomma }}</div>
-                    {% else %}
-                      <div class="fw-bold fs-6 price-current badge text-success">₦{{ update.current|intcomma }}</div>
-                    {% endif %}
-                    <div class="small text-muted">Prev: ₦{{ update.previous|intcomma }}</div>
-                  </div>
-
-                  <div class="text-end d-flex flex-column align-items-end">
-                    {% if update.percent_change is not None %}
+                <span class="badge bg-light text-dark update-count-badge">{{ company_group.updates|length }} update{{ company_group.updates|length|pluralize }}</span>
+              </div>
+            </button>
+          </h2>
+          <div id="collapse-{{ forloop.counter }}" 
+               class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+               aria-labelledby="heading-{{ forloop.counter }}" 
+               data-bs-parent="#priceAccordion">
+            <div class="accordion-body p-0">
+              <div class="price-updates-list">
+                {% for update in company_group.updates %}
+                <div class="price-update-row {% if update.is_new %}is-new{% endif %}" 
+                     data-estate-name="{{ update.price.estate.name|lower }}"
+                     data-update-id="{{ update.id }}">
+                  <div class="row align-items-center g-2 py-2 px-3">
+                    <div class="col-md-4 col-6">
+                      <div class="d-flex align-items-start gap-2">
+                        {% if update.is_new %}
+                        <span class="new-dot" title="New price update"></span>
+                        {% endif %}
+                        <div>
+                          <div class="fw-semibold text-truncate estate-name" title="{{ update.price.estate.name }}">
+                            {{ update.price.estate.name }}
+                          </div>
+                          <div class="small text-muted">{{ update.price.plot_unit.plot_size.size }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                      <div class="price-info">
+                        {% if update.promo and update.promo_price %}
+                        <div class="small text-muted text-decoration-line-through">₦{{ update.current|intcomma }}</div>
+                        <div class="fw-bold text-success promo-price">₦{{ update.promo_price|floatformat:2|intcomma }}</div>
+                        <span class="badge promo-badge-sm ms-1">-{{ update.promo.discount }}%</span>
+                        {% else %}
+                        <div class="fw-bold text-success">₦{{ update.current|intcomma }}</div>
+                        <div class="small text-muted">Prev: ₦{{ update.previous|intcomma }}</div>
+                        {% endif %}
+                      </div>
+                    </div>
+                    <div class="col-md-2 col-6">
+                      {% if update.percent_change is not None %}
                       <span class="change-pill {% if update.percent_change|floatformat:2 < 0 %}down{% else %}up{% endif %}">
-                        {{ update.percent_change|floatformat:1 }}%
+                        {% if update.percent_change >= 0 %}+{% endif %}{{ update.percent_change|floatformat:1 }}%
                       </span>
-                    {% endif %}
-
-                    {% if update.effective and update.effective|date:'Y-m-d' > today_local %}
-                      <span class="badge effective-badge effective-on" aria-label="Effective on {{ update.effective|date:'M d, Y' }}">
-                        <strong>Effective on</strong>
-                        <div class="small d-block">{{ update.effective|date:"M d, Y" }}</div>
+                      {% endif %}
+                    </div>
+                    <div class="col-md-2 col-4">
+                      {% if update.effective and update.effective|date:'Y-m-d' > today_local %}
+                      <span class="badge effective-badge-sm effective-on-sm">
+                        <i class="bi bi-calendar-event me-1"></i>{{ update.effective|date:"M d" }}
                       </span>
-                    {% else %}
-                      <span class="badge effective-badge effective-since" aria-label="Effective since {{ update.effective|date:'M d, Y' }}">
-                        <strong>Effective since</strong>
-                        <div class="small d-block">{{ update.effective|date:"M d, Y" }}</div>
+                      {% else %}
+                      <span class="badge effective-badge-sm effective-since-sm">
+                        <i class="bi bi-check-circle me-1"></i>{{ update.effective|date:"M d" }}
                       </span>
-                    {% endif %}
-
-                    <div class="mt-2">
-                      <button class="btn btn-sm btn-outline-primary view-update-btn" data-update-id="{{ update.id }}">View</button>
+                      {% endif %}
+                    </div>
+                    <div class="col-md-1 col-2 text-end">
+                      <button class="btn btn-sm btn-outline-primary view-update-btn" data-update-id="{{ update.id }}" title="View details">
+                        <i class="bi bi-eye"></i>
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                {% if update.notes %}
-                  <div class="small text-muted mt-2">{{ update.notes|truncatechars:80 }}</div>
-                {% endif %}
+                {% endfor %}
               </div>
-            </article>
-          {% endfor %}
+            </div>
+          </div>
         </div>
+        {% endfor %}
       </div>
 
       {% else %}
@@ -430,81 +438,215 @@
       --primary-gradient: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
       --card-shadow: 0 12px 30px rgba(0,0,0,0.12);
       --hover-shadow: 0 20px 40px rgba(0,0,0,0.18);
+      --new-color: #10b981;
+      --new-bg: rgba(16, 185, 129, 0.1);
     }
 
-    .price-grid {
-      display: grid;
-      gap: 0.9rem;
-      grid-template-columns: repeat(1, 1fr);
-      padding: 0.5rem 0.25rem;
-      overflow: visible;
+    /* Company Accordion Styles */
+    .price-accordion {
+      border-radius: 12px;
+      overflow: hidden;
     }
-    @media (min-width: 576px) { .price-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (min-width: 900px) { .price-grid { grid-template-columns: repeat(3, 1fr); } }
 
-    .price-card {
-      background:#fff;
-      border-radius:10px;
-      overflow:hidden;
-      transition:transform .14s ease, box-shadow .14s ease;
-      border:1px solid rgba(16,24,40,0.04);
+    .price-accordion .accordion-item {
+      border: none;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      background: transparent;
     }
-    .price-card:focus, .price-card:hover { transform:translateY(-6px); box-shadow: 0 10px 24px rgba(2,6,23,0.08); outline: none; }
 
-    .effective-badge {
-      display: inline-block;
-      padding: 0.45rem 0.6rem;
-      border-radius: 10px;
+    .price-accordion .accordion-item:last-child {
+      border-bottom: none;
+    }
+
+    .price-accordion .accordion-button {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: none;
+      padding: 1rem 1.25rem;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+    }
+
+    .price-accordion .accordion-button:not(.collapsed) {
+      background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+      color: #1e40af;
+      box-shadow: none;
+    }
+
+    .price-accordion .accordion-button:focus {
+      box-shadow: none;
+      border-color: transparent;
+    }
+
+    .price-accordion .accordion-button::after {
+      background-size: 1rem;
+      transition: transform 0.25s ease;
+    }
+
+    .company-icon {
+      font-size: 1.1rem;
+      color: #6366f1;
+    }
+
+    .company-name {
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+
+    /* NEW Badge with pulse animation */
+    .new-badge {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .pulse-badge {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+
+    .update-count-badge {
+      font-size: 0.75rem;
       font-weight: 600;
-      text-align: center;
-      min-width: 140px;
-      line-height: 1;
-      box-shadow: 0 6px 14px rgba(18,38,63,.06);
+      background: #f1f5f9 !important;
+      color: #64748b !important;
     }
-    .effective-badge strong { display: block; font-size: .80rem; line-height: 1; }
-    .effective-badge .small { font-size: .72rem; opacity: .95; margin-top: 0.18rem; }
 
-    .effective-on {
-      background: linear-gradient(90deg,#ecffd9,#d3f7ce);
+    /* Price Updates List */
+    .price-updates-list {
+      background: #fff;
+    }
+
+    .price-update-row {
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      transition: background 0.15s ease;
+    }
+
+    .price-update-row:last-child {
+      border-bottom: none;
+    }
+
+    .price-update-row:hover {
+      background: #f8fafc;
+    }
+
+    .price-update-row.is-new {
+      background: linear-gradient(90deg, rgba(16,185,129,0.06) 0%, transparent 40%);
+      border-left: 3px solid #10b981;
+    }
+
+    .price-update-row.is-new:hover {
+      background: linear-gradient(90deg, rgba(16,185,129,0.1) 0%, #f8fafc 40%);
+    }
+
+    .new-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+      animation: dot-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes dot-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.9); }
+    }
+
+    .estate-name {
+      max-width: 180px;
+      font-size: 0.9rem;
+    }
+
+    .price-info {
+      line-height: 1.3;
+    }
+
+    .promo-price {
+      font-size: 0.95rem;
+    }
+
+    /* Smaller effective badges for accordion rows */
+    .effective-badge-sm {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .effective-on-sm {
+      background: linear-gradient(90deg, #ecffd9, #d3f7ce);
       color: #0b6b2e;
-      border: 1px solid rgba(11,107,46,.08);
-    }
-    .effective-since {
-      background: linear-gradient(90deg,#f5f5f6,#ececec);
-      color: #495057;
-      border: 1px solid rgba(73,80,87,.06);
     }
 
-    @media (max-width: 640px) {
-      #priceCards {
-        display:flex;
-        gap:0.75rem;
-        overflow-x:auto;
-        padding-bottom:0.25rem;
-        scroll-snap-type: x mandatory;
-      }
-      .price-card { min-width: 80%; scroll-snap-align: start; flex:0 0 auto; }
-      .price-scroll-btn { display:block; position:absolute; top:50%; transform:translateY(-50%); z-index:3; border-radius:50%; width:34px; height:34px; padding:0; }
-      .price-scroll-btn.left { left:6px; }
-      .price-scroll-btn.right { right:6px; }
+    .effective-since-sm {
+      background: #f1f5f9;
+      color: #64748b;
     }
-    @media (max-width: 575px) {
-      .effective-badge { min-width: 110px; padding: .35rem .5rem; font-size: .84rem; }
-      .effective-badge .small { font-size: .66rem; }
+
+    /* Change pills */
+    .change-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.8rem;
     }
-    .price-scroll-btn { display:none; }
 
-    .promo-badge { background: linear-gradient(90deg,#ff5f6d,#ffc371); color: #fff; font-weight:700; border-radius:8px; padding:.25rem .5rem; font-size:.80rem; }
-    .promo-badge-sm { background: linear-gradient(90deg,#ff7a7a,#ffb46b); color: #fff; font-weight:700; border-radius:6px; padding:.22rem .45rem; font-size:.75rem; }
+    .change-pill.up {
+      background: rgba(16, 185, 129, 0.12);
+      color: #059669;
+    }
 
-    .text-decoration-line-through { text-decoration: line-through !important; opacity: 0.85; }
-    .change-pill.up { background: rgba(6,157,116,.1); color:#059d74; padding:.18rem .45rem; border-radius:999px; font-weight:700; }
-    .change-pill.down { background: rgba(255,138,92,.1); color:#ff8a5c; padding:.18rem .45rem; border-radius:999px; font-weight:700; }
+    .change-pill.down {
+      background: rgba(239, 68, 68, 0.12);
+      color: #dc2626;
+    }
 
-    .compact-price-card { border-radius: 10px; box-shadow: 0 6px 14px rgba(18,38,63,.06); }
-    .compact-price-card .card-body { padding:.8rem .9rem; }
+    /* Promo badge */
+    .promo-badge-sm {
+      background: linear-gradient(90deg, #f97316, #ea580c);
+      color: #fff;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.7rem;
+    }
 
-    .text-truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .text-decoration-line-through {
+      text-decoration: line-through !important;
+      opacity: 0.7;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .estate-name { max-width: 140px; }
+      .price-accordion .accordion-button { padding: 0.85rem 1rem; }
+      .price-update-row .row { font-size: 0.85rem; }
+      .view-update-btn { padding: 0.2rem 0.4rem; }
+    }
+
+    @media (max-width: 576px) {
+      .company-name { font-size: 0.88rem; }
+      .estate-name { max-width: 120px; font-size: 0.85rem; }
+      .effective-badge-sm { font-size: 0.68rem; padding: 0.2rem 0.35rem; }
+    }
+
+    /* Search highlight */
+    .company-accordion-item.hidden-by-search {
+      display: none;
+    }
   </style>
 
   <!-- Consolidated scripts: promo modal + price explorer + price modal -->
@@ -522,99 +664,110 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       /* =========================
-         Price explorer: filters, sorting, rendering
+         Price Accordion: search, expand/collapse
          ========================= */
       (function () {
-        function pf(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-
-        const container = document.getElementById('priceCards');
-        if (!container) return;
+        const accordion = document.getElementById('priceAccordion');
+        if (!accordion) return;
 
         const searchInput = document.getElementById('priceSearch');
-        const sortSelect = document.getElementById('priceSort');
-        const promoOnlyCheckbox = document.getElementById('promoOnly');
-        const resetBtn = document.getElementById('resetPriceFilters');
+        const expandAllBtn = document.getElementById('expandAllBtn');
+        const collapseAllBtn = document.getElementById('collapseAllBtn');
         const countEl = document.getElementById('priceCount');
 
-        const originalCards = Array.from(container.children);
+        const accordionItems = Array.from(accordion.querySelectorAll('.company-accordion-item'));
 
-        function updateCount(n) { if (countEl) countEl.textContent = `${n} updates`; }
-
-        function matchesFilter(card, q, promoOnly) {
-          if (!card) return false;
-          const estate = (card.dataset.estateName || card.dataset['estate-name'] || '').toLowerCase();
-          const size = (card.dataset.size || '').toLowerCase();
-          const hasPromo = (card.dataset.hasPromo === '1' || card.dataset['hasPromo'] === '1');
-          if (promoOnly && !hasPromo) return false;
-          if (!q) return true;
-          q = q.trim().toLowerCase();
-          return (estate && estate.includes(q)) || (size && size.includes(q));
+        function updateCount(visible) {
+          if (countEl) {
+            countEl.textContent = visible + ' compan' + (visible === 1 ? 'y' : 'ies');
+          }
         }
 
-        function sortCards(cards, mode) {
-          const copy = cards.slice();
-          copy.sort((a, b) => {
-            const aPct = pf(a.dataset.percentChange || a.dataset['percent-change'] || a.dataset.percent_change || 0);
-            const bPct = pf(b.dataset.percentChange || b.dataset['percent-change'] || b.dataset.percent_change || 0);
-            const aCur = pf(a.dataset.current || 0);
-            const bCur = pf(b.dataset.current || 0);
-            const aEff = (a.dataset.effective || '');
-            const bEff = (b.dataset.effective || '');
+        function applySearch() {
+          const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
+          let visibleCount = 0;
 
-            switch (mode) {
-              case 'biggest_up': return (bPct - aPct);
-              case 'biggest_down': return (aPct - bPct);
-              case 'highest_price': return (bCur - aCur);
-              case 'promo_first': {
-                const ad = parseInt(a.dataset.hasPromo || 0), bd = parseInt(b.dataset.hasPromo || 0);
-                if (ad !== bd) return bd - ad;
-                return bPct - aPct;
+          accordionItems.forEach(item => {
+            const companyName = (item.dataset.companyName || '').toLowerCase();
+            const updateRows = item.querySelectorAll('.price-update-row');
+            let hasMatch = false;
+
+            if (!q) {
+              // No search - show all
+              item.classList.remove('hidden-by-search');
+              updateRows.forEach(row => row.style.display = '');
+              visibleCount++;
+              return;
+            }
+
+            // Check company name match
+            if (companyName.includes(q)) {
+              hasMatch = true;
+              updateRows.forEach(row => row.style.display = '');
+            } else {
+              // Check individual estate names within the company
+              updateRows.forEach(row => {
+                const estateName = (row.dataset.estateName || '').toLowerCase();
+                if (estateName.includes(q)) {
+                  row.style.display = '';
+                  hasMatch = true;
+                } else {
+                  row.style.display = 'none';
+                }
+              });
+            }
+
+            if (hasMatch) {
+              item.classList.remove('hidden-by-search');
+              visibleCount++;
+              // Auto-expand matching accordion items
+              const collapseEl = item.querySelector('.accordion-collapse');
+              if (collapseEl && !collapseEl.classList.contains('show')) {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                bsCollapse.show();
               }
-              case 'newest':
-              default:
-                if (aEff === bEff) return bCur - aCur;
-                return (bEff.localeCompare(aEff));
+            } else {
+              item.classList.add('hidden-by-search');
             }
           });
-          return copy;
+
+          updateCount(visibleCount);
         }
 
-        function applyFilters() {
-          const q = searchInput ? (searchInput.value || '') : '';
-          const promoOnly = promoOnlyCheckbox ? promoOnlyCheckbox.checked : false;
-          const sortMode = sortSelect ? sortSelect.value : 'newest';
-
-          let filtered = originalCards.filter(c => matchesFilter(c, q, promoOnly));
-          filtered = sortCards(filtered, sortMode);
-
-          container.innerHTML = '';
-          filtered.forEach(n => container.appendChild(n));
-          updateCount(filtered.length);
+        // Search input handler
+        if (searchInput) {
+          searchInput.addEventListener('input', applySearch);
         }
 
-        if (searchInput) searchInput.addEventListener('input', applyFilters);
-        if (sortSelect) sortSelect.addEventListener('change', applyFilters);
-        if (promoOnlyCheckbox) promoOnlyCheckbox.addEventListener('change', applyFilters);
-        if (resetBtn) resetBtn.addEventListener('click', function () {
-          if (searchInput) searchInput.value = '';
-          if (sortSelect) sortSelect.value = 'newest';
-          if (promoOnlyCheckbox) promoOnlyCheckbox.checked = false;
-          applyFilters();
-        });
-
-        applyFilters();
-
-        // small-screen scroll buttons
-        const btnLeft = document.querySelector('.price-scroll-btn.left');
-        const btnRight = document.querySelector('.price-scroll-btn.right');
-        if (btnLeft && btnRight) {
-          const scrollBy = () => {
-            const w = container.clientWidth || Math.round(window.innerWidth * 0.8);
-            return Math.round(w * 0.6);
-          };
-          btnLeft.addEventListener('click', () => container.scrollBy({ left: -scrollBy(), behavior: 'smooth' }));
-          btnRight.addEventListener('click', () => container.scrollBy({ left: scrollBy(), behavior: 'smooth' }));
+        // Expand All button
+        if (expandAllBtn) {
+          expandAllBtn.addEventListener('click', function () {
+            accordionItems.forEach(item => {
+              if (item.classList.contains('hidden-by-search')) return;
+              const collapseEl = item.querySelector('.accordion-collapse');
+              if (collapseEl) {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                bsCollapse.show();
+              }
+            });
+          });
         }
+
+        // Collapse All button
+        if (collapseAllBtn) {
+          collapseAllBtn.addEventListener('click', function () {
+            accordionItems.forEach(item => {
+              const collapseEl = item.querySelector('.accordion-collapse');
+              if (collapseEl) {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                bsCollapse.hide();
+              }
+            });
+          });
+        }
+
+        // Initial count
+        updateCount(accordionItems.length);
       })();
 
       /* =========================

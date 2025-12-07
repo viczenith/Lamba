@@ -301,8 +301,8 @@
                         <th scope="col">Plot Size</th>
                         <th scope="col">Plot Number</th>
                         <th scope="col">Purchase Price</th>
-                        <th scope="col">Current Value</th>
                         <th scope="col">Purchase Date</th>
+                        <th scope="col">Current Value</th>
                         <th scope="col">Status</th>
                         <th scope="col">View Receipts</th>
                         <th scope="col">Plot Details</th>
@@ -329,6 +329,7 @@
                             {% endif %}
                           </td>
                           <td class="fw-bold" data-label="Purchase Price">₦{{ transaction.total_amount|floatformat:"2g" }}</td>
+                          <td data-label="Date Purchased">{{ transaction.transaction_date|date:"M d, Y" }}</td>
                           <td class="fw-bold text-success" data-label="Current Value">
                             {% if transaction.current_value %}
                               ₦{{ transaction.current_value|floatformat:"2g" }}
@@ -336,7 +337,6 @@
                               <span class="text-muted">-</span>
                             {% endif %}
                           </td>
-                          <td data-label="Date Purchased">{{ transaction.transaction_date|date:"M d, Y" }}</td>
                           <td data-label="Payment Status">
                             <span class="badge bg-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}success{% elif transaction.status == 'Overdue' %}danger{% else %}warning{% endif %}">
                               {{ transaction.status }}
@@ -622,57 +622,13 @@
 {% endblock %}
 
 {% block extra_scripts %}
-  <!-- Chart.js (optional) and page scripts -->
+  <!-- jQuery must load first -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <!-- Chart.js (optional) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // Build simple allocation trend from server-rendered data
-    document.addEventListener('DOMContentLoaded', function() {
-      var ctx = document.getElementById('allocTrendChart');
-      if (ctx) {
-        try {
-          var labels = JSON.parse('{{ allocations|json_script:"allocLabels" }}');
-          var data = JSON.parse('{{ allocations|length|json_script:"allocData" }}');
-          // Collapse counts by label
-          var counts = {};
-          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + 1; }
-          var groupedLabels = Object.keys(counts);
-          var groupedData = groupedLabels.map(function(k){ return counts[k]; });
-          new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: groupedLabels,
-              datasets: [{ label: 'Allocations', data: groupedData, backgroundColor: 'rgba(108,92,231,0.9)' }]
-            },
-            options: { responsive:true, maintainAspectRatio:true, scales:{ y:{ beginAtZero:true } } }
-          });
-        } catch(e) { console.error(e); }
-      }
-      // Allocation Details button (fetch JSON and show simple modal)
-      document.addEventListener('click', function(evt){
-        var btn = evt.target.closest && evt.target.closest('.alloc-details-btn');
-        if(!btn) return;
-        evt.preventDefault();
-        var url = btn.dataset.url;
-        if(!url) return alert('Details URL not available');
-        fetch(url, { credentials: 'same-origin' })
-          .then(function(res){ if(!res.ok) throw new Error('Failed to fetch'); return res.json(); })
-          .then(function(data){
-            var parts = [];
-            parts.push('Client: ' + (data.client || 'N/A'));
-            parts.push('Payment type: ' + (data.payment_type || 'N/A'));
-            parts.push('Plot number id: ' + (data.plot_number || 'N/A'));
-            parts.push('Allocation id: ' + (data.id || 'N/A'));
-            alert(parts.join('\n'));
-          }).catch(function(err){
-            console.error(err);
-            alert('Unable to load allocation details.');
-          });
-      });
-    });
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-  <script>
     $(document).ready(function(){
+      // Currency formatter
       function formatCurrency(v) {
         return '₦' + parseFloat(v || 0).toLocaleString(undefined, {
           minimumFractionDigits: 2,
@@ -680,12 +636,13 @@
         });
       }
 
-
-
-
-
+      // Transaction Details Modal Handler
       $('#transactionDetailsModal').on('show.bs.modal', function(e) {
-        var id = $(e.relatedTarget).data('id');
+        // Get the button that triggered the modal (handle both button and icon click)
+        var $button = $(e.relatedTarget);
+        var id = $button.data('id') || $button.closest('button').data('id');
+        
+        console.log('Modal triggered, transaction ID:', id);
         
         // Clear previous data
         $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
@@ -694,26 +651,31 @@
         
         if(!id) {
           console.error('No transaction ID provided');
-          alert('No transaction ID provided');
+          $('#txn-modal-error').removeClass('d-none').text('No transaction ID provided');
           return;
         }
         
+        // Show loading
+        $('#txn-modal-loading').show();
+        $('#txn-modal-error').addClass('d-none');
+        
         // Fetch transaction details
         $.ajax({
-          url: `/transaction/${id}/details/`,
+          url: '/transaction/' + id + '/details/',
           type: 'GET',
           dataType: 'json',
           success: function(d) {
             console.log('Transaction details received:', d);
+            $('#txn-modal-loading').hide();
             
-            // Populate from allocation object (guaranteed structure from backend)
-            $('#td_estate').text(d.allocation.estate.name || 'N/A');
-            $('#td_plot_size').text(d.allocation.plot_size || 'N/A');
+            // Populate from allocation object
+            $('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : 'N/A');
+            $('#td_plot_size').text(d.allocation ? d.allocation.plot_size : 'N/A');
             $('#td_date').text(d.transaction_date || 'N/A');
             $('#td_amount').text(formatCurrency(d.total_amount || 0));
             
             // Payment Type badge
-            var paymentType = d.allocation.payment_type;
+            var paymentType = d.allocation ? d.allocation.payment_type : 'full';
             var ptHtml = paymentType === 'part'
               ? '<span class="badge bg-info text-dark">Part Payment</span>'
               : '<span class="badge bg-primary">Full Payment</span>';
@@ -721,7 +683,7 @@
             
             // Status badge
             var statusHtml = '';
-            var status = d.status;
+            var status = d.status || 'Unknown';
             switch(status) {
               case 'Paid Complete':
               case 'Fully Paid':
@@ -778,7 +740,8 @@
           },
           error: function(xhr, status, error) {
             console.error('Transaction fetch failed:', status, error, xhr.responseText);
-            alert('Error loading transaction details: ' + error);
+            $('#txn-modal-loading').hide();
+            $('#txn-modal-error').removeClass('d-none').text('Error loading transaction details: ' + error);
           }
         });
         
@@ -822,9 +785,30 @@
 
       // Handle receipt download
       $(document).on('click', '.view-receipt-btn', function() {
-        const reference = $(this).attr('data-reference') || $(this).data('reference');
-        if(reference) window.open(`/payment/receipt/${reference}/`, '_blank');
+        var reference = $(this).attr('data-reference') || $(this).data('reference');
+        if(reference) window.open('/payment/receipt/' + reference + '/', '_blank');
       });
+      
+      // Chart initialization (if canvas exists)
+      var ctx = document.getElementById('allocTrendChart');
+      if (ctx) {
+        try {
+          var labels = JSON.parse('{{ allocations|json_script:"allocLabels" }}');
+          var data = JSON.parse('{{ allocations|length|json_script:"allocData" }}');
+          var counts = {};
+          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + 1; }
+          var groupedLabels = Object.keys(counts);
+          var groupedData = groupedLabels.map(function(k){ return counts[k]; });
+          new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: groupedLabels,
+              datasets: [{ label: 'Allocations', data: groupedData, backgroundColor: 'rgba(108,92,231,0.9)' }]
+            },
+            options: { responsive:true, maintainAspectRatio:true, scales:{ y:{ beginAtZero:true } } }
+          });
+        } catch(e) { console.error(e); }
+      }
     });
   </script>
 {% endblock %}

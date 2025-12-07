@@ -6083,6 +6083,41 @@ def client_dashboard(request):
 
     latest_value = latest_value[:12]
 
+    # Group latest_value by company for accordion display
+    from collections import OrderedDict
+    latest_value_by_company = OrderedDict()
+    for upd in latest_value:
+        company = None
+        company_id = None
+        company_name = "Other"
+        if getattr(upd, 'price', None) and getattr(upd.price, 'estate', None):
+            company = getattr(upd.price.estate, 'company', None)
+            if company:
+                company_id = company.id
+                company_name = company.company_name
+        
+        if company_id not in latest_value_by_company:
+            latest_value_by_company[company_id] = {
+                'company_id': company_id,
+                'company_name': company_name,
+                'updates': [],
+                'has_new': False,  # Will be set if any update is within 7 days
+            }
+        
+        # Check if this update is "new" (effective within 7 days)
+        is_new = False
+        if getattr(upd, 'effective', None):
+            days_diff = (today_local - upd.effective).days
+            if days_diff <= 7:
+                is_new = True
+                latest_value_by_company[company_id]['has_new'] = True
+        upd.is_new = is_new
+        
+        latest_value_by_company[company_id]['updates'].append(upd)
+    
+    # Convert to list for template iteration
+    latest_value_by_company_list = list(latest_value_by_company.values())
+
     estate_ids = {e.id for e in client_estates}
     estate_ids.update({getattr(u.price.estate, 'id') for u in latest_value if getattr(u.price, 'estate', None)})
     estate_ids = {eid for eid in estate_ids if eid is not None}
@@ -6257,6 +6292,7 @@ def client_dashboard(request):
         'value_trend_data': value_trend_data,
         'client_estates': client_estates,
         'latest_value': latest_value,
+        'latest_value_by_company': latest_value_by_company_list,
         'today_local': today_local,
     }
 
