@@ -12309,6 +12309,30 @@ def notifications_all(request):
         qs = user.notifications.select_related('notification', 'notification__company').filter(
             Q(notification__company_id__in=all_company_ids) | Q(notification__company__isnull=True)
         ).order_by('-notification__created_at')
+    elif getattr(user, 'role', None) == 'client':
+        # Get ALL company IDs the client is connected to
+        # 1. The client's own company_profile (primary company)
+        own_company_id = getattr(user, 'company_profile_id', None)
+        
+        # 2. Companies where client has CompanyClientProfile records (affiliations)
+        profile_company_ids = set(
+            CompanyClientProfile.objects.filter(client=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        
+        # Combine all company IDs
+        all_company_ids = profile_company_ids.copy()
+        if own_company_id:
+            all_company_ids.add(own_company_id)
+        
+        # Remove None values
+        all_company_ids = [c for c in all_company_ids if c is not None]
+        
+        # Get notifications for this user that belong to their affiliated companies OR are global (company=None)
+        qs = user.notifications.select_related('notification', 'notification__company').filter(
+            Q(notification__company_id__in=all_company_ids) | Q(notification__company__isnull=True)
+        ).order_by('-notification__created_at')
     else:
         # For other roles, show all their notifications
         qs = user.notifications.select_related('notification').order_by('-notification__created_at')
@@ -12353,6 +12377,25 @@ def notification_detail(request, un_id):
         own_company_id = getattr(user, 'company_profile_id', None)
         
         all_company_ids = transaction_company_ids | affiliation_company_ids | profile_company_ids
+        if own_company_id:
+            all_company_ids.add(own_company_id)
+        
+        # Check if user has access to this notification's company
+        if un.notification.company_id not in all_company_ids:
+            messages.error(request, "You don't have access to this notification.")
+            return redirect('notifications_all')
+    
+    # For clients, verify they have access to this notification's company
+    elif getattr(user, 'role', None) == 'client' and un.notification.company:
+        # Get all company IDs the client is connected to
+        own_company_id = getattr(user, 'company_profile_id', None)
+        profile_company_ids = set(
+            CompanyClientProfile.objects.filter(client=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        
+        all_company_ids = profile_company_ids.copy()
         if own_company_id:
             all_company_ids.add(own_company_id)
         
