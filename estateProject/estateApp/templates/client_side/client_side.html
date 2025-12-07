@@ -119,45 +119,65 @@
         <div class="carousel-inner">
           {% for promo in active_promotions %}
             <div class="carousel-item {% if forloop.first %}active{% endif %}">
-              <div class="card shadow-sm rounded-3 p-3 d-flex flex-column flex-md-row align-items-start align-items-md-center">
-                <div class="promo-icon d-flex align-items-center justify-content-center me-3 mb-3 mb-md-0" style="min-width:84px;">
-                  <i class="bi bi-tag display-4 text-secondary" aria-hidden="true"></i>
+              <div class="card shadow-sm rounded-3 p-3 promo-card-wrapper">
+                <!-- Company Header -->
+                {% with first_estate=promo.estates.first %}
+                {% if first_estate and first_estate.company %}
+                <div class="promo-company-header d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                  {% if first_estate.company.logo %}
+                  <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="promo-company-logo">
+                  {% else %}
+                  <div class="promo-company-logo-placeholder d-flex align-items-center justify-content-center">
+                    <i class="bi bi-building"></i>
+                  </div>
+                  {% endif %}
+                  <div>
+                    <span class="promo-company-name">{{ first_estate.company.company_name }}</span>
+                    <span class="badge bg-success-subtle text-success ms-2">Active Promo</span>
+                  </div>
                 </div>
-
-                <div class="flex-grow-1">
-                  <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h5 class="mb-1">{{ promo.name|default:"Promotion" }} <span class="badge bg-danger ms-2">–{{ promo.discount }}%</span></h5>
-                      <p class="mb-1 text-muted small">{{ promo.description|default:"No additional description provided." }}</p>
-                      <p class="mb-0 small text-muted">Valid: <strong>{{ promo.start|date:"M d, Y" }}</strong> → <strong>{{ promo.end|date:"M d, Y" }}</strong></p>
-                    </div>
-
-                    <div class="text-end ms-3">
-                      <p class="mb-1 small text-muted">Ends</p>
-                      <p class="mb-0 fw-semibold">
-                        {% if promo.end %}
-                          {{ promo.end|timeuntil }}
-                        {% else %}
-                          —
-                        {% endif %}
-                      </p>
-                    </div>
+                {% endif %}
+                {% endwith %}
+                
+                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center">
+                  <div class="promo-icon d-flex align-items-center justify-content-center me-3 mb-3 mb-md-0" style="min-width:84px;">
+                    <i class="bi bi-tag display-4 text-secondary" aria-hidden="true"></i>
                   </div>
 
-                  <div class="mt-3">
-                    {% with estates=promo.estates.all %}
-                      {% if estates %}
-                        <p class="mb-1 small text-muted">Applies to:</p>
-                        <ul class="list-inline mb-0">
-                          {% for estate in estates|slice:":3" %}
-                            <li class="list-inline-item badge bg-light text-dark border me-1 py-1 px-2">{{ estate.name }}</li>
-                          {% endfor %}
-                          {% if estates|length > 3 %}
-                            <li class="list-inline-item small text-muted align-middle">+{{ estates|length|add:"-3" }} more</li>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h5 class="mb-1">{{ promo.name|default:"Promotion" }} <span class="badge bg-danger ms-2">–{{ promo.discount }}%</span></h5>
+                        <p class="mb-1 text-muted small">{{ promo.description|default:"No additional description provided." }}</p>
+                        <p class="mb-0 small text-muted">Valid: <strong>{{ promo.start|date:"M d, Y" }}</strong> → <strong>{{ promo.end|date:"M d, Y" }}</strong></p>
+                      </div>
+
+                      <div class="text-end ms-3">
+                        <p class="mb-1 small text-muted">Ends</p>
+                        <p class="mb-0 fw-semibold">
+                          {% if promo.end %}
+                            {{ promo.end|timeuntil }}
+                          {% else %}
+                            —
                           {% endif %}
-                        </ul>
-                      {% else %}
-                        <p class="mb-0 small text-muted">Applies to all estates.</p>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3">
+                      {% with estates=promo.estates.all %}
+                        {% if estates %}
+                          <p class="mb-1 small text-muted">Applies to:</p>
+                          <ul class="list-inline mb-0">
+                            {% for estate in estates|slice:":3" %}
+                              <li class="list-inline-item badge bg-light text-dark border me-1 py-1 px-2">{{ estate.name }}</li>
+                            {% endfor %}
+                            {% if estates|length > 3 %}
+                              <li class="list-inline-item small text-muted align-middle">+{{ estates|length|add:"-3" }} more</li>
+                            {% endif %}
+                          </ul>
+                        {% else %}
+                          <p class="mb-0 small text-muted">Applies to all estates.</p>
                       {% endif %}
                     {% endwith %}
                   </div>
@@ -168,9 +188,10 @@
                   </div>
                 </div>
               </div>
+              </div>
             </div>
 
-            
+            {% with first_estate=promo.estates.first %}
             <script type="application/json" id="promo-data-{{ promo.id }}">
               {
                 "id": {{ promo.id }},
@@ -178,6 +199,8 @@
                 "discount": {{ promo.discount }},
                 "start": "{{ promo.start|date:'Y-m-d' }}",
                 "end": "{{ promo.end|date:'Y-m-d' }}",
+                "company_name": "{% if first_estate and first_estate.company %}{{ first_estate.company.company_name|escapejs }}{% else %}{% endif %}",
+                "company_logo": "{% if first_estate and first_estate.company and first_estate.company.logo %}{{ first_estate.company.logo.url }}{% else %}{% endif %}",
                 "estates": [
                   {% for estate in promo.estates.all %}
                     {
@@ -197,6 +220,7 @@
                 ]
               }
             </script>
+            {% endwith %}
           {% endfor %}
         </div>
 
@@ -440,6 +464,47 @@
       --hover-shadow: 0 20px 40px rgba(0,0,0,0.18);
       --new-color: #10b981;
       --new-bg: rgba(16, 185, 129, 0.1);
+    }
+
+    /* Promo Card Company Header Styles */
+    .promo-card-wrapper {
+      border-left: 4px solid #6366f1;
+    }
+
+    .promo-company-header {
+      margin-left: -0.5rem;
+      margin-right: -0.5rem;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+
+    .promo-company-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    .promo-company-logo-placeholder {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .promo-company-name {
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #1e293b;
+      letter-spacing: -0.01em;
+    }
+
+    .bg-success-subtle {
+      background-color: rgba(16, 185, 129, 0.12) !important;
     }
 
     /* Company Accordion Styles */

@@ -6090,16 +6090,19 @@ def client_dashboard(request):
         company = None
         company_id = None
         company_name = "Other"
+        company_logo = None
         if getattr(upd, 'price', None) and getattr(upd.price, 'estate', None):
             company = getattr(upd.price.estate, 'company', None)
             if company:
                 company_id = company.id
                 company_name = company.company_name
+                company_logo = company.logo.url if company.logo else None
         
         if company_id not in latest_value_by_company:
             latest_value_by_company[company_id] = {
                 'company_id': company_id,
                 'company_name': company_name,
+                'company_logo': company_logo,
                 'updates': [],
                 'has_new': False,  # Will be set if any update is within 7 days
             }
@@ -6261,9 +6264,41 @@ def client_dashboard(request):
     for ph in promo_qs:
         append_ph(ph, forced_by_promo=True)
 
-    active_promotions = PromotionalOffer.objects.filter(
-        start__lte=today_local, end__gte=today_local
-    ).order_by('-discount')[:3]
+    # Get all companies the client is connected to (primary + affiliations)
+    client_company_ids = set()
+    
+    # 1. Primary company from client's company_profile
+    if hasattr(request.user, 'company_profile') and request.user.company_profile:
+        client_company_ids.add(request.user.company_profile.id)
+    
+    # 2. Companies from CompanyClientProfile (affiliations)
+    from estateApp.models import CompanyClientProfile
+    affiliated_company_ids = CompanyClientProfile.objects.filter(
+        client=request.user
+    ).values_list('company_id', flat=True)
+    client_company_ids.update(affiliated_company_ids)
+    
+    # 3. Companies from client's allocations (estates they've purchased from)
+    allocation_company_ids = Estate.all_objects.filter(
+        plotallocation__client=request.user
+    ).exclude(company__isnull=True).values_list('company_id', flat=True).distinct()
+    client_company_ids.update(allocation_company_ids)
+    
+    # Remove None if present
+    client_company_ids = {cid for cid in client_company_ids if cid is not None}
+    
+    # Get active promotions from all connected companies
+    if client_company_ids:
+        active_promotions = PromotionalOffer.objects.filter(
+            start__lte=today_local, 
+            end__gte=today_local,
+            estates__company__in=client_company_ids
+        ).prefetch_related('estates', 'estates__company').distinct().order_by('-discount')[:6]
+    else:
+        # Fallback: show general active promotions
+        active_promotions = PromotionalOffer.objects.filter(
+            start__lte=today_local, end__gte=today_local
+        ).prefetch_related('estates', 'estates__company').order_by('-discount')[:3]
 
     recent_transactions = PaymentRecord.objects.filter(
         transaction__allocation__client=request.user
