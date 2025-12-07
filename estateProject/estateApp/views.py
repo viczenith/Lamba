@@ -9080,17 +9080,40 @@ def generate_receipt_pdf(request, transaction_id):
     return HttpResponse("Error generating PDF", status=400)
 
 
-@require_GET
-@require_GET
 @login_required
+@require_GET
 def ajax_payment_history(request):
+    """
+    Return payment history for a transaction.
+    
+    SECURITY: Role-based access control:
+    - Clients: Can only view payment history for their own transactions
+    - Admins/Company Admins/Marketers/Support: Can view payment history within their company
+    """
     txn_id = request.GET.get("transaction_id")
     if not txn_id:
         return JsonResponse({"error": "Missing transaction_id"}, status=400)
 
-    # SECURITY: Verify the requesting client owns this transaction
-    client_id = getattr(request.user, 'id', request.user)
-    txn = get_object_or_404(Transaction, pk=txn_id, client_id=client_id)
+    user = request.user
+    user_role = getattr(user, 'role', None)
+    
+    # Apply role-based filtering to fetch the transaction
+    if user_role == 'client':
+        # Clients can only view their own transactions
+        txn = get_object_or_404(Transaction, pk=txn_id, client_id=user.id)
+    elif user_role in ('admin', 'company_admin', 'marketer', 'support'):
+        # Admins/Company Admins/Marketers/Support can view transactions within their company
+        user_company = getattr(user, 'company_profile', None)
+        if user_company:
+            txn = get_object_or_404(Transaction, pk=txn_id, company=user_company)
+        else:
+            # Fallback: super admins without company can view any transaction
+            txn = get_object_or_404(Transaction, pk=txn_id)
+    else:
+        # Unknown role - try to find by client ownership as fallback
+        txn = Transaction.objects.filter(pk=txn_id, client_id=user.id).first()
+        if not txn:
+            return JsonResponse({'error': 'Unauthorized or transaction not found'}, status=403)
 
     # FULL PAYMENT → 1 line straight off Transaction
     if txn.allocation.payment_type == 'full':
@@ -9457,23 +9480,46 @@ def payment_receipt(request, reference_code):
             return HttpResponse("Error generating PDF", status=500)
         return HttpResponse("Error generating PDF", status=500)
 
-@require_GET
-@require_GET
 @login_required
+@require_GET
 def ajax_transaction_details(request, transaction_id):
-    # SECURITY: Verify the requesting client owns this transaction
-    client_id = getattr(request.user, 'id', request.user)
+    """
+    Return transaction details for modal display.
     
-    txn = get_object_or_404(
-        Transaction.objects.select_related(
-            'allocation__estate',
-            'allocation__plot_size',
-            'client',
-            'marketer'
-        ),
-        pk=transaction_id,
-        client_id=client_id  # SECURITY: Only return transactions for the logged-in client
+    SECURITY: Role-based access control:
+    - Clients: Can only view their own transactions
+    - Admins/Company Admins/Marketers/Support: Can view transactions within their company
+    """
+    user = request.user
+    user_role = getattr(user, 'role', None)
+    
+    # Build base queryset with related objects
+    base_qs = Transaction.objects.select_related(
+        'allocation__estate',
+        'allocation__plot_size',
+        'client',
+        'marketer',
+        'company'
     )
+    
+    # Apply role-based filtering
+    if user_role == 'client':
+        # Clients can only view their own transactions
+        txn = get_object_or_404(base_qs, pk=transaction_id, client_id=user.id)
+    elif user_role in ('admin', 'company_admin', 'marketer', 'support'):
+        # Admins/Company Admins/Marketers/Support can view transactions within their company
+        user_company = getattr(user, 'company_profile', None)
+        if user_company:
+            txn = get_object_or_404(base_qs, pk=transaction_id, company=user_company)
+        else:
+            # Fallback: super admins without company can view any transaction
+            txn = get_object_or_404(base_qs, pk=transaction_id)
+    else:
+        # Unknown role - try to find by client ownership as fallback
+        # This handles edge cases where role might be None or unexpected
+        txn = base_qs.filter(pk=transaction_id, client_id=user.id).first()
+        if not txn:
+            return JsonResponse({'error': 'Unauthorized or transaction not found'}, status=403)
 
     data = {
         'client': txn.client.full_name,
