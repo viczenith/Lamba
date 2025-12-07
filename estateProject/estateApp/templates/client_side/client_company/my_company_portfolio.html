@@ -291,67 +291,85 @@
               <div class="card mb-3">
                 <div class="card-body">
                   <h5 class="card-title">Your Properties</h5>
-              {% if allocations and allocations.count %}
+              {% if transactions and transactions.count %}
                 <div class="table-responsive">
                   <table class="table table-hover align-middle">
-                    <thead>
+                    <thead class="table-light">
                       <tr>
-                        <th>Estate</th>
-                        <th>Plotsize</th>
-                        <th>Plot Number</th>
-                        <th>Payment</th>
-                        <th>Amount Paid</th>
-                        <th>Current Value</th>
-                        <th>Date</th>
-                        <th>Actions</th>
+                        <th scope="col">#</th>
+                        <th scope="col">Estate</th>
+                        <th scope="col">Plot Size</th>
+                        <th scope="col">Plot Number</th>
+                        <th scope="col">Purchase Price</th>
+                        <th scope="col">Current Value</th>
+                        <th scope="col">Purchase Date</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">View Receipts</th>
+                        <th scope="col">Plot Details</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {% for alloc in allocations %}
-                        <tr>
-                          <td class="fw-semibold">{{ alloc.estate.name }}</td>
-                          <td>{{ alloc.plot_size.size }}</td>
-                          <td>{% if alloc.plot_number %}{{ alloc.plot_number.number }}{% else %}<span class="text-muted">Reserved</span>{% endif %}</td>
-                          <td>{{ alloc.get_payment_type_display }}</td>
-                          <td>₦{{ alloc.total_paid|default:0|intcomma }}</td>
-                          <td class="fw-bold">
-                            {% if alloc.latest_price_current %}
-                              ₦{{ alloc.latest_price_current|floatformat:"2g" }}
-                            {% elif alloc.latest_transaction and alloc.latest_transaction.current_value %}
-                              ₦{{ alloc.latest_transaction.current_value|floatformat:"2g" }}
+                      {% for transaction in transactions %}
+                        <tr data-id="{{ transaction.allocation.id }}">
+                          <td data-label="#">{{ forloop.counter }}</td>
+                          <td data-label="Estate Name" class="fw-bold">
+                            <div class="d-flex align-items-center">
+                              <i class="bi bi-building me-2 text-primary"></i>
+                              {{ transaction.allocation.estate.name }}
+                            </div>
+                          </td>
+                          <td data-label="Plot Size">{{ transaction.allocation.plot_size.size }}</td>
+                          <td data-label="Plot Number">
+                            {% if transaction.allocation.plot_number %}
+                              <span class="badge bg-success">
+                                {{ transaction.allocation.plot_number.number }}
+                              </span>
+                            {% else %}
+                              <span class="badge bg-warning">Reserved</span>
+                            {% endif %}
+                          </td>
+                          <td class="fw-bold" data-label="Purchase Price">₦{{ transaction.total_amount|floatformat:"2g" }}</td>
+                          <td class="fw-bold text-success" data-label="Current Value">
+                            {% if transaction.current_value %}
+                              ₦{{ transaction.current_value|floatformat:"2g" }}
                             {% else %}
                               <span class="text-muted">-</span>
                             {% endif %}
                           </td>
-                          <td>{{ alloc.date_allocated|date:"d M Y" }}</td>
+                          <td data-label="Date Purchased">{{ transaction.transaction_date|date:"M d, Y" }}</td>
+                          <td data-label="Payment Status">
+                            <span class="badge bg-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}success{% elif transaction.status == 'Overdue' %}danger{% else %}warning{% endif %}">
+                              {{ transaction.status }}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              class="btn btn-sm btn-outline-success"
+                              data-bs-toggle="modal"
+                              data-bs-target="#transactionDetailsModal"
+                              data-id="{{ transaction.id }}"
+                            >
+                              <i class="bi bi-receipt"></i> View Receipts
+                            </button>
+                          </td>
                           <td class="text-end">
-                            <!-- View Receipts: will trigger transaction modal when allocation has a transaction id -->
-
-                            {% if alloc.latest_tx_id %}
-                              <button
-                                type="button"
-                                class="btn btn-sm btn-outline-success alloc-receipts-btn"
-                                data-bs-toggle="modal"
-                                data-bs-target="#transactionDetailsModal"
-                                data-id="{{ alloc.latest_tx_id }}"
-                                data-alloc-id="{{ alloc.id }}"
+                            {% if transaction.allocation and transaction.allocation.estate and transaction.allocation.plot_size %}
+                              <a
+                                href="{% url 'view-client-estate' transaction.allocation.estate.id transaction.allocation.plot_size.id %}"
+                                class="btn btn-sm btn-outline-primary"
                               >
-                                <i class="bi bi-receipt"></i> View Receipts
-                              </button>
-                            {% else %}
-                              <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="No transaction available">
-                                <i class="bi bi-receipt"></i> View Receipts
-                              </button>
-                            {% endif %}
-
-                            <!-- View Plot Details: reuse the same route used elsewhere -->
-                            {% if alloc.estate and alloc.plot_size %}
-                              <a href="{% url 'view-client-estate' alloc.estate.id alloc.plot_size.id %}" class="btn btn-sm btn-outline-primary ms-2">
                                 <i class="bi bi-book"></i> View Plot Details
                               </a>
                             {% else %}
-                              <span class="text-muted ms-2">N/A</span>
+                              <span class="text-muted">N/A</span>
                             {% endif %}
+                          </td>
+                        </tr>
+                      {% empty %}
+                        <tr>
+                          <td colspan="10" class="text-center py-4">
+                            <i class="bi bi-house-exclamation display-6 text-muted"></i>
+                            <p class="mt-3">No properties found in this company</p>
                           </td>
                         </tr>
                       {% endfor %}
@@ -359,7 +377,10 @@
                   </table>
                 </div>
               {% else %}
-                <p class="text-muted">No allocations found for this company.</p>
+                <div class="text-center py-5">
+                  <i class="bi bi-house-exclamation display-4 text-muted"></i>
+                  <p class="mt-3 text-muted">No properties found for this company.</p>
+                </div>
               {% endif %}
             </div>
           </div>
