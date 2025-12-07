@@ -4,217 +4,682 @@
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>Client Dashboard</h1>
+    <h1>Promotional Offers</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
-        <li class="breadcrumb-item active">Promos</li>
+        <li class="breadcrumb-item active">Promotions</li>
       </ol>
     </nav>
   </div>
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Promotions</h2>
-    <div>
-      <a href="{% url 'promotions-list' %}" class="btn btn-sm btn-outline-primary">All</a>
-      <a href="{% url 'promotions-list' %}?filter=active" class="btn btn-sm btn-primary ms-1">Active</a>
-      <a href="{% url 'promotions-list' %}?filter=past" class="btn btn-sm btn-outline-secondary ms-1">Past</a>
+
+  <!-- Header with Stats & Filters -->
+  <div class="promo-header-card mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <div class="d-flex align-items-center gap-3">
+          <div class="promo-icon-wrapper">
+            <i class="bi bi-percent"></i>
+          </div>
+          <div>
+            <h2 class="mb-1">Special Offers</h2>
+            <p class="text-muted mb-0">Exclusive deals from your connected companies</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="d-flex justify-content-md-end align-items-center gap-2 mt-3 mt-md-0">
+          <div class="promo-stats d-flex gap-3 me-3">
+            <div class="stat-item">
+              <span class="stat-number text-success">{{ total_active|default:0 }}</span>
+              <span class="stat-label">Active</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number text-muted">{{ total_past|default:0 }}</span>
+              <span class="stat-label">Past</span>
+            </div>
+          </div>
+          <div class="btn-group" role="group">
+            <a href="{% url 'promotions-list' %}" class="btn btn-sm {% if current_filter == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">All</a>
+            <a href="{% url 'promotions-list' %}?filter=active" class="btn btn-sm {% if current_filter == 'active' %}btn-success{% else %}btn-outline-success{% endif %}">
+              <i class="bi bi-lightning-fill me-1"></i>Active
+            </a>
+            <a href="{% url 'promotions-list' %}?filter=past" class="btn btn-sm {% if current_filter == 'past' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Past</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  
+  <!-- Active Promotions Spotlight -->
   {% if active_promotions and active_promotions|length > 0 %}
-    <div class="mb-4">
-      <h5 class="mb-2">Currently active</h5>
-      <div class="row g-3">
-        {% for promo in active_promotions %}
-        <div class="col-md-6">
-          <div class="card p-3 h-100">
-            <div class="d-flex justify-content-between">
-              <div>
-                <h5 class="mb-1"><a href="{% url 'promotion-detail' promo.id %}">{{ promo.name }}</a> <span class="badge bg-danger">-{{ promo.discount }}%</span></h5>
-                <p class="small text-muted mb-1">{{ promo.description|default:"No description" }}</p>
-                <p class="small text-muted mb-0">Valid: {{ promo.start|date:"M d, Y" }} → {{ promo.end|date:"M d, Y" }}</p>
-              </div>
-              <div class="text-end">
-                <p class="small text-muted mb-1">Applies to</p>
-                <p class="mb-0">
-                  {% with estates=promo.estates.all %}
-                    {% if estates %}
-                      {{ estates|slice:":2"|join:", " }}{% if estates|length > 2 %} +{{ estates|length|add:"-2" }} more{% endif %}
-                    {% else %}
-                      All estates
+  <div class="mb-4">
+    <div class="section-header d-flex align-items-center mb-3">
+      <div class="section-icon active">
+        <i class="bi bi-fire"></i>
+      </div>
+      <h5 class="mb-0 ms-2">Currently Active</h5>
+      <span class="badge bg-success ms-2 pulse-badge">{{ active_promotions|length }} LIVE</span>
+    </div>
+    
+    <div class="row g-3">
+      {% for promo in active_promotions %}
+      {% with first_estate=promo.estates.first %}
+      <div class="col-lg-4 col-md-6">
+        <div class="promo-card active-promo h-100">
+          <!-- Company Header -->
+          <div class="promo-company-header">
+            {% if first_estate and first_estate.company %}
+              {% if first_estate.company.logo %}
+                <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="company-logo-sm">
+              {% else %}
+                <div class="company-avatar-sm">{{ first_estate.company.company_name|slice:":2"|upper }}</div>
+              {% endif %}
+              <span class="company-name-sm">{{ first_estate.company.company_name }}</span>
+            {% else %}
+              <div class="company-avatar-sm">PR</div>
+              <span class="company-name-sm">Promo</span>
+            {% endif %}
+            <span class="promo-status-badge active">
+              <i class="bi bi-broadcast"></i> LIVE
+            </span>
+          </div>
+          
+          <!-- Promo Content -->
+          <div class="promo-body">
+            <div class="promo-discount-badge">-{{ promo.discount }}%</div>
+            <h5 class="promo-title">
+              <a href="{% url 'promotion-detail' promo.id %}">{{ promo.name }}</a>
+            </h5>
+            <p class="promo-description">{{ promo.description|default:"Special limited-time offer"|truncatechars:80 }}</p>
+            
+            <div class="promo-validity">
+              <i class="bi bi-calendar-range"></i>
+              <span>{{ promo.start|date:"M d" }} - {{ promo.end|date:"M d, Y" }}</span>
+            </div>
+            
+            <div class="promo-estates">
+              <small class="text-muted">Applies to:</small>
+              {% with estates=promo.estates.all %}
+                {% if estates %}
+                  <span class="estate-tags">
+                    {% for estate in estates|slice:":2" %}
+                      <span class="estate-tag">{{ estate.name }}</span>
+                    {% endfor %}
+                    {% if estates|length > 2 %}
+                      <span class="estate-tag more">+{{ estates|length|add:"-2" }}</span>
                     {% endif %}
-                  {% endwith %}
-                </p>
-              </div>
+                  </span>
+                {% else %}
+                  <span class="estate-tag all">All Estates</span>
+                {% endif %}
+              {% endwith %}
             </div>
           </div>
+          
+          <!-- Countdown Footer -->
+          <div class="promo-footer">
+            <div class="countdown-info">
+              <i class="bi bi-clock"></i>
+              <span>Ends in <strong>{{ promo.end|timeuntil }}</strong></span>
+            </div>
+            <a href="{% url 'promotion-detail' promo.id %}" class="btn btn-sm btn-primary">
+              View Details <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
         </div>
-        {% endfor %}
       </div>
+      {% endwith %}
+      {% endfor %}
     </div>
+  </div>
   {% endif %}
 
-    <div id="promotionsContainer">
-        <h5 class="mb-2">All promotions</h5>
-        {% now "Y-m-d" as today %}
-        {% if promotions %}
-        <div class="list-group">
-            {% for promo in promotions %}
-            {# normalize date strings for reliable comparison in template #}
+  <!-- All Promotions by Company -->
+  <div id="promotionsContainer">
+    <div class="section-header d-flex align-items-center mb-3">
+      <div class="section-icon">
+        <i class="bi bi-collection"></i>
+      </div>
+      <h5 class="mb-0 ms-2">All Promotions</h5>
+    </div>
+    
+    {% now "Y-m-d" as today %}
+    {% if promotions %}
+    
+    <!-- Company-Based Accordion -->
+    <div class="promo-accordion" id="promoAccordion">
+      {% regroup promotions by estates.first.company as company_promos %}
+      {% for company_group in company_promos %}
+      {% with company=company_group.grouper %}
+      <div class="company-promo-section mb-3">
+        <div class="company-promo-header" data-bs-toggle="collapse" data-bs-target="#promoCompany{{ forloop.counter }}" aria-expanded="true">
+          <div class="d-flex align-items-center">
+            {% if company %}
+              {% if company.logo %}
+                <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="company-logo-accordion">
+              {% else %}
+                <div class="company-avatar-accordion">{{ company.company_name|slice:":2"|upper }}</div>
+              {% endif %}
+              <div class="company-info-accordion">
+                <span class="company-name">{{ company.company_name }}</span>
+                <span class="promo-count">{{ company_group.list|length }} promotion{{ company_group.list|length|pluralize }}</span>
+              </div>
+            {% else %}
+              <div class="company-avatar-accordion">GN</div>
+              <div class="company-info-accordion">
+                <span class="company-name">General Promotions</span>
+                <span class="promo-count">{{ company_group.list|length }} promotion{{ company_group.list|length|pluralize }}</span>
+              </div>
+            {% endif %}
+          </div>
+          <i class="bi bi-chevron-down accordion-chevron"></i>
+        </div>
+        
+        <div id="promoCompany{{ forloop.counter }}" class="collapse show">
+          <div class="company-promo-body">
+            {% for promo in company_group.list %}
             {% with start=promo.start|date:"Y-m-d" end=promo.end|date:"Y-m-d" %}
-                {% if start <= today and end >= today %}
-                {# Active promo: clickable, green badge #}
-                <a href="{% url 'promotion-detail' promo.id %}"
-                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                    title="Active — ends {{ promo.end|date:'M d, Y' }}">
-                    <div>
+            
+            {% if start <= today and end >= today %}
+            <!-- Active Promo -->
+            <a href="{% url 'promotion-detail' promo.id %}" class="promo-list-item active">
+              <div class="promo-list-content">
+                <div class="promo-list-main">
+                  <span class="status-indicator active"></span>
+                  <div class="promo-list-info">
                     <strong>{{ promo.name }}</strong>
-                    <div class="small text-muted">{{ promo.description|truncatechars:120 }}</div>
-                    </div>
-                    <span class="badge bg-success rounded-pill">-{{ promo.discount }}%</span>
-                </a>
-
-                {% elif end < today %}
-                {# Expired promo: greyed, non-clickable #}
-                <div class="list-group-item d-flex justify-content-between align-items-center promo-expired" aria-disabled="true" role="button">
-                    <div>
-                    <strong class="text-muted">{{ promo.name }}</strong>
-                    <div class="small text-muted">{{ promo.description|truncatechars:120 }}</div>
-                    </div>
-                    <span class="badge bg-light text-muted rounded-pill">-{{ promo.discount }}%</span>
+                    <p class="mb-0 text-muted small">{{ promo.description|truncatechars:100 }}</p>
+                  </div>
                 </div>
-
-                {% else %}
-                {# Future / not yet active promo: clickable but neutral/gray badge #}
-                <a href="{% url 'promotion-detail' promo.id %}"
-                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                    title="Not yet active — starts {{ promo.start|date:'M d, Y' }}">
-                    <div>
+                <div class="promo-list-meta">
+                  <span class="validity-text">Ends {{ promo.end|date:'M d' }}</span>
+                  <span class="discount-badge active">-{{ promo.discount }}%</span>
+                </div>
+              </div>
+            </a>
+            
+            {% elif end < today %}
+            <!-- Expired Promo -->
+            <div class="promo-list-item expired">
+              <div class="promo-list-content">
+                <div class="promo-list-main">
+                  <span class="status-indicator expired"></span>
+                  <div class="promo-list-info">
                     <strong>{{ promo.name }}</strong>
-                    <div class="small text-muted">{{ promo.description|truncatechars:120 }}</div>
-                    </div>
-                    <span class="badge bg-secondary rounded-pill">-{{ promo.discount }}%</span>
-                </a>
-                {% endif %}
+                    <p class="mb-0 text-muted small">{{ promo.description|truncatechars:100 }}</p>
+                  </div>
+                </div>
+                <div class="promo-list-meta">
+                  <span class="validity-text expired">Ended {{ promo.end|date:'M d' }}</span>
+                  <span class="discount-badge expired">-{{ promo.discount }}%</span>
+                </div>
+              </div>
+            </div>
+            
+            {% else %}
+            <!-- Future Promo -->
+            <a href="{% url 'promotion-detail' promo.id %}" class="promo-list-item upcoming">
+              <div class="promo-list-content">
+                <div class="promo-list-main">
+                  <span class="status-indicator upcoming"></span>
+                  <div class="promo-list-info">
+                    <strong>{{ promo.name }}</strong>
+                    <p class="mb-0 text-muted small">{{ promo.description|truncatechars:100 }}</p>
+                  </div>
+                </div>
+                <div class="promo-list-meta">
+                  <span class="validity-text upcoming">Starts {{ promo.start|date:'M d' }}</span>
+                  <span class="discount-badge upcoming">-{{ promo.discount }}%</span>
+                </div>
+              </div>
+            </a>
+            {% endif %}
+            
             {% endwith %}
             {% endfor %}
+          </div>
         </div>
-
-        <nav class="mt-3" aria-label="Promotions pagination">
-            <ul class="pagination">
-            {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
-            {% else %}
-                <li class="page-item disabled"><span class="page-link">Previous</span></li>
-            {% endif %}
-            <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
-            {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
-            {% else %}
-                <li class="page-item disabled"><span class="page-link">Next</span></li>
-            {% endif %}
-            </ul>
-        </nav>
-        {% else %}
-        <div class="card p-4 text-center">
-            <h5>No promotions found</h5>
-            <p class="text-muted">There are currently no promotions configured.</p>
-        </div>
-        {% endif %}
+      </div>
+      {% endwith %}
+      {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    <nav class="mt-4" aria-label="Promotions pagination">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_filter != 'all' %}&filter={{ current_filter }}{% endif %}"><i class="bi bi-chevron-left"></i> Previous</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_filter != 'all' %}&filter={{ current_filter }}{% endif %}">Next <i class="bi bi-chevron-right"></i></a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Next <i class="bi bi-chevron-right"></i></span></li>
+        {% endif %}
+      </ul>
+    </nav>
+    
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state-card">
+      <div class="empty-icon">
+        <i class="bi bi-ticket-perforated"></i>
+      </div>
+      <h5>No Promotions Available</h5>
+      <p class="text-muted">There are no promotional offers at this time. Check back later for exciting deals!</p>
+      <a href="{% url 'client-dashboard' %}" class="btn btn-primary">
+        <i class="bi bi-house me-1"></i> Back to Dashboard
+      </a>
+    </div>
+    {% endif %}
+  </div>
 
 </main>
 
 <style>
-    .promo-expired {
-    background-color: #f8f9fa;
-    color: #6c757d;
-    cursor: not-allowed;
-    opacity: 0.75;
-    pointer-events: none;
-    }
+/* Header Card */
+.promo-header-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  color: white;
+}
+.promo-header-card h2 { color: white; font-weight: 600; }
+.promo-header-card .text-muted { color: rgba(255,255,255,0.8) !important; }
 
-    .badge.bg-success {
-    background-color: #198754 !important;
-    }
-    .badge.bg-secondary {
-    background-color: #6c757d !important;
-    color: #fff !important;
-    }
+.promo-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
 
+.promo-stats .stat-item {
+  text-align: center;
+  padding: 0 0.75rem;
+  border-right: 1px solid rgba(255,255,255,0.2);
+}
+.promo-stats .stat-item:last-child { border-right: none; }
+.promo-stats .stat-number {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white !important;
+}
+.promo-stats .stat-label {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.7);
+}
+
+/* Section Headers */
+.section-header .section-icon {
+  width: 36px;
+  height: 36px;
+  background: #f0f4ff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4361ee;
+}
+.section-header .section-icon.active {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: white;
+}
+
+.pulse-badge {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Active Promo Cards */
+.promo-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+.promo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+.promo-card.active-promo {
+  border: 2px solid #28a745;
+}
+
+.promo-company-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+.company-logo-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.company-avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.company-name-sm {
+  font-size: 0.8rem;
+  color: #555;
+  flex: 1;
+}
+.promo-status-badge {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.promo-status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.promo-body {
+  padding: 1.25rem;
+  flex: 1;
+  position: relative;
+}
+.promo-discount-badge {
+  position: absolute;
+  top: -12px;
+  right: 1rem;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(255,65,108,0.3);
+}
+.promo-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.promo-title a {
+  color: #333;
+  text-decoration: none;
+}
+.promo-title a:hover { color: #4361ee; }
+
+.promo-description {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.promo-validity {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 0.75rem;
+}
+.promo-validity i { margin-right: 0.25rem; }
+
+.promo-estates .estate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+.estate-tag {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: #e9ecef;
+  border-radius: 4px;
+  color: #555;
+}
+.estate-tag.more {
+  background: #dee2e6;
+  color: #333;
+}
+.estate-tag.all {
+  background: #d4edda;
+  color: #155724;
+}
+
+.promo-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+}
+.countdown-info {
+  font-size: 0.8rem;
+  color: #666;
+}
+.countdown-info i { color: #ff6b6b; }
+
+/* Company Accordion */
+.company-promo-section {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.company-promo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.company-promo-header:hover {
+  background: #f8f9fa;
+}
+
+.company-logo-accordion {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid #eee;
+}
+.company-avatar-accordion {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.company-info-accordion {
+  margin-left: 0.75rem;
+}
+.company-info-accordion .company-name {
+  display: block;
+  font-weight: 600;
+  color: #333;
+}
+.company-info-accordion .promo-count {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.accordion-chevron {
+  transition: transform 0.3s;
+  color: #888;
+}
+.company-promo-header[aria-expanded="false"] .accordion-chevron,
+.collapsed .accordion-chevron {
+  transform: rotate(-90deg);
+}
+
+.company-promo-body {
+  border-top: 1px solid #eee;
+}
+
+/* Promo List Items */
+.promo-list-item {
+  display: block;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f0f0f0;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s;
+}
+.promo-list-item:last-child { border-bottom: none; }
+.promo-list-item:hover:not(.expired) {
+  background: #f8f9ff;
+}
+.promo-list-item.expired {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.promo-list-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.promo-list-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.status-indicator.active {
+  background: #28a745;
+  box-shadow: 0 0 0 3px rgba(40,167,69,0.2);
+}
+.status-indicator.expired { background: #ccc; }
+.status-indicator.upcoming {
+  background: #ffc107;
+  box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+}
+
+.promo-list-info strong {
+  display: block;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.promo-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.validity-text {
+  font-size: 0.8rem;
+  color: #888;
+}
+.validity-text.expired { color: #999; }
+.validity-text.upcoming { color: #856404; }
+
+.discount-badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.discount-badge.active {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+}
+.discount-badge.expired {
+  background: #e9ecef;
+  color: #6c757d;
+}
+.discount-badge.upcoming {
+  background: #fff3cd;
+  color: #856404;
+}
+
+/* Empty State */
+.empty-state-card {
+  background: white;
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #f0f4ff, #e8f5e9);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  font-size: 2rem;
+  color: #667eea;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .promo-header-card {
+    padding: 1.25rem;
+  }
+  .promo-list-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .promo-list-meta {
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-    const container = document.getElementById('promotionsContainer');
-    if (!container) return;
-
-    // Utility: fetch full page HTML, parse it, extract #promotionsContainer innerHTML and replace ours
-    async function fetchAndReplace(url, pushState = true) {
-        try {
-        const resp = await fetch(url, { credentials: 'same-origin' });
-        if (!resp.ok) throw new Error('Network response was not ok: ' + resp.status);
-        const text = await resp.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const newBlock = doc.getElementById('promotionsContainer');
-        if (newBlock) {
-            container.innerHTML = newBlock.innerHTML;
-
-            // optionally update document title if server changed it
-            const newTitle = doc.querySelector('title');
-            if (newTitle) document.title = newTitle.textContent;
-
-            if (pushState) {
-            // push the url (makes back/forward and bookmarking work)
-            history.pushState({ promotionsUrl: url }, '', url);
-            }
-
-            // scroll to the promotions area (nice UX after filter)
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-            console.warn('Could not find #promotionsContainer in fetched page.');
-        }
-        } catch (err) {
-        console.error('Error loading promotions:', err);
-        }
-    }
-
-    // Intercept clicks on links that contain either a "filter" param or a "page" param
-    document.addEventListener('click', function (ev) {
-        const a = ev.target.closest('a');
-        if (!a) return;
-
-        // Only handle same-origin internal navigation
-        const href = a.getAttribute('href');
-        if (!href || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-
-        // Build absolute URL
-        let url;
-        try {
-        url = new URL(href, window.location.origin);
-        } catch (e) {
-        return; // invalid URL
-        }
-
-        const hasFilter = url.searchParams.has('filter');
-        const hasPage = url.searchParams.has('page');
-
-        // If the link is a filter or pagination link, intercept and load via AJAX
-        if (hasFilter || (hasPage && a.closest('#promotionsContainer'))) {
-        ev.preventDefault();
-        fetchAndReplace(url.toString(), true);
-        }
+document.addEventListener('DOMContentLoaded', function () {
+  // Handle accordion state with proper Bootstrap 5 handling
+  const headers = document.querySelectorAll('.company-promo-header');
+  headers.forEach(header => {
+    header.addEventListener('click', function() {
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      this.setAttribute('aria-expanded', !isExpanded);
     });
-
-    // Handle back/forward
-    window.addEventListener('popstate', function (ev) {
-        // When user navigates history, reload the current URL into the promotions container.
-        // Avoid pushing another history entry (pushState = false).
-        fetchAndReplace(location.href, false);
-    });
-    });
+  });
+});
 </script>
 
 {% endblock %}

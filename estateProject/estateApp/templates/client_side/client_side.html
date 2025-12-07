@@ -183,8 +183,12 @@
                   </div>
 
                   <div class="mt-3">
-                    <button type="button" class="btn btn-sm btn-outline-primary me-2 view-promo-btn" data-promo-id="{{ promo.id }}">View promo</button>
-                    <a href="{% url 'estates-list' %}?promo={{ promo.id }}" class="btn btn-sm btn-primary" role="button">View estates</a>
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2 view-promo-btn" data-promo-id="{{ promo.id }}">
+                      <i class="bi bi-info-circle me-1"></i>Details
+                    </button>
+                    <a href="{% url 'promotion-detail' promo.id %}" class="btn btn-sm btn-primary view-estates-link" role="button">
+                      <i class="bi bi-building me-1"></i>View Estates
+                    </a>
                   </div>
                 </div>
               </div>
@@ -321,7 +325,13 @@
                     aria-controls="collapse-{{ forloop.counter }}">
               <div class="d-flex align-items-center justify-content-between w-100 me-3">
                 <div class="d-flex align-items-center gap-2">
-                  <i class="bi bi-building company-icon"></i>
+                  {% if company_group.company_logo %}
+                  <img src="{{ company_group.company_logo }}" alt="{{ company_group.company_name }}" class="accordion-company-logo">
+                  {% else %}
+                  <div class="accordion-company-logo-placeholder d-flex align-items-center justify-content-center">
+                    <i class="bi bi-building"></i>
+                  </div>
+                  {% endif %}
                   <span class="company-name fw-semibold">{{ company_group.company_name }}</span>
                   {% if company_group.has_new %}
                   <span class="badge new-badge pulse-badge">NEW</span>
@@ -505,6 +515,27 @@
 
     .bg-success-subtle {
       background-color: rgba(16, 185, 129, 0.12) !important;
+    }
+
+    /* Accordion Company Logo Styles */
+    .accordion-company-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      flex-shrink: 0;
+    }
+
+    .accordion-company-logo-placeholder {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #fff;
+      font-size: 0.85rem;
+      flex-shrink: 0;
     }
 
     /* Company Accordion Styles */

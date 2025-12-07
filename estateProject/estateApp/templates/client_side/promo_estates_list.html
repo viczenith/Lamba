@@ -6,160 +6,497 @@
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>Promo Estate List</h1>
+    <h1>Estate Promotions</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
-        <li class="breadcrumb-item active">Estate Active Promos</li>
+        <li class="breadcrumb-item active">Estates with Promos</li>
       </ol>
     </nav>
   </div>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>All Estates</h2>
-    <form class="d-flex" method="get">
-      <input name="q" class="form-control form-control-sm me-2" placeholder="Search estates..." value="{{ request.GET.q }}">
-      <button class="btn btn-sm btn-outline-secondary" type="submit">Search</button>
-    </form>
-  </div>
-
-  {% if estates %}
-    <div class="row g-3">
-      {% for estate in estates %}
-      <div class="col-md-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title">{{ estate.name }}</h5>
-            <p class="small text-muted mb-1">{{ estate.location }}</p>
-            <p class="mb-2 text-muted small">Added: {{ estate.created_at|date:"Y-m-d" }}</p>
-
-            {% with estate_promos=estate.promotional_offers.all %}
-                {% if estate_promos %}
-                    <div class="mb-2">
-                    {% for p in estate_promos|slice:":3" %}
-                        {% if p.is_active %}
-                        <!-- ACTIVE promo: green badge -->
-                        <span class="badge bg-success me-1"
-                                title="Active • Valid: {{ p.start|date:'M d, Y' }} → {{ p.end|date:'M d, Y' }}"
-                                aria-label="Active promo {{ p.name }} - {{ p.discount }} percent">
-                            -{{ p.discount }}%
-                        </span>
-                        {% else %}
-                        <!-- NOT ACTIVE: muted/grey badge -->
-                        <span class="badge bg-secondary text-white me-1"
-                                title="Not active • Valid: {{ p.start|date:'M d, Y' }} → {{ p.end|date:'M d, Y' }}"
-                                aria-label="Expired or future promo {{ p.name }} - {{ p.discount }} percent">
-                            -{{ p.discount }}%
-                        </span>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if estate_promos|length > 3 %}
-                        <span class="small text-muted">+{{ estate_promos|length|add:"-3" }} more</span>
-                    {% endif %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-
-
-            <!-- button opens modal and requests JSON from the same list view -->
-            <button type="button" class="btn btn-sm btn-primary view-sizes-btn" data-estate-id="{{ estate.id }}">
-              View Plots & prices
-            </button>
+  <!-- Header Card -->
+  <div class="estates-header-card mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <div class="d-flex align-items-center gap-3">
+          <div class="estates-icon-wrapper">
+            <i class="bi bi-buildings"></i>
+          </div>
+          <div>
+            <h2 class="mb-1">Explore Estates</h2>
+            <p class="text-muted mb-0">Browse properties with active promotional offers</p>
           </div>
         </div>
       </div>
+      <div class="col-md-6">
+        <form class="search-form d-flex mt-3 mt-md-0" method="get">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input name="q" class="form-control" placeholder="Search estates by name or location..." value="{{ request.GET.q }}">
+            <button class="btn btn-primary" type="submit">Search</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {% if estates %}
+    <!-- Company-Based Estate Grouping -->
+    <div class="estates-container">
+      {% regroup estates by company as company_estates %}
+      {% for company_group in company_estates %}
+      {% with company=company_group.grouper %}
+      <div class="company-estates-section mb-4">
+        <!-- Company Header -->
+        <div class="company-estates-header" data-bs-toggle="collapse" data-bs-target="#estateCompany{{ forloop.counter }}" aria-expanded="true">
+          <div class="d-flex align-items-center">
+            {% if company %}
+              {% if company.logo %}
+                <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="company-logo-estates">
+              {% else %}
+                <div class="company-avatar-estates">{{ company.company_name|slice:":2"|upper }}</div>
+              {% endif %}
+              <div class="company-info-estates">
+                <span class="company-name">{{ company.company_name }}</span>
+                <span class="estate-count">{{ company_group.list|length }} estate{{ company_group.list|length|pluralize }}</span>
+              </div>
+            {% else %}
+              <div class="company-avatar-estates">GN</div>
+              <div class="company-info-estates">
+                <span class="company-name">General Estates</span>
+                <span class="estate-count">{{ company_group.list|length }} estate{{ company_group.list|length|pluralize }}</span>
+              </div>
+            {% endif %}
+          </div>
+          <i class="bi bi-chevron-down accordion-chevron"></i>
+        </div>
+
+        <div id="estateCompany{{ forloop.counter }}" class="collapse show">
+          <div class="company-estates-body">
+            <div class="row g-3">
+              {% for estate in company_group.list %}
+              <div class="col-lg-4 col-md-6">
+                <div class="estate-card h-100">
+                  <!-- Estate Header -->
+                  <div class="estate-card-header">
+                    <h5 class="estate-name">{{ estate.name }}</h5>
+                    <div class="estate-location">
+                      <i class="bi bi-geo-alt-fill"></i>
+                      <span>{{ estate.location|default:"Location not specified" }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Estate Body -->
+                  <div class="estate-card-body">
+                    <div class="estate-meta">
+                      <span class="meta-item">
+                        <i class="bi bi-calendar3"></i>
+                        Added {{ estate.created_at|date:"M d, Y" }}
+                      </span>
+                    </div>
+
+                    <!-- Promo Badges -->
+                    {% with estate_promos=estate.promotional_offers.all %}
+                    {% if estate_promos %}
+                    <div class="promo-badges-container">
+                      <span class="promo-badges-label">Active Promos:</span>
+                      <div class="promo-badges">
+                        {% for p in estate_promos|slice:":3" %}
+                          {% if p.is_active %}
+                          <span class="promo-badge active" 
+                                title="{{ p.name }} • Valid: {{ p.start|date:'M d, Y' }} → {{ p.end|date:'M d, Y' }}">
+                            <i class="bi bi-lightning-fill"></i> -{{ p.discount }}%
+                          </span>
+                          {% else %}
+                          <span class="promo-badge inactive"
+                                title="{{ p.name }} • Valid: {{ p.start|date:'M d, Y' }} → {{ p.end|date:'M d, Y' }}">
+                            -{{ p.discount }}%
+                          </span>
+                          {% endif %}
+                        {% endfor %}
+                        {% if estate_promos|length > 3 %}
+                          <span class="promo-badge more">+{{ estate_promos|length|add:"-3" }}</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                    {% else %}
+                    <div class="no-promos-notice">
+                      <i class="bi bi-tag"></i>
+                      <span>No active promos</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                  </div>
+
+                  <!-- Estate Footer -->
+                  <div class="estate-card-footer">
+                    <button type="button" class="btn btn-primary btn-sm view-sizes-btn" data-estate-id="{{ estate.id }}">
+                      <i class="bi bi-grid-3x3-gap me-1"></i> View Plots & Prices
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endwith %}
       {% endfor %}
     </div>
 
+    <!-- Pagination -->
     <nav class="mt-4" aria-label="Estate pagination">
-      <ul class="pagination">
+      <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Previous</a></li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+              <i class="bi bi-chevron-left"></i> Previous
+            </a>
+          </li>
         {% else %}
-          <li class="page-item disabled"><span class="page-link">Previous</span></li>
+          <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span></li>
         {% endif %}
         <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
         {% if page_obj.has_next %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Next</a></li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+              Next <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
         {% else %}
-          <li class="page-item disabled"><span class="page-link">Next</span></li>
+          <li class="page-item disabled"><span class="page-link">Next <i class="bi bi-chevron-right"></i></span></li>
         {% endif %}
       </ul>
     </nav>
 
   {% else %}
-    <div class="card p-4 text-center">
-      <h5>No estates found</h5>
-      <p class="text-muted">There are no estates to show. Try adjusting your search or contact support.</p>
+    <!-- Empty State -->
+    <div class="empty-state-card">
+      <div class="empty-icon">
+        <i class="bi bi-building-x"></i>
+      </div>
+      <h5>No Estates Found</h5>
+      <p class="text-muted">
+        {% if request.GET.q %}
+          No estates match your search "{{ request.GET.q }}". Try a different search term.
+        {% else %}
+          There are no estates available at this time. Check back later!
+        {% endif %}
+      </p>
+      {% if request.GET.q %}
+      <a href="{% url 'promo-estates-list' %}" class="btn btn-outline-primary">
+        <i class="bi bi-x-circle me-1"></i> Clear Search
+      </a>
+      {% endif %}
     </div>
   {% endif %}
 
-  <!-- ================= Modal (ONE instance) ================= -->
+  <!-- Modal -->
   <div class="modal fade" id="estateSizesModal" tabindex="-1" aria-labelledby="estateSizesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="estateSizesModalLabel">Plot sizes & prices</h5>
+          <h5 class="modal-title" id="estateSizesModalLabel">
+            <i class="bi bi-grid-3x3-gap me-2"></i>Plot Sizes & Prices
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body">
           <div id="sizesModalSpinner" class="text-center py-4">
-            <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            <p class="text-muted mt-2">Loading prices...</p>
           </div>
 
           <div id="sizesModalContent" class="d-none">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <div><strong id="modalEstateName"></strong></div>
-              <div><span id="modalPromoBadge" class="badge bg-danger d-none"></span></div>
+            <div class="modal-estate-header">
+              <strong id="modalEstateName"></strong>
+              <span id="modalPromoBadge" class="badge bg-danger d-none"></span>
             </div>
 
             <div class="table-responsive">
-              <table class="table table-hover table-sm align-middle" id="sizesTable">
+              <table class="table table-hover align-middle" id="sizesTable">
                 <thead class="table-light">
                   <tr>
-                    <th>Size</th>
-                    <th class="text-end">Price</th>
+                    <th><i class="bi bi-rulers me-1"></i>Size</th>
+                    <th class="text-end"><i class="bi bi-cash-stack me-1"></i>Price</th>
                   </tr>
                 </thead>
-                <tbody id="sizesTableBody">
-                  <!-- filled by JS -->
-                </tbody>
+                <tbody id="sizesTableBody"></tbody>
               </table>
             </div>
           </div>
 
           <div id="sizesModalEmpty" class="d-none text-center py-4">
-            <p class="text-muted">No Plots/prices found for this estate.</p>
+            <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+            <p class="text-muted mt-2">No plots available for this estate yet.</p>
+            <p class="small text-muted">Plots and pricing will be added soon.</p>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- small style polish -->
-  <style>
-    .badge.bg-secondary {
-        background-color: #6c757d !important;
-        opacity: 0.95;
-    }
-    .badge.bg-success {
-        box-shadow: 0 2px 6px rgba(0,123,85,0.12);
-    }
-    #sizesTable tbody tr td { vertical-align: middle; }
-    #modalPromoBadge { font-size: .95rem; padding:.45rem .6rem; }
-    #sizesModalContent { padding-bottom: 0; }
-  </style>
-
 </main>
 
-<!-- ================= JS: fetch sizes and render modal ================= -->
+<style>
+/* Header Card */
+.estates-header-card {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  color: white;
+}
+.estates-header-card h2 { color: white; font-weight: 600; }
+.estates-header-card .text-muted { color: rgba(255,255,255,0.8) !important; }
+
+.estates-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.search-form .input-group-text {
+  background: white;
+  border-right: none;
+}
+.search-form .form-control {
+  border-left: none;
+}
+.search-form .form-control:focus {
+  border-color: #ced4da;
+  box-shadow: none;
+}
+
+/* Company Sections */
+.company-estates-section {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.company-estates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+.company-estates-header:hover {
+  background: #f8f9fa;
+}
+
+.company-logo-estates {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid #eee;
+}
+.company-avatar-estates {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.company-info-estates {
+  margin-left: 0.75rem;
+}
+.company-info-estates .company-name {
+  display: block;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #333;
+}
+.company-info-estates .estate-count {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.accordion-chevron {
+  transition: transform 0.3s;
+  color: #888;
+}
+.company-estates-header[aria-expanded="false"] .accordion-chevron,
+.collapsed .accordion-chevron {
+  transform: rotate(-90deg);
+}
+
+.company-estates-body {
+  padding: 1.5rem;
+  background: #fafafa;
+}
+
+/* Estate Cards */
+.estate-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+.estate-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.estate-card-header {
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.estate-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.4rem;
+}
+.estate-location {
+  font-size: 0.8rem;
+  color: #888;
+}
+.estate-location i {
+  color: #11998e;
+  margin-right: 0.25rem;
+}
+
+.estate-card-body {
+  padding: 1rem 1.25rem;
+  flex: 1;
+}
+.estate-meta {
+  margin-bottom: 0.75rem;
+}
+.meta-item {
+  font-size: 0.75rem;
+  color: #888;
+}
+.meta-item i {
+  margin-right: 0.25rem;
+}
+
+/* Promo Badges */
+.promo-badges-container {
+  margin-top: 0.5rem;
+}
+.promo-badges-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #888;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.promo-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.promo-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.promo-badge.active {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  box-shadow: 0 2px 8px rgba(40,167,69,0.25);
+}
+.promo-badge.inactive {
+  background: #e9ecef;
+  color: #6c757d;
+}
+.promo-badge.more {
+  background: #dee2e6;
+  color: #495057;
+}
+
+.no-promos-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #aaa;
+  padding: 0.5rem 0;
+}
+
+.estate-card-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.estate-card-footer .btn {
+  width: 100%;
+}
+
+/* Empty State */
+.empty-state-card {
+  background: white;
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #f0f4ff, #e8f5e9);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  font-size: 2rem;
+  color: #11998e;
+}
+
+/* Modal */
+.modal-estate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .estates-header-card {
+    padding: 1.25rem;
+  }
+  .company-estates-body {
+    padding: 1rem;
+  }
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const listUrl = "{% url 'estates-list' %}";
@@ -184,7 +521,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const estateId = this.dataset.estateId;
       if (!estateId) return;
 
-      // reset UI
       spinner.classList.remove('d-none');
       content.classList.add('d-none');
       emptyMsg.classList.add('d-none');
@@ -194,7 +530,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       modal.show();
 
-      // request JSON from the same ListView endpoint
       fetch(`${listUrl}?estate_id=${encodeURIComponent(estateId)}`, {
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -235,23 +570,35 @@ document.addEventListener('DOMContentLoaded', function () {
           } else {
             if (s.discounted !== null && s.discount_pct !== null) {
               tdPrice.innerHTML =
-                `<div><s>${formatNGN(s.amount)}</s></div>
+                `<div><s class="text-muted">${formatNGN(s.amount)}</s></div>
                  <div class="fw-bold text-success">${formatNGN(s.discounted)}</div>
-                 <div class="small text-muted">-${s.discount_pct}% promo</div>`;
+                 <div class="small text-danger">-${s.discount_pct}% promo</div>`;
             } else {
               tdPrice.textContent = formatNGN(s.amount);
             }
           }
           tr.appendChild(tdPrice);
-
           tbody.appendChild(tr);
         });
       }).catch(err => {
         console.error(err);
         spinner.classList.add('d-none');
         emptyMsg.classList.remove('d-none');
-        emptyMsg.innerHTML = '<p class="text-danger">Could not load sizes. Try again later.</p>';
+        // Show friendly message instead of error
+        emptyMsg.innerHTML = `
+          <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+          <p class="text-muted mt-2">No plots available for this estate yet.</p>
+          <p class="small text-muted">Plots and pricing will be added soon.</p>
+        `;
       });
+    });
+  });
+
+  // Handle accordion state
+  document.querySelectorAll('.company-estates-header').forEach(header => {
+    header.addEventListener('click', function() {
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      this.setAttribute('aria-expanded', !isExpanded);
     });
   });
 });

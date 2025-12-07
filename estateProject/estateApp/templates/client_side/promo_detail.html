@@ -4,122 +4,593 @@
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>Client Dashboard</h1>
+    <h1>Promotion Details</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
-        <li class="breadcrumb-item active">Promo Details</li>
+        <li class="breadcrumb-item"><a href="{% url 'promotions-list' %}">Promotions</a></li>
+        <li class="breadcrumb-item active">{{ promo.name|truncatechars:30 }}</li>
       </ol>
     </nav>
   </div>
 
-  <div class="card p-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <h3>{{ promo.name }} <span class="badge bg-danger">-{{ promo.discount }}%</span></h3>
-        <p class="small text-muted mb-0">Valid: {{ promo.start|date:"M d, Y" }} → {{ promo.end|date:"M d, Y" }}</p>
-      </div>
-      <div class="text-end">
-        <p class="small text-muted mb-1">Ends</p>
-        <p class="fw-semibold mb-0">{{ promo.end|timeuntil }}</p>
+  {% now "Y-m-d" as today %}
+  {% with start=promo.start|date:"Y-m-d" end=promo.end|date:"Y-m-d" first_estate=promo.estates.first %}
+  
+  <!-- Main Promo Card -->
+  <div class="promo-detail-card">
+    <!-- Company Header Banner -->
+    <div class="promo-company-banner">
+      {% if first_estate and first_estate.company %}
+        {% if first_estate.company.logo %}
+          <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="company-logo-lg">
+        {% else %}
+          <div class="company-avatar-lg">{{ first_estate.company.company_name|slice:":2"|upper }}</div>
+        {% endif %}
+        <div class="company-info">
+          <span class="company-label">Offered by</span>
+          <h4 class="company-name-lg">{{ first_estate.company.company_name }}</h4>
+        </div>
+      {% else %}
+        <div class="company-avatar-lg">PR</div>
+        <div class="company-info">
+          <span class="company-label">Promotional Offer</span>
+          <h4 class="company-name-lg">Special Deal</h4>
+        </div>
+      {% endif %}
+      
+      <!-- Status Badge -->
+      {% if start <= today and end >= today %}
+        <span class="promo-status-lg active">
+          <i class="bi bi-broadcast"></i> ACTIVE
+        </span>
+      {% elif end < today %}
+        <span class="promo-status-lg expired">
+          <i class="bi bi-x-circle"></i> EXPIRED
+        </span>
+      {% else %}
+        <span class="promo-status-lg upcoming">
+          <i class="bi bi-clock"></i> UPCOMING
+        </span>
+      {% endif %}
+    </div>
+    
+    <!-- Promo Content -->
+    <div class="promo-detail-body">
+      <div class="row">
+        <div class="col-lg-8">
+          <!-- Main Info -->
+          <div class="promo-main-info">
+            <div class="discount-display">
+              <span class="discount-value">{{ promo.discount }}%</span>
+              <span class="discount-label">OFF</span>
+            </div>
+            <div class="promo-title-section">
+              <h2>{{ promo.name }}</h2>
+              <div class="validity-dates">
+                <i class="bi bi-calendar-range"></i>
+                <span>{{ promo.start|date:"F d, Y" }} — {{ promo.end|date:"F d, Y" }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Description -->
+          <div class="promo-description-section">
+            <h5><i class="bi bi-info-circle me-2"></i>About This Offer</h5>
+            <div class="description-content">
+              {{ promo.description|default:"Take advantage of this exclusive promotional offer. Limited time only!"|linebreaksbr }}
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-lg-4">
+          <!-- Countdown Card -->
+          <div class="countdown-card">
+            {% if start <= today and end >= today %}
+              <div class="countdown-header active">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Time Remaining</span>
+              </div>
+              <div class="countdown-body">
+                <div class="countdown-value">{{ promo.end|timeuntil }}</div>
+                <p class="countdown-label">until offer expires</p>
+              </div>
+            {% elif end < today %}
+              <div class="countdown-header expired">
+                <i class="bi bi-calendar-x"></i>
+                <span>Offer Ended</span>
+              </div>
+              <div class="countdown-body">
+                <div class="countdown-value expired">{{ promo.end|timesince }}</div>
+                <p class="countdown-label">ago</p>
+              </div>
+            {% else %}
+              <div class="countdown-header upcoming">
+                <i class="bi bi-calendar-plus"></i>
+                <span>Starting In</span>
+              </div>
+              <div class="countdown-body">
+                <div class="countdown-value upcoming">{{ promo.start|timeuntil }}</div>
+                <p class="countdown-label">until offer begins</p>
+              </div>
+            {% endif %}
+          </div>
+          
+          <!-- Quick Stats -->
+          <div class="promo-stats-card">
+            <div class="stat-row">
+              <span class="stat-label"><i class="bi bi-building me-2"></i>Estates</span>
+              <span class="stat-value">{{ promo.estates.count }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label"><i class="bi bi-percent me-2"></i>Discount</span>
+              <span class="stat-value">{{ promo.discount }}%</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label"><i class="bi bi-calendar3 me-2"></i>Duration</span>
+              <span class="stat-value">{{ promo.start|timesince:promo.end }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div class="mb-3">
-      <p>{{ promo.description|linebreaksbr }}</p>
-    </div>
-
-    <div>
-      <h5 class="mb-2">Applies to estates</h5>
+    
+    <!-- Applicable Estates -->
+    <div class="promo-estates-section">
+      <div class="section-header-detail">
+        <h5><i class="bi bi-house-heart me-2"></i>Applicable Estates</h5>
+        <span class="estates-count">{{ promo.estates.count }} estate{{ promo.estates.count|pluralize }}</span>
+      </div>
+      
       {% with estates=promo.estates.all %}
         {% if estates %}
-          <div class="row g-2">
+          <div class="row g-3">
             {% for estate in estates %}
-              <div class="col-md-4">
-                <div class="card p-2 h-100">
-                  <div class="card-body">
-                    <h6 class="card-title mb-1">{{ estate.name }}</h6>
-                    <p class="small text-muted mb-1">{{ estate.location }}</p>
-
-                    <!-- VIEW PLOTS button opens modal and fetches sizes/prices -->
-                    <button type="button"
-                            class="btn btn-sm btn-outline-primary view-sizes-btn"
-                            data-estate-id="{{ estate.id }}">
-                      View plots & prices
-                    </button>
-
-                    <!-- optional link to estate page -->
-                    <a href="{% url 'estates-list' %}?estate={{ estate.id }}" class="btn btn-sm btn-link ms-2">Open estate page</a>
+              <div class="col-lg-4 col-md-6">
+                <div class="estate-promo-card">
+                  <!-- Estate Company Badge -->
+                  {% if estate.company %}
+                  <div class="estate-company-badge">
+                    {% if estate.company.logo %}
+                      <img src="{{ estate.company.logo.url }}" alt="" class="estate-company-logo">
+                    {% endif %}
+                    <span>{{ estate.company.company_name }}</span>
+                  </div>
+                  {% endif %}
+                  
+                  <div class="estate-card-body">
+                    <h6 class="estate-name">{{ estate.name }}</h6>
+                    <p class="estate-location">
+                      <i class="bi bi-geo-alt"></i> {{ estate.location|default:"Location not specified" }}
+                    </p>
+                    
+                    <div class="estate-actions">
+                      <button type="button" class="btn btn-primary btn-sm view-sizes-btn" data-estate-id="{{ estate.id }}">
+                        <i class="bi bi-grid-3x3-gap me-1"></i> View Plots & Prices
+                      </button>
+                      <a href="{% url 'estates-list' %}?estate={{ estate.id }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
             {% endfor %}
           </div>
         {% else %}
-          <p class="text-muted">This promotion applies to all estates.</p>
+          <div class="all-estates-notice">
+            <i class="bi bi-buildings"></i>
+            <p>This promotion applies to <strong>all available estates</strong>. Browse our full catalog to see discounted prices.</p>
+            <a href="{% url 'estates-list' %}" class="btn btn-primary">
+              <i class="bi bi-collection me-1"></i> Browse All Estates
+            </a>
+          </div>
         {% endif %}
       {% endwith %}
     </div>
+    
+    <!-- Back Navigation -->
+    <!-- <div class="promo-footer-nav">
+      <a href="{% url 'promotions-list' %}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left me-1"></i> Back to Promotions
+      </a>
+      <a href="{% url 'estates-list' %}" class="btn btn-primary">
+        <i class="bi bi-collection me-1"></i> Browse Estates
+      </a>
+    </div> -->
   </div>
+  {% endwith %}
 </main>
 
-{# -------------------- Modal (single instance) -------------------- #}
+{# -------------------- Modal -------------------- #}
 <div class="modal fade" id="estateSizesModal" tabindex="-1" aria-labelledby="estateSizesModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="estateSizesModalLabel">Plot sizes & prices</h5>
+        <h5 class="modal-title" id="estateSizesModalLabel">
+          <i class="bi bi-grid-3x3-gap me-2"></i>Plot Sizes & Prices
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-
       <div class="modal-body">
         <div id="sizesModalSpinner" class="text-center py-4">
-          <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+          <p class="mt-2 text-muted">Loading prices...</p>
         </div>
-
         <div id="sizesModalContent" class="d-none">
-          <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="modal-estate-header">
             <div><strong id="modalEstateName"></strong></div>
-            <div><span id="modalPromoBadge" class="badge bg-danger d-none"></span></div>
+            <span id="modalPromoBadge" class="badge bg-danger d-none"></span>
           </div>
-
           <div class="table-responsive">
-            <table class="table table-hover table-sm align-middle" id="sizesTable">
+            <table class="table table-hover align-middle" id="sizesTable">
               <thead class="table-light">
                 <tr>
-                  <th>Size</th>
-                  <th class="text-end">Price</th>
+                  <th><i class="bi bi-rulers me-1"></i>Size</th>
+                  <th class="text-end"><i class="bi bi-cash-stack me-1"></i>Price</th>
                 </tr>
               </thead>
-              <tbody id="sizesTableBody">
-                <!-- filled by JS -->
-              </tbody>
+              <tbody id="sizesTableBody"></tbody>
             </table>
           </div>
         </div>
-
         <div id="sizesModalEmpty" class="d-none text-center py-4">
-          <p class="text-muted">No sizes/prices found for this estate.</p>
+          <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+          <p class="text-muted mt-2">No plots available for this estate yet.</p>
+          <p class="small text-muted">Plots and pricing will be added soon.</p>
         </div>
       </div>
-
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-        <a href="{% url 'estates-list' %}" class="btn btn-primary btn-sm">Browse estates</a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <!-- <a href="{% url 'estates-list' %}" class="btn btn-primary">Browse All Estates</a> -->
       </div>
     </div>
   </div>
 </div>
 
 <style>
-  #sizesTable tbody tr td { vertical-align: middle; }
-  #modalPromoBadge { font-size: .95rem; padding:.45rem .6rem; }
+/* Main Card */
+.promo-detail-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* Company Banner */
+.promo-company-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+.company-logo-lg {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.3);
+}
+.company-avatar-lg {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.company-info {
+  flex: 1;
+}
+.company-label {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.company-name-lg {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  color: white;
+}
+
+.promo-status-lg {
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.promo-status-lg.active {
+  background: rgba(40,167,69,0.9);
+}
+.promo-status-lg.expired {
+  background: rgba(108,117,125,0.9);
+}
+.promo-status-lg.upcoming {
+  background: rgba(255,193,7,0.9);
+  color: #333;
+}
+
+/* Body */
+.promo-detail-body {
+  padding: 2rem;
+}
+
+.promo-main-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+.discount-display {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  color: white;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  text-align: center;
+  min-width: 100px;
+  box-shadow: 0 8px 24px rgba(255,65,108,0.3);
+}
+.discount-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.discount-label {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+}
+
+.promo-title-section h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+.validity-dates {
+  color: #666;
+  font-size: 0.9rem;
+}
+.validity-dates i {
+  color: #4361ee;
+  margin-right: 0.5rem;
+}
+
+/* Description */
+.promo-description-section {
+  margin-bottom: 1.5rem;
+}
+.promo-description-section h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+.description-content {
+  background: #f8f9fa;
+  padding: 1.25rem;
+  border-radius: 12px;
+  color: #555;
+  line-height: 1.7;
+}
+
+/* Countdown Card */
+.countdown-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  margin-bottom: 1rem;
+}
+.countdown-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: white;
+}
+.countdown-header.active { background: linear-gradient(135deg, #28a745, #20c997); }
+.countdown-header.expired { background: #6c757d; }
+.countdown-header.upcoming { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #333; }
+
+.countdown-body {
+  padding: 1.25rem;
+  text-align: center;
+}
+.countdown-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #28a745;
+}
+.countdown-value.expired { color: #6c757d; }
+.countdown-value.upcoming { color: #fd7e14; }
+.countdown-label {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0.25rem 0 0;
+}
+
+/* Stats Card */
+.promo-stats-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row .stat-label {
+  color: #666;
+  font-size: 0.85rem;
+}
+.stat-row .stat-value {
+  font-weight: 600;
+  color: #333;
+}
+
+/* Estates Section */
+.promo-estates-section {
+  padding: 2rem;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+}
+.section-header-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.section-header-detail h5 {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+}
+.estates-count {
+  font-size: 0.85rem;
+  color: #666;
+  background: white;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+}
+
+.estate-promo-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  height: 100%;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: all 0.3s ease;
+}
+.estate-promo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.estate-company-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: #f0f4ff;
+  font-size: 0.75rem;
+  color: #4361ee;
+  font-weight: 500;
+}
+.estate-company-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.estate-card-body {
+  padding: 1rem;
+}
+.estate-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+.estate-location {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 1rem;
+}
+.estate-location i { margin-right: 0.25rem; }
+
+.estate-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.estate-actions .btn { flex: 1; }
+.estate-actions .btn:last-child { flex: 0; }
+
+/* All Estates Notice */
+.all-estates-notice {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 14px;
+}
+.all-estates-notice i {
+  font-size: 2.5rem;
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+.all-estates-notice p {
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+/* Footer Nav */
+.promo-footer-nav {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  background: white;
+  border-top: 1px solid #eee;
+}
+
+/* Modal Enhancements */
+.modal-estate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .promo-company-banner {
+    flex-wrap: wrap;
+    padding: 1.25rem;
+  }
+  .promo-status-lg {
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: center;
+  }
+  .promo-main-info {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .promo-detail-body,
+  .promo-estates-section {
+    padding: 1.25rem;
+  }
+  .promo-footer-nav {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .promo-footer-nav .btn {
+    width: 100%;
+  }
+}
 </style>
 
-{# -------------------- JS: same modal behavior as the estates page -------------------- #}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const listUrl = "{% url 'estates-list' %}"; // EstateListView endpoint that returns JSON for ?estate_id=
+  const listUrl = "{% url 'estates-list' %}";
   const modalEl = document.getElementById('estateSizesModal');
   const modal = new bootstrap.Modal(modalEl, {});
   const spinner = document.getElementById('sizesModalSpinner');
@@ -141,7 +612,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const estateId = this.dataset.estateId;
       if (!estateId) return;
 
-      // reset modal UI
       spinner.classList.remove('d-none');
       content.classList.add('d-none');
       emptyMsg.classList.add('d-none');
@@ -178,7 +648,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('sizesTableBody');
         sizes.forEach(s => {
           const tr = document.createElement('tr');
-
           const tdSize = document.createElement('td');
           tdSize.textContent = s.size || '-';
           tr.appendChild(tdSize);
@@ -191,9 +660,9 @@ document.addEventListener('DOMContentLoaded', function () {
           } else {
             if (s.discounted !== null && s.discount_pct !== null) {
               tdPrice.innerHTML =
-                `<div><s>${formatNGN(s.amount)}</s></div>
+                `<div><s class="text-muted">${formatNGN(s.amount)}</s></div>
                  <div class="fw-bold text-success">${formatNGN(s.discounted)}</div>
-                 <div class="small text-muted">-${s.discount_pct}% promo</div>`;
+                 <div class="small text-danger">-${s.discount_pct}% promo</div>`;
             } else {
               tdPrice.textContent = formatNGN(s.amount);
             }
@@ -205,7 +674,12 @@ document.addEventListener('DOMContentLoaded', function () {
         console.error(err);
         spinner.classList.add('d-none');
         emptyMsg.classList.remove('d-none');
-        emptyMsg.innerHTML = '<p class="text-danger">Could not load sizes. Try again later.</p>';
+        // Show friendly message instead of error
+        emptyMsg.innerHTML = `
+          <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+          <p class="text-muted mt-2">No plots available for this estate yet.</p>
+          <p class="small text-muted">Plots and pricing will be added soon.</p>
+        `;
       });
     });
   });

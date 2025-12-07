@@ -5944,11 +5944,42 @@ class PromotionListView(ListView):
     context_object_name = "promotions"
     paginate_by = 8
 
+    def get_client_company_ids(self):
+        """Get all company IDs the client is connected to"""
+        from estateApp.models import CompanyClientProfile
+        client_company_ids = set()
+        
+        # 1. Primary company
+        if hasattr(self.request.user, 'company_profile') and self.request.user.company_profile:
+            client_company_ids.add(self.request.user.company_profile.id)
+        
+        # 2. Affiliations
+        affiliated_ids = CompanyClientProfile.objects.filter(
+            client=self.request.user
+        ).values_list('company_id', flat=True)
+        client_company_ids.update(affiliated_ids)
+        
+        # 3. Allocations (companies from estates they've purchased)
+        allocation_ids = Estate.all_objects.filter(
+            plotallocation__client=self.request.user
+        ).exclude(company__isnull=True).values_list('company_id', flat=True).distinct()
+        client_company_ids.update(allocation_ids)
+        
+        return {cid for cid in client_company_ids if cid is not None}
+
     def get_queryset(self):
-        # SECURITY: Filter promotions by company
-        company = self.request.user.company_profile
-        qs = PromotionalOffer.objects.filter(company=company).prefetch_related("estates").order_by("-created_at")
+        # Get promotions from all companies the client is connected to
+        client_company_ids = self.get_client_company_ids()
         today = timezone.localdate()
+        
+        if client_company_ids:
+            qs = PromotionalOffer.objects.filter(
+                estates__company__in=client_company_ids
+            ).prefetch_related("estates", "estates__company").distinct().order_by("-created_at")
+        else:
+            # Fallback: show all promotions
+            qs = PromotionalOffer.objects.prefetch_related("estates", "estates__company").order_by("-created_at")
+        
         flt = self.request.GET.get('filter', '').lower()
         if flt == 'active':
             qs = qs.filter(start__lte=today, end__gte=today)
@@ -5959,18 +5990,71 @@ class PromotionListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         today = timezone.localdate()
-        # SECURITY: Filter promotions by company
-        company = self.request.user.company_profile
+        client_company_ids = self.get_client_company_ids()
         
-        ctx['active_promotions'] = PromotionalOffer.objects.filter(
-            company=company, start__lte=today, end__gte=today
-        ).order_by('-created_at')[:3]
+        if client_company_ids:
+            active_promos = PromotionalOffer.objects.filter(
+                estates__company__in=client_company_ids,
+                start__lte=today, 
+                end__gte=today
+            ).prefetch_related("estates", "estates__company").distinct().order_by('-created_at')
 
-        ctx['past_promotions'] = PromotionalOffer.objects.filter(
-            company=company, end__lt=today
-        ).order_by('-end')[:12]
+            past_promos = PromotionalOffer.objects.filter(
+                estates__company__in=client_company_ids,
+                end__lt=today
+            ).prefetch_related("estates", "estates__company").distinct().order_by('-end')
+        else:
+            active_promos = PromotionalOffer.objects.filter(
+                start__lte=today, end__gte=today
+            ).prefetch_related("estates", "estates__company").order_by('-created_at')
+            
+            past_promos = PromotionalOffer.objects.filter(
+                end__lt=today
+            ).prefetch_related("estates", "estates__company").order_by('-end')
 
+        # Group promotions by company
+        from collections import defaultdict
+        promos_by_company = defaultdict(list)
+        
+        for promo in ctx.get('promotions', []):
+            # Get the first estate's company
+            first_estate = promo.estates.first()
+            if first_estate and first_estate.company:
+                company = first_estate.company
+                promos_by_company[company.id].append({
+                    'promo': promo,
+                    'company_name': company.company_name,
+                    'company_logo': company.logo.url if company.logo else None,
+                    'company_id': company.id,
+                })
+            else:
+                promos_by_company[0].append({
+                    'promo': promo,
+                    'company_name': 'General',
+                    'company_logo': None,
+                    'company_id': 0,
+                })
+        
+        # Convert to list format for template
+        grouped_promos = []
+        companies = Company.objects.filter(id__in=client_company_ids) if client_company_ids else Company.objects.all()
+        for company in companies:
+            company_promos = promos_by_company.get(company.id, [])
+            if company_promos:
+                grouped_promos.append({
+                    'company_id': company.id,
+                    'company_name': company.company_name,
+                    'company_logo': company.logo.url if company.logo else None,
+                    'promos': [p['promo'] for p in company_promos],
+                    'active_count': sum(1 for p in company_promos if p['promo'].start <= today <= p['promo'].end),
+                })
+        
+        ctx['promos_by_company'] = grouped_promos
+        ctx['active_promotions'] = active_promos[:6]
+        ctx['past_promotions'] = past_promos[:12]
         ctx['current_filter'] = self.request.GET.get('filter', 'all').lower()
+        ctx['total_active'] = active_promos.count()
+        ctx['total_past'] = past_promos.count()
         
         return ctx
 
