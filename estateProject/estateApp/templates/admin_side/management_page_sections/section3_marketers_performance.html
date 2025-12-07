@@ -1259,18 +1259,16 @@
             
             // Calculate target status for this marketer against the FULL COMPANY TARGET
             // Every marketer is working towards achieving the same company target
+            // Target Logic: Below Target (<50%), On Target (50-100%), Above Target (>100%)
             let targetStatus = '';
             let targetClass = '';
             
             if (currentCompanyTarget > 0 && hasData) {
                 const targetPercent = Math.round((item.total_sales / currentCompanyTarget) * 100) || 0;
                 
-                if (targetPercent >= 100) {
+                if (targetPercent > 100) {
                     const above = targetPercent - 100;
-                    if (above === 0) {
-                        targetStatus = 'Target Achieved';
-                        targetClass = 'bg-primary';
-                    } else if (above <= 10) {
+                    if (above <= 10) {
                         targetStatus = `${above}% Above`;
                         targetClass = 'bg-success';
                     } else if (above <= 25) {
@@ -1283,15 +1281,20 @@
                         targetStatus = `${above}% Above`;
                         targetClass = 'bg-purple';
                     }
+                } else if (targetPercent >= 50) {
+                    // On Target: 50% - 100%
+                    targetStatus = `On Target (${targetPercent}%)`;
+                    targetClass = 'bg-primary';
                 } else {
+                    // Below Target: 0% - 49%
                     const below = 100 - targetPercent;
-                    if (below <= 10) {
+                    if (below <= 25) {
                         targetStatus = `${below}% Below`;
                         targetClass = 'bg-warning';
-                    } else if (below <= 25) {
+                    } else if (below <= 50) {
                         targetStatus = `${below}% Below`;
                         targetClass = 'bg-orange';
-                    } else if (below <= 50) {
+                    } else if (below <= 75) {
                         targetStatus = `${below}% Below`;
                         targetClass = 'bg-coral';
                     } else {
@@ -1686,13 +1689,15 @@
     function getTargetStatusText(item) {
         // Use company target for consistent measurement
         // Each marketer is measured against the FULL company target
+        // Target Logic: Below Target (<50%), On Target (50-100%), Above Target (>100%)
         if (currentCompanyTarget > 0 && (item.total_sales > 0 || item.closed_deals > 0)) {
             const targetPercent = Math.round((item.total_sales / currentCompanyTarget) * 100) || 0;
             
-            if (targetPercent >= 100) {
+            if (targetPercent > 100) {
                 const above = targetPercent - 100;
-                if (above === 0) return 'Target Achieved';
                 return `${above}% Above Target`;
+            } else if (targetPercent >= 50) {
+                return `On Target (${targetPercent}%)`;
             } else {
                 const below = 100 - targetPercent;
                 return `${below}% Below Target`;

@@ -1,435 +1,442 @@
 {% extends 'marketer_base.html' %}
 {% load static %}
 {% load humanize %}
+{% load custom_filters %}
 
 {% block content %}
 <main id="main" class="main">
   <style>
     :root {
-      --primary: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      --text-primary: #081226;
-      --text-secondary: #6C757D;
-      --border-color: #E9ECEF;
-      --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --primary: #667eea;
+      --text-dark: #1a202c;
+      --text-light: #718096;
+      --border: #e2e8f0;
+      --bg: #fafbfc;
     }
 
     body {
-      background: #F8FAFC;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
 
     .pagetitle {
-      background: white;
-      border-bottom: 2px solid var(--border-color);
-      padding: 2rem;
       margin-bottom: 2rem;
     }
 
     .pagetitle h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem 0;
-      color: var(--text-primary);
-    }
-
-    .pagetitle .breadcrumb {
-      background: transparent;
-      padding: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-dark);
       margin: 0;
     }
 
-    .pagetitle .breadcrumb-item a {
-      color: var(--text-secondary);
+    .breadcrumb {
+      background: transparent;
+      padding: 0;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .breadcrumb-item a {
+      color: var(--text-light);
       text-decoration: none;
     }
 
-    .pagetitle .breadcrumb-item.active {
-      color: var(--text-secondary);
+    .breadcrumb-item.active {
+      color: var(--text-light);
     }
 
-    .section-header {
-      margin-bottom: 2rem;
-    }
-
-    .section-header h5 {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-    }
-
-    .section-header h5 i {
-      color: #10b981;
-    }
-
-    .section-header p {
-      color: var(--text-secondary);
-      margin: 0.5rem 0 0 0;
-      font-size: 0.95rem;
-    }
-
-    /* Summary Card */
-    .total-companies-card {
+    /* Stats Overview */
+    .summary-card {
       background: white;
       border-radius: 8px;
-      padding: 2rem;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 2rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
     }
 
-    .total-number {
-      color: #10b981;
-      font-weight: 700;
-      font-size: 2.5rem;
-    }
-
-    .total-icon {
-      display: none;
-    }
-
-    /* Filter & Sort */
-    .filter-sort-section {
-      display: none;
-    }
-
-    .filter-buttons {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .filter-btn {
-      padding: 0.6rem 1.2rem;
-      border: 1px solid var(--border-color);
-      background: white;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      color: var(--text-primary);
-      transition: all 200ms ease;
-    }
-
-    .filter-btn:hover, .filter-btn.active {
-      background: #10b981;
-      color: white;
-      border-color: #10b981;
-    }
-
-    .sort-select {
-      padding: 0.6rem 1rem;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background: white;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--text-primary);
-    }
-
-    .sort-select:focus {
-      outline: none;
-      border-color: #10b981;
-    }
-
-    /* Cards Grid */
-    .companies-grid {
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.2rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 2rem;
     }
 
-    .glass-card {
-      border-radius: 6px;
-      overflow: hidden;
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-size: 0.813rem;
+      color: var(--text-light);
+      font-weight: 500;
+    }
+
+    /* Companies List */
+    .companies-card {
+      margin-bottom: 1.5rem;
+    }
+
+    .companies-card .card-header {
       background: white;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      transition: box-shadow 200ms ease;
+      padding: 1.25rem 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-bottom: 1.5rem;
     }
 
-    .glass-card:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    .companies-card .card-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-dark);
     }
 
-    .card-badge {
-      display: none;
+    .companies-card .card-body {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
     }
 
-    .card-header {
-      padding: 1.2rem;
+    .company-item {
+      background: white;
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .company-item.no-transactions {
+      opacity: 0.7;
+    }
+
+    .company-item.no-transactions .company-stat,
+    .company-item.no-transactions .target-metrics {
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .no-transactions-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      text-align: center;
+    }
+
+    .no-transactions-overlay .overlay-content {
       display: flex;
       align-items: center;
-      gap: 0.8rem;
-      position: relative;
-      border-bottom: 1px solid var(--border-color);
+      gap: 0.5rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .no-transactions-overlay .overlay-content i {
+      color: var(--warning);
+      font-size: 1.25rem;
+    }
+
+    .company-item:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .company-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
     }
 
     .company-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 4px;
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
       object-fit: cover;
-      border: none;
-      flex-shrink: 0;
+      border: 1px solid var(--border);
     }
 
     .company-initials {
-      width: 56px;
-      height: 56px;
-      border-radius: 4px;
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      background: #10b981;
+      font-weight: 600;
+      background: var(--primary);
       color: white;
       font-size: 1rem;
-      flex-shrink: 0;
     }
 
     .company-info {
       flex: 1;
-      min-width: 0;
     }
 
-    .company-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .company-name {
+      font-size: 0.938rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 0.125rem;
     }
 
-    .company-contact {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      margin: 0.3rem 0 0 0;
+    .company-location {
+      font-size: 0.813rem;
+      color: var(--text-light);
+    }
+
+    .company-stat {
       display: flex;
-      gap: 0.4rem;
       align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      background: #fafbfc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 1rem;
     }
 
-    .company-contact a {
-      color: #10b981;
-      text-decoration: none;
+    .company-stat-label {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      font-weight: 500;
     }
 
-    .company-contact a:hover {
-      text-decoration: underline;
+    .company-stat-value {
+      font-size: 0.938rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-left: auto;
     }
 
-    .card-body {
-      padding: 1.2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-      flex: 1;
+    /* Metrics Grid */
+    .target-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
     }
 
-    .info-row {
+    .metric-card {
+      background: #fafbfc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.875rem;
+    }
+
+    .metric-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
     }
 
-    .info-label {
-      color: var(--text-secondary);
+    .metric-title {
+      font-size: 0.75rem;
       font-weight: 600;
-      font-size: 0.8rem;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
-    .info-value {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 0.6rem;
-      margin-top: auto;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border-color);
-    }
-
-    .btn-view {
-      padding: 0.7rem 1rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      border: none;
-      flex: 1;
-      transition: all 150ms ease;
+    .metric-badge {
+      font-size: 0.688rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 3px;
       background: white;
-      color: #10b981;
-      border: 2px solid #10b981;
+      border: 1px solid var(--border);
+      color: var(--text-light);
+      font-weight: 500;
     }
 
-    .btn-view:hover {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.375rem;
+      letter-spacing: -0.02em;
+    }
+
+    .metric-value.no-target {
+      font-size: 0.813rem;
+      color: var(--text-light);
+      font-weight: 500;
+    }
+
+    /* Target Status Badges */
+    .target-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.625rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .target-status-badge i {
+      font-size: 0.875rem;
+    }
+
+    .target-status-badge.status-above {
+      background: rgba(16, 185, 129, 0.1);
+      color: #059669;
+    }
+
+    .target-status-badge.status-on-track {
+      background: rgba(59, 130, 246, 0.1);
+      color: #2563eb;
+    }
+
+    .target-status-badge.status-below {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+
+    .target-status-badge.status-no-sales {
+      background: rgba(100, 116, 139, 0.1);
+      color: #64748b;
+    }
+
+    .metric-details {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-bottom: 0.5rem;
+    }
+
+    .progress {
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      transition: width 0.5s ease;
+    }
+
+    .progress-bar.bg-primary { background: #3b82f6; }
+    .progress-bar.bg-info { background: #8b5cf6; }
+    .progress-bar.bg-success { background: #10b981; }
+    .progress-bar.bg-secondary { background: #cbd5e1; }
+
+    /* Action Button */
+    .company-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-view-portfolio {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: 500;
+      font-size: 0.813rem;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .btn-view-portfolio:hover {
+      opacity: 0.9;
       color: white;
     }
 
     /* Empty State */
-    .empty-state-container {
+    .empty-state {
       text-align: center;
       padding: 3rem 2rem;
-    }
-
-    .empty-card {
       background: white;
       border-radius: 8px;
-      padding: 3rem 2rem;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
     }
 
     .empty-icon {
-      font-size: 3.5rem;
-      color: #10b981;
-      margin-bottom: 1rem;
-      opacity: 0.6;
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1rem;
+      border-radius: 50%;
+      background: #f7fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--text-light);
     }
 
     .empty-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 0.375rem;
     }
 
     .empty-text {
-      color: var(--text-secondary);
-      font-size: 1rem;
+      color: var(--text-light);
+      font-size: 0.875rem;
       margin-bottom: 1.5rem;
     }
 
-    .btn-explore {
-      background: #10b981;
+    .btn-dashboard {
+      background: var(--primary);
       color: white;
       border: none;
-      padding: 0.8rem 2rem;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
+      padding: 0.625rem 1.25rem;
+      border-radius: 5px;
+      font-weight: 500;
+      font-size: 0.875rem;
       text-decoration: none;
-      display: inline-block;
-      transition: all 200ms ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      transition: opacity 0.15s;
     }
 
-    .btn-explore:hover {
-      background: #059669;
+    .btn-dashboard:hover {
+      opacity: 0.9;
       color: white;
     }
 
     @media (max-width: 768px) {
-      .pagetitle h1 {
-        font-size: 1.5rem;
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
       }
 
-      .companies-grid {
+      .target-metrics {
         grid-template-columns: 1fr;
       }
 
-      .filter-sort-section {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .filter-buttons {
-        width: 100%;
-      }
-
-      .sort-select {
-        width: 100%;
-      }
-
-      .total-companies-card {
-        flex-direction: column;
-        gap: 1.5rem;
-        text-align: center;
-      }
-
-      .btn-group {
-        flex-direction: column;
-      }
-
-      .btn-view, .btn-company-page {
-        width: 100%;
+      .companies-card .card-body {
+        grid-template-columns: 1fr;
       }
     }
 
-    /* Target Section Styling */
-    .target-section {
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-top: 1rem;
-    }
-
-    .metric {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 0.8rem;
-      margin-bottom: 0.8rem;
-    }
-
-    .metric:last-child {
-      margin-bottom: 0;
-    }
-
-    .info-label i {
-      color: #10b981;
-      font-size: 0.9rem;
-    }
-
-    .badge {
-      font-size: 0.75rem;
-      padding: 0.25rem 0.5rem;
-    }
-
-    .target-details {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      padding: 0.5rem;
-    }
-
-    .progress {
-      background-color: #e5e7eb;
-      border-radius: 9999px;
-    }
-
-    .progress-bar {
-      border-radius: 9999px;
-      transition: width 0.6s ease;
-    }
-
-    .metric:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      transform: translateY(-1px);
+    @media (max-width: 576px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 
@@ -444,215 +451,212 @@
     </nav>
   </div>
 
-  <section class="section profile">
-    <div class="container-fluid">
-      <!-- Total Companies Summary -->
-      {% with total_companies=companies|length %}
-      <div class="total-companies-card">
-        <div>
-          <div class="info-label">Total Companies</div>
-          <div class="total-number">{{ total_companies }}</div>
+  <section class="section">
+    <!-- Summary Statistics -->
+    {% with total_companies=companies|length %}
+    <div class="summary-card">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value">{{ total_companies }}</div>
+          <div class="stat-label">Companies</div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-value">
+            {{ companies|sum_attribute:'client_count'|default:0 }}
+          </div>
+          <div class="stat-label">Total Clients</div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-value">
+            {{ companies|sum_attribute:'closed_deals'|default:0 }}
+          </div>
+          <div class="stat-label">Total Closed Deals</div>
         </div>
       </div>
-      {% endwith %}
+    </div>
+    {% endwith %}
 
-      <!-- Companies Grid -->
-      {% if companies %}
-        <div class="companies-grid" id="companiesGrid">
+    <!-- Companies List -->
+    {% if companies %}
+      <div class="companies-card">
+        <div class="card-header">
+          <h3>Companies Portfolio</h3>
+        </div>
+        <div class="card-body">
           {% for item in companies %}
             {% with c=item.company %}
-            {% with closed_deals=item.closed_deals %}
-            {% with commission_rate=item.commission_rate %}
-            <div class="glass-card company-card" data-company-id="{{ c.id }}" data-closed-deals="{{ closed_deals }}" data-commission-rate="{{ commission_rate }}">
-              <div class="card-header">
+            <div class="company-item {% if not item.has_transactions %}no-transactions{% endif %}">
+              {% if not item.has_transactions %}
+              <div class="no-transactions-overlay">
+                <div class="overlay-content">
+                  <i class="bi bi-hourglass-split"></i>
+                  <span>No transactions yet</span>
+                </div>
+              </div>
+              {% endif %}
+              <!-- Company Header -->
+              <div class="company-header">
                 {% if c.logo %}
                   <img src="{{ c.logo.url }}" alt="{{ c.company_name }}" class="company-logo">
                 {% else %}
                   <div class="company-initials">{{ c.company_name|default:'?'|slice:":1"|upper }}</div>
                 {% endif %}
                 <div class="company-info">
-                  <h5 class="company-title">{{ c.company_name|default:'Company' }}</h5>
-                  {% if c.office_address %}
-                  <div class="company-contact">{{ c.office_address|truncatewords:2 }}</div>
+                  <div class="company-name">{{ c.company_name|default:'Company' }}</div>
+                  {% if c.location %}
+                  <div class="company-location">{{ c.location }}</div>
                   {% endif %}
                 </div>
               </div>
 
-              <div class="card-body">
-                <div class="info-row">
-                  <span class="info-label">Total Closed Deals</span>
-                  <span class="info-value">{{ closed_deals }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Commission Rate</span>
-                  <span class="info-value">{% if commission_rate %}{{ commission_rate }}%{% else %}Not Set{% endif %}</span>
-                </div>
-                
-                <!-- Target Performance Section -->
-                <div class="target-section">
-                  <!-- Monthly Target -->
-                  <div class="metric mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="info-label">
-                        <i class="bi bi-calendar-month me-2"></i>Monthly Target
-                        <span class="badge bg-primary ms-2">
-                          {% if item.current_month %}
-                            {% if item.current_month|slice:"-2:" == "01" %}January {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "02" %}February {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "03" %}March {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "04" %}April {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "05" %}May {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "06" %}June {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "07" %}July {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "08" %}August {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "09" %}September {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "10" %}October {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "11" %}November {{ item.current_month|slice:"0:4" }}
-                            {% elif item.current_month|slice:"-2:" == "12" %}December {{ item.current_month|slice:"0:4" }}
-                            {% else %}{{ item.current_month }}
-                            {% endif %}
-                          {% else %}
-                            Current Month
-                          {% endif %}
-                        </span>
-                      </span>
-                      {% if item.monthly_target and item.monthly_target.target_amount %}
-                        <strong class="info-value">{{ item.monthly_achievement|floatformat:0 }}%</strong>
-                      {% else %}
-                        <strong class="text-muted">Not Set</strong>
-                      {% endif %}
-                    </div>
-                    {% if item.monthly_target and item.monthly_target.target_amount %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>Target: ₦{{ item.monthly_target.target_amount|floatformat:0|intcomma }}</span>
-                          <span>Sales: ₦{{ item.monthly_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-primary" role="progressbar"
-                              style="width:{{ item.monthly_achievement|floatformat:0 }}%">
-                          </div>
-                        </div>
-                      </div>
-                    {% else %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>No target set for this month</span>
-                          <span>Sales: ₦{{ item.monthly_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-secondary" role="progressbar" style="width:0%"></div>
-                        </div>
-                      </div>
-                    {% endif %}
-                  </div>
+              <!-- Closed Deals Stat -->
+              <div class="company-stat">
+                <span class="company-stat-label">Closed Deals</span>
+                <span class="company-stat-value">{{ item.closed_deals|default:0 }}</span>
+              </div>
 
-                  <!-- Quarterly Target -->
-                  <div class="metric mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="info-label">
-                        <i class="bi bi-calendar3 me-2"></i>Quarterly Target
-                        <span class="badge bg-info ms-2">{{ item.current_quarter }}</span>
-                      </span>
-                      {% if item.quarterly_target and item.quarterly_target.target_amount %}
-                        <strong class="info-value">{{ item.quarterly_achievement|floatformat:0 }}%</strong>
-                      {% else %}
-                        <strong class="text-muted">Not Set</strong>
-                      {% endif %}
-                    </div>
-                    {% if item.quarterly_target and item.quarterly_target.target_amount %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>Target: ₦{{ item.quarterly_target.target_amount|floatformat:0|intcomma }}</span>
-                          <span>Sales: ₦{{ item.quarterly_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-info" role="progressbar"
-                              style="width:{{ item.quarterly_achievement|floatformat:0 }}%">
-                          </div>
-                        </div>
-                      </div>
-                    {% else %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>No target set for this quarter</span>
-                          <span>Sales: ₦{{ item.quarterly_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-secondary" role="progressbar" style="width:0%"></div>
-                        </div>
-                      </div>
-                    {% endif %}
-                  </div>
+              <!-- Commission Rate -->
+              <div class="company-stat">
+                <span class="company-stat-label">Commission Rate</span>
+                <span class="company-stat-value">{{ item.commission_rate|default:0 }}%</span>
+              </div>
 
-                  <!-- Yearly Target -->
-                  <div class="metric mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="info-label">
-                        <i class="bi bi-calendar-year me-2"></i>Yearly Target
-                        <span class="badge bg-success ms-2">{{ current_year }}</span>
-                      </span>
-                      {% if item.yearly_target_achievement is not None %}
-                        <strong class="info-value">{{ item.yearly_target_achievement|floatformat:0 }}%</strong>
-                      {% else %}
-                        <strong class="text-muted">Not Set</strong>
-                      {% endif %}
-                    </div>
-                    {% if item.yearly_target_achievement is not None %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>Target: ₦{{ item.yearly_target.target_amount|floatformat:0|intcomma }}</span>
-                          <span>Sales: ₦{{ item.total_year_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-success" role="progressbar"
-                              style="width:{{ item.yearly_target_achievement|floatformat:0 }}%">
-                          </div>
-                        </div>
-                      </div>
-                    {% else %}
-                      <div class="target-details small text-muted mt-2">
-                        <div class="d-flex justify-content-between">
-                          <span>No target set for this year</span>
-                          <span>Sales: ₦{{ item.total_year_sales|floatformat:0|intcomma }}</span>
-                        </div>
-                        <div class="progress mt-2" style="height:8px;">
-                          <div class="progress-bar bg-secondary" role="progressbar" style="width:0%"></div>
-                        </div>
-                      </div>
-                    {% endif %}
+              <!-- Target Metrics -->
+              <div class="target-metrics">
+                <!-- Monthly Target -->
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <div class="metric-title">Monthly</div>
+                    <span class="metric-badge">
+                      {% if item.current_month %}
+                        {% if item.current_month|slice:"-2:" == "01" %}Jan
+                        {% elif item.current_month|slice:"-2:" == "02" %}Feb
+                        {% elif item.current_month|slice:"-2:" == "03" %}Mar
+                        {% elif item.current_month|slice:"-2:" == "04" %}Apr
+                        {% elif item.current_month|slice:"-2:" == "05" %}May
+                        {% elif item.current_month|slice:"-2:" == "06" %}Jun
+                        {% elif item.current_month|slice:"-2:" == "07" %}Jul
+                        {% elif item.current_month|slice:"-2:" == "08" %}Aug
+                        {% elif item.current_month|slice:"-2:" == "09" %}Sep
+                        {% elif item.current_month|slice:"-2:" == "10" %}Oct
+                        {% elif item.current_month|slice:"-2:" == "11" %}Nov
+                        {% elif item.current_month|slice:"-2:" == "12" %}Dec
+                        {% endif %}
+                      {% else %}Current{% endif %}
+                    </span>
                   </div>
+                  {% if item.monthly_target and item.monthly_target.target_amount %}
+                    <div class="target-status-badge {{ item.monthly_achievement|target_status_class }}">
+                      {% with ach=item.monthly_achievement %}
+                        {% if ach > 100 %}
+                          <i class="bi bi-arrow-up-circle-fill"></i>
+                        {% elif ach >= 50 %}
+                          <i class="bi bi-check-circle-fill"></i>
+                        {% else %}
+                          <i class="bi bi-arrow-down-circle-fill"></i>
+                        {% endif %}
+                      {% endwith %}
+                      {{ item.monthly_achievement|target_status }}
+                    </div>
+                    <div class="metric-details">₦{{ item.monthly_sales|floatformat:0|intcomma }} / ₦{{ item.monthly_target.target_amount|floatformat:0|intcomma }}</div>
+                    <div class="progress">
+                      <div class="progress-bar bg-primary" style="width:{{ item.monthly_achievement|floatformat:0 }}%"></div>
+                    </div>
+                  {% else %}
+                    <div class="metric-value no-target">No target set</div>
+                    <div class="metric-details">₦{{ item.monthly_sales|floatformat:0|intcomma }}</div>
+                  {% endif %}
+                </div>
+
+                <!-- Quarterly Target -->
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <div class="metric-title">Quarterly</div>
+                    <span class="metric-badge">{{ item.current_quarter }}</span>
+                  </div>
+                  {% if item.quarterly_target and item.quarterly_target.target_amount %}
+                    <div class="target-status-badge {{ item.quarterly_achievement|target_status_class }}">
+                      {% with ach=item.quarterly_achievement %}
+                        {% if ach > 100 %}
+                          <i class="bi bi-arrow-up-circle-fill"></i>
+                        {% elif ach >= 50 %}
+                          <i class="bi bi-check-circle-fill"></i>
+                        {% else %}
+                          <i class="bi bi-arrow-down-circle-fill"></i>
+                        {% endif %}
+                      {% endwith %}
+                      {{ item.quarterly_achievement|target_status }}
+                    </div>
+                    <div class="metric-details">₦{{ item.quarterly_sales|floatformat:0|intcomma }} / ₦{{ item.quarterly_target.target_amount|floatformat:0|intcomma }}</div>
+                    <div class="progress">
+                      <div class="progress-bar bg-info" style="width:{{ item.quarterly_achievement|floatformat:0 }}%"></div>
+                    </div>
+                  {% else %}
+                    <div class="metric-value no-target">No target set</div>
+                    <div class="metric-details">₦{{ item.quarterly_sales|floatformat:0|intcomma }}</div>
+                  {% endif %}
+                </div>
+
+                <!-- Yearly Target -->
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <div class="metric-title">Yearly</div>
+                    <span class="metric-badge">{{ current_year }}</span>
+                  </div>
+                  {% if item.yearly_target and item.yearly_target.target_amount %}
+                    <div class="target-status-badge {{ item.yearly_target_achievement|target_status_class }}">
+                      {% with ach=item.yearly_target_achievement %}
+                        {% if ach > 100 %}
+                          <i class="bi bi-arrow-up-circle-fill"></i>
+                        {% elif ach >= 50 %}
+                          <i class="bi bi-check-circle-fill"></i>
+                        {% else %}
+                          <i class="bi bi-arrow-down-circle-fill"></i>
+                        {% endif %}
+                      {% endwith %}
+                      {{ item.yearly_target_achievement|target_status }}
+                    </div>
+                    <div class="metric-details">₦{{ item.total_year_sales|floatformat:0|intcomma }} / ₦{{ item.yearly_target.target_amount|floatformat:0|intcomma }}</div>
+                    <div class="progress">
+                      <div class="progress-bar bg-success" style="width:{{ item.yearly_target_achievement|floatformat:0 }}%"></div>
+                    </div>
+                  {% else %}
+                    <div class="metric-value no-target">No target set</div>
+                    <div class="metric-details">₦{{ item.total_year_sales|floatformat:0|intcomma }}</div>
+                  {% endif %}
                 </div>
               </div>
 
-              <div class="btn-group">
-                <a href="{% url 'marketer-company-portfolio' company_id=c.id %}" class="btn-view">View Portfolio</a>
+              <!-- Action Button -->
+              <div class="company-footer">
+                <a href="{% url 'marketer-company-portfolio' company_id=c.id %}" class="btn-view-portfolio">
+                  View Portfolio
+                  <i class="bi bi-arrow-right"></i>
+                </a>
               </div>
             </div>
-            {% endwith %}
-            {% endwith %}
             {% endwith %}
           {% endfor %}
         </div>
-      {% else %}
-        <!-- Empty State -->
-        <div class="empty-state-container">
-          <div class="empty-card">
-            <div class="empty-icon">
-              <i class="bi bi-inbox"></i>
-            </div>
-            <h2 class="empty-title">No Companies Yet</h2>
-            <p class="empty-text">You haven't been affiliated with any companies yet. Start making transactions to see companies appear here.</p>
-            <a href="{% url 'marketer-dashboard' %}" class="btn-explore">Go to Dashboard</a>
-          </div>
+      </div>
+    {% else %}
+      <!-- Empty State -->
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i class="bi bi-inbox"></i>
         </div>
-      {% endif %}
-    </div>
+        <div class="empty-title">No Companies Yet</div>
+        <div class="empty-text">
+          You haven't been affiliated with any companies yet.
+        </div>
+        <a href="{% url 'marketer-dashboard' %}" class="btn-dashboard">
+          <i class="bi bi-house"></i>
+          Go to Dashboard
+        </a>
+      </div>
+    {% endif %}
   </section>
 </main>
-
-<script>
-  // Placeholder - filters removed for simplicity
-</script>
-
 {% endblock %}

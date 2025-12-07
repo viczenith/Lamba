@@ -63,12 +63,13 @@
         .radio-option input{position:absolute;opacity:0;cursor:pointer}
         .radio-label{display:flex;align-items:center;justify-content:center;padding:1rem;border:2px solid #e6edf6;border-radius:12px;cursor:pointer;transition:all .3s;background:#f8fafc;font-weight:600;color:#475569}
         .radio-option input:checked+.radio-label{border-color:#667eea;background:linear-gradient(135deg,rgba(102,126,234,.1) 0%,rgba(118,75,162,.05) 100%);color:#667eea}
-        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .3s ease-out;padding:20px}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .3s ease-out;padding:20px;box-sizing:border-box}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .modal-content{background:#fff;border-radius:20px;padding:2rem;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease-out;position:relative;max-width:500px;width:100%}
-        @media(min-width:992px){.card-container{max-width:720px}.modal-content{max-width:700px;padding:2.5rem}}
-        @media(min-width:1200px){.card-container{max-width:850px}.modal-content{max-width:850px;padding:2.5rem}}
-        @media(min-width:1400px){.card-container{max-width:900px}.modal-content{max-width:900px;padding:2.5rem}}
+        .modal-content{background:#fff;border-radius:20px;padding:2rem;max-height:90vh;overflow-y:auto;overflow-x:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease-out;position:relative;max-width:500px;width:100%;box-sizing:border-box}
+        .modal-content *{box-sizing:border-box;max-width:100%}
+        @media(min-width:992px){.card-container{max-width:720px}.modal-content{max-width:1100px;padding:2.5rem}}
+        @media(min-width:1200px){.card-container{max-width:850px}.modal-content{max-width:1150px;padding:2.5rem}}
+        @media(min-width:1400px){.card-container{max-width:900px}.modal-content{max-width:1200px;padding:3rem}}
         .form-error{color:#dc2626;font-size:.85rem;margin-top:.5rem;margin-left:50px;display:none;animation:shake .3s ease-in-out}
         .form-error.show{display:block}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -79,12 +80,102 @@
         .modal-close:hover{color:#667eea}
         .modal-header{text-align:center;margin-bottom:1.5rem;border-bottom:1px solid #e6edf6;padding-bottom:1rem}
         .modal-header h2{font-size:1.5rem;margin:0;color:#0f172a;font-weight:800}
-        /* Subscription Plan Radio Styling */
+        
+        /* Hide Scrollbars but Keep Functionality */
+        .modal-content::-webkit-scrollbar{width:8px;height:8px}
+        .modal-content::-webkit-scrollbar-track{background:transparent}
+        .modal-content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.1);border-radius:10px}
+        .modal-content::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.2)}
+        body::-webkit-scrollbar{width:10px}
+        body::-webkit-scrollbar-track{background:#f1f5f9}
+        body::-webkit-scrollbar-thumb{background:rgba(102,126,234,.3);border-radius:10px}
+        body::-webkit-scrollbar-thumb:hover{background:rgba(102,126,234,.5)}
+        
+        /* GitHub-Inspired Subscription Plan Styling with Enhanced Selection */
         input[name="subscription_tier"]{cursor:pointer !important}
-        input[name="subscription_tier"]:checked+label{border-color:#667eea !important;background:linear-gradient(135deg,rgba(102,126,234,.12) 0%,rgba(118,75,162,.06) 100%) !important;transform:scale(1.02);box-shadow:0 6px 20px rgba(102,126,234,.2) !important}
-        input[name="subscription_tier"]:checked+label div:first-child{color:#667eea !important}
-        input[name="subscription_tier"]:hover+label{border-color:#a5b4fc;background:rgba(102,126,234,.03)}
-        @media(max-width:576px){.card-container{padding:1.75rem}.form-row{grid-template-columns:1fr}.radio-group{flex-direction:column}.modal-content{border-radius:16px;max-width:95vw}.modal-header h2{font-size:1.25rem}.form-row-custom{grid-template-columns:1fr}.modal-overlay{padding:10px}.password-eye{right:8px;padding:4px}}
+        input[name="subscription_tier"]:checked+label{
+            border-color:#667eea !important;
+            border-width:3px !important;
+            box-shadow:0 12px 32px rgba(102,126,234,.35),0 0 0 4px rgba(102,126,234,.15) !important;
+            transform:translateY(-6px) scale(1.02) !important;
+            background:#f8faff !important;
+        }
+        input[name="subscription_tier"]:checked+label > div:first-child{background:#f0f4ff !important}
+        input[name="subscription_tier"]:checked+label h4{color:#667eea !important}
+        input[name="subscription_tier"]:checked+label::after{
+            content:'✓ Selected';
+            position:absolute;
+            top:1rem;
+            right:1rem;
+            background:#10b981;
+            color:white;
+            padding:.4rem .75rem;
+            border-radius:20px;
+            font-size:.75rem;
+            font-weight:700;
+            animation:scaleIn .3s ease-out;
+        }
+        @keyframes scaleIn{
+            from{transform:scale(0);opacity:0}
+            to{transform:scale(1);opacity:1}
+        }
+        input[name="subscription_tier"]+label:hover{
+            border-color:#a5b4fc !important;
+            transform:translateY(-2px) !important;
+            box-shadow:0 6px 20px rgba(0,0,0,.12) !important;
+        }
+        input[name="subscription_tier"]:focus+label{outline:2px solid #667eea;outline-offset:2px}
+        
+        /* Enterprise Plan Preferred Badge Animation */
+        input[name="subscription_tier"][value="enterprise"]:checked+label > div:first-child{
+            animation:pulseGradient 2s ease-in-out infinite;
+        }
+        @keyframes pulseGradient{
+            0%,100%{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+            50%{background:linear-gradient(135deg,#764ba2 0%,#667eea 100%)}
+        }
+        
+        /* Desktop large screens */
+        @media(min-width:1400px){
+            .modal-overlay{padding:25px}
+        }
+        
+        /* Tablet Responsiveness */
+        @media(max-width:1200px){
+            .modal-content{max-width:95vw !important;padding:2rem;overflow-x:hidden}
+            .modal-overlay{padding:15px}
+        }
+        
+        @media(max-width:992px){
+            /* Stack plans vertically on tablets */
+            .modal-content{max-width:90vw !important;padding:1.75rem;overflow-x:hidden}
+            .modal-overlay{padding:10px}
+            input[name="subscription_tier"]:checked+label::after{top:.75rem;right:.75rem;font-size:.7rem;padding:.35rem .6rem}
+        }
+        
+        @media(max-width:768px){
+            /* Tablet and small screens */
+            .card-container{padding:1.5rem;max-width:95vw}
+            .modal-content{padding:1.5rem;border-radius:16px;max-width:95vw !important;overflow-x:hidden}
+            .modal-overlay{padding:8px}
+            .modal-header h2{font-size:1.35rem}
+        }
+        
+        @media(max-width:576px){
+            .card-container{padding:1.75rem}
+            .form-row{grid-template-columns:1fr}
+            .radio-group{flex-direction:column}
+            .modal-content{border-radius:16px;max-width:95vw;padding:1.5rem}
+            .modal-header h2{font-size:1.25rem}
+            .form-row-custom{grid-template-columns:1fr}
+            .modal-overlay{padding:10px}
+            .password-eye{right:8px;padding:4px}
+            
+            /* Adjust plan cards for mobile */
+            input[name="subscription_tier"]+label > div{padding:1.25rem 1rem !important}
+            input[name="subscription_tier"]+label h4{font-size:1.1rem !important}
+            input[name="subscription_tier"]+label span[style*="font-size:2.25rem"]{font-size:1.75rem !important}
+        }
 
         /* ROLE SELECTION MODAL STYLES */
         .role-selection-grid {
@@ -396,68 +487,164 @@
                     </div>
                 </div>
 
-                <!-- SUBSCRIPTION PLAN SECTION -->
-                <div style="background:linear-gradient(135deg,rgba(17,153,142,.08) 0%,rgba(56,239,125,.03) 100%);padding:1.5rem;border-radius:12px;border:2px solid rgba(17,153,142,.15);margin-bottom:1.5rem">
-                    <h4 style="color:#11998e;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem">
-                        <i class="fas fa-crown"></i> Choose Your Plan
-                    </h4>
-                    <p style="color:#64748b;font-size:.85rem;margin-bottom:1.5rem">
-                        <i class="fas fa-gift" style="color:#10b981;margin-right:.5rem"></i>All plans include 14 days FREE TRIAL
-                    </p>
+                <!-- SUBSCRIPTION PLAN SECTION - GitHub Inspired Design -->
+                <div style="margin-bottom:2rem;overflow-x:hidden">
+                    <div style="text-align:center;margin-bottom:2rem;padding:0 .5rem">
+                        <h3 style="color:#0f172a;font-weight:800;font-size:clamp(1.25rem,4vw,2rem);margin-bottom:.75rem;line-height:1.2">Choose the plan that fits your business</h3>
+                        <p style="color:#64748b;font-size:clamp(.85rem,2vw,1rem);margin-bottom:.5rem;line-height:1.5">Start with a 14-day free trial. No credit card required.</p>
+                        <div style="display:inline-flex;align-items:center;gap:.75rem;background:#f1f5f9;padding:.5rem 1rem;border-radius:25px;margin-top:.5rem;max-width:100%">
+                            <i class="fas fa-gift" style="color:#10b981;flex-shrink:0"></i>
+                            <span style="color:#475569;font-size:clamp(.8rem,1.5vw,.9rem);font-weight:600">All plans include 14 days FREE TRIAL</span>
+                        </div>
+                    </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:1rem;width:100%;box-sizing:border-box;max-width:100%" class="subscription-plans-grid">
+                        <style>
+                            .subscription-plans-grid{max-width:100%;overflow:visible;margin:0 auto}
+                            .subscription-plans-grid > div{min-width:0;box-sizing:border-box;max-width:100%}
+                            @media(min-width:992px){
+                                .subscription-plans-grid{max-width:1050px}
+                            }
+                            @media(max-width:992px){
+                                .subscription-plans-grid{grid-template-columns:1fr !important;gap:1.25rem !important;padding:0 .5rem}
+                            }
+                            @media(max-width:576px){
+                                .subscription-plans-grid{gap:1rem !important;padding:0}
+                            }
+                        </style>
                         <!-- Starter Plan -->
                         <div style="position:relative">
-                            <input type="radio" name="subscription_tier" id="planStarter" value="starter" checked style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
-                            <label for="planStarter" style="display:block;padding:1.25rem;border:2px solid #e6edf6;border-radius:10px;cursor:pointer;transition:all .3s;background:#f8fafc;text-align:center;height:100%">
-                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem">
-                                    <i class="fas fa-rocket" style="color:#667eea;margin-right:.5rem"></i>Starter
+                            <input type="radio" name="subscription_tier" id="planStarter" value="starter" checked style="position:absolute;opacity:0;pointer-events:none">
+                            <label for="planStarter" style="display:block;height:100%;border:2px solid #d1d5db;border-radius:12px;cursor:pointer;transition:all .2s ease;background:#ffffff;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)">
+                                <div style="padding:1.75rem 1.5rem">
+                                    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+                                        <i class="fas fa-rocket" style="color:#667eea;font-size:1.1rem"></i>
+                                        <h4 style="font-weight:700;color:#0f172a;margin:0;font-size:1.25rem">Starter</h4>
+                                    </div>
+                                    <p style="color:#64748b;font-size:.9rem;margin:0 0 1.5rem 0;line-height:1.4">Perfect for small real estate companies getting started</p>
+                                    
+                                    <div style="margin-bottom:1.5rem">
+                                        <div style="display:flex;align-items:baseline;gap:.25rem;margin-bottom:.25rem">
+                                            <span style="font-size:2.25rem;font-weight:800;color:#0f172a">₦70,000</span>
+                                            <span style="color:#64748b;font-size:.9rem">/month</span>
+                                        </div>
+                                        <p style="color:#059669;font-size:.85rem;margin:0;font-weight:600">₦700,000/year (Save 2 months)</p>
+                                    </div>
+
+                                    <div style="border-top:1px solid #e5e7eb;padding-top:1.25rem">
+                                        <p style="color:#0f172a;font-weight:600;font-size:.9rem;margin-bottom:1rem">What's included:</p>
+                                        <ul style="list-style:none;padding:0;margin:0">
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">2</strong> Estate Properties</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">30</strong> Allocations per month</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">30</strong> Clients & <strong style="color:#0f172a">20</strong> Affiliates</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5">Email support</span>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
-                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">For Small Companies</div>
-                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦70,000<span style="font-size:.8rem">/mo</span></div>
-                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦700,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
-                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>2 Estate Properties</li>
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>30 Allocations</li>
-                                    <li><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>30 Clients & 20 Affiliates</li>
-                                </ul>
                             </label>
                         </div>
 
                         <!-- Professional Plan -->
                         <div style="position:relative">
-                            <input type="radio" name="subscription_tier" id="planProfessional" value="professional" style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
-                            <label for="planProfessional" style="display:block;padding:1.25rem;border:3px solid #667eea;border-radius:10px;cursor:pointer;transition:all .3s;background:linear-gradient(135deg,rgba(102,126,234,.08) 0%,rgba(118,75,162,.03) 100%);text-align:center;box-shadow:0 4px 15px rgba(102,126,234,.15);height:100%;position:relative">
-                                <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#667eea;color:white;padding:.4rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;white-space:nowrap">⭐ PREFERRED PLAN</div>
-                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem;margin-top:.5rem">
-                                    <i class="fas fa-star" style="color:#667eea;margin-right:.5rem"></i>Professional
+                            <input type="radio" name="subscription_tier" id="planProfessional" value="professional" style="position:absolute;opacity:0;pointer-events:none">
+                            <label for="planProfessional" style="display:block;height:100%;border:2px solid #667eea;border-radius:12px;cursor:pointer;transition:all .2s ease;background:#ffffff;overflow:hidden;box-shadow:0 8px 20px rgba(102,126,234,.15);transform:scale(1.02)">
+                                <div style="padding:1.75rem 1.5rem">
+                                    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+                                        <i class="fas fa-star" style="color:#667eea;font-size:1.1rem"></i>
+                                        <h4 style="font-weight:700;color:#0f172a;margin:0;font-size:1.25rem">Professional</h4>
+                                        <span style="background:#10b981;color:white;padding:.25rem .65rem;border-radius:12px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-left:auto">Most Popular</span>
+                                    </div>
+                                    <p style="color:#64748b;font-size:.9rem;margin:0 0 1.5rem 0;line-height:1.4">For growing companies scaling their operations</p>
+                                    
+                                    <div style="margin-bottom:1.5rem">
+                                        <div style="display:flex;align-items:baseline;gap:.25rem;margin-bottom:.25rem">
+                                            <span style="font-size:2.25rem;font-weight:800;color:#0f172a">₦100,000</span>
+                                            <span style="color:#64748b;font-size:.9rem">/month</span>
+                                        </div>
+                                        <p style="color:#059669;font-size:.85rem;margin:0;font-weight:600">₦1,000,000/year (Save 2 months)</p>
+                                    </div>
+
+                                    <div style="border-top:1px solid #e5e7eb;padding-top:1.25rem">
+                                        <p style="color:#0f172a;font-weight:600;font-size:.9rem;margin-bottom:1rem">What's included:</p>
+                                        <ul style="list-style:none;padding:0;margin:0">
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">5</strong> Estate Properties</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">80</strong> Allocations per month</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">80</strong> Clients & <strong style="color:#0f172a">30</strong> Affiliates</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5">Priority email support</span>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
-                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">For Growing Companies</div>
-                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦100,000<span style="font-size:.8rem">/mo</span></div>
-                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦1,000,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
-                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>5 Estate Properties</li>
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>80 Allocations</li>
-                                    <li><i class="fas fa-check-circle" style="color:#10b981;margin-right:.5rem;width:16px"></i>80 Clients & 30 Affiliates</li>
-                                </ul>
                             </label>
                         </div>
 
                         <!-- Enterprise Plan -->
                         <div style="position:relative">
-                            <input type="radio" name="subscription_tier" id="planEnterprise" value="enterprise" style="position:absolute;left:0;top:0;opacity:1;width:100%;height:100%;cursor:pointer">
-                            <label for="planEnterprise" style="display:block;padding:1.25rem;border:2px solid #e6edf6;border-radius:10px;cursor:pointer;transition:all .3s;background:#f8fafc;text-align:center;height:100%">
-                                <div style="font-weight:700;color:#0f172a;margin-bottom:.5rem">
-                                    <i class="fas fa-crown" style="color:#667eea;margin-right:.5rem"></i>Enterprise
+                            <input type="radio" name="subscription_tier" id="planEnterprise" value="enterprise" style="position:absolute;opacity:0;pointer-events:none">
+                            <label for="planEnterprise" style="display:block;height:100%;border:2px solid #d1d5db;border-radius:12px;cursor:pointer;transition:all .2s ease;background:#ffffff;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative">
+                                <div style="position:absolute;top:0;left:0;right:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-align:center;padding:.5rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+                                    <i class="fas fa-crown" style="margin-right:.35rem"></i>Preferred Plan
                                 </div>
-                                <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;line-height:1.3">Preferred Package Plan</div>
-                                <div style="font-size:1.4rem;font-weight:900;color:#667eea;margin-bottom:.25rem">₦150,000<span style="font-size:.8rem">/mo</span></div>
-                                <div style="font-size:.75rem;color:#94a3b8;margin-bottom:.75rem">₦1,500,000/year <span style="color:#10b981;font-weight:700">(Save 2 months!)</span></div>
-                                <ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.8rem;color:#475569">
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Estate Properties</li>
-                                    <li style="margin-bottom:.35rem"><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Allocations</li>
-                                    <li><i class="fas fa-infinity" style="color:#667eea;margin-right:.5rem;width:16px"></i><strong>Unlimited</strong> Clients & Affiliates</li>
-                                </ul>
+                                <div style="padding:3.25rem 1.5rem 1.75rem">
+                                    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+                                        <i class="fas fa-building" style="color:#667eea;font-size:1.1rem"></i>
+                                        <h4 style="font-weight:700;color:#0f172a;margin:0;font-size:1.25rem">Enterprise</h4>
+                                    </div>
+                                    <p style="color:#64748b;font-size:.9rem;margin:0 0 1.5rem 0;line-height:1.4">For large companies with unlimited needs</p>
+                                    
+                                    <div style="margin-bottom:1.5rem">
+                                        <div style="display:flex;align-items:baseline;gap:.25rem;margin-bottom:.25rem">
+                                            <span style="font-size:2.25rem;font-weight:800;color:#0f172a">₦150,000</span>
+                                            <span style="color:#64748b;font-size:.9rem">/month</span>
+                                        </div>
+                                        <p style="color:#059669;font-size:.85rem;margin:0;font-weight:600">₦1,500,000/year (Save 2 months)</p>
+                                    </div>
+
+                                    <div style="border-top:1px solid #e5e7eb;padding-top:1.25rem">
+                                        <p style="color:#0f172a;font-weight:600;font-size:.9rem;margin-bottom:1rem">Everything in Professional, plus:</p>
+                                        <ul style="list-style:none;padding:0;margin:0">
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-infinity" style="color:#667eea;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">Unlimited</strong> Estate Properties</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-infinity" style="color:#667eea;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">Unlimited</strong> Allocations</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem">
+                                                <i class="fas fa-infinity" style="color:#667eea;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5"><strong style="color:#0f172a">Unlimited</strong> Clients & Affiliates</span>
+                                            </li>
+                                            <li style="display:flex;align-items:flex-start;gap:.75rem">
+                                                <i class="fas fa-check" style="color:#10b981;font-size:.9rem;margin-top:.15rem;flex-shrink:0"></i>
+                                                <span style="color:#475569;font-size:.9rem;line-height:1.5">Dedicated account manager</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </label>
                         </div>
                     </div>

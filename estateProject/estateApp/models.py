@@ -2406,6 +2406,15 @@ class Notification(models.Model):
     )
     title = models.CharField(max_length=200)
     message = models.TextField()
+    # Company field for multi-tenant notification isolation
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        null=True,
+        blank=True,
+        help_text="Company this notification belongs to. Null means global/system notification."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def serialize(self):

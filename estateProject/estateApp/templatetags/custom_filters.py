@@ -94,3 +94,75 @@ def versioned_file(file_obj):
             return getattr(file_obj, 'url', '')
         except Exception:
             return ''
+
+
+@register.filter
+def sum_attribute(queryset, attribute):
+    """Sum up a specific attribute from a list of objects or dictionaries."""
+    try:
+        total = 0
+        for item in queryset:
+            # Handle both dictionary and object attribute access
+            if isinstance(item, dict):
+                value = item.get(attribute, 0)
+            else:
+                value = getattr(item, attribute, 0)
+            
+            # Add to total, treating None as 0
+            total += value if value is not None else 0
+        return total
+    except Exception:
+        return 0
+
+
+@register.filter
+def target_status(achievement):
+    """
+    Returns target status text based on achievement percentage.
+    Target Logic:
+    - Below Target: 0% to 49% achievement
+    - On Target: 50% to 100% achievement  
+    - Above Target: 101%+ achievement
+    Examples: "50% Below Target", "On Target (75%)", "10% Above Target"
+    """
+    try:
+        if achievement is None:
+            return "No Target Set"
+        
+        achievement = float(achievement)
+        
+        if achievement > 100:
+            above = int(achievement - 100)
+            return f"{above}% Above Target"
+        elif achievement >= 50:
+            return f"On Target ({int(achievement)}%)"
+        else:
+            below = int(100 - achievement)
+            return f"{below}% Below Target"
+    except (ValueError, TypeError):
+        return "No Target Set"
+
+
+@register.filter
+def target_status_class(achievement):
+    """
+    Returns CSS class for target status badge styling.
+    Target Logic:
+    - Below Target: 0% to 49% achievement (status-below)
+    - On Target: 50% to 100% achievement (status-on-track)  
+    - Above Target: 101%+ achievement (status-above)
+    """
+    try:
+        if achievement is None:
+            return "status-no-target"
+        
+        achievement = float(achievement)
+        
+        if achievement > 100:
+            return "status-above"
+        elif achievement >= 50:
+            return "status-on-track"
+        else:
+            return "status-below"
+    except (ValueError, TypeError):
+        return "status-no-target"

@@ -4563,9 +4563,15 @@
             return new Intl.NumberFormat('en-NG').format(amount);
         }
         
-        // Format limit (show 'Unlimited' for large numbers)
+        // Format limit (show 'Unlimited' for large numbers or 'unlimited' string)
         function formatLimit(limit) {
-            return limit >= 999999 ? 'Unlimited' : formatPrice(limit);
+            // Handle string 'unlimited' from database
+            if (typeof limit === 'string' && limit.toLowerCase() === 'unlimited') {
+                return 'Unlimited';
+            }
+            // Handle numeric values
+            const numLimit = parseInt(limit) || 0;
+            return numLimit >= 999999 ? 'Unlimited' : formatPrice(numLimit);
         }
         
         // Get plan features display
@@ -5162,8 +5168,13 @@
             }
         }
         
+        // Variable to track selected plan in manage modal (must be declared before event listeners)
+        let managePlanSelection = null;
+        
         // Populate Manage Subscription Modal
         function populateManageModal() {
+            console.log('[Billing] populateManageModal called - subscriptionPlans:', subscriptionPlans?.length);
+            
             // Fallback plans
             let plansToUse = subscriptionPlans;
             if (!plansToUse || plansToUse.length === 0) {
@@ -5190,21 +5201,28 @@
             document.getElementById('manageClients').textContent = `${companyUsage.clients}/${formatLimit(features.clients)}`;
             document.getElementById('manageAffiliates').textContent = `${companyUsage.marketers}/${formatLimit(features.affiliates)}`;
             
+            console.log('[Billing] populateManageModal complete - calling renderManagePlans');
             // Render plans in manage modal
             renderManagePlans();
         }
         
         // Render plans in manage subscription modal
         function renderManagePlans() {
+            console.log('[Billing] renderManagePlans called');
             const container = document.getElementById('managePlansContainer');
-            if (!container) return;
+            if (!container) {
+                console.error('[Billing] managePlansContainer not found!');
+                return;
+            }
             
             const billingPeriod = document.querySelector('input[name="manageBillingPeriod"]:checked')?.value || 'monthly';
             const isAnnual = billingPeriod === 'annual';
+            console.log('[Billing] Billing period:', billingPeriod, 'isAnnual:', isAnnual);
             
             // Fallback plans
             let plansToUse = subscriptionPlans;
             if (!plansToUse || plansToUse.length === 0) {
+                console.log('[Billing] Using fallback plans in renderManagePlans');
                 plansToUse = [
                     { id: 1, name: 'Starter', tier: 'starter', description: 'For Small Companies', monthly_price: 70000, annual_price: 700000, max_plots: 2, max_agents: 50, features: {estate_properties: 2, allocations: 30, clients: 30, affiliates: 20}, is_popular: false },
                     { id: 2, name: 'Professional', tier: 'professional', description: 'For Growing Companies', monthly_price: 100000, annual_price: 1000000, max_plots: 5, max_agents: 110, features: {estate_properties: 5, allocations: 80, clients: 80, affiliates: 30}, is_popular: true },
@@ -5269,12 +5287,11 @@
                 `;
             });
             
+            console.log('[Billing] renderManagePlans complete - plans rendered:', sortedPlans.length);
             container.innerHTML = html;
         }
         
         // Select plan in manage modal
-        let managePlanSelection = null;
-        
         function selectManagePlan(tier, name, price) {
             managePlanSelection = { tier, name, price };
             
@@ -5349,6 +5366,9 @@
 
         // Load plans when page loads
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Billing] DOMContentLoaded - Plans count:', subscriptionPlans.length);
+            
+            // Load plans into various containers
             loadPlans('plansContainer', false);
             loadPlans('upgradePlansContainer', true);
             
@@ -5356,21 +5376,35 @@
             document.getElementById('monthlyLabel')?.classList.add('active');
             
             // Render available plans in billing tab
+            console.log('[Billing] Calling renderAvailablePlans...');
             renderAvailablePlans();
             
             // Load current subscription data
             loadCurrentSubscription();
+            
+            console.log('[Billing] Initialization complete');
+        });
+        
+        // Upgrade Plan modal event - reload plans when modal opens
+        document.getElementById('upgradePlanModal')?.addEventListener('show.bs.modal', function() {
+            console.log('[Billing] Upgrade modal opening - loading plans');
+            loadPlans('upgradePlansContainer', true);
+            document.getElementById('currentPlanName').textContent = currentSubscription.plan_name;
         });
         
         // Manage subscription modal event
         document.getElementById('manageSubscriptionModal')?.addEventListener('show.bs.modal', function() {
+            console.log('[Billing] Manage modal opening');
             managePlanSelection = null;
             populateManageModal();
         });
         
         // Billing period change in manage modal
         document.querySelectorAll('input[name="manageBillingPeriod"]').forEach(radio => {
-            radio.addEventListener('change', renderManagePlans);
+            radio.addEventListener('change', function() {
+                console.log('[Billing] Billing period changed to:', this.value);
+                renderManagePlans();
+            });
         });
 
         // Load current subscription data
@@ -7965,15 +7999,17 @@
     }
 
     function getTargetStatus(record) {
+        // Target Logic: Below Target (<50%), On Target (50-100%), Above Target (>100%)
         const hasData = record.total_sales > 0 || record.closed_deals > 0;
         
         if (record.target_amount > 0 && hasData) {
             const targetPercent = Math.round((record.total_sales / record.target_amount) * 100) || 0;
             
-            if (targetPercent >= 100) {
+            if (targetPercent > 100) {
                 const above = targetPercent - 100;
-                if (above === 0) return 'Target Achieved';
                 return `${above}% Above Target`;
+            } else if (targetPercent >= 50) {
+                return `On Target (${targetPercent}%)`;
             } else {
                 const below = 100 - targetPercent;
                 return `${below}% Below Target`;

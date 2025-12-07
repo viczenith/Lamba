@@ -1,70 +1,1014 @@
 {% extends 'marketer_base.html' %}
-{% load static %}
+{% load static humanize %}
 {% block content %}
+
 <main id="main" class="main">
-  <div class="pagetitle">
-    <div class="d-flex justify-content-between align-items-center">
+  <!-- Header -->
+  <div class="portfolio-header">
+    <div class="header-content">
+      <a href="{% url 'marketer-my-companies' %}" class="back-link">
+        <i class="bi bi-arrow-left"></i>
+      </a>
       <div>
-        <h1>My Portfolio</h1>
-        <nav>
-          <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
-            <li class="breadcrumb-item active">My Portfolio</li>
-          </ol>
-        </nav>
+        <h1>{{ company.company_name }}</h1>
+        <p>Client Portfolio</p>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="stat">
+        <span class="stat-value">{{ clients|length }}</span>
+        <span class="stat-label">Clients</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ closed_deals|default:0 }}</span>
+        <span class="stat-label">Closed Deals</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">₦{{ commission_earned|default:0|floatformat:0|intcomma }}</span>
+        <span class="stat-label">Commission ({{ commission_rate|floatformat:1 }}%)</span>
       </div>
     </div>
   </div>
 
-  <div class="row">
-    <div class="col-md-8">
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5>Clients</h5>
-          {% if clients %}
-            <ul class="list-group">
-              {% for c in clients %}
-                <li class="list-group-item">{{ c.full_name }} ({{ c.email }})</li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="text-muted">No clients found for your transactions in this company.</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-body">
-          <h5>Transactions</h5>
-          {% if transactions %}
-            <table class="table table-striped">
-              <thead><tr><th>Date</th><th>Client</th><th>Amount</th><th>Reference</th></tr></thead>
-              <tbody>
-                {% for t in transactions %}
-                  <tr>
-                    <td>{{ t.transaction_date|date:"d M Y" }}</td>
-                    <td>{{ t.client.full_name }}</td>
-                    <td>₦{{ t.total_amount }}</td>
-                    <td>{{ t.reference_code }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          {% else %}
-            <p class="text-muted">No transactions yet.</p>
-          {% endif %}
-        </div>
-      </div>
+  <!-- Leaderboard Section -->
+  <div class="leaderboard-section">
+    <div class="leaderboard-header">
+      <h3><i class="bi bi-trophy"></i> Top 3 Performers of the Year</h3>
+      <span class="year-badge">{{ current_year }}</span>
     </div>
-
-    <div class="col-md-4">
-      <div class="card">
-        <div class="card-body">
-          <h5>Summary</h5>
-          <p>Total value: ₦{{ total_value|default:0 }}</p>
+    <div class="leaderboard-body">
+      {% if top3 %}
+        {% for item in top3 %}
+          <div class="leaderboard-item {% if item.rank == 1 %}gold{% elif item.rank == 2 %}silver{% elif item.rank == 3 %}bronze{% endif %}">
+            <div class="rank">#{{ item.rank }}</div>
+            <div class="avatar">
+              {% if item.marketer.profile_image %}
+                <img src="{{ item.marketer.profile_image.url }}" alt="{{ item.marketer.full_name }}">
+              {% else %}
+                <span class="avatar-letter">{{ item.marketer.full_name|slice:":1"|upper }}</span>
+              {% endif %}
+            </div>
+            <div class="info">
+              <span class="name">{{ item.marketer.full_name }}</span>
+            </div>
+          </div>
+        {% endfor %}
+        
+        <!-- Current User's Position -->
+        {% if user_entry %}
+          <div class="leaderboard-divider"></div>
+          <div class="leaderboard-item current-user">
+            <div class="rank">#{{ user_entry.rank }}</div>
+            <div class="avatar">
+              {% if user_entry.marketer.profile_image %}
+                <img src="{{ user_entry.marketer.profile_image.url }}" alt="{{ user_entry.marketer.full_name }}">
+              {% else %}
+                <span class="avatar-letter">{{ user_entry.marketer.full_name|slice:":1"|upper }}</span>
+              {% endif %}
+            </div>
+            <div class="info">
+              <span class="name">{{ user_entry.marketer.full_name }} <span class="you-tag">You</span></span>
+            </div>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="empty-leaderboard">
+          <i class="bi bi-people"></i>
+          <span>No performers yet</span>
         </div>
-      </div>
+      {% endif %}
     </div>
+  </div>
+
+  <!-- Clients Grid -->
+  <div class="section-title">
+    <h2><i class="bi bi-people"></i> Clients</h2>
+    <span class="count">{{ clients|length }}</span>
+  </div>
+  
+  <div class="clients-container">
+    {% if clients %}
+      {% for client in clients %}
+        <div class="client-card">
+          <!-- Client Header -->
+          <div class="client-header">
+            <div class="client-info">
+              <div class="avatar">
+                {% if client.profile_image and client.profile_image.name %}
+                  <img src="{{ client.profile_image.url }}" alt="{{ client.full_name }}">
+                {% else %}
+                  <span>{{ client.full_name|slice:":1"|upper }}</span>
+                {% endif %}
+              </div>
+              <div class="details">
+                <h3>{{ client.full_name }}</h3>
+                <span class="phone">{{ client.phone_number }}</span>
+              </div>
+            </div>
+            <a href="https://wa.me/{{ client.phone_number|cut:' '|cut:'-'|cut:'('|cut:')'|cut:'+' }}" 
+               target="_blank" class="whatsapp-btn" title="Message on WhatsApp">
+              <i class="bi bi-whatsapp"></i>
+            </a>
+          </div>
+
+          <!-- Client Meta -->
+          <div class="client-meta">
+            <div class="meta-item">
+              <i class="bi bi-envelope"></i>
+              <span>{{ client.email|default:"—" }}</span>
+            </div>
+            <div class="meta-item">
+              <i class="bi bi-geo-alt"></i>
+              <span>{{ client.address|default:"Not provided" }}</span>
+            </div>
+            <div class="meta-item">
+              <i class="bi bi-calendar3"></i>
+              <span>Joined {{ client.date_registered|date:"M j, Y" }}</span>
+            </div>
+          </div>
+
+          <!-- Transactions -->
+          <div class="transactions-section">
+            <div class="section-header">
+              <span class="section-title">Transactions</span>
+              <span class="count-badge">{{ client.company_transactions|length }}</span>
+            </div>
+            
+            {% regroup client.company_transactions by allocation.estate as estate_groups %}
+            {% for estate_group in estate_groups %}
+              <div class="estate-group">
+                <div class="estate-header" data-bs-toggle="collapse" data-bs-target="#estate-{{ client.id }}-{{ forloop.counter }}">
+                  <div class="estate-info">
+                    <span class="estate-name">{{ estate_group.grouper.name }}</span>
+                    <span class="estate-count">{{ estate_group.list|length }} plot{{ estate_group.list|length|pluralize }}</span>
+                  </div>
+                  <i class="bi bi-chevron-down toggle-icon"></i>
+                </div>
+                
+                <div class="collapse show" id="estate-{{ client.id }}-{{ forloop.counter }}">
+                  <div class="transactions-list">
+                    {% for txn in estate_group.list %}
+                      <div class="transaction-row">
+                        <div class="txn-main">
+                          <span class="plot-size">{{ txn.allocation.plot_size.size }}</span>
+                          <span class="txn-amount">₦{{ txn.total_amount|intcomma }}</span>
+                        </div>
+                        <div class="txn-details">
+                          <span class="status status-{% if txn.status in 'Paid,Complete,Fully Paid' %}success{% else %}pending{% endif %}">
+                            {{ txn.status }}
+                          </span>
+                          <span class="allocation-status {% if txn.allocation.plot_number %}allocated{% else %}not-allocated{% endif %}">
+                            {% if txn.allocation.plot_number %}Allocated{% else %}Pending{% endif %}
+                          </span>
+                          <span class="txn-date">{{ txn.transaction_date|date:"M j, Y" }}</span>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="no-transactions">
+                <span>No transactions yet</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i class="bi bi-inbox"></i>
+        </div>
+        <h3>No Clients Yet</h3>
+        <p>You haven't handled any clients for {{ company.company_name }}.</p>
+        <a href="{% url 'marketer-my-companies' %}" class="back-btn">
+          <i class="bi bi-arrow-left"></i> Back to Companies
+        </a>
+      </div>
+    {% endif %}
   </div>
 </main>
+
+<style>
+:root {
+  --primary: #0f172a;
+  --primary-light: #1e293b;
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+/* Header */
+.portfolio-header {
+  background: var(--primary);
+  color: white;
+  padding: 2rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.back-link {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: white;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.back-link:hover {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.header-content h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header-content p {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+.header-stats {
+  display: flex;
+  gap: 2rem;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Clients Container */
+.clients-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Client Card */
+.client-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.client-header {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.client-info {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar span {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.details h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.details .phone {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.whatsapp-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #25d366;
+  color: white;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.whatsapp-btn:hover {
+  transform: scale(1.05);
+  color: white;
+  opacity: 0.9;
+}
+
+/* Client Meta */
+.client-meta {
+  padding: 1rem 1.25rem;
+  background: var(--bg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.meta-item i {
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+/* Transactions Section */
+.transactions-section {
+  padding: 1.25rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.count-badge {
+  background: var(--accent);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+}
+
+/* Estate Group */
+.estate-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.estate-group:last-child {
+  margin-bottom: 0;
+}
+
+.estate-header {
+  padding: 0.875rem 1rem;
+  background: var(--bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.estate-header:hover {
+  background: #f1f5f9;
+}
+
+.estate-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.estate-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 0.5rem;
+}
+
+.toggle-icon {
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+
+.estate-header[aria-expanded="false"] .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+/* Transactions List */
+.transactions-list {
+  padding: 0.5rem;
+}
+
+.transaction-row {
+  padding: 0.75rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.transaction-row:hover {
+  background: var(--bg);
+}
+
+.txn-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
+.plot-size {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.txn-amount {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.txn-details {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.status, .allocation-status, .txn-date {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.status-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.status-pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+}
+
+.allocation-status.allocated {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.allocation-status.not-allocated {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.txn-date {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.125rem 0;
+}
+
+.no-transactions {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Empty State */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  background: var(--bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon i {
+  font-size: 2rem;
+  color: var(--text-light);
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.back-btn:hover {
+  opacity: 0.9;
+  color: white;
+}
+
+/* Performance Section */
+.performance-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Performance Card */
+.perf-card {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.perf-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--primary);
+  color: white;
+}
+
+.perf-card-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.perf-card-header h3 i {
+  font-size: 1.125rem;
+}
+
+.year-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.perf-card-body {
+  padding: 1.25rem;
+}
+
+/* Metric Row */
+.metric-row {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.metric-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.metric-row:first-child {
+  padding-top: 0;
+}
+
+.metric-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.metric-value.text-muted {
+  color: var(--text-light);
+}
+
+.metric-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.metric-progress {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  max-width: 100%;
+}
+
+.metric-progress.bg-primary {
+  background: var(--accent);
+}
+
+.metric-progress.bg-warning {
+  background: var(--warning);
+}
+
+.metric-progress.bg-secondary {
+  background: var(--text-light);
+}
+
+.metric-progress.bg-success {
+  background: var(--success);
+}
+
+.metric-details {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+/* Leaderboard Section */
+.leaderboard-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--primary);
+  color: white;
+}
+
+.leaderboard-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leaderboard-header h3 i {
+  font-size: 1.125rem;
+  color: #fbbf24;
+}
+
+.year-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Leaderboard Body */
+.leaderboard-body {
+  padding: 0 !important;
+}
+
+.leaderboard-body .leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.leaderboard-body .leaderboard-item:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-body .leaderboard-item:hover {
+  background: var(--bg);
+}
+
+.leaderboard-item .rank {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  background: var(--primary-light);
+  color: white;
+}
+
+.leaderboard-item.gold .rank {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.leaderboard-item.silver .rank {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+}
+
+.leaderboard-item.bronze .rank {
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+}
+
+.leaderboard-item .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.leaderboard-item .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leaderboard-item .avatar .avatar-letter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.leaderboard-item .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboard-item .name {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.9375rem;
+  margin-bottom: 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-item .status {
+  font-size: 0.75rem;
+}
+
+/* You Tag */
+.you-tag {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  margin-left: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
+/* Status Badges */
+.badge-above {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.badge-on {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent);
+}
+
+.badge-below {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.badge-none {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--text-muted);
+}
+
+/* Leaderboard Divider */
+.leaderboard-divider {
+  padding: 0.5rem 1.25rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-divider::before {
+  content: '•••';
+  color: var(--text-light);
+  font-size: 0.875rem;
+  letter-spacing: 3px;
+}
+
+/* Current User Highlight */
+.leaderboard-item.current-user {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04));
+  border-left: 3px solid var(--accent);
+}
+
+.leaderboard-item.gold {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.05));
+}
+
+.leaderboard-item.silver {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.1), rgba(148, 163, 184, 0.05));
+}
+
+.leaderboard-item.bronze {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.1), rgba(234, 88, 12, 0.05));
+}
+
+/* Empty Leaderboard */
+.empty-leaderboard {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.empty-leaderboard i {
+  font-size: 2.5rem;
+  color: var(--text-light);
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+/* Clients Section */
+.clients-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clients-section-title i {
+  color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .portfolio-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .clients-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .client-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .leaderboard-item .info {
+    max-width: 150px;
+  }
+}
+</style>
+
 {% endblock %}

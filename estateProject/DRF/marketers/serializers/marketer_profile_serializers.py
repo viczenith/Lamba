@@ -127,6 +127,7 @@ class MarketerProfileSerializer(serializers.ModelSerializer):
         Return structure expected by template:
         { rank, marketer: SmallMarketerSerializer, has_target, diff_pct (ABS), category }
         Category values: "Above Target", "On Target", "Below Target"
+        Target Logic: Below Target (<50%), On Target (50-100%), Above Target (>100%)
         diff_pct is the absolute percent difference (non-signed)
         """
         total_sales = self._sales_for_marketer_year(marketer, year)
@@ -137,18 +138,20 @@ class MarketerProfileSerializer(serializers.ModelSerializer):
         category = None
 
         if has_target and target and target > 0:
-            # signed difference: positive means above target, negative means below
-            signed_diff = (Decimal(total_sales) - Decimal(target)) / Decimal(target) * Decimal(100)
-            # absolute percent for display (so template can prefix "+")
-            diff_pct = float(abs(signed_diff))
-            # category tells direction
-            # treat exact zero (within tiny epsilon) as "On Target"
-            eps = Decimal('0.000001')
-            if signed_diff.copy_abs() <= eps:
-                category = "On Target"
-            elif signed_diff > 0:
+            # Calculate achievement percentage
+            achievement_pct = (Decimal(total_sales) / Decimal(target)) * Decimal(100)
+            
+            if achievement_pct > Decimal(100):
+                # Above Target: >100%
+                diff_pct = float(achievement_pct - Decimal(100))
                 category = "Above Target"
+            elif achievement_pct >= Decimal(50):
+                # On Target: 50% - 100%
+                diff_pct = float(achievement_pct)
+                category = "On Target"
             else:
+                # Below Target: 0% - 49%
+                diff_pct = float(Decimal(100) - achievement_pct)
                 category = "Below Target"
 
         return {

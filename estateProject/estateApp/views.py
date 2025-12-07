@@ -2734,12 +2734,12 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
         pct = e['pct']
         if pct is None:
             category = diff = None
-        elif pct < 100:
-            category, diff = 'Below Target', round(100 - pct, 1)
-        elif pct == 100:
-            category, diff = 'On Target', 0
-        else:
+        elif pct > 100:
             category, diff = 'Above Target', round(pct - 100, 1)
+        elif pct >= 50:
+            category, diff = 'On Target', round(pct, 1)
+        else:
+            category, diff = 'Below Target', round(100 - pct, 1)
 
         top3.append({
             'rank': idx,
@@ -2755,12 +2755,12 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
             pct = e['pct']
             if pct is None:
                 category = diff = None
-            elif pct < 100:
-                category, diff = 'Below Target', round(100 - pct, 1)
-            elif pct == 100:
-                category, diff = 'On Target', 0
-            else:
+            elif pct > 100:
                 category, diff = 'Above Target', round(pct - 100, 1)
+            elif pct >= 50:
+                category, diff = 'On Target', round(pct, 1)
+            else:
+                category, diff = 'Below Target', round(100 - pct, 1)
 
             user_entry = {
                 'rank': idx,
@@ -6734,21 +6734,46 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
 
 @login_required
 def marketer_my_companies(request):
-    """Show companies where the authenticated marketer has transactions/affiliations.
+    """Show companies where the authenticated marketer has affiliations, profiles, or transactions.
     SECURITY: Strict company isolation prevents data leakage between companies.
     """
     user = request.user
     if getattr(user, 'role', None) != 'marketer':
         return redirect('login')
-
-    # Get companies where marketer has transactions - STRICT isolation
-    company_ids = (
+    
+    # 1. Companies where marketer has transactions
+    transaction_company_ids = set(
         Transaction.objects.filter(marketer=user)
         .values_list('company', flat=True)
         .distinct()
     )
+    
+    # 2. Companies where marketer has affiliations (MarketerAffiliation)
+    affiliation_company_ids = set(
+        MarketerAffiliation.objects.filter(marketer=user)
+        .values_list('company_id', flat=True)
+        .distinct()
+    )
+    
+    # 3. Companies where marketer has CompanyMarketerProfile records
+    profile_company_ids = set(
+        CompanyMarketerProfile.objects.filter(marketer=user)
+        .values_list('company_id', flat=True)
+        .distinct()
+    )
+    
+    # 4. The marketer's own company_profile (primary company)
+    own_company_id = user.company_profile_id if hasattr(user, 'company_profile_id') and user.company_profile_id else None
+    
+    # Combine all company IDs from all sources
+    all_company_ids = transaction_company_ids | affiliation_company_ids | profile_company_ids
+    if own_company_id:
+        all_company_ids.add(own_company_id)
+    
+    # Remove None values
+    all_company_ids = [c for c in all_company_ids if c is not None]
 
-    companies = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    companies = Company.objects.filter(id__in=all_company_ids)
 
     company_list = []
     current_year = datetime.now().year
@@ -6889,6 +6914,16 @@ def marketer_my_companies(request):
         if quarterly_target and quarterly_target.target_amount > 0:
             quarterly_achievement = min(100, (quarterly_sales / quarterly_target.target_amount) * 100)
         
+        # Get client count for this company (clients the marketer has dealt with)
+        client_ids = Transaction.objects.filter(
+            marketer=user,
+            company=comp
+        ).values_list('client_id', flat=True).distinct()
+        client_count = len([c for c in client_ids if c is not None])
+        
+        # Check if marketer has any transactions with this company
+        has_transactions = closed_deals > 0
+        
         company_list.append({
             'company': comp, 
             'closed_deals': closed_deals, 
@@ -6903,7 +6938,9 @@ def marketer_my_companies(request):
             'monthly_achievement': monthly_achievement,
             'quarterly_achievement': quarterly_achievement,
             'current_month': current_month,
-            'current_quarter': current_quarter
+            'current_quarter': current_quarter,
+            'client_count': client_count,
+            'has_transactions': has_transactions,
         })
 
     return render(request, 'marketer_side/my_companies.html', {
@@ -6920,25 +6957,192 @@ def marketer_company_portfolio(request, company_id=None):
         return redirect('login')
 
     company = get_object_or_404(Company, id=company_id)
+    
+    # SECURITY: Check if marketer is affiliated with this company
+    # Marketer can access if: 1) has transactions, 2) has affiliation, 3) has profile, 4) is their company_profile
+    has_transactions = Transaction.objects.filter(marketer=user, company=company).exists()
+    has_affiliation = MarketerAffiliation.objects.filter(marketer=user, company=company).exists()
+    has_profile = CompanyMarketerProfile.objects.filter(marketer=user, company=company).exists()
+    is_own_company = (hasattr(user, 'company_profile_id') and user.company_profile_id == company.id)
+    
+    if not (has_transactions or has_affiliation or has_profile or is_own_company):
+        messages.error(request, "You don't have access to this company's portfolio.")
+        return redirect('marketer-my-companies')
+    
+    current_year = timezone.now().year
+    year_str = str(current_year)
 
     # Transactions by this marketer for this company
     transactions = (
         Transaction.objects.filter(marketer=user, company=company)
-        .select_related('client', 'allocation__estate')
+        .select_related('client', 'allocation__estate', 'allocation__plot_size')
         .order_by('-transaction_date')
     )
 
-    # Clients assigned to this marketer within the company (via Transaction or explicit assignment)
+    # Get distinct client IDs from the transactions
     client_ids = transactions.values_list('client_id', flat=True).distinct()
-    clients = CustomUser.objects.filter(id__in=[c for c in client_ids if c is not None])
+    client_ids = [c for c in client_ids if c is not None]
 
+    # Use ClientUser with prefetch_related for proper transaction grouping
+    # We need to filter the prefetched transactions by company and marketer
+    # Use 'company_transactions' to avoid conflict with the existing 'transactions' related field
+    clients = (
+        ClientUser.objects
+        .filter(id__in=client_ids)
+        .prefetch_related(
+            Prefetch(
+                'transactions',
+                queryset=Transaction.objects.filter(
+                    marketer=user,
+                    company=company
+                ).select_related(
+                    'allocation__estate',
+                    'allocation__plot_size',
+                    'allocation__plot_number'
+                ).order_by('-transaction_date'),
+                to_attr='company_transactions'
+            )
+        )
+    )
+
+    # Calculate total transaction value
     total_value = transactions.aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
+    
+    # Calculate commission earned based on marketer's commission rate for this company
+    commission_rate = Decimal('0')
+    try:
+        commission_obj = MarketerCommission.objects.filter(
+            marketer=user,
+            company=company
+        ).order_by('-effective_date').first()
+        if commission_obj and commission_obj.rate:
+            commission_rate = Decimal(str(commission_obj.rate))
+    except Exception:
+        pass
+    
+    # Commission = total_value * (commission_rate / 100)
+    commission_earned = (total_value * commission_rate / Decimal('100')) if commission_rate > 0 else Decimal('0')
+
+    # === PERFORMANCE DATA FOR THIS COMPANY ===
+    # Closed deals count
+    closed_deals = transactions.count()
+    
+    # Yearly sales for this company
+    yearly_sales = Transaction.objects.filter(
+        marketer=user,
+        company=company,
+        transaction_date__year=current_year
+    ).aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
+    
+    # Get yearly target for this company
+    yearly_target = (
+        MarketerTarget.objects.filter(
+            marketer=user, company=company, period_type='annual', specific_period=year_str
+        ).first()
+        or
+        MarketerTarget.objects.filter(
+            marketer=None, company=company, period_type='annual', specific_period=year_str
+        ).first()
+    )
+    
+    yearly_target_amount = yearly_target.target_amount if yearly_target else None
+    yearly_target_achievement = None
+    if yearly_target_amount and yearly_target_amount > 0:
+        yearly_target_achievement = (yearly_sales / yearly_target_amount) * 100
+
+    # === LEADERBOARD FOR THIS COMPANY ===
+    # Get all marketers affiliated with this company
+    company_marketers = list(MarketerUser.objects.filter(company_profile=company))
+    affiliation_marketer_ids = list(
+        MarketerAffiliation.objects.filter(company=company).values_list('marketer_id', flat=True).distinct()
+    )
+    affiliation_marketers = list(MarketerUser.objects.filter(id__in=affiliation_marketer_ids).exclude(
+        id__in=[m.id for m in company_marketers]
+    ))
+    all_marketers = company_marketers + affiliation_marketers
+    
+    # Build sales data for leaderboard
+    sales_data = []
+    for m in all_marketers:
+        m_year_sales = Transaction.objects.filter(
+            marketer=m,
+            company=company,
+            transaction_date__year=current_year
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
+
+        m_target = (
+            MarketerTarget.objects.filter(marketer=m, company=company, period_type='annual', specific_period=year_str).first()
+            or
+            MarketerTarget.objects.filter(marketer=None, company=company, period_type='annual', specific_period=year_str).first()
+        )
+        target_amt = m_target.target_amount if m_target else None
+        pct = (m_year_sales / target_amt * 100) if target_amt else None
+
+        sales_data.append({'marketer': m, 'total_sales': m_year_sales, 'target_amt': target_amt, 'pct': pct})
+
+    sales_data.sort(key=lambda x: x['total_sales'], reverse=True)
+
+    # Build top 3
+    top3 = []
+    for idx, e in enumerate(sales_data[:3], start=1):
+        pct = e['pct']
+        if pct is None:
+            category = diff = None
+        elif pct > 100:
+            category, diff = 'Above Target', round(pct - 100, 1)
+        elif pct >= 50:
+            category, diff = 'On Target', round(pct, 1)
+        else:
+            category, diff = 'Below Target', round(100 - pct, 1)
+
+        top3.append({
+            'rank': idx,
+            'marketer': e['marketer'],
+            'category': category,
+            'diff_pct': diff,
+            'has_target': e['target_amt'] is not None,
+        })
+
+    # Find current user's entry
+    user_entry = None
+    for idx, e in enumerate(sales_data, start=1):
+        if e['marketer'].id == user.id:
+            pct = e['pct']
+            if pct is None:
+                category = diff = None
+            elif pct > 100:
+                category, diff = 'Above Target', round(pct - 100, 1)
+            elif pct >= 50:
+                category, diff = 'On Target', round(pct, 1)
+            else:
+                category, diff = 'Below Target', round(100 - pct, 1)
+
+            user_entry = {
+                'rank': idx,
+                'marketer': user,
+                'category': category,
+                'diff_pct': diff,
+                'has_target': e['target_amt'] is not None,
+            }
+            break
 
     context = {
         'company': company,
         'transactions': transactions,
         'clients': clients,
         'total_value': total_value,
+        'commission_earned': commission_earned,
+        'commission_rate': commission_rate,
+        # Performance data
+        'closed_deals': closed_deals,
+        'yearly_sales': yearly_sales,
+        'yearly_target': yearly_target,
+        'yearly_target_amount': yearly_target_amount,
+        'yearly_target_achievement': yearly_target_achievement,
+        'current_year': current_year,
+        # Leaderboard data
+        'top3': top3,
+        'user_entry': user_entry,
     }
     return render(request, 'marketer_side/my_company_portfolio.html', context)
 
@@ -7193,12 +7397,12 @@ def marketer_profile(request):
         pct = e['pct']
         if pct is None:
             category = diff = None
-        elif pct < 100:
-            category, diff = 'Below Target', round(100 - pct, 1)
-        elif pct == 100:
-            category, diff = 'On Target', 0
-        else:
+        elif pct > 100:
             category, diff = 'Above Target', round(pct - 100, 1)
+        elif pct >= 50:
+            category, diff = 'On Target', round(pct, 1)
+        else:
+            category, diff = 'Below Target', round(100 - pct, 1)
 
         top3.append({
             'rank': idx,
@@ -7214,12 +7418,12 @@ def marketer_profile(request):
             pct = e['pct']
             if pct is None:
                 category = diff = None
-            elif pct < 100:
-                category, diff = 'Below Target', round(100 - pct, 1)
-            elif pct == 100:
-                category, diff = 'On Target', 0
-            else:
+            elif pct > 100:
                 category, diff = 'Above Target', round(pct - 100, 1)
+            elif pct >= 50:
+                category, diff = 'On Target', round(pct, 1)
+            else:
+                category, diff = 'Below Target', round(100 - pct, 1)
 
             user_entry = {
                 'rank': idx,
@@ -12059,25 +12263,119 @@ def notification_dispatch_status(request, dispatch_id: int):
 
 
 @login_required
-@login_required
 def notifications_all(request):
-    qs     = request.user.notifications.select_related('notification').order_by('-notification__created_at')
+    """
+    Display notifications for the logged-in user.
+    For marketers: Show notifications from ALL companies they're connected to
+    (primary company, affiliations, profiles, and transaction history).
+    """
+    user = request.user
+    
+    if getattr(user, 'role', None) == 'marketer':
+        # Get ALL company IDs the marketer is connected to
+        # 1. Companies where marketer has transactions
+        transaction_company_ids = set(
+            Transaction.objects.filter(marketer=user)
+            .values_list('company', flat=True)
+            .distinct()
+        )
+        
+        # 2. Companies where marketer has affiliations
+        affiliation_company_ids = set(
+            MarketerAffiliation.objects.filter(marketer=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        
+        # 3. Companies where marketer has CompanyMarketerProfile records
+        profile_company_ids = set(
+            CompanyMarketerProfile.objects.filter(marketer=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        
+        # 4. The marketer's own company_profile (primary company)
+        own_company_id = getattr(user, 'company_profile_id', None)
+        
+        # Combine all company IDs
+        all_company_ids = transaction_company_ids | affiliation_company_ids | profile_company_ids
+        if own_company_id:
+            all_company_ids.add(own_company_id)
+        
+        # Remove None values
+        all_company_ids = [c for c in all_company_ids if c is not None]
+        
+        # Get notifications for this user that belong to their affiliated companies OR are global (company=None)
+        qs = user.notifications.select_related('notification', 'notification__company').filter(
+            Q(notification__company_id__in=all_company_ids) | Q(notification__company__isnull=True)
+        ).order_by('-notification__created_at')
+    else:
+        # For other roles, show all their notifications
+        qs = user.notifications.select_related('notification').order_by('-notification__created_at')
+    
     unread = qs.filter(read=False)
-    read   = qs.filter(read=True)
-    tpl    = f"{request.user.role}_side/notification.html"
-    return render(request, tpl, {'unread_list': unread, 'read_list': read})
+    read = qs.filter(read=True)
+    tpl = f"{user.role}_side/notification.html"
+    
+    return render(request, tpl, {
+        'unread_list': unread,
+        'read_list': read,
+        'home_url': f'{user.role}-dashboard' if user.role else 'login'
+    })
 
 @login_required
 def notification_detail(request, un_id):
-    un = get_object_or_404(UserNotification, pk=un_id, user=request.user)
+    """
+    Display notification detail.
+    For marketers: Verify they have access to this notification based on company affiliation.
+    """
+    user = request.user
+    un = get_object_or_404(UserNotification, pk=un_id, user=user)
+    
+    # For marketers, verify they have access to this notification's company
+    if getattr(user, 'role', None) == 'marketer' and un.notification.company:
+        # Get all company IDs the marketer is connected to
+        transaction_company_ids = set(
+            Transaction.objects.filter(marketer=user)
+            .values_list('company', flat=True)
+            .distinct()
+        )
+        affiliation_company_ids = set(
+            MarketerAffiliation.objects.filter(marketer=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        profile_company_ids = set(
+            CompanyMarketerProfile.objects.filter(marketer=user)
+            .values_list('company_id', flat=True)
+            .distinct()
+        )
+        own_company_id = getattr(user, 'company_profile_id', None)
+        
+        all_company_ids = transaction_company_ids | affiliation_company_ids | profile_company_ids
+        if own_company_id:
+            all_company_ids.add(own_company_id)
+        
+        # Check if user has access to this notification's company
+        if un.notification.company_id not in all_company_ids:
+            messages.error(request, "You don't have access to this notification.")
+            return redirect('notifications_all')
+    
     if not un.read:
         un.read = True
         un.save(update_fields=['read'])
+    
+    # Determine home URL based on role
+    home_url = f'{user.role}-dashboard' if user.role else 'login'
+    
     return render(
         request,
-        f"{request.user.role}_side/notification_detail.html",
-        {'notification': un.notification,
-         'back_url': 'notifications_all'}
+        f"{user.role}_side/notification_detail.html",
+        {
+            'notification': un.notification,
+            'back_url': 'notifications_all',
+            'home_url': home_url
+        }
     )
 
 @login_required
