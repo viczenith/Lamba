@@ -2894,7 +2894,8 @@ def admin_chat_view(request, client_id):
         
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'})
-        # Optional company scoping: ensure provided company_id (if any) is valid for this client
+        
+        # Get company - required for encryption
         company = None
         company_id = request.POST.get('company_id') or request.GET.get('company_id')
         if company_id:
@@ -2906,6 +2907,18 @@ def admin_chat_view(request, client_id):
             # SECURITY: Ensure client is affiliated with this company
             if not companies_qs.filter(id=company.id).exists():
                 return JsonResponse({'success': False, 'error': 'Client is not affiliated with this company'}, status=403)
+        else:
+            # Fallback: get first company the client is affiliated with (so they can see the message)
+            first_company_id = companies_qs.values_list('id', flat=True).first()
+            if first_company_id:
+                company = Company.objects.filter(id=first_company_id).first()
+            
+            # If still no company, try admin's company profile
+            if not company:
+                company = admin_user.company_profile
+            
+            if not company:
+                return JsonResponse({'success': False, 'error': 'Unable to determine company for message encryption.'}, status=400)
 
         # Admin sends message - recipient is the specific client
         new_message = Message.objects.create(
@@ -2980,13 +2993,12 @@ def marketer_chat_view(request):
         except Exception:
             selected_company = None
 
-    if selected_company:
-        conversation = Message.objects.filter(
-            (Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
-            (Q(sender__role__in=SUPPORT_ROLES, recipient=request.user) & Q(company=selected_company))
-        ).order_by('date_sent')
-    else:
-        conversation = Message.objects.none()
+    # Always show ALL messages between marketer and admins (regardless of company)
+    # This ensures replies from admins are always visible
+    conversation = Message.objects.filter(
+        Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) |
+        Q(sender__role__in=SUPPORT_ROLES, recipient=request.user)
+    ).order_by('date_sent')
 
     if request.method == "GET" and 'last_msg' in request.GET:
         try:
@@ -4617,7 +4629,8 @@ def admin_marketer_chat_view(request, marketer_id):
         file_attachment = request.FILES.get('file')
         if not message_content and not file_attachment:
             return JsonResponse({'success': False, 'error': 'Please enter a message or attach a file.'})
-        # Optional company scoping for admin->marketer messages
+        
+        # Get company - required for encryption
         company = None
         company_id = request.POST.get('company_id') or request.GET.get('company_id')
         if company_id:
@@ -4629,6 +4642,18 @@ def admin_marketer_chat_view(request, marketer_id):
             # ensure marketer has transactions with this company
             if not Transaction.objects.filter(marketer=marketer, company=company).exists():
                 return JsonResponse({'success': False, 'error': 'Marketer is not affiliated with this company'}, status=403)
+        else:
+            # Fallback: get a company the marketer has transactions with (so they can see the message)
+            marketer_company_id = Transaction.objects.filter(marketer=marketer).values_list('company', flat=True).first()
+            if marketer_company_id:
+                company = Company.objects.filter(id=marketer_company_id).first()
+            
+            # If still no company, try admin's company profile
+            if not company:
+                company = admin_user.company_profile
+            
+            if not company:
+                return JsonResponse({'success': False, 'error': 'Unable to determine company for message encryption.'}, status=400)
 
         new_message = Message.objects.create(
             sender=admin_user,
@@ -6524,9 +6549,17 @@ def chat_view(request):
     
     # Handle message sending (POST request)
     if request.method == 'POST':
-        content = request.POST.get('content', '').strip()
+        # Support both 'content' and 'message_content' from frontend
+        content = (request.POST.get('content') or request.POST.get('message_content') or '').strip()
         file = request.FILES.get('file')
         message_type = request.POST.get('message_type', 'enquiry')
+        # Resolve company from POST to ensure correct scoping
+        post_company_id = request.POST.get('company_id')
+        if post_company_id:
+            try:
+                selected_company = companies.get(id=post_company_id)
+            except Company.DoesNotExist:
+                selected_company = None
         
         if not content and not file:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -6589,7 +6622,28 @@ def chat_view(request):
         messages.success(request, 'Message sent successfully.')
         return redirect('chat')
     
-    # Handle GET request - check for polling first
+    # Handle GET request - check for history/polling
+    
+    # HISTORY branch: Full conversation load (when switching companies)
+    if request.method == "GET" and 'history' in request.GET:
+        # Always get ALL messages for this client (no company filter)
+        all_messages = Message.objects.filter(
+            Q(sender=client) | Q(recipient=client)
+        ).select_related('sender', 'recipient', 'company').order_by('date_sent')
+        
+        # Generate HTML for all messages
+        messages_html = ''
+        for message in all_messages:
+            messages_html += render_to_string('client_side/chat_message.html', {
+                'msg': message,
+                'request': request,
+            })
+        
+        return JsonResponse({
+            'messages_html': messages_html,
+            'count': all_messages.count(),
+        })
+    
     # POLLING branch: if GET includes 'last_msg'
     if request.method == "GET" and 'last_msg' in request.GET:
         try:
@@ -6597,9 +6651,8 @@ def chat_view(request):
         except (ValueError, TypeError):
             last_msg_id = 0
         
-        # Get new messages for selected company
+        # Always get ALL new messages for this client (no company filter)
         new_messages = Message.objects.filter(
-            company=selected_company,
             id__gt=last_msg_id
         ).filter(
             Q(sender=client) | Q(recipient=client)
@@ -6624,12 +6677,11 @@ def chat_view(request):
         })
     
     # Regular GET request - display chat interface
-    # Get messages for selected company (both sent and received)
+    # Always show ALL messages for this client (regardless of company)
+    # This ensures admin replies are always visible
     messages_list = Message.objects.filter(
-        company=selected_company
-    ).filter(
         Q(sender=client) | Q(recipient=client)
-    ).select_related('sender', 'recipient', 'company').order_by('date_sent') if selected_company else []
+    ).select_related('sender', 'recipient', 'company').order_by('date_sent')
     
     context = {
         'companies': companies,

@@ -3,1117 +3,1029 @@
 {% load custom_filters %}
 {% block content %}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
 <style>
-    /* Modern Color Palette & Variables */
+    /* Simplified Chat Interface Styles */
     :root {
-        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-        --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
-        --card-shadow-hover: 0 30px 80px rgba(0, 0, 0, 0.12);
-        --chat-bg: #e5ddd5;
+        --primary-color: #667eea;
+        --text-color: #333;
+        --bg-color: #f8f9fa;
+        --border-color: #e9ecef;
     }
 
-    /* Smooth Animations */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-
-    @keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.05);
-        }
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    /* Page Title Styling */
-    .pagetitle {
-        animation: fadeInUp 0.6s ease-out;
-        margin-bottom: 30px;
-    }
-
-    .pagetitle h1 {
-        font-size: 32px;
-        font-weight: 700;
-        background: var(--primary-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 10px;
-        display: inline-flex;
-        align-items: center;
-        gap: 15px;
-    }
-
-    .pagetitle h1 i {
-        background: var(--primary-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    /* Chat Container - Premium Design */
-    .chat-container {
-        max-width: 1000px;
+    /* Chat Layout */
+    .chat-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        max-width: 1200px;
         margin: 0 auto;
-        border-radius: 24px;
-        overflow: hidden;
-        box-shadow: var(--card-shadow);
-        display: flex;
-        flex-direction: column;
-        height: 80vh;
-        background: var(--card-bg);
-        position: relative;
-        animation: fadeInUp 0.8s ease-out;
-        border: 1px solid rgba(102, 126, 234, 0.1);
+        align-items: start;
     }
 
-    .chat-container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: var(--primary-gradient);
-        border-radius: 24px 24px 0 0;
-    }
-
-    /* Chat Header */
-    .chat-header {
-        background: var(--card-bg);
-        padding: 20px 30px;
-        border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        position: relative;
-        z-index: 10;
-    }
-
-    .chat-header-avatar {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: var(--primary-gradient);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        font-weight: 700;
-        color: white;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .chat-header-avatar::before {
-        content: '';
-        position: absolute;
-        width: 12px;
-        height: 12px;
-        background: #38ef7d;
-        border: 3px solid var(--card-bg);
-        border-radius: 50%;
-        bottom: 2px;
-        right: 2px;
-        box-shadow: 0 0 0 2px rgba(56, 239, 125, 0.3);
-    }
-
-    .chat-header-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .chat-header-info h3 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--text-color);
-    }
-
-    .chat-header-info p {
-        margin: 3px 0 0 0;
-        font-size: 13px;
-        color: var(--text-color);
-        opacity: 0.6;
-    }
-
-    /* Chat Window */
-    .chat-window {
-        flex: 1;
-        overflow-y: auto;
-        padding: 25px;
-        background: linear-gradient(to bottom, rgba(229, 221, 213, 0.3), rgba(229, 221, 213, 0.5)),
-                    url("{% static 'images/estate_logo_faded.png' %}") center center / cover no-repeat;
-        position: relative;
-    }
-
-    .chat-window::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 50px,
-            rgba(0, 0, 0, 0.02) 50px,
-            rgba(0, 0, 0, 0.02) 51px
-        );
-        pointer-events: none;
-    }
-
-    /* Custom Scrollbar */
-    .chat-window::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .chat-window::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .chat-window::-webkit-scrollbar-thumb {
-        background: rgba(102, 126, 234, 0.3);
-        border-radius: 10px;
-    }
-
-    .chat-window::-webkit-scrollbar-thumb:hover {
-        background: rgba(102, 126, 234, 0.5);
-    }
-
-    /* Empty State */
-    .chat-empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: var(--text-color);
-        opacity: 0.5;
-    }
-
-    .chat-empty-state i {
-        font-size: 60px;
-        margin-bottom: 15px;
-        background: var(--primary-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    /* Chat Input Area - WhatsApp Style */
-    .chat-input-area {
-        background: var(--card-bg);
-        padding: 10px 15px;
-        border-top: 1px solid rgba(102, 126, 234, 0.1);
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    /* File Preview Container - Enhanced WhatsApp Style */
-    .file-preview-container {
-        display: none;
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
-        border-left: 4px solid #667eea;
+    /* Explorer Sidebar */
+    .chat-explorer {
+        background: white;
         border-radius: 12px;
-        padding: 12px 15px;
-        animation: slideUp 0.3s ease-out;
-        gap: 12px;
-        margin-bottom: 8px;
-        border: 1px solid rgba(102, 126, 234, 0.15);
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        padding: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        height: 70vh;
+        overflow: auto;
     }
 
-    .file-preview-container.active {
+    .explorer-header {
         display: flex;
+        justify-content: space-between;
         align-items: center;
+        margin-bottom: 15px;
     }
 
-    /* Image Preview Thumbnail */
-    .file-thumbnail {
-        width: 56px;
-        height: 56px;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 2px solid rgba(102, 126, 234, 0.2);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    /* Document Icon Thumbnail */
-    .file-icon-thumbnail {
-        width: 56px;
-        height: 56px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        color: white;
-        font-weight: 600;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .file-icon-thumbnail.pdf {
-        background: linear-gradient(135deg, #ff3b30, #ff6f61);
-    }
-
-    .file-icon-thumbnail.doc {
-        background: linear-gradient(135deg, #2979ff, #448aff);
-    }
-
-    .file-icon-thumbnail.xls {
-        background: linear-gradient(135deg, #0d9488, #14b8a6);
-    }
-
-    .file-icon-thumbnail.zip {
-        background: linear-gradient(135deg, #f59e0b, #fbbf24);
-    }
-
-    .file-icon-thumbnail.default {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-    }
-
-    /* File Details */
-    .file-details {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .file-details-name {
-        font-size: 14px;
+    .explorer-header h4 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
         color: var(--text-color);
-        font-weight: 600;
-        margin-bottom: 4px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        display: block;
     }
 
-    .file-details-size {
-        font-size: 12px;
-        color: var(--text-color);
-        opacity: 0.6;
-    }
-
-    /* Remove File Button */
-    .remove-file {
-        cursor: pointer;
-        color: #8696a0;
-        font-size: 22px;
-        width: 32px;
-        height: 32px;
+    .explorer-list {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: transparent;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-    }
-
-    .remove-file:hover {
-        background: rgba(255, 59, 48, 0.1);
-        color: #ff3b30;
-        transform: rotate(90deg);
-    }
-
-    /* Chat Input Form - WhatsApp Style */
-    .chat-input-form {
-        display: flex;
-        align-items: flex-end;
+        flex-direction: column;
         gap: 8px;
     }
 
-    .chat-input-form input[type="file"] {
-        display: none;
-    }
-
-    /* WhatsApp-style Input Wrapper */
-    .input-wrapper {
-        flex: 1;
-        display: flex;
-        align-items: flex-end;
-        background: var(--card-bg);
-        border: 1px solid rgba(102, 126, 234, 0.15);
-        border-radius: 24px;
-        padding: 8px 12px;
-        transition: all 0.3s ease;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
-
-    .input-wrapper:focus-within {
-        border-color: #667eea;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
-    }
-
-    /* Attachment Button - WhatsApp Style */
-    .attachment-btn {
+    .explorer-item {
+        padding: 12px;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid var(--border-color);
         cursor: pointer;
-        font-size: 24px;
-        color: #8696a0;
-        width: 36px;
-        height: 36px;
+        transition: all 0.2s ease;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .explorer-item:hover {
+        background: #f0f4ff;
+        border-color: #667eea;
+        transform: translateX(2px);
+    }
+
+    .explorer-item.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3), 0 2px 8px rgba(0, 0, 0, 0.15);
+        transform: translateX(4px);
+    }
+
+    .explorer-item.selected:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        transform: translateX(6px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .explorer-empty {
+        padding: 20px;
+        color: #6c757d;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    /* Chat Container - WhatsApp style */
+    .chat-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        height: 70vh;
+    }
+
+    /* WhatsApp-style chat header */
+    .wa-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        background: #075e54;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .wa-header-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        background: transparent;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-        margin-right: 4px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1.3rem;
+        text-transform: uppercase;
     }
 
-    .attachment-btn:hover {
-        background: rgba(134, 150, 160, 0.15);
-        color: #667eea;
-        transform: rotate(30deg);
+    .wa-header-info h5 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #fff;
     }
 
-    .attachment-btn:active {
-        transform: rotate(30deg) scale(0.9);
+    .wa-header-info span {
+        font-size: 13px;
+        color: #b2dfdb;
     }
 
-    /* Textarea - WhatsApp Style */
-    .chat-input-form textarea {
+    /* WhatsApp-style messages area */
+    .wa-messages {
         flex: 1;
-        resize: none;
-        border: none;
-        padding: 9px 0;
-        font-size: 15px;
-        line-height: 20px;
-        height: auto;
-        min-height: 20px;
-        max-height: 100px;
-        font-family: inherit;
-        color: var(--text-color);
-        background: transparent;
         overflow-y: auto;
+        background: #e5ddd5;
+        padding: 16px 10px;
     }
 
-    .chat-input-form textarea:focus {
-        outline: none;
-    }
-
-    .chat-input-form textarea::placeholder {
-        color: #8696a0;
-        opacity: 1;
-    }
-
-    /* Custom Scrollbar for Textarea */
-    .chat-input-form textarea::-webkit-scrollbar {
+    .wa-messages::-webkit-scrollbar {
         width: 6px;
     }
 
-    .chat-input-form textarea::-webkit-scrollbar-track {
-        background: transparent;
+    .wa-messages::-webkit-scrollbar-thumb {
+        background: #b2b2b2;
+        border-radius: 3px;
     }
 
-    .chat-input-form textarea::-webkit-scrollbar-thumb {
-        background: rgba(134, 150, 160, 0.3);
-        border-radius: 10px;
+    /* WhatsApp bubble rows */
+    .wa-message-row {
+        display: flex;
+        margin-bottom: 6px;
+        position: relative;
     }
 
-    .chat-input-form textarea::-webkit-scrollbar-thumb:hover {
-        background: rgba(134, 150, 160, 0.5);
+    .wa-message-row.outgoing {
+        justify-content: flex-end;
     }
 
-    /* Emoji Button - WhatsApp Style (optional, can be added later) */
-    .emoji-btn {
-        cursor: pointer;
-        font-size: 24px;
-        color: #8696a0;
-        width: 36px;
-        height: 36px;
+    .wa-message-row.incoming {
+        justify-content: flex-start;
+    }
+
+    .wa-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        background: transparent;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-        margin-left: 4px;
-    }
-
-    .emoji-btn:hover {
-        background: rgba(134, 150, 160, 0.15);
-    }
-
-    /* Send Button - WhatsApp Style */
-    .send-btn {
-        background: #667eea;
-        border: none;
         color: #fff;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
+        font-weight: 700;
+        font-size: 14px;
+        margin-right: 8px;
         flex-shrink: 0;
-        position: relative;
-        overflow: hidden;
-        box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
     }
 
-    .send-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.3);
-        transform: translate(-50%, -50%);
-        transition: width 0.4s, height 0.4s;
+    .wa-message-row.outgoing .wa-avatar {
+        margin-right: 0;
+        margin-left: 8px;
+        order: 2;
     }
 
-    .send-btn:hover::before {
-        width: 200px;
-        height: 200px;
-    }
-
-    .send-btn:hover {
-        background: #764ba2;
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .send-btn:active {
-        transform: scale(0.95);
-    }
-
-    .send-btn i {
-        position: relative;
-        z-index: 1;
-        margin-left: 2px;
-    }
-
-    /* Microphone Button (for empty input) - WhatsApp Style */
-    .mic-btn {
-        background: #667eea;
-        border: none;
-        color: #fff;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-        box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
-    }
-
-    .mic-btn:hover {
-        background: #764ba2;
-        transform: scale(1.05);
-    }
-
-    .mic-btn:active {
-        transform: scale(0.95);
-    }
-
-    /* Modal Styling - Enhanced */
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1050;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(5px);
-        animation: fadeIn 0.3s ease;
-    }
-
-    .modal-content {
-        background: var(--card-bg);
-        margin: 10% auto;
-        padding: 35px;
-        border-radius: 20px;
-        max-width: 500px;
-        text-align: center;
-        position: relative;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        animation: slideUp 0.3s ease-out;
-    }
-
-    .modal-content img {
-        max-width: 100%;
+    .wa-bubble {
+        max-width: 70%;
+        padding: 8px 14px;
         border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        font-size: 15px;
+        position: relative;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    .modal-close {
-        position: absolute;
-        top: 15px;
-        right: 20px;
-        color: var(--text-color);
-        font-size: 32px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 40px;
-        height: 40px;
+    .wa-bubble.outgoing {
+        background: #dcf8c6;
+        border-radius: 12px 12px 0 12px;
+    }
+
+    .wa-bubble.incoming {
+        background: #fff;
+        border-radius: 12px 12px 12px 0;
+    }
+
+    .wa-sender {
+        font-size: 12px;
+        font-weight: 700;
+        color: #00a884;
+        margin-bottom: 2px;
+    }
+
+    .wa-text {
+        color: #222;
+        word-break: break-word;
+        white-space: pre-wrap;
+        margin: 0;
+    }
+
+    .wa-meta {
         display: flex;
         align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: rgba(102, 126, 234, 0.1);
+        gap: 6px;
+        justify-content: flex-end;
+        margin-top: 4px;
     }
 
-    .modal-close:hover {
-        background: rgba(102, 126, 234, 0.2);
-        transform: rotate(90deg);
+    .wa-time {
+        font-size: 11px;
+        color: #888;
+    }
+
+    .wa-status {
+        font-size: 14px;
+        color: #53bdeb;
+    }
+
+    /* Document attachment style */
+    .wa-doc {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f5f5f5;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-top: 6px;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.2s;
+    }
+
+    .wa-doc:hover {
+        background: #e8e8e8;
+    }
+
+    .wa-doc-icon {
+        font-size: 28px;
         color: #667eea;
     }
 
-    .modal-buttons {
-        margin-top: 25px;
-        display: flex;
-        justify-content: center;
-        gap: 15px;
+    .wa-doc-info span {
+        display: block;
+        font-size: 14px;
+        color: #333;
+        font-weight: 500;
     }
 
-    .btn {
-        padding: 12px 30px;
-        border-radius: 12px;
-        border: none;
+    .wa-doc-info small {
+        color: #888;
+        font-size: 12px;
+    }
+
+    /* Image attachment */
+    .wa-image {
+        max-width: 260px;
+        max-height: 220px;
+        border-radius: 8px;
+        margin-top: 6px;
         cursor: pointer;
+        object-fit: cover;
+    }
+
+    /* Delete button */
+    .wa-delete-btn {
+        position: absolute;
+        top: 4px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .wa-bubble:hover .wa-delete-btn {
+        opacity: 1;
+    }
+
+    .wa-delete-btn:hover {
+        color: #e74c3c;
+    }
+
+    /* WhatsApp-style input bar */
+    .wa-inputbar {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #f0f0f0;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .wa-inputbar textarea {
+        flex: 1;
+        border: none;
+        border-radius: 20px;
+        padding: 12px 18px;
         font-size: 15px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        font-family: inherit;
+        resize: none;
+        background: #fff;
+        min-height: 44px;
+        max-height: 120px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
 
-    .btn-danger {
-        background: var(--danger-gradient);
+    .wa-inputbar textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #00a88433;
+    }
+
+    .wa-inputbar .wa-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: none;
+        background: #00a884;
         color: #fff;
-        box-shadow: 0 4px 15px rgba(235, 51, 73, 0.4);
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s;
     }
 
-    .btn-danger:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(235, 51, 73, 0.5);
+    .wa-inputbar .wa-btn:hover {
+        background: #009975;
     }
 
-    .btn-secondary {
-        background: rgba(102, 126, 234, 0.1);
-        color: var(--text-color);
-        border: 2px solid rgba(102, 126, 234, 0.2);
+    .wa-inputbar .wa-attach-btn {
+        background: transparent;
+        color: #888;
+        font-size: 22px;
     }
 
-    .btn-secondary:hover {
-        background: rgba(102, 126, 234, 0.2);
-        border-color: #667eea;
+    .wa-inputbar .wa-attach-btn:hover {
+        color: #667eea;
+        background: #e0e0e0;
     }
 
-    /* Responsive Design */
+    /* File preview */
+    .file-preview-bar {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: #fff8e1;
+        border-top: 1px solid #ffe082;
+    }
+
+    .file-preview-bar.active {
+        display: flex;
+    }
+
+    .file-preview-bar img {
+        max-width: 60px;
+        max-height: 60px;
+        border-radius: 6px;
+        object-fit: cover;
+    }
+
+    .file-preview-bar .file-info {
+        flex: 1;
+    }
+
+    .file-preview-bar .file-info span {
+        display: block;
+        font-size: 14px;
+        color: #333;
+        font-weight: 500;
+    }
+
+    .file-preview-bar .file-info small {
+        color: #888;
+        font-size: 12px;
+    }
+
+    .file-preview-bar .remove-file {
+        background: #e74c3c;
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    /* Empty state */
+    .chat-empty-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #e5ddd5;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .chat-empty-icon {
+        width: 100px;
+        height: 100px;
+        background: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: #00a884;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .chat-empty-state h4 {
+        color: #333;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .chat-empty-state p {
+        color: #666;
+        margin: 0;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: #fff;
+        border-radius: 16px;
+        padding: 28px 32px;
+        min-width: 320px;
+        max-width: 90vw;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        text-align: center;
+        animation: modalIn 0.2s;
+    }
+
+    @keyframes modalIn {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+
+    .modal-icon.error { color: #e74c3c; }
+    .modal-icon.warning { color: #f39c12; }
+    .modal-icon.success { color: #00a884; }
+
+    .modal-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .modal-message {
+        color: #555;
+        font-size: 15px;
+        margin-bottom: 18px;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .modal-btn {
+        padding: 10px 28px;
+        border-radius: 8px;
+        border: none;
+        font-size: 15px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s;
+    }
+
+    .modal-btn.primary {
+        background: #00a884;
+        color: #fff;
+    }
+
+    .modal-btn.primary:hover {
+        background: #009975;
+    }
+
+    .modal-btn.danger {
+        background: #e74c3c;
+        color: #fff;
+    }
+
+    .modal-btn.danger:hover {
+        background: #c0392b;
+    }
+
+    .modal-btn.secondary {
+        background: #eee;
+        color: #333;
+    }
+
+    .modal-btn.secondary:hover {
+        background: #ddd;
+    }
+
+    /* Image Modal */
+    .image-modal-content {
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .image-modal-content img {
+        max-width: 90vw;
+        max-height: 85vh;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
+        .chat-layout {
+            grid-template-columns: 1fr;
+        }
+        .chat-explorer {
+            display: none;
+        }
         .chat-container {
-            height: calc(100vh - 100px);
-            border-radius: 16px;
+            height: 85vh;
         }
-
-        .chat-header {
-            padding: 15px 20px;
+        .wa-bubble {
+            max-width: 85%;
         }
-
-        .chat-header-avatar {
-            width: 42px;
-            height: 42px;
-            font-size: 18px;
-        }
-
-        .chat-header-info h3 {
-            font-size: 16px;
-        }
-
-        .chat-window {
-            padding: 20px 15px;
-        }
-
-        .chat-input-area {
-            padding: 8px 10px;
-        }
-
-        .pagetitle h1 {
-            font-size: 26px;
-        }
-
-        .send-btn {
-            width: 44px;
-            height: 44px;
-            font-size: 18px;
-        }
-
-        .input-wrapper {
-            padding: 6px 10px;
-        }
-
-        .attachment-btn {
-            width: 32px;
-            height: 32px;
-            font-size: 22px;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .chat-container {
-            height: calc(100vh - 80px);
-            border-radius: 12px;
-        }
-
-        .chat-header {
-            padding: 12px 15px;
-        }
-
-        .chat-input-form textarea {
-            font-size: 14px;
-        }
-
-        .send-btn {
-            width: 40px;
-            height: 40px;
-            font-size: 16px;
-        }
-
-        .modal-content {
-            margin: 20% auto;
-            padding: 25px;
-        }
-
-        .input-wrapper {
-            padding: 5px 8px;
-        }
-
-        .attachment-btn {
-            width: 30px;
-            height: 30px;
-            font-size: 20px;
-        }
-    }
-
-    /* Dark Mode Enhancements */
-    [data-theme="dark"] .chat-window {
-        background: linear-gradient(to bottom, rgba(40, 40, 40, 0.5), rgba(40, 40, 40, 0.7)),
-                    url("{% static 'images/estate_logo_faded.png' %}") center center / cover no-repeat;
-    }
-
-    [data-theme="dark"] .chat-input-form textarea {
-        border-color: rgba(162, 155, 254, 0.3);
-    }
-
-    [data-theme="dark"] .file-preview-container {
-        background: rgba(102, 126, 234, 0.1);
-        border-color: rgba(162, 155, 254, 0.3);
     }
 </style>
 
-<main id="main" class="main">
-    <div class="pagetitle">
-        <h1><i class="bi bi-chat-dots"></i>
-            {% if selected_company %}
-                Chat — {{ selected_company.name }}
-            {% else %}
-                Chat with {{ client.full_name|default:client.get_full_name|default:client.username }}
-            {% endif %}
-        </h1>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'adminSupport:chat' %}">Chat List</a></li>
-                <li class="breadcrumb-item active">Conversation</li>
-            </ol>
-        </nav>
-    </div>
-
-    <div class="chat-container" data-role="{{ conversation_role }}" data-user-id="{{ client.id }}">
-        <div class="chat-header">
-            <div class="chat-header-avatar">
-                {% if selected_company %}
-                    {% if selected_company.logo %}
-                        <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.name }}" loading="lazy">
-                    {% else %}
-                        {{ selected_company.name|slice:':1'|upper }}
-                    {% endif %}
-                {% else %}
-                    {% if client.profile_image %}
-                        <img src="{{ client.profile_image.url }}" alt="{{ client.full_name|default:client.get_full_name|default:client.username }}" loading="lazy">
-                    {% else %}
-                        {{ client.full_name|default:client.get_full_name|default:client.username|slice:':1'|upper }}
-                    {% endif %}
-                {% endif %}
-            </div>
-            <div class="chat-header-info">
-                {% if selected_company %}
-                    <h3>{{ selected_company.name }}</h3>
-                    <p><i class="bi bi-building"></i> Company conversation</p>
-                {% else %}
-                    <h3>{{ client.full_name }}</h3>
-                    <p><i class="bi bi-circle-fill" style="font-size: 8px; color: #38ef7d;"></i> Active now</p>
-                {% endif %}
-            </div>
+<div class="chat-layout">
+    <!-- Chat Explorer Sidebar -->
+    <div class="chat-explorer">
+        <div class="explorer-header">
+            <h4><i class="bi bi-chat-dots me-2"></i>Chats</h4>
         </div>
-
-        <div id="chat-window" class="chat-window" data-last-msg-id="{{ last_message_id|default:0 }}">
-            {% if messages %}
-                {% for msg in messages %}
-                    {% include 'adminSupport/chat_message.html' with msg=msg %}
+        <div class="explorer-list">
+            {% if chat_list %}
+                {% for chat in chat_list %}
+                <div class="explorer-item {% if chat.id == participant.id and chat.role == role %}selected{% endif %}" 
+                     onclick="window.location.href='{% url 'adminSupport:chat_conversation' chat.role chat.id %}'">
+                    <span class="explorer-avatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">
+                        {{ chat.name|slice:":1"|upper }}
+                    </span>
+                    <span>{{ chat.name }}</span>
+                </div>
                 {% endfor %}
             {% else %}
-                <div class="chat-empty-state">
-                    <i class="bi bi-chat-heart"></i>
-                    <p>No messages yet. Start the conversation!</p>
+                <div class="explorer-empty">
+                    <i class="bi bi-chat-text fs-4 mb-2 d-block"></i>
+                    No chats yet
                 </div>
             {% endif %}
         </div>
-
-        <div class="chat-input-area">
-            <div id="file-preview-container" class="file-preview-container">
-                <div id="file-thumbnail-wrapper"></div>
-                <div class="file-details">
-                    <span id="file-details-name" class="file-details-name"></span>
-                    <span id="file-details-size" class="file-details-size"></span>
-                </div>
-                <span id="remove-file" class="remove-file">
-                    <i class="bi bi-x-circle-fill"></i>
-                </span>
-            </div>
-
-            <form id="chat-form" class="chat-input-form" data-recipient-id="{{ client.id }}">
-                {% csrf_token %}
-                <input type="file" id="file-input" name="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
-
-                <div class="input-wrapper">
-                    <label for="file-input" class="attachment-btn" title="Attach file">
-                        <i class="bi bi-plus-circle"></i>
-                    </label>
-
-                    <textarea name="message_content" id="message-content" placeholder="Type a message" rows="1"></textarea>
-                </div>
-
-                <button type="submit" class="send-btn">
-                    <i class="bi bi-send-fill"></i>
-                </button>
-            </form>
-        </div>
     </div>
 
-    <input type="hidden" id="poll-url" value="{% url 'adminSupport:chat_poll' conversation_role client.id %}">
-    <input type="hidden" id="send-url" value="{% url 'adminSupport:chat_send_message' conversation_role client.id %}">
-    <input type="hidden" id="delete-url" value="{% url 'adminSupport:chat_delete_message' %}">
-</main>
+    <!-- Chat Container -->
+    <div class="chat-container">
+        {% if participant %}
+        <!-- WhatsApp-style Header -->
+        <div class="wa-header">
+            <div class="wa-header-avatar">
+                {% if participant.first_name %}{{ participant.first_name|slice:":1"|upper }}{% else %}{{ participant.username|slice:":1"|upper }}{% endif %}
+            </div>
+            <div class="wa-header-info">
+                <h5>{% if participant.first_name %}{{ participant.first_name }} {{ participant.last_name }}{% else %}{{ participant.username }}{% endif %}</h5>
+                <span>{{ role|title }}</span>
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="wa-messages" id="messagesContainer">
+            {% for msg in messages %}
+                {% include 'adminSupport/chat_message.html' with msg=msg %}
+            {% empty %}
+                <div style="text-align:center;color:#888;padding:40px;">
+                    <i class="bi bi-chat-text" style="font-size:48px;opacity:0.3;"></i>
+                    <p style="margin-top:12px;">No messages yet. Start the conversation!</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- File Preview Bar -->
+        <div class="file-preview-bar" id="filePreviewBar">
+            <img id="filePreviewImg" src="" alt="Preview" style="display:none;">
+            <div class="file-info" id="filePreviewInfo">
+                <span id="filePreviewName"></span>
+                <small id="filePreviewSize"></small>
+            </div>
+            <button type="button" class="remove-file" id="removeFileBtn" title="Remove file">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+
+        <!-- Input Bar -->
+        <form id="chatForm" class="wa-inputbar" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" id="fileInput" name="file" style="display:none;">
+            <button type="button" class="wa-btn wa-attach-btn" id="attachBtn" title="Attach file">
+                <i class="bi bi-paperclip"></i>
+            </button>
+            <textarea id="messageInput" name="message" placeholder="Type a message..." rows="1"></textarea>
+            <button type="submit" class="wa-btn" title="Send">
+                <i class="bi bi-send-fill"></i>
+            </button>
+        </form>
+
+        {% else %}
+        <!-- Empty State -->
+        <div class="wa-header" style="background:#075e54;">
+            <div class="wa-header-avatar">
+                <i class="bi bi-chat-dots"></i>
+            </div>
+            <div class="wa-header-info">
+                <h5>Messages</h5>
+                <span>Select a chat to start messaging</span>
+            </div>
+        </div>
+        <div class="chat-empty-state">
+            <div class="chat-empty-icon">
+                <i class="bi bi-chat-square-text"></i>
+            </div>
+            <h4>Welcome to Support Chat</h4>
+            <p>Select a user from the sidebar to start chatting</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal" id="errorModal">
+    <div class="modal-content">
+        <div class="modal-icon error"><i class="bi bi-exclamation-circle-fill"></i></div>
+        <div class="modal-title" id="errorModalTitle">Error</div>
+        <div class="modal-message" id="errorModalMessage">Something went wrong.</div>
+        <div class="modal-actions">
+            <button class="modal-btn primary" onclick="hideErrorModal()">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal" id="deleteModal">
+    <div class="modal-content">
+        <div class="modal-icon warning"><i class="bi bi-trash-fill"></i></div>
+        <div class="modal-title">Delete Message</div>
+        <div class="modal-message">Are you sure you want to delete this message? This cannot be undone.</div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" onclick="hideDeleteModal()">Cancel</button>
+            <button class="modal-btn danger" id="confirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Image Viewer Modal -->
+<div class="modal" id="imageModal">
+    <div class="modal-content image-modal-content">
+        <img id="imageModalImg" src="" alt="Full Image">
+    </div>
+</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const chatWindow = document.getElementById('chat-window');
-    const chatForm = document.getElementById('chat-form');
-    const messageInput = document.getElementById('message-content');
-    const fileInput = document.getElementById('file-input');
-    const filePreviewContainer = document.getElementById('file-preview-container');
-    const fileThumbnailWrapper = document.getElementById('file-thumbnail-wrapper');
-    const fileDetailsName = document.getElementById('file-details-name');
-    const fileDetailsSize = document.getElementById('file-details-size');
-    const removeFileBtn = document.getElementById('remove-file');
-    const pollUrl = document.getElementById('poll-url').value;
-    const sendUrl = document.getElementById('send-url').value;
-    const deleteUrl = document.getElementById('delete-url').value;
-    const csrfToken = chatForm.querySelector('[name=csrfmiddlewaretoken]').value;
+document.addEventListener('DOMContentLoaded', function() {
+    const messagesContainer = document.getElementById('messagesContainer');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+    const fileInput = document.getElementById('fileInput');
+    const attachBtn = document.getElementById('attachBtn');
+    const filePreviewBar = document.getElementById('filePreviewBar');
+    const filePreviewImg = document.getElementById('filePreviewImg');
+    const filePreviewName = document.getElementById('filePreviewName');
+    const filePreviewSize = document.getElementById('filePreviewSize');
+    const removeFileBtn = document.getElementById('removeFileBtn');
+    const errorModal = document.getElementById('errorModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const imageModal = document.getElementById('imageModal');
+    const imageModalImg = document.getElementById('imageModalImg');
 
-    let lastMsgId = Number(chatWindow.dataset.lastMsgId || 0);
+    let deleteMessageId = null;
 
-    const scrollToBottom = () => {
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    };
+    // File size/type constraints
+    const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const ALLOWED_DOC_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain',
+        'text/csv',
+        'application/zip',
+        'application/x-rar-compressed'
+    ];
+
+    function scrollToBottom() {
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
     scrollToBottom();
 
-    const formatFileSize = (bytes) => {
-        if (!bytes) return '0 Bytes';
-        const units = ['Bytes', 'KB', 'MB', 'GB'];
-        const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-        const size = bytes / Math.pow(1024, exponent);
-        return `${Math.round(size * 100) / 100} ${units[exponent]}`;
+    // Error Modal
+    window.showErrorModal = function(message, title = 'Error') {
+        document.getElementById('errorModalTitle').textContent = title;
+        document.getElementById('errorModalMessage').textContent = message;
+        errorModal.classList.add('show');
     };
 
-    fileInput.addEventListener('change', () => {
-        const file = fileInput.files[0];
-        fileThumbnailWrapper.innerHTML = '';
-
-        if (!file) {
-            filePreviewContainer.classList.remove('active');
-            fileDetailsName.textContent = '';
-            fileDetailsSize.textContent = '';
-            return;
-        }
-
-        const fileName = file.name;
-        const fileExt = (fileName.split('.').pop() || '').toLowerCase();
-
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = document.createElement('img');
-                img.src = event.target.result;
-                img.className = 'file-thumbnail';
-                img.alt = 'Attachment preview';
-                fileThumbnailWrapper.appendChild(img);
-            };
-            reader.readAsDataURL(file);
-        } else {
-            const iconDiv = document.createElement('div');
-            iconDiv.className = 'file-icon-thumbnail';
-
-            if (fileExt === 'pdf') {
-                iconDiv.classList.add('pdf');
-                iconDiv.innerHTML = '<i class="bi bi-file-earmark-pdf-fill"></i>';
-            } else if (['doc', 'docx'].includes(fileExt)) {
-                iconDiv.classList.add('doc');
-                iconDiv.innerHTML = '<i class="bi bi-file-earmark-word-fill"></i>';
-            } else if (['xls', 'xlsx'].includes(fileExt)) {
-                iconDiv.classList.add('xls');
-                iconDiv.innerHTML = '<i class="bi bi-file-earmark-excel-fill"></i>';
-            } else if (['zip', 'rar', '7z'].includes(fileExt)) {
-                iconDiv.classList.add('zip');
-                iconDiv.innerHTML = '<i class="bi bi-file-earmark-zip-fill"></i>';
-            } else {
-                iconDiv.classList.add('default');
-                iconDiv.innerHTML = '<i class="bi bi-file-earmark-fill"></i>';
-            }
-
-            fileThumbnailWrapper.appendChild(iconDiv);
-        }
-
-        fileDetailsName.textContent = fileName.length > 35 ? `${fileName.substring(0, 32)}...` : fileName;
-        fileDetailsName.title = fileName;
-        fileDetailsSize.textContent = formatFileSize(file.size);
-        filePreviewContainer.classList.add('active');
-    });
-
-    removeFileBtn.addEventListener('click', () => {
-        fileInput.value = '';
-        filePreviewContainer.classList.remove('active');
-        fileThumbnailWrapper.innerHTML = '';
-        fileDetailsName.textContent = '';
-        fileDetailsSize.textContent = '';
-    });
-
-    const renderMessageHtml = (html) => {
-        const template = document.createElement('template');
-        template.innerHTML = html.trim();
-        return Array.from(template.content.childNodes).filter(node => {
-            if (node.nodeName === 'STYLE') {
-                const styleId = 'adminSupport-chat-message-style';
-                if (!document.getElementById(styleId)) {
-                    node.id = styleId;
-                    document.head.appendChild(node);
-                }
-                return false;
-            }
-            return node.nodeType === Node.ELEMENT_NODE;
-        });
+    window.hideErrorModal = function() {
+        errorModal.classList.remove('show');
     };
 
-    const appendMessages = (elements) => {
-        elements.forEach((element) => {
-            const msgId = Number(element.getAttribute('data-msg-id'));
-            if (!Number.isNaN(msgId) && !chatWindow.querySelector(`[data-msg-id="${msgId}"]`)) {
-                chatWindow.appendChild(element);
-                lastMsgId = Math.max(lastMsgId, msgId);
+    // Delete Modal
+    window.showDeleteModal = function(messageId) {
+        deleteMessageId = messageId;
+        deleteModal.classList.add('show');
+    };
+
+    window.hideDeleteModal = function() {
+        deleteModal.classList.remove('show');
+        deleteMessageId = null;
+    };
+
+    // Image Modal
+    window.showImageModal = function(src) {
+        imageModalImg.src = src;
+        imageModal.classList.add('show');
+    };
+
+    window.hideImageModal = function() {
+        imageModal.classList.remove('show');
+        imageModalImg.src = '';
+    };
+
+    // Close modals on background click
+    [errorModal, deleteModal, imageModal].forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.classList.remove('show');
             }
         });
-        scrollToBottom();
-    };
-
-    const statusIconHtml = (status) => {
-        if (status === 'read') {
-            return '<i class="bi bi-check-all"></i>';
-        }
-        if (status === 'delivered') {
-            return '<i class="bi bi-check-all"></i>';
-        }
-        return '<i class="bi bi-check"></i>';
-    };
-
-    const updateStatuses = (statuses) => {
-        statuses.forEach((status) => {
-            const node = chatWindow.querySelector(`[data-msg-id="${status.id}"] .message-status`);
-            if (node) {
-                node.className = `message-status status-${status.status}`;
-                node.innerHTML = statusIconHtml(status.status);
-            }
-        });
-    };
-
-    const pollMessages = async () => {
-        try {
-            const response = await fetch(`${pollUrl}?last_msg=${lastMsgId}`, { credentials: 'same-origin' });
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const data = await response.json();
-            if (data.messages_html) {
-                const elements = renderMessageHtml(data.messages_html);
-                appendMessages(elements);
-            }
-            if (Array.isArray(data.updated_statuses)) {
-                updateStatuses(data.updated_statuses);
-            }
-        } catch (error) {
-            console.error('Error polling messages', error);
-        } finally {
-            setTimeout(pollMessages, 1500);
-        }
-    };
-    setTimeout(pollMessages, 1500);
-
-    chatForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const formData = new FormData(chatForm);
-        if (!formData.get('message_content') && !formData.get('file')) {
-            return;
-        }
-
-        try {
-            const response = await fetch(sendUrl, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            const data = await response.json();
-
-            if (data.success && data.message_html) {
-                const elements = renderMessageHtml(data.message_html);
-                appendMessages(elements);
-                chatForm.reset();
-                messageInput.style.height = 'auto';
-                filePreviewContainer.classList.remove('active');
-                fileThumbnailWrapper.innerHTML = '';
-                fileDetailsName.textContent = '';
-                fileDetailsSize.textContent = '';
-            } else if (data.error) {
-                alert(data.error);
-            }
-        } catch (error) {
-            console.error('Error sending message', error);
-            alert('Error sending message.');
-        }
     });
 
-    const autoExpand = () => {
-        messageInput.style.height = 'auto';
-        messageInput.style.height = `${messageInput.scrollHeight}px`;
-    };
-
-    messageInput.addEventListener('input', autoExpand);
-    messageInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+    // Delete confirmation
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        if (deleteMessageId) {
+            deleteMessage(deleteMessageId);
         }
+        hideDeleteModal();
     });
 
-    window.deleteMessage = async (messageId) => {
-        if (!confirm('Delete this message?')) {
-            return;
-        }
-
-        const payload = new FormData();
-        payload.append('message_id', messageId);
-
-        try {
-            const response = await fetch(deleteUrl, {
-                method: 'POST',
-                body: payload,
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            const data = await response.json();
-
+    function deleteMessage(messageId) {
+        fetch('{% url "adminSupport:chat_delete_message" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'message_id=' + messageId
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.success) {
-                const node = chatWindow.querySelector(`[data-msg-id="${data.removed_id}"]`);
-                if (node) {
-                    node.remove();
+                const msgRow = document.querySelector(`.wa-message-row[data-id="${messageId}"]`);
+                if (msgRow) {
+                    msgRow.remove();
                 }
-            } else if (data.error) {
-                alert(data.error);
+            } else {
+                showErrorModal(data.error || 'Failed to delete message');
             }
-        } catch (error) {
-            console.error('Error deleting message', error);
-            alert('Error deleting message.');
+        })
+        .catch(() => {
+            showErrorModal('Network error. Please try again.');
+        });
+    }
+
+    // Attach button
+    if (attachBtn && fileInput) {
+        attachBtn.addEventListener('click', function() {
+            fileInput.click();
+        });
+    }
+
+    // File selection and preview
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = fileInput.files[0];
+            if (!file) {
+                filePreviewBar.classList.remove('active');
+                return;
+            }
+
+            // Validate file type
+            const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
+            const isDoc = ALLOWED_DOC_TYPES.includes(file.type);
+
+            if (!isImage && !isDoc) {
+                showErrorModal('Invalid file type. Please upload an image (JPEG, PNG, GIF, WebP) or document (PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP, RAR).', 'Invalid File');
+                fileInput.value = '';
+                filePreviewBar.classList.remove('active');
+                return;
+            }
+
+            // Validate file size
+            if (file.size > MAX_FILE_SIZE) {
+                showErrorModal('File is too large. Maximum size is 16MB.', 'File Too Large');
+                fileInput.value = '';
+                filePreviewBar.classList.remove('active');
+                return;
+            }
+
+            // Show preview
+            filePreviewName.textContent = file.name;
+            filePreviewSize.textContent = formatFileSize(file.size);
+            
+            if (isImage) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    filePreviewImg.src = e.target.result;
+                    filePreviewImg.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                filePreviewImg.style.display = 'none';
+            }
+            
+            filePreviewBar.classList.add('active');
+        });
+    }
+
+    // Remove file
+    if (removeFileBtn) {
+        removeFileBtn.addEventListener('click', function() {
+            fileInput.value = '';
+            filePreviewBar.classList.remove('active');
+            filePreviewImg.style.display = 'none';
+        });
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Auto-resize textarea
+    if (messageInput) {
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+    }
+
+    // Form submission
+    if (chatForm) {
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!message && !file) {
+                // Silently ignore empty submissions - no error modal
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('message', message);
+            if (file) {
+                formData.append('file', file);
+            }
+
+            // Disable form while sending
+            const submitBtn = chatForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
+            fetch('{% url "adminSupport:chat_send_message" role participant.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                submitBtn.disabled = false;
+                if (data.success) {
+                    messageInput.value = '';
+                    messageInput.style.height = 'auto';
+                    fileInput.value = '';
+                    filePreviewBar.classList.remove('active');
+                    filePreviewImg.style.display = 'none';
+                    
+                    // Add the new message to the container
+                    if (data.html) {
+                        messagesContainer.insertAdjacentHTML('beforeend', data.html);
+                        scrollToBottom();
+                    } else {
+                        // Fallback: poll for new messages
+                        pollMessages();
+                    }
+                } else {
+                    if (data.error && !data.error.includes('provide either a message or attach a file')) {
+                        showErrorModal(data.error || 'Failed to send message');
+                    }
+                }
+            })
+            .catch(() => {
+                submitBtn.disabled = false;
+                showErrorModal('Network error. Please try again.');
+            });
+        });
+    }
+
+    // Polling for new messages
+    let lastMessageId = 0;
+    const messageRows = document.querySelectorAll('.wa-message-row[data-id]');
+    if (messageRows.length > 0) {
+        const ids = Array.from(messageRows).map(row => parseInt(row.dataset.id)).filter(id => !isNaN(id));
+        if (ids.length > 0) {
+            lastMessageId = Math.max(...ids);
         }
-    };
+    }
 
-    window.replyToMessage = (messageId) => {
-        messageInput.value = `@message-${messageId} `;
-        messageInput.focus();
-        autoExpand();
-    };
+    function pollMessages() {
+        {% if participant %}
+        fetch(`{% url "adminSupport:chat_poll" role participant.id %}?last_id=${lastMessageId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(msg => {
+                    if (msg.id > lastMessageId) {
+                        lastMessageId = msg.id;
+                        messagesContainer.insertAdjacentHTML('beforeend', msg.html);
+                    }
+                });
+                scrollToBottom();
+            }
+        })
+        .catch(() => {
+            // Silent fail for polling
+        });
+        {% endif %}
+    }
 
-    window.openAttachment = (url) => {
-        window.open(url, '_blank');
-    };
+    // Poll every 3 seconds
+    {% if participant %}
+    setInterval(pollMessages, 3000);
+    {% endif %}
+
+    // Image click to expand
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('wa-image')) {
+            showImageModal(e.target.src);
+        }
+    });
+
+    // Keyboard shortcuts
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    }
 });
 </script>
 
 {% endblock %}
-

@@ -95,60 +95,40 @@
         font-size: 14px;
     }
 
-    /* Chat Container */
+    /* Chat Container - WhatsApp style */
     .chat-container {
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid var(--border-color);
-        height: 70vh;
+        border-radius: 0;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.06);
+        border: none;
+        height: 75vh;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
-    /* Chat Header */
+    /* Chat Header - WhatsApp style */
     .chat-header {
-        padding: 15px 20px;
-        border-bottom: 1px solid var(--border-color);
+        padding: 10px 16px;
+        background: #f0f2f5;
+        border-bottom: none;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 15px;
     }
 
     .chat-header-avatar {
-        width: 50px;
-        height: 50px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #dfe5e7;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
-        font-weight: 800;
-        color: white;
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15);
-        position: relative;
+        font-size: 16px;
+        font-weight: 600;
+        color: #54656f;
         overflow: hidden;
-        transition: all 0.3s ease;
-        border: 3px solid rgba(255, 255, 255, 0.9);
-    }
-
-    .chat-header-avatar::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 60%);
-        transform: rotate(25deg);
-        animation: shine 6s ease-in-out infinite;
-        pointer-events: none;
-    }
-
-    .chat-header-avatar:hover {
-        transform: scale(1.05) rotate(1deg);
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.45), 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
     .chat-header-avatar img {
@@ -156,79 +136,29 @@
         height: 100%;
         object-fit: cover;
         border-radius: 50%;
-        transition: all 0.3s ease;
-        border: 2px solid rgba(255, 255, 255, 0.8);
-        box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
-    }
-
-    .chat-header-avatar img:hover {
-        transform: scale(1.05);
-        filter: brightness(1.05);
-    }
-
-    @keyframes shine {
-        0%, 100% {
-            transform: translateX(-100%) translateY(-100%) rotate(25deg);
-            opacity: 0;
-        }
-        50% {
-            transform: translateX(100%) translateY(100%) rotate(25deg);
-            opacity: 1;
-        }
-    }
-
-    /* Company logo badge */
-    .company-logo-badge {
-        position: absolute;
-        bottom: -8px;
-        right: -8px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        border: 2px solid #667eea;
-        animation: pulse 3s ease-in-out infinite;
-    }
-
-    .company-logo-badge i {
-        font-size: 12px;
-        color: #667eea;
-    }
-
-    @keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-        50% {
-            transform: scale(1.1);
-            opacity: 0.8;
-        }
     }
 
     .chat-header-info h3 {
         margin: 0;
         font-size: 16px;
-        font-weight: 700;
-        color: var(--text-color);
+        font-weight: 500;
+        color: #111b21;
     }
 
     .chat-header-info p {
         margin: 2px 0 0 0;
-        font-size: 12px;
-        color: #6c757d;
+        font-size: 13px;
+        color: #667781;
     }
 
-    /* Chat Window */
+    /* Chat Window - WhatsApp style */
     .chat-window {
         flex: 1;
         overflow-y: auto;
-        padding: 20px;
-        background: #f8f9fa;
+        padding: 8px 0;
+        background: #e5ddd5;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4ccc4' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        position: relative;
     }
 
     .chat-window::-webkit-scrollbar {
@@ -240,12 +170,12 @@
     }
 
     .chat-window::-webkit-scrollbar-thumb {
-        background: #dee2e6;
+        background: rgba(0,0,0,0.2);
         border-radius: 10px;
     }
 
     .chat-window::-webkit-scrollbar-thumb:hover {
-        background: #ced4da;
+        background: rgba(0,0,0,0.3);
     }
 
     /* Empty State */
@@ -261,19 +191,91 @@
         color: #667eea;
     }
 
-    /* Chat Input Area */
+    /* Day Separator - WhatsApp style */
+    .chat-day-divider {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        margin: 12px 0;
+    }
+    .chat-day-divider span {
+        background:rgba(225,245,254,0.92);
+        color:#54656f;
+        font-size:12.5px;
+        font-weight:500;
+        padding:5px 12px;
+        border-radius:7.5px;
+        box-shadow:0 1px 0.5px rgba(0,0,0,0.13);
+        text-transform:uppercase;
+        letter-spacing:0.3px;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+        position:absolute;
+        left:12px;
+        bottom:8px;
+        display:none;
+        align-items:center;
+        gap:8px;
+        background:#fff;
+        border:1px solid var(--border-color);
+        border-radius:18px;
+        padding:6px 10px;
+        box-shadow:0 2px 8px rgba(0,0,0,.06);
+    }
+    .typing-dots { display:flex; gap:4px; }
+    .typing-dots span {
+        width:6px; height:6px; border-radius:50%;
+        background:#667eea; opacity:.6;
+        animation: typing-bounce 1.2s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(2){ animation-delay:.2s }
+    .typing-dots span:nth-child(3){ animation-delay:.4s }
+    @keyframes typing-bounce { 0%, 80%, 100% { transform:scale(0.8) } 40% { transform:scale(1) } }
+
+    /* Scroll to bottom button - WhatsApp style */
+    .scroll-bottom-btn {
+        position:absolute;
+        right:16px;
+        bottom:16px;
+        background:#fff;
+        color:#54656f;
+        border:none;
+        width:42px; height:42px;
+        border-radius:50%;
+        display:none;
+        align-items:center; justify-content:center;
+        box-shadow:0 1px 3px rgba(0,0,0,0.2);
+        cursor:pointer;
+        z-index:10;
+    }
+    .scroll-bottom-btn:hover {
+        background:#f0f2f5;
+    }
+
+    /* Chat Input Area - WhatsApp style */
     .chat-input-area {
-        padding: 12px 15px;
-        border-top: 1px solid var(--border-color);
+        padding: 10px;
+        background: #f0f2f5;
         display: flex;
-        flex-direction: column;
-        gap: 8px;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Form wrapper for file preview positioning */
+    #chat-form {
+        position: relative;
+        width: 100%;
+        padding: 10px;
+        background: #f0f2f5;
     }
 
     .chat-input-form {
         display: flex;
-        align-items: flex-end;
-        gap: 8px;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
     }
 
     .chat-input-form input[type="file"] {
@@ -283,49 +285,48 @@
     .input-wrapper {
         flex: 1;
         display: flex;
-        align-items: flex-end;
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 8px 12px;
+        align-items: center;
+        background: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 12px;
     }
 
     .input-wrapper:focus-within {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        box-shadow: none;
     }
 
     .attachment-btn {
         cursor: pointer;
-        font-size: 20px;
-        color: #6c757d;
-        width: 32px;
-        height: 32px;
+        font-size: 24px;
+        color: #54656f;
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
         background: transparent;
-        transition: all 0.2s ease;
+        transition: color 0.15s ease;
     }
 
     .attachment-btn:hover {
-        background: #f0f4ff;
-        color: #667eea;
+        color: #00a884;
+        background: transparent;
     }
 
     .chat-input-form textarea {
         flex: 1;
         resize: none;
         border: none;
-        padding: 8px 0;
-        font-size: 14px;
+        padding: 0;
+        font-size: 15px;
         line-height: 20px;
-        height: auto;
+        height: 20px;
         min-height: 20px;
-        max-height: 80px;
+        max-height: 100px;
         font-family: inherit;
-        color: var(--text-color);
+        color: #111b21;
         background: transparent;
         overflow-y: auto;
     }
@@ -335,32 +336,452 @@
     }
 
     .chat-input-form textarea::placeholder {
-        color: #6c757d;
-        opacity: 1;
+        color: #667781;
     }
 
     .send-btn {
-        background: #667eea;
+        background: #00a884;
         border: none;
         color: #fff;
-        width: 40px;
-        height: 40px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
     }
 
     .send-btn:hover {
-        background: #5a6fd8;
-        transform: scale(1.05);
+        background: #008f72;
     }
 
     .send-btn:active {
         transform: scale(0.95);
+    }
+
+    /* File Preview Container - WhatsApp style floating preview */
+    .file-preview-container {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        left: 10px;
+        right: 10px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        z-index: 10;
+        border: 1px solid rgba(0,0,0,0.08);
+    }
+    .file-preview-container.active {
+        display: flex;
+    }
+    .file-thumbnail-wrapper {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        background: #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .file-thumbnail-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .file-icon-thumbnail {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        color: #fff;
+    }
+    .file-icon-thumbnail.pdf { background: #e74c3c; }
+    .file-icon-thumbnail.doc { background: #2980b9; }
+    .file-icon-thumbnail.xls { background: #27ae60; }
+    .file-icon-thumbnail.zip { background: #f39c12; }
+    .file-icon-thumbnail.default { background: #95a5a6; }
+    .file-details {
+        flex: 1;
+        min-width: 0;
+    }
+    .file-details-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111b21;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+    }
+    .file-details-size {
+        font-size: 12px;
+        color: #667781;
+    }
+    .remove-file-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f0f2f5;
+        border: none;
+        color: #54656f;
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+    .remove-file-btn:hover {
+        background: rgba(255,59,48,0.15);
+        color: #ff3b30;
+    }
+        cursor: pointer;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+    }
+
+    .send-btn:hover {
+        background: #008f72;
+    }
+
+    .send-btn:active {
+        transform: scale(0.95);
+    }
+
+    /* Remove old message styles - now in chat_message.html */
+    .chat-skeleton { display:none; gap:8px; padding:8px 0; }
+    .skeleton-bubble { width:65%; height:44px; border-radius:7.5px; background:linear-gradient(90deg,#e5ddd5 25%,#d4ccc4 37%,#e5ddd5 63%); background-size:400% 100%; animation:skeleton-shimmer 1.4s ease infinite; }
+    @keyframes skeleton-shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+
+    /* ========== WhatsApp Message Styles ========== */
+    
+    /* Message Row */
+    .wa-message-row {
+        display: flex;
+        align-items: flex-end;
+        margin-bottom: 2px;
+        padding: 0 12px;
+    }
+    .wa-message-row.outgoing {
+        justify-content: flex-end;
+    }
+    .wa-message-row.incoming {
+        justify-content: flex-start;
+    }
+    
+    /* Avatar - Small circle outside bubble */
+    .wa-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .wa-message-row.outgoing .wa-avatar {
+        margin-left: 6px;
+        order: 2;
+        background: #075e54;
+        color: #fff;
+    }
+    .wa-message-row.incoming .wa-avatar {
+        margin-right: 6px;
+        background: #e5e5ea;
+        color: #333;
+    }
+    .wa-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Message Bubble */
+    .wa-bubble {
+        max-width: 65%;
+        padding: 6px 7px 8px 9px;
+        border-radius: 7.5px;
+        position: relative;
+        word-wrap: break-word;
+        box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+    }
+    
+    /* Outgoing (sender/client) - WhatsApp green */
+    .wa-bubble.outgoing {
+        background: #dcf8c6;
+        border-top-right-radius: 0;
+        margin-right: 8px;
+    }
+    .wa-bubble.outgoing::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: -8px;
+        width: 0;
+        height: 0;
+        border-left: 8px solid #dcf8c6;
+        border-top: 8px solid transparent;
+    }
+    
+    /* Incoming (receiver/admin) - White */
+    .wa-bubble.incoming {
+        background: #fff;
+        border-top-left-radius: 0;
+        margin-left: 8px;
+    }
+    .wa-bubble.incoming::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -8px;
+        width: 0;
+        height: 0;
+        border-right: 8px solid #fff;
+        border-top: 8px solid transparent;
+    }
+    
+    /* Sender name (only for incoming) */
+    .wa-sender-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #075e54;
+        margin-bottom: 1px;
+    }
+    
+    /* Message text */
+    .wa-text {
+        font-size: 14.2px;
+        line-height: 19px;
+        color: #303030;
+        white-space: pre-wrap;
+    }
+    .wa-text p { margin: 0; }
+    
+    /* Meta row: time + status */
+    .wa-meta {
+        display: inline-flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 3px;
+        margin-top: 1px;
+        float: right;
+        margin-left: 10px;
+    }
+    .wa-time {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+    }
+    .wa-status {
+        font-size: 16px;
+        color: rgba(0,0,0,0.35);
+    }
+    .wa-status.read {
+        color: #53bdeb;
+    }
+    
+    /* Attachment - Image */
+    .wa-attachment-img {
+        max-width: 330px;
+        max-height: 330px;
+        border-radius: 6px;
+        margin-bottom: 3px;
+        cursor: pointer;
+        display: block;
+    }
+    
+    /* Attachment - Document - WhatsApp style compact */
+    .wa-doc {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0,0,0,0.05);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 2px;
+        cursor: pointer;
+        min-width: 180px;
+        max-width: 300px;
+    }
+    .wa-doc-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+    .wa-doc-icon.pdf { background: #e74c3c; color: #fff; }
+    .wa-doc-icon.doc { background: #2980b9; color: #fff; }
+    .wa-doc-icon.xls { background: #27ae60; color: #fff; }
+    .wa-doc-icon.zip { background: #f39c12; color: #fff; }
+    .wa-doc-icon.default { background: #95a5a6; color: #fff; }
+    .wa-doc-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .wa-doc-name {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #303030;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+    }
+    .wa-doc-size {
+        font-size: 10.5px;
+        color: rgba(0,0,0,0.5);
+        line-height: 1.2;
+    }
+    
+    /* Delete button */
+    .wa-delete-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.05);
+        border: none;
+        color: #999;
+        font-size: 10px;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .wa-bubble:hover .wa-delete-btn {
+        display: flex;
+    }
+    .wa-delete-btn:hover {
+        background: rgba(255,59,48,0.15);
+        color: #ff3b30;
+    }
+    
+    /* Deleted message */
+    .wa-deleted {
+        font-style: italic;
+        color: rgba(0,0,0,0.45);
+    }
+    
+    /* Modal Styles - WhatsApp style */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        align-items: center;
+        justify-content: center;
+    }
+    .modal.show {
+        display: flex;
+    }
+    .modal-content {
+        background: #fff;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        animation: modalSlideIn 0.2s ease;
+        position: relative;
+    }
+    @keyframes modalSlideIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .modal-content h3 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #111b21;
+    }
+    .modal-content p {
+        margin: 0 0 20px 0;
+        font-size: 14px;
+        color: #667781;
+        line-height: 1.5;
+    }
+    .modal-close {
+        position: absolute;
+        top: 12px;
+        right: 16px;
+        font-size: 24px;
+        color: #54656f;
+        cursor: pointer;
+        line-height: 1;
+    }
+    .modal-close:hover {
+        color: #111b21;
+    }
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+    .modal-buttons .btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: all 0.15s ease;
+    }
+    .modal-buttons .btn-secondary {
+        background: #f0f2f5;
+        color: #54656f;
+    }
+    .modal-buttons .btn-secondary:hover {
+        background: #e5e7ea;
+    }
+    .modal-buttons .btn-danger {
+        background: #ea4335;
+        color: #fff;
+    }
+    .modal-buttons .btn-danger:hover {
+        background: #d33426;
+    }
+    .modal-buttons .btn-primary {
+        background: #00a884;
+        color: #fff;
+    }
+    .modal-buttons .btn-primary:hover {
+        background: #008c6f;
+    }
+    
+    /* Mobile responsiveness for messages */
+    @media (max-width: 600px) {
+        .wa-bubble { max-width: 85%; }
+        .wa-avatar { width: 24px; height: 24px; font-size: 10px; }
     }
 
     /* Responsive Design */
@@ -492,6 +913,15 @@
 
         <!-- Chat Window -->
         <div id="chat-window" class="chat-window">
+            <div id="chat-skeleton" class="chat-skeleton">
+                <div class="chat-avatar admin"></div>
+                <div class="skeleton-bubble"></div>
+            </div>
+            <div id="typing-indicator" class="typing-indicator">
+                <div class="chat-avatar admin">A</div>
+                <div class="typing-dots"><span></span><span></span><span></span></div>
+                <span style="font-size:12px;color:#495057;">Typing…</span>
+            </div>
             {% for msg in messages %}
                 {% include 'client_side/chat_message.html' with msg=msg %}
             {% empty %}
@@ -500,6 +930,9 @@
                     <p>No messages yet. Start the conversation!</p>
                 </div>
             {% endfor %}
+            <button id="scroll-bottom-btn" class="scroll-bottom-btn" title="Scroll to bottom">
+                <i class="bi bi-arrow-down"></i>
+            </button>
             </div>
 
             <!-- Chat Input Area -->
@@ -511,8 +944,21 @@
                 {% else %}
                     <input type="hidden" name="company_id" id="company-id-input" value="">
                 {% endif %}
+                
+                <!-- File Preview (WhatsApp style) -->
+                <div id="file-preview-container" class="file-preview-container">
+                    <div id="file-thumbnail-wrapper" class="file-thumbnail-wrapper"></div>
+                    <div class="file-details">
+                        <div id="file-details-name" class="file-details-name"></div>
+                        <div id="file-details-size" class="file-details-size"></div>
+                    </div>
+                    <button type="button" id="remove-file" class="remove-file-btn" title="Remove file">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                
                 <div class="chat-input-form">
-                    <input type="file" id="file-input" name="file">
+                    <input type="file" id="file-input" name="file" accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar">
                     
                     <div class="input-wrapper">
                         <label for="file-input" class="attachment-btn">
@@ -556,12 +1002,26 @@
             </div>
         </div>
     </div>
+
+    <!-- Error/Info Modal -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content">
+            <span id="error-modal-close" class="modal-close">&times;</span>
+            <h3 id="error-modal-title" style="margin-top: 0;">Notice</h3>
+            <p id="error-modal-message"></p>
+            <div class="modal-buttons">
+                <button id="error-modal-ok" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
 </main>
   
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     var chatWindow = document.getElementById('chat-window');
     chatWindow.scrollTop = chatWindow.scrollHeight;
+    var typingIndicator = document.getElementById('typing-indicator');
+    var scrollBottomBtn = document.getElementById('scroll-bottom-btn');
   
     // Only wire chat form behaviors if the chat form is present (chat may be disabled when no companies)
     var chatForm = document.getElementById('chat-form');
@@ -573,19 +1033,61 @@ document.addEventListener("DOMContentLoaded", function() {
         var fileDetailsName = document.getElementById('file-details-name');
         var fileDetailsSize = document.getElementById('file-details-size');
         var removeFileBtn = document.getElementById('remove-file');
+        
+        // Allowed file types (images and documents only - NO videos)
+        var allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        var allowedDocExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip', 'rar'];
+        var maxFileSize = 16 * 1024 * 1024; // 16MB like WhatsApp for documents
+        var maxImageSize = 16 * 1024 * 1024; // 16MB for images
+        
+        function isAllowedFile(file) {
+            var fileName = file.name;
+            var fileExt = fileName.split('.').pop().toLowerCase();
+            
+            // Block videos explicitly
+            if (file.type.startsWith('video/')) {
+                return { allowed: false, reason: 'Videos are not allowed. Please share images or documents only.' };
+            }
+            
+            // Allow images
+            if (allowedImageTypes.includes(file.type)) {
+                if (file.size > maxImageSize) {
+                    return { allowed: false, reason: 'Image size exceeds 16MB limit.' };
+                }
+                return { allowed: true };
+            }
+            
+            // Allow documents
+            if (allowedDocExtensions.includes(fileExt)) {
+                if (file.size > maxFileSize) {
+                    return { allowed: false, reason: 'File size exceeds 16MB limit.' };
+                }
+                return { allowed: true };
+            }
+            
+            return { allowed: false, reason: 'File type not supported. Please use images (JPG, PNG, GIF, WebP) or documents (PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP).' };
+        }
       
         // Enhanced file preview with WhatsApp-style previews
         if (fileInput) {
             fileInput.addEventListener('change', function(){
                 var file = this.files[0];
                 if(file) {
+                    // Validate file type and size
+                    var validation = isAllowedFile(file);
+                    if (!validation.allowed) {
+                        showErrorModal(validation.reason, 'Invalid File');
+                        this.value = ''; // Clear the file input
+                        return;
+                    }
+                    
                     // Get file extension
                     var fileName = file.name;
                     var fileExt = fileName.split('.').pop().toLowerCase();
                     var fileSize = formatFileSize(file.size);
                     
                     // Clear previous thumbnail
-                    fileThumbnailWrapper.innerHTML = '';
+                    if (fileThumbnailWrapper) fileThumbnailWrapper.innerHTML = '';
                     
                     if(file.type.startsWith("image/")) {
                         // Image preview
@@ -595,7 +1097,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             img.src = e.target.result;
                             img.className = 'file-thumbnail';
                             img.alt = 'Image preview';
-                            fileThumbnailWrapper.appendChild(img);
+                            if (fileThumbnailWrapper) fileThumbnailWrapper.appendChild(img);
                         }
                         reader.readAsDataURL(file);
                     } else {
@@ -625,10 +1127,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     }
                     
                     // Update file details
-                    fileDetailsName.textContent = fileName.length > 35 ? fileName.substring(0, 32) + '...' : fileName;
-                    fileDetailsName.title = fileName;
-                    fileDetailsSize.textContent = fileSize;
-                    filePreviewContainer.classList.add('active');
+                    if (fileDetailsName) {
+                        fileDetailsName.textContent = fileName.length > 35 ? fileName.substring(0, 32) + '...' : fileName;
+                        fileDetailsName.title = fileName;
+                    }
+                    if (fileDetailsSize) fileDetailsSize.textContent = fileSize;
+                    if (filePreviewContainer) filePreviewContainer.classList.add('active');
                 }
             });
         }
@@ -662,6 +1166,8 @@ document.addEventListener("DOMContentLoaded", function() {
         
         if (messageInput) {
             messageInput.addEventListener('input', autoExpand);
+            // show typing indicator while user types
+            messageInput.addEventListener('input', function(){ if (typingIndicator) typingIndicator.style.display='flex'; throttleHideTyping(); });
             
             // Allow sending message on Enter (without Shift)
             messageInput.addEventListener('keydown', function(e) {
@@ -673,43 +1179,57 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       
         // Handle chat form submission via AJAX
+        // Get CSRF token from the hidden form field (CSRF_COOKIE_HTTPONLY is True)
+        function getCSRFToken() {
+            var tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            return tokenInput ? tokenInput.value : '';
+        }
+        
         chatForm.addEventListener('submit', function(e) {
             e.preventDefault();
             var form = this;
             var formData = new FormData(form);
             fetch(form.action, {
                 method: "POST",
+                headers: { 
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: formData,
+                credentials: 'same-origin'
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('Server error:', response.status, text);
+                        throw new Error('Server error: ' + response.status);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if(data.success) {
                     // Create a temporary div to parse the message HTML
                     var tempDiv = document.createElement('div');
                     tempDiv.innerHTML = data.message_html;
-                    var newMessageElement = tempDiv.firstElementChild;
+                    // Get the wa-message-row container (first element in response)
+                    var newMessageRow = tempDiv.querySelector('.wa-message-row');
+                    
+                    if (newMessageRow) {
+                        // Extract message ID from the bubble inside
+                        var bubble = newMessageRow.querySelector('[data-msg-id]');
+                        var newMsgId = bubble ? bubble.getAttribute('data-msg-id') : null;
 
-                    // Extract message ID from the new message
-                    var newMsgId = newMessageElement.querySelector('[data-msg-id]')?.getAttribute('data-msg-id');
-
-                    // Check if message already exists (prevent duplicates)
-                    if (newMsgId && !document.querySelector('[data-msg-id="' + newMsgId + '"]')) {
-                        // Force align to right for sender immediately
-                        if (newMessageElement && newMessageElement.classList.contains('chat-message-wrapper')) {
-                            newMessageElement.classList.remove('align-left');
-                            newMessageElement.classList.add('align-right');
-                            var bubble = newMessageElement.querySelector('.message-bubble');
-                            if (bubble) {
-                                bubble.classList.remove('admin-message');
-                                bubble.classList.add('client-message');
-                            }
+                        // Check if message already exists (prevent duplicates)
+                        if (newMsgId && !document.querySelector('[data-msg-id="' + newMsgId + '"]')) {
+                            chatWindow.appendChild(newMessageRow);
+                            // Update lastMessageId to prevent polling from fetching it again
+                            lastMessageId = parseInt(newMsgId);
                         }
-                        chatWindow.appendChild(newMessageElement);
-                        // Update lastMessageId to prevent polling from fetching it again
-                        lastMessageId = parseInt(newMsgId);
                     }
                     
                     chatWindow.scrollTop = chatWindow.scrollHeight;
+                    if (typingIndicator) typingIndicator.style.display='none';
                     form.reset();
                     // Clear file preview
                     if (filePreviewContainer) filePreviewContainer.classList.remove('active');
@@ -719,12 +1239,15 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Reset textarea height
                     if (messageInput) messageInput.style.height = 'auto';
                 } else {
-                    alert("Error sending message: " + data.error);
+                    // Don't show error for empty message - just ignore
+                    if (data.error && !data.error.includes('provide either a message')) {
+                        showErrorModal(data.error, 'Error');
+                    }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert("Error sending message.");
+                showErrorModal('Something went wrong. Please try again.', 'Error');
             });
         });
     }
@@ -734,6 +1257,61 @@ document.addEventListener("DOMContentLoaded", function() {
     let lastMessageId = {{ messages.last.id|default:0 }};
     let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
     
+    function renderMessagesHtml(messagesHtml) {
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messagesHtml;
+        
+        // Get all message rows (wa-message-row containers) - the parent wrappers
+        var messageRows = tempDiv.querySelectorAll('.wa-message-row');
+        var lastDayStr = null;
+        
+        messageRows.forEach(function(rowElement) {
+            // Get the msg id from the bubble inside the row
+            var bubble = rowElement.querySelector('[data-msg-id]');
+            var msgId = bubble ? bubble.getAttribute('data-msg-id') : null;
+            
+            if (msgId && !document.querySelector('[data-msg-id="' + msgId + '"]')) {
+                // insert day separator when date changes
+                var ts = rowElement.getAttribute('data-msg-timestamp');
+                var d = ts ? new Date(parseInt(ts,10)*1000) : null;
+                var dayStr = d ? d.toDateString() : null;
+                if (dayStr && dayStr !== lastDayStr) {
+                    var divider = document.createElement('div');
+                    divider.className='chat-day-divider';
+                    var span = document.createElement('span');
+                    span.textContent = d.toLocaleDateString(undefined,{weekday:'short', year:'numeric', month:'short', day:'numeric'});
+                    divider.appendChild(span);
+                    chatWindow.appendChild(divider);
+                    lastDayStr = dayStr;
+                }
+                // Append the entire message row (includes avatar, bubble, proper alignment)
+                chatWindow.appendChild(rowElement);
+                lastMessageId = Math.max(lastMessageId, parseInt(msgId));
+            }
+        });
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        updateScrollButton();
+    }
+
+    function loadConversation(companyId) {
+        chatWindow.innerHTML = '';
+        // show skeleton while loading
+        const skeleton = document.getElementById('chat-skeleton');
+        if (skeleton) { chatWindow.appendChild(skeleton); skeleton.style.display = 'flex'; }
+        lastMessageId = 0;
+        let url = `{% url 'chat' %}?history=1`;
+        if (companyId) url += `&company_id=${companyId}`;
+        fetch(url, {credentials: 'same-origin'})
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.messages_html) {
+                    renderMessagesHtml(data.messages_html);
+                }
+            })
+            .catch(err => console.error('Error loading conversation:', err))
+            .finally(() => { const skeleton2 = document.getElementById('chat-skeleton'); if (skeleton2) skeleton2.style.display = 'none'; });
+    }
+
     function pollNewMessages() {
         let url = `{% url 'chat' %}?last_msg=${lastMessageId}`;
         if (selectedCompanyId) url += `&company_id=${selectedCompanyId}`;
@@ -741,24 +1319,8 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(response => response.json())
             .then(data => {
                 if(data.messages && data.messages.length > 0 && data.messages_html) {
-                    // Parse the messages HTML to check for duplicates
-                    var tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = data.messages_html;
-                    var newMessages = tempDiv.querySelectorAll('[data-msg-id]');
-                    
-                    // Insert only messages that don't already exist
-                    newMessages.forEach(function(msgElement) {
-                        var msgId = msgElement.getAttribute('data-msg-id');
-                        if (msgId && !document.querySelector('[data-msg-id="' + msgId + '"]')) {
-                            chatWindow.insertAdjacentHTML('beforeend', msgElement.outerHTML);
-                            lastMessageId = Math.max(lastMessageId, parseInt(msgId));
-                        }
-                    });
-                    
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                    renderMessagesHtml(data.messages_html);
                 }
-                
-                // Update message statuses (sent/delivered/read) - WhatsApp style
                 if(data.updated_statuses && data.updated_statuses.length > 0) {
                     data.updated_statuses.forEach(function(statusUpdate) {
                         var statusIcon = document.querySelector('[data-msg-id="' + statusUpdate.id + '"] .message-status');
@@ -776,9 +1338,27 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             })
             .catch(error => console.error('Error fetching new messages:', error));
-        setTimeout(pollNewMessages, 1500); // Faster polling for real-time experience
+        setTimeout(pollNewMessages, 1500);
     }
-    
+
+    function updateScrollButton(){
+        if (!scrollBottomBtn) return;
+        var nearBottom = chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight < 80;
+        scrollBottomBtn.style.display = nearBottom ? 'none' : 'flex';
+    }
+    chatWindow.addEventListener('scroll', updateScrollButton);
+    scrollBottomBtn?.addEventListener('click', function(){ chatWindow.scrollTop = chatWindow.scrollHeight; updateScrollButton(); });
+
+    // typing indicator throttling
+    let typingHideTimeout = null;
+    function throttleHideTyping(){
+        if (typingHideTimeout) clearTimeout(typingHideTimeout);
+        typingHideTimeout = setTimeout(function(){ if (typingIndicator) typingIndicator.style.display='none'; }, 900);
+    }
+
+    if (selectedCompanyId) {
+        loadConversation(selectedCompanyId);
+    }
     pollNewMessages();
     
     // Company Selection State Management
@@ -868,15 +1448,112 @@ document.addEventListener("DOMContentLoaded", function() {
             // Highlight selected company
             highlightSelectedCompany(companyId);
             
-            // Refresh messages for selected company
-            lastMessageId = 0;
-            pollNewMessages();
+            // Load conversation history for selected company
+            loadConversation(companyId);
         });
     });
     
     // Initialize: highlight the currently selected company
     if (currentSelectedCompanyId) {
         highlightSelectedCompany(currentSelectedCompanyId);
+    }
+    
+    // Delete Modal Elements
+    var deleteModal = document.getElementById('delete-modal');
+    var deleteModalClose = document.getElementById('delete-modal-close');
+    var deleteCancelBtn = document.getElementById('delete-cancel-btn');
+    var deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+    var pendingDeleteMsgId = null;
+    var pendingDeleteBtn = null;
+    
+    function showDeleteModal(msgId, btn) {
+        pendingDeleteMsgId = msgId;
+        pendingDeleteBtn = btn;
+        deleteModal.classList.add('show');
+    }
+    
+    function hideDeleteModal() {
+        deleteModal.classList.remove('show');
+        pendingDeleteMsgId = null;
+        pendingDeleteBtn = null;
+    }
+    
+    // Close modal handlers
+    if (deleteModalClose) {
+        deleteModalClose.addEventListener('click', hideDeleteModal);
+    }
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', hideDeleteModal);
+    }
+    
+    // Click outside modal to close
+    if (deleteModal) {
+        deleteModal.addEventListener('click', function(e) {
+            if (e.target === deleteModal) {
+                hideDeleteModal();
+            }
+        });
+    }
+    
+    // Confirm delete handler
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', function() {
+            if (pendingDeleteMsgId) {
+                fetch("{% url 'delete_message' 0 %}".replace("0", pendingDeleteMsgId), {
+                    method: "POST",
+                    headers: { 'X-CSRFToken': getCSRFToken() },
+                    credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        var row = pendingDeleteBtn ? pendingDeleteBtn.closest('.wa-message-row') : null;
+                        if (row) row.remove();
+                    } else {
+                        showErrorModal(data.error, 'Error');
+                    }
+                    hideDeleteModal();
+                })
+                .catch(err => {
+                    console.error('Delete error:', err);
+                    hideDeleteModal();
+                });
+            }
+        });
+    }
+    
+    // Delete message handler (delegated event for dynamically loaded messages)
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.wa-delete-btn');
+        if (btn) {
+            var msgId = btn.getAttribute('data-msg-id');
+            showDeleteModal(msgId, btn);
+        }
+    });
+
+    // Error/Info Modal handlers
+    var errorModal = document.getElementById('error-modal');
+    var errorModalClose = document.getElementById('error-modal-close');
+    var errorModalTitle = document.getElementById('error-modal-title');
+    var errorModalMessage = document.getElementById('error-modal-message');
+    var errorModalOk = document.getElementById('error-modal-ok');
+
+    function showErrorModal(message, title) {
+        if (errorModalTitle) errorModalTitle.textContent = title || 'Notice';
+        if (errorModalMessage) errorModalMessage.textContent = message;
+        if (errorModal) errorModal.classList.add('show');
+    }
+
+    function hideErrorModal() {
+        if (errorModal) errorModal.classList.remove('show');
+    }
+
+    if (errorModalClose) errorModalClose.addEventListener('click', hideErrorModal);
+    if (errorModalOk) errorModalOk.addEventListener('click', hideErrorModal);
+    if (errorModal) {
+        errorModal.addEventListener('click', function(e) {
+            if (e.target === errorModal) hideErrorModal();
+        });
     }
 });
 </script>
