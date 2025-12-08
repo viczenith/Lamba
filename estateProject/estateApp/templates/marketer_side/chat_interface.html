@@ -915,7 +915,13 @@
                 <div class="typing-dots"><span></span><span></span><span></span></div>
                 <span style="font-size:12px;color:#495057;">Typing…</span>
             </div>
+            {% load tz %}
             {% for msg in messages %}
+                {% ifchanged msg.date_sent|date:"Y-m-d" %}
+                    <div class="chat-day-divider">
+                        <span>{{ msg.date_sent|date:"D, j M Y" }}</span>
+                    </div>
+                {% endifchanged %}
                 {% include 'marketer_side/chat_message.html' with msg=msg %}
             {% empty %}
                 <div class="chat-empty-state">
@@ -1251,6 +1257,68 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize lastMessageId using the last message in the conversation or 0.
     let lastMessageId = {{ messages.last.id|default:0 }};
     let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
+    let audioContext = null;
+    let notificationEnabled = true;
+    
+    // ========== Notification Sound System ==========
+    function initAudioContext() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioContext;
+    }
+
+    function playMessageNotificationSound() {
+        try {
+            var ctx = initAudioContext();
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            
+            // WhatsApp-like notification tone (two quick beeps)
+            var oscillator = ctx.createOscillator();
+            var gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.15);
+            
+            // Second beep
+            setTimeout(function() {
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                
+                osc2.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 note
+                osc2.type = 'sine';
+                
+                gain2.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                
+                osc2.start(ctx.currentTime);
+                osc2.stop(ctx.currentTime + 0.15);
+            }, 120);
+            
+        } catch (e) {
+            console.warn('Could not play notification sound:', e);
+        }
+    }
+
+    // Initialize audio on first click (browser requirement)
+    document.body.addEventListener('click', function initAudio() {
+        initAudioContext();
+        document.body.removeEventListener('click', initAudio);
+    }, { once: true });
     
     function renderMessagesHtml(messagesHtml) {
         var tempDiv = document.createElement('div');
@@ -1313,8 +1381,23 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch(url, {credentials: 'same-origin'})
             .then(response => response.json())
             .then(data => {
+                let newIncomingMessages = false;
+                const currentUserEmail = '{{ request.user.email }}';
+                
                 if(data.messages && data.messages.length > 0 && data.messages_html) {
+                    // Check for incoming messages (not from current user)
+                    data.messages.forEach(function(msg) {
+                        if (msg.sender__email !== currentUserEmail) {
+                            newIncomingMessages = true;
+                        }
+                    });
+                    
                     renderMessagesHtml(data.messages_html);
+                    
+                    // Play notification sound for new incoming messages
+                    if (newIncomingMessages && notificationEnabled) {
+                        playMessageNotificationSound();
+                    }
                 }
                 if(data.updated_statuses && data.updated_statuses.length > 0) {
                     data.updated_statuses.forEach(function(statusUpdate) {

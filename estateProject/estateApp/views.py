@@ -2803,6 +2803,200 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
     })
 
 
+# Admin Chat Hub - Entry point without requiring a specific client
+@login_required
+def admin_chat_hub_view(request):
+    """
+    Chat hub view that shows the chat interface without requiring a client_id.
+    Users can browse and select clients/marketers from the sidebar.
+    Also provides API endpoints for searching company users to initiate new chats.
+    """
+    # Get clients and marketers for sidebar chat list
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    
+    # Get clients who have conversations
+    sidebar_clients = CustomUser.objects.filter(
+        role='client',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:30]
+    
+    for c in sidebar_clients:
+        c.unread_count = Message.objects.filter(
+            sender=c, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=c, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+        ).order_by('-date_sent').first()
+        c.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
+    # Get marketers who have conversations
+    sidebar_marketers = CustomUser.objects.filter(
+        role='marketer',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:30]
+    
+    for m in sidebar_marketers:
+        m.unread_count = Message.objects.filter(
+            sender=m, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=m, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+        ).order_by('-date_sent').first()
+        m.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
+    # Get ALL company clients/marketers for "new chat" search functionality
+    all_company_clients = CustomUser.objects.filter(
+        role='client',
+        **company_filter
+    ).order_by('full_name')[:100]
+    
+    all_company_marketers = CustomUser.objects.filter(
+        role='marketer',
+        **company_filter
+    ).order_by('full_name')[:100]
+
+    context = {
+        'clients': sidebar_clients,
+        'marketers': sidebar_marketers,
+        'all_clients': all_company_clients,
+        'all_marketers': all_company_marketers,
+        'is_hub': True,  # Flag to indicate this is the hub view (no active chat)
+        'is_marketer': False,
+    }
+    return render(request, 'admin_side/chat_interface.html', context)
+
+
+@login_required
+def chat_search_users_api(request):
+    """
+    API endpoint to search for company users (clients/marketers) to initiate a new chat.
+    Returns ALL users matching the search query by name OR email.
+    Users are uniquely identified by their email, so we don't filter out duplicates by name.
+    """
+    query = request.GET.get('q', '').strip()
+    user_type = request.GET.get('type', 'all')  # 'client', 'marketer', or 'all'
+    
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+    
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    
+    results = []
+    
+    if user_type in ['client', 'all']:
+        # Search by name OR email - show ALL matching users (email is unique identifier)
+        clients = CustomUser.objects.filter(
+            Q(full_name__icontains=query) | Q(email__icontains=query),
+            role='client',
+            **company_filter
+        ).order_by('full_name', 'email')[:50]  # Increased limit to show all matches
+        
+        for c in clients:
+            # Check if there's an existing conversation
+            has_conversation = Message.objects.filter(
+                Q(sender=c, recipient__role__in=SUPPORT_ROLES) |
+                Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+            ).exists()
+            
+            results.append({
+                'id': c.id,
+                'name': c.full_name,
+                'email': c.email,
+                'type': 'client',
+                'has_conversation': has_conversation,
+                'avatar': c.profile_image.url if c.profile_image else None,
+                'initials': c.full_name[0].upper() if c.full_name else '?',
+            })
+    
+    if user_type in ['marketer', 'all']:
+        # Search by name OR email - show ALL matching users (email is unique identifier)
+        marketers = CustomUser.objects.filter(
+            Q(full_name__icontains=query) | Q(email__icontains=query),
+            role='marketer',
+            **company_filter
+        ).order_by('full_name', 'email')[:50]  # Increased limit to show all matches
+        
+        for m in marketers:
+            has_conversation = Message.objects.filter(
+                Q(sender=m, recipient__role__in=SUPPORT_ROLES) |
+                Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+            ).exists()
+            
+            results.append({
+                'id': m.id,
+                'name': m.full_name,
+                'email': m.email,
+                'type': 'marketer',
+                'has_conversation': has_conversation,
+                'avatar': m.profile_image.url if m.profile_image else None,
+                'initials': m.full_name[0].upper() if m.full_name else '?',
+            })
+    
+    return JsonResponse({'results': results})
+
+
+@login_required
+def chat_load_conversation_api(request, user_id, user_type):
+    """
+    API endpoint to load a conversation asynchronously.
+    Returns the chat messages HTML and user info without full page reload.
+    """
+    from django.urls import reverse
+    
+    if user_type == 'client':
+        chat_user = get_object_or_404(CustomUser, id=user_id, role='client')
+        chat_url = reverse('admin_chat', args=[user_id])
+    elif user_type == 'marketer':
+        chat_user = get_object_or_404(CustomUser, id=user_id, role='marketer')
+        chat_url = reverse('admin_marketer_chat', args=[user_id])
+    else:
+        return JsonResponse({'success': False, 'error': 'Invalid user type'}, status=400)
+    
+    admin_user = request.user
+    
+    # Mark all unread messages from this user as read
+    Message.objects.filter(
+        sender=chat_user, 
+        recipient__role__in=SUPPORT_ROLES, 
+        is_read=False
+    ).update(is_read=True, status='read')
+    
+    # Get conversation messages
+    conversation = Message.objects.filter(
+        Q(sender=chat_user, recipient__role__in=SUPPORT_ROLES) |
+        Q(sender__role__in=SUPPORT_ROLES, recipient=chat_user)
+    ).order_by('date_sent')
+    
+    # Render messages HTML
+    messages_html = ""
+    for msg in conversation:
+        messages_html += render_to_string('admin_side/chat_message.html', {'msg': msg, 'request': request})
+    
+    # Get last message ID for polling
+    last_msg_id = conversation.last().id if conversation.exists() else 0
+    
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'id': chat_user.id,
+            'name': chat_user.full_name,
+            'type': user_type,
+            'avatar': chat_user.profile_image.url if chat_user.profile_image else None,
+            'initials': chat_user.full_name[0].upper() if chat_user.full_name else '?',
+        },
+        'messages_html': messages_html,
+        'last_msg_id': last_msg_id,
+        'chat_url': chat_url,
+        'is_marketer': user_type == 'marketer',
+    })
+
+
 # Admin Chat
 @login_required
 def admin_chat_view(request, client_id):
@@ -2933,11 +3127,50 @@ def admin_chat_view(request, client_id):
         message_html = render_to_string('admin_side/chat_message.html', {'msg': new_message, 'request': request})
         return JsonResponse({'success': True, 'message_html': message_html})
     
+    # Get clients and marketers for sidebar chat list
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    sidebar_clients = CustomUser.objects.filter(
+        role='client',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:20]
+    
+    for c in sidebar_clients:
+        c.unread_count = Message.objects.filter(
+            sender=c, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=c, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+        ).order_by('-date_sent').first()
+        c.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
+    sidebar_marketers = CustomUser.objects.filter(
+        role='marketer',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:20]
+    
+    for m in sidebar_marketers:
+        m.unread_count = Message.objects.filter(
+            sender=m, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=m, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+        ).order_by('-date_sent').first()
+        m.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
     context = {
         'client': client,
         'messages': conversation,
         'companies': companies,
         'selected_company': selected_company,
+        'clients': sidebar_clients,
+        'marketers': sidebar_marketers,
+        'is_marketer': False,
     }
     return render(request, 'admin_side/chat_interface.html', context)
 
@@ -4667,12 +4900,50 @@ def admin_marketer_chat_view(request, marketer_id):
         message_html = render_to_string('admin_side/chat_message.html', {'msg': new_message, 'request': request})
         return JsonResponse({'success': True, 'message_html': message_html})
 
+    # Get clients and marketers for sidebar chat list
+    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    sidebar_clients = CustomUser.objects.filter(
+        role='client',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:20]
+    
+    for c in sidebar_clients:
+        c.unread_count = Message.objects.filter(
+            sender=c, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=c, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+        ).order_by('-date_sent').first()
+        c.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
+    sidebar_marketers = CustomUser.objects.filter(
+        role='marketer',
+        sent_messages__isnull=False,
+        **company_filter
+    ).distinct().annotate(
+        last_message=Max('sent_messages__date_sent')
+    ).order_by('-last_message')[:20]
+    
+    for m in sidebar_marketers:
+        m.unread_count = Message.objects.filter(
+            sender=m, recipient__role__in=SUPPORT_ROLES, is_read=False
+        ).count()
+        last_msg = Message.objects.filter(
+            Q(sender=m, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+        ).order_by('-date_sent').first()
+        m.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
+
     context = {
         'client': marketer,   # Reuse template expecting 'client'
         'messages': conversation,
         'is_marketer': True,
         'companies': companies,
         'selected_company': selected_company,
+        'clients': sidebar_clients,
+        'marketers': sidebar_marketers,
     }
     return render(request, 'admin_side/chat_interface.html', context)
 
@@ -8787,6 +9058,11 @@ def sales_volume_metrics(request):
 @login_required
 @require_http_methods(["POST"])
 def add_transaction(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     cid      = request.POST.get("client", "")
     aid      = request.POST.get("allocation", "")
     txn_date = request.POST.get("transaction_date", "")
@@ -8800,13 +9076,36 @@ def add_transaction(request):
     tp_s     = request.POST.get("third_percent", "")
     pm = request.POST.get("payment_method", "")
 
-    allocation = get_object_or_404(PlotAllocation, pk=aid)
-    existing   = Transaction.objects.filter(client_id=cid, allocation=allocation).first()
+    # Company isolation - ensure allocation belongs to user's company
+    allocation = get_object_or_404(
+        PlotAllocation.objects.filter(estate__company=user_company),
+        pk=aid
+    )
+    
+    # Verify client belongs to user's company
+    client = get_object_or_404(
+        CustomUser.objects.filter(company_profile=user_company, role='client'),
+        pk=cid
+    )
+    
+    # Check presale price is set before allowing transaction
+    presale_exists = PropertyPrice.objects.filter(
+        estate=allocation.estate,
+        plot_unit=allocation.plot_size_unit,
+        company=user_company,
+        presale__gt=0
+    ).exists()
+    
+    if not presale_exists:
+        return JsonResponse({
+            'error': f'Cannot add transaction: Presale price not set for {allocation.estate.name} - {allocation.plot_size_unit.plot_size.size}. Please set presale price in Value Regulation first.'
+        }, status=400)
+    
+    existing   = Transaction.objects.filter(client_id=cid, allocation=allocation, company=user_company).first()
     txn        = existing or Transaction(client_id=cid, allocation=allocation)
 
-    # --- 1) Set company from allocation's estate (CRITICAL for multi-tenant isolation) ---
-    if allocation.estate and allocation.estate.company:
-        txn.company = allocation.estate.company
+    # --- 1) Set company from user's company (CRITICAL for multi-tenant isolation) ---
+    txn.company = user_company
 
     # --- 2) Core fields ---
     txn.transaction_date = txn_date
@@ -8883,20 +9182,24 @@ def ajax_client_marketer(request):
     if not client_id:
         return JsonResponse({'error': 'Missing client_id'}, status=400)
     
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
-        client = ClientUser.objects.get(pk=client_id)
-        # Optional company context can be provided by the caller
-        company_id = request.GET.get('company_id')
-        company = None
-        if company_id:
-            try:
-                company = Company.objects.get(pk=company_id)
-            except Company.DoesNotExist:
-                company = None
+        # Ensure client belongs to user's company
+        client = ClientUser.objects.filter(
+            pk=client_id,
+            company_profile=user_company
+        ).first()
+        
+        if not client:
+            return JsonResponse({'error': 'Client not found or access denied'}, status=404)
 
         marketer = None
         try:
-            marketer = client.get_assigned_marketer(company=company)
+            marketer = client.get_assigned_marketer(company=user_company)
         except Exception:
             marketer = getattr(client, 'assigned_marketer', None)
 
@@ -8912,9 +9215,16 @@ def ajax_client_allocations(request):
     if not client_id:
         return JsonResponse({'error': 'Missing client_id'}, status=400)
     
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
+        # Filter allocations by company through estate
         allocations = PlotAllocation.objects.filter(
-            client_id=client_id
+            client_id=client_id,
+            estate__company=user_company  # Company isolation
         ).select_related('estate', 'plot_size_unit__plot_size')
         
         data = [{
@@ -8936,16 +9246,41 @@ def ajax_allocation_info(request):
     if not alloc_id:
         return HttpResponseBadRequest("Missing allocation_id")
 
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+
+    # Ensure allocation belongs to user's company through estate
     alloc = get_object_or_404(
         PlotAllocation.objects.select_related(
             'estate',
             'plot_size_unit__plot_size',
             'client__assigned_marketer'
-        ),
+        ).filter(estate__company=user_company),  # Company isolation
         pk=alloc_id
     )
 
-    txn = Transaction.objects.filter(allocation=alloc).order_by('-transaction_date').first()
+    # Filter transaction by company as well
+    txn = Transaction.objects.filter(
+        allocation=alloc,
+        company=user_company  # Company isolation
+    ).order_by('-transaction_date').first()
+
+    # Check if presale price is set for this estate and plot size (company-isolated)
+    presale_price_set = False
+    presale_price_value = 0
+    try:
+        property_price = PropertyPrice.objects.filter(
+            estate=alloc.estate,
+            plot_unit=alloc.plot_size_unit,
+            company=user_company  # Company isolation
+        ).first()
+        if property_price and property_price.presale and property_price.presale > 0:
+            presale_price_set = True
+            presale_price_value = float(property_price.presale)
+    except Exception:
+        pass
 
     payload = {
         "plot_size": alloc.plot_size_unit.plot_size.size,
@@ -8959,7 +9294,10 @@ def ajax_allocation_info(request):
         "second_percent": "",
         "third_percent": "",
         "payment_duration": "",
-        "custom_duration": ""
+        "custom_duration": "",
+        "presale_price_set": presale_price_set,
+        "presale_price": presale_price_value,
+        "estate_name": alloc.estate.name
     }
 
     if txn:
@@ -9599,18 +9937,26 @@ def ajax_transaction_details(request, transaction_id):
 
     return JsonResponse(data)
 
+@login_required
 @require_GET
 def ajax_existing_transaction(request):
     """
-    Given client_id & allocation_id, return the existing transaction’s
+    Given client_id & allocation_id, return the existing transaction's
     payment_method and reference_code (if any), so the form can pre-fill.
+    Company-isolated for multi-tenant security.
     """
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     client_id     = request.GET.get('client_id')
     allocation_id = request.GET.get('allocation_id')
 
+    # Company isolation - filter by company
     txn = (
         Transaction.objects
-        .filter(client_id=client_id, allocation_id=allocation_id)
+        .filter(client_id=client_id, allocation_id=allocation_id, company=user_company)
         .first()
     )
 
@@ -9622,14 +9968,21 @@ def ajax_existing_transaction(request):
         'reference_code': txn.reference_code,
     })
 
+@login_required
 @require_POST
 def ajax_send_receipt(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({"error": "No company access"}, status=403)
+    
     txn_id = request.POST.get("transaction_id")
     if not txn_id:
         return JsonResponse({"error":"Missing transaction_id"}, status=400)
 
     try:
-        txn = Transaction.objects.get(pk=txn_id)
+        # Company isolation - filter by company
+        txn = Transaction.objects.get(pk=txn_id, company=user_company)
         # Here you would implement your actual email sending logic
         # For now we'll just simulate success
         return JsonResponse({"success": True, "message": "Receipt sent successfully"})

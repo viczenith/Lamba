@@ -165,9 +165,12 @@ urlpatterns = [
   
 
 
+    path('chat-admin/', admin_chat_hub_view, name='admin_chat_hub'),
     path('chat-admin/chat/<int:client_id>/', admin_chat_view, name='admin_chat'),
     path('chat-admin/marketer-chat/<int:marketer_id>/', admin_marketer_chat_view, name='admin_marketer_chat'),
     path('chat-admin/client-chats/', admin_client_chat_list, name='admin_client_chat_list'),
+    path('chat-admin/search-users/', chat_search_users_api, name='chat_search_users_api'),
+    path('chat-admin/load-conversation/<int:user_id>/<str:user_type>/', chat_load_conversation_api, name='chat_load_conversation_api'),
     path('api/search-clients/', search_clients_api, name='search_clients_api'),
     path('api/search-marketers/', search_marketers_api, name='search_marketers_api'),
     

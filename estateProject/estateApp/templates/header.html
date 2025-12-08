@@ -477,6 +477,18 @@
     @media (max-width: 480px) {
       .logo img { max-height: 26px; }
     }
+    
+    /* New message flash animation */
+    @keyframes newMessageFlash {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.4); background-color: #28a745; }
+      50% { transform: scale(1); }
+      75% { transform: scale(1.4); background-color: #ffc107; }
+    }
+    
+    .new-message-flash {
+      animation: newMessageFlash 0.5s ease-in-out 3 !important;
+    }
   </style>
 
   <script>
@@ -557,6 +569,8 @@
     });
 
     // Chat badge polling function
+    let previousHeaderUnreadCount = null;
+    
     function updateBadge(elementId, count) {
       const badge = document.getElementById(elementId);
       if (!badge) return;
@@ -568,9 +582,6 @@
       if (count > 0) {
         badge.style.display = 'inline-block';
         badge.classList.add('pulse');
-        if (count > previousCount) {
-          playChatAlert();
-        }
       } else {
         badge.style.display = 'none';
         badge.classList.remove('pulse');
@@ -590,10 +601,23 @@
             count = data.global_message_count || 0;
           {% endif %}
           
+          // Check if new messages arrived and play sound
+          if (previousHeaderUnreadCount !== null && count > previousHeaderUnreadCount) {
+            playChatAlert();
+            // Flash animation for attention
+            if (msgBadge) {
+              msgBadge.classList.add('new-message-flash');
+              setTimeout(() => msgBadge.classList.remove('new-message-flash'), 1500);
+            }
+          }
+          previousHeaderUnreadCount = count;
+          
           msgBadge.textContent = count;
           if (count > 0) {
+            msgBadge.style.display = 'inline-block';
             msgBadge.classList.add('pulse');
           } else {
+            msgBadge.style.display = 'none';
             msgBadge.classList.remove('pulse');
           }
           

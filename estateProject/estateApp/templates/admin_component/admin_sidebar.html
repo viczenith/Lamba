@@ -128,7 +128,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'admin_client_chat_list' %}?company={{ request.company.slug }}">
+      <a class="nav-link" href="{% url 'admin_chat_hub' %}?company={{ request.company.slug }}">
         <div class="nav-link-icon">
           <i class="fas fa-comment-dots"></i>
         </div>
@@ -180,8 +180,87 @@
     </div>
   </div>
 
-  <!-- Polling Script for Chat Badge -->
+  <!-- Polling Script for Chat Badge with Real-Time Notifications -->
   <script>
+    // Track previous unread count to detect new messages
+    let previousUnreadCount = null;
+    let audioContext = null;
+    let notificationEnabled = true;
+    
+    // Initialize audio context on first user interaction (required by browsers)
+    function initAudioContext() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioContext;
+    }
+    
+    // Play notification sound using Web Audio API
+    function playNotificationSound() {
+      try {
+        const ctx = initAudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        
+        // Create a pleasant notification beep
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        // WhatsApp-like notification tone (two quick beeps)
+        oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.15);
+        
+        // Second beep
+        setTimeout(() => {
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          
+          osc2.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 note
+          osc2.type = 'sine';
+          
+          gain2.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          
+          osc2.start(ctx.currentTime);
+          osc2.stop(ctx.currentTime + 0.15);
+        }, 120);
+        
+      } catch (e) {
+        console.warn('Could not play notification sound:', e);
+      }
+    }
+    
+    // Show browser notification if permitted
+    function showBrowserNotification(newCount) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('New Message', {
+          body: `You have ${newCount} new unread message${newCount > 1 ? 's' : ''}`,
+          tag: 'chat-notification',
+          requireInteraction: false
+        });
+      }
+    }
+    
+    // Request notification permission
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
     function updateBadge(elementId, count) {
       const badge = document.getElementById(elementId);
       if (badge) {
@@ -203,6 +282,22 @@
             count = data.global_message_count || 0;
           {% endif %}
           
+          // Check if we have a new message (count increased)
+          if (previousUnreadCount !== null && count > previousUnreadCount && notificationEnabled) {
+            const newMessages = count - previousUnreadCount;
+            playNotificationSound();
+            showBrowserNotification(newMessages);
+            
+            // Flash the badge for attention
+            if (msgBadge) {
+              msgBadge.classList.add('new-message-flash');
+              setTimeout(() => msgBadge.classList.remove('new-message-flash'), 1500);
+            }
+          }
+          
+          // Update the previous count
+          previousUnreadCount = count;
+          
           msgBadge.textContent = count;
           if (count > 0) {
             msgBadge.classList.add('pulse');
@@ -217,8 +312,35 @@
         .catch(console.error);
       setTimeout(pollUnreadCounts, 2000);
     }
-    document.addEventListener('DOMContentLoaded', pollUnreadCounts);
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      // Request notification permission
+      requestNotificationPermission();
+      
+      // Initialize audio on first click (browser requirement)
+      document.body.addEventListener('click', function initAudio() {
+        initAudioContext();
+        document.body.removeEventListener('click', initAudio);
+      }, { once: true });
+      
+      // Start polling
+      pollUnreadCounts();
+    });
   </script>
+  
+  <style>
+    /* New message flash animation */
+    @keyframes newMessageFlash {
+      0%, 100% { transform: scale(1); background-color: #dc3545; }
+      25% { transform: scale(1.3); background-color: #28a745; }
+      50% { transform: scale(1); background-color: #ffc107; }
+      75% { transform: scale(1.3); background-color: #28a745; }
+    }
+    
+    .new-message-flash {
+      animation: newMessageFlash 0.5s ease-in-out 3 !important;
+    }
+  </style>
 
   <!-- Active Link Highlighter -->
   <script>

@@ -1408,8 +1408,8 @@
             <!-- Tab Navigation -->
             <ul class="nav nav-tabs" id="salesTabs" role="tablist">
               <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="volume-tab" data-bs-toggle="tab" data-bs-target="#volume" type="button" role="tab" aria-controls="volume" aria-selected="true">
-                  <i class="bi bi-graph-up me-2"></i>Sales Volume
+                <button class="nav-link active" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab" aria-controls="evaluation" aria-selected="true">
+                  <i class="bi bi-currency-exchange me-2"></i>Value Regulation
                 </button>
               </li>
               <li class="nav-item" role="presentation">
@@ -1422,22 +1422,17 @@
                   <i class="bi bi-trophy me-2"></i>Marketers Performance
                 </button>
               </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab" aria-controls="evaluation" aria-selected="false">
-                  <i class="bi bi-trophy me-2"></i>Value Regulation
-                </button>
-              </li>
             </ul>
 
             <!-- Tab Content -->
             <div class="tab-content" id="salesTabsContent">
-              <!-- Sales Volume Pane -->
+              <!-- Value Regulation Pane (First/Active) -->
               <div
                 class="tab-pane fade show active"
-                id="volume"
+                id="evaluation"
                 role="tabpanel"
-                aria-labelledby="volume-tab">
-                {% include "admin_side/management_page_sections/section1_sales_volume.html" %}
+                aria-labelledby="evaluation-tab">
+                {% include "admin_side/management_page_sections/section4_value_regulation.html" %}
               </div>
 
               <!-- Land Plot Transactions Pane -->
@@ -1450,15 +1445,6 @@
                 role="tabpanel"
                 aria-labelledby="ranking-tab">
                 {% include "admin_side/management_page_sections/section3_marketers_performance.html" %}
-              </div>
-              
-              <!-- Value Evaluation Pane -->
-              <div
-                class="tab-pane fade"
-                id="evaluation"
-                role="tabpanel"
-                aria-labelledby="evaluation-tab">
-                {% include "admin_side/management_page_sections/section4_value_regulation.html" %}
               </div>
 
             </div>

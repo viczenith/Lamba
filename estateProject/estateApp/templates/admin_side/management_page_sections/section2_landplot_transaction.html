@@ -562,6 +562,16 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
     $(document).ready(function(){
+        // Reset modal state when closed
+        $('#addTransactionModal').on('hidden.bs.modal', function() {
+            $('#presaleWarning').remove();
+            $('#transactionForm button[type="submit"]').prop('disabled', false).text('Save Transaction');
+            $('#total_amount').prop('disabled', false).attr('placeholder', '');
+            $('#transactionForm')[0].reset();
+            $('#allocation').prop('disabled', true).html('<option value="">Select Allocation</option>');
+            $('#installmentPlanField, #customPlanField, #durationField, #customDurationField, #fullPaymentFields, #installmentPreview').hide();
+        });
+        
         $('#client').on('change', function(){
             const cid = this.value;
             if (!cid) {
@@ -601,6 +611,40 @@
             // 1) Fetch allocation info
             $.get("{% url 'ajax_allocation_info' %}", { allocation_id: aid })
                 .done(d => {
+                // Check if presale price is set - CRITICAL validation
+                if (!d.presale_price_set) {
+                    // Presale price not set - block transaction
+                    $('#presaleWarning').remove();
+                    const warningHtml = `
+                        <div id="presaleWarning" class="alert alert-danger mt-3">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Cannot Add Transaction:</strong> 
+                            Presale price has not been set for <strong>${d.estate_name} - ${d.plot_size}</strong>.
+                            <br><br>
+                            <small>Please go to <strong>Value Regulation</strong> tab and set the presale price first. 
+                            The presale price is the initial launch price that must be established before any sales transactions can be recorded.</small>
+                        </div>
+                    `;
+                    $('#transactionForm .modal-body').prepend(warningHtml);
+                    
+                    // Disable form submission
+                    $('#transactionForm button[type="submit"]').prop('disabled', true).text('Presale Price Required');
+                    $('#total_amount').prop('disabled', true).val('').attr('placeholder', 'Set presale price first');
+                    
+                    // Still show basic info
+                    $('#plot_size').val(d.plot_size);
+                    $('#transaction_date').val(d.transaction_date).prop('readonly', true);
+                    const isPart = d.payment_type === 'part';
+                    $('#payment_type').val(isPart ? 'Part Payment' : 'Full Payment');
+                    
+                    return; // Stop processing
+                }
+                
+                // Presale price is set - enable form
+                $('#presaleWarning').remove();
+                $('#transactionForm button[type="submit"]').prop('disabled', false).text('Save Transaction');
+                $('#total_amount').prop('disabled', false).attr('placeholder', '');
+                
                 // core fields
                 $('#plot_size').val(d.plot_size);
                 $('#transaction_date').val(d.transaction_date).prop('readonly', true);
