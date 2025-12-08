@@ -10,6 +10,47 @@
     #transactions .table-responsive::-webkit-scrollbar {
         display: none; /* Chrome, Safari, Opera */
     }
+    
+    /* Clean Table Header Styling */
+    #salesTable thead {
+        background: linear-gradient(135deg, #28a745 0%, #1a1a1a 100%);
+    }
+    #salesTable thead th {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 12px;
+        border: none;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    #salesTable tbody tr {
+        transition: all 0.2s ease;
+    }
+    #salesTable tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.08);
+        transform: translateX(2px);
+    }
+    #salesTable tbody td {
+        padding: 12px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eee;
+    }
+    /* Row number styling */
+    .row-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
 </style>
 
 <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="payments-tab">
@@ -26,9 +67,9 @@
                                 <!-- <button class="btn btn-primary me-2" id="exportTransactionsBtn">
                                     <i class="bi bi-download me-2"></i>Export
                                 </button> -->
-                                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+                                <!-- <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
                                     <i class="bi bi-plus-circle me-2"></i>Add Transaction
-                                </button>
+                                </button> -->
                             </div>
                         </div>
 
@@ -98,15 +139,16 @@
                             <table class="table data-table" id="salesTable">
                                 <thead>
                                     <tr>
+                                        <th>#</th>
                                         <th>Estate Name</th>
                                         <th>Plot Size</th>
                                         <th>Marketer</th>
                                         <th>Client</th>
                                         <th>Date</th>
                                         <th>Actual Amount (₦)</th>
-                                        <th>First Installment</th>
-                                        <th>Second Installment</th>
-                                        <th>Third Installment</th>
+                                        <th>1st Installment</th>
+                                        <th>2nd Installment</th>
+                                        <th>3rd Installment</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -120,6 +162,7 @@
                                         data-client="{{ txn.client.full_name|lower }}"
                                         data-payment-type="{{ txn.allocation.payment_type }}"
                                         >
+                                        <td><span class="row-number">{{ forloop.counter }}</span></td>
                                         <td>{{ txn.allocation.estate.name }}</td>
                                         <td>{{ txn.allocation.plot_size_unit.plot_size.size }}</td>
                                         <td>{{ txn.marketer.full_name }}</td>
@@ -191,7 +234,7 @@
                                         </tr>
                                     {% empty %}
                                         <tr>
-                                        <td colspan="11" class="text-center">
+                                        <td colspan="12" class="text-center">
                                             No transactions found.
                                         </td>
                                         </tr>

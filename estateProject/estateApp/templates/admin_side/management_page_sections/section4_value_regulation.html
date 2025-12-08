@@ -33,6 +33,199 @@
     .trend-indicator-prm { margin-left:4px; }
     .modal-prm { z-index:1070!important; }
     .modal-backdrop-prm { z-index:1060!important; }
+    
+    /* Modern Presale Modal Styling */
+    #prmValueModal .modal-content {
+        border: none;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    #prmValueModal .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 1.5rem 2rem;
+        position: relative;
+    }
+    #prmValueModal .modal-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #00c853, #64dd17, #00c853);
+        background-size: 200% 100%;
+        animation: shimmerGreen 2s linear infinite;
+    }
+    @keyframes shimmerGreen {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    #prmValueModal .modal-title {
+        font-weight: 700;
+        font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    #prmValueModal .modal-title::before {
+        content: '\F4BA';
+        font-family: 'bootstrap-icons';
+        font-size: 1.2rem;
+    }
+    #prmValueModal .modal-body {
+        padding: 2rem;
+        background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%);
+    }
+    #prmValueModal .form-label-modern {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    #prmValueModal .form-label-modern i {
+        color: #667eea;
+        font-size: 1rem;
+    }
+    #prmValueModal .form-control-modern,
+    #prmValueModal .form-select-modern {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background-color: #fff;
+    }
+    #prmValueModal .form-control-modern:focus,
+    #prmValueModal .form-select-modern:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+    #prmValueModal .form-control-modern:hover,
+    #prmValueModal .form-select-modern:hover {
+        border-color: #667eea;
+    }
+    #prmValueModal .input-group-modern {
+        position: relative;
+    }
+    #prmValueModal .input-group-modern .currency-prefix {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-weight: 700;
+        color: #28a745;
+        font-size: 1.1rem;
+        z-index: 5;
+    }
+    #prmValueModal .input-group-modern .form-control-modern {
+        padding-left: 2.5rem;
+    }
+    #prmValueModal .price-input-wrapper {
+        background: linear-gradient(135deg, #f0fff4 0%, #e8f5e9 100%);
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 2px dashed #81c784;
+        transition: all 0.3s ease;
+    }
+    #prmValueModal .price-input-wrapper:focus-within {
+        border-color: #28a745;
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        transform: scale(1.01);
+    }
+    #prmValueModal .price-display {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #28a745;
+        text-align: center;
+        margin-top: 0.5rem;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+    }
+    #prmValueModal .price-display.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    #prmValueModal .form-row-animated {
+        animation: fadeInUp 0.4s ease forwards;
+        opacity: 0;
+    }
+    #prmValueModal .form-row-animated:nth-child(1) { animation-delay: 0.1s; }
+    #prmValueModal .form-row-animated:nth-child(2) { animation-delay: 0.2s; }
+    #prmValueModal .form-row-animated:nth-child(3) { animation-delay: 0.3s; }
+    #prmValueModal .form-row-animated:nth-child(4) { animation-delay: 0.4s; }
+    #prmValueModal .form-row-animated:nth-child(5) { animation-delay: 0.5s; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    #prmValueModal .modal-footer {
+        border: none;
+        padding: 1.25rem 2rem 1.5rem;
+        background: #fff;
+        gap: 0.75rem;
+    }
+    #prmValueModal .btn-cancel-modern {
+        background: #f1f3f4;
+        border: none;
+        color: #5f6368;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    #prmValueModal .btn-cancel-modern:hover {
+        background: #e8eaed;
+        transform: translateY(-2px);
+    }
+    #prmValueModal .btn-save-modern {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: #fff;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    #prmValueModal .btn-save-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+    #prmValueModal .btn-save-modern:active {
+        transform: translateY(0);
+    }
+    #prmValueModal .notify-toggle {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    #prmValueModal .notify-toggle:hover {
+        background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
+    }
+    #prmValueModal .notify-toggle .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+    #prmValueModal .notify-toggle-text {
+        font-weight: 500;
+        color: #1976d2;
+    }
+    #prmValueModal .notify-toggle-text i {
+        margin-right: 8px;
+    }
     .btn-promo-prm {
         background-color: #f39c12; color:#fff; border:none;
     }
@@ -405,57 +598,96 @@
 <div class="modal fade modal-prm" id="prmValueModal" tabindex="-1" aria-labelledby="prmValueModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title" id="prmValueModalLabel">Set Presale Price</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="prmRegForm">
                     <input type="hidden" id="prmPropertyId">
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label>Estate</label>
-                            <select id="prmEstateSelect" class="form-select" required>
+                    
+                    <!-- Row 1: Estate & Plot Size -->
+                    <div class="row mb-4 form-row-animated">
+                        <div class="col-md-6">
+                            <label class="form-label-modern">
+                                <i class="bi bi-building"></i> Estate
+                            </label>
+                            <select id="prmEstateSelect" class="form-select-modern w-100" required>
                                 <option value="">Select Estate</option>
                                 {% for e in estates %}
                                 <option value="{{ e.id }}">{{ e.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col">
-                            <label>Plot Size</label>
-                            <select id="prmPlotSizeSelect" class="form-select" required>
+                        <div class="col-md-6">
+                            <label class="form-label-modern">
+                                <i class="bi bi-grid-3x3"></i> Plot Size
+                            </label>
+                            <select id="prmPlotSizeSelect" class="form-select-modern w-100" required>
                                 <option value="">Select Plot</option>
                             </select>
                         </div>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label>Location</label>
-                            <input id="prmLocation" type="text" class="form-control" readonly required>
+                    
+                    <!-- Row 2: Location & Effective Date -->
+                    <div class="row mb-4 form-row-animated">
+                        <div class="col-md-6">
+                            <label class="form-label-modern">
+                                <i class="bi bi-geo-alt"></i> Location
+                            </label>
+                            <input id="prmLocation" type="text" class="form-control-modern" readonly required placeholder="Auto-filled from estate">
                         </div>
-                        <div class="col">
-                            <label>Effective Date</label>
-                            <input id="prmEffectiveDate" type="date" class="form-control" required>
+                        <div class="col-md-6">
+                            <label class="form-label-modern">
+                                <i class="bi bi-calendar-event"></i> Effective Date
+                            </label>
+                            <input id="prmEffectiveDate" type="date" class="form-control-modern" required>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Presale Price (₦)</label>
-                        <input id="prmPresalePrice" type="number" class="form-control" min="0" required>
+                    
+                    <!-- Row 3: Presale Price (Featured) -->
+                    <div class="mb-4 form-row-animated">
+                        <label class="form-label-modern">
+                            <i class="bi bi-currency-exchange"></i> Presale Price
+                        </label>
+                        <div class="price-input-wrapper">
+                            <div class="input-group-modern">
+                                <span class="currency-prefix">₦</span>
+                                <input id="prmPresalePrice" type="text" class="form-control-modern" 
+                                       placeholder="0" required autocomplete="off"
+                                       style="font-size: 1.25rem; font-weight: 600;">
+                            </div>
+                            <div id="prmPriceDisplay" class="price-display">₦0</div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Notes</label>
-                        <textarea id="prmNotes" class="form-control" rows="3" placeholder="Add notes about this presale..."></textarea>
+                    
+                    <!-- Row 4: Notes -->
+                    <div class="mb-4 form-row-animated">
+                        <label class="form-label-modern">
+                            <i class="bi bi-journal-text"></i> Notes <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <textarea id="prmNotes" class="form-control-modern" rows="3" 
+                                  placeholder="Add any relevant notes about this presale pricing..."></textarea>
                     </div>
-                    <div class="form-check">
-                        <input id="prmNotifyChk" class="form-check-input" type="checkbox" checked>
-                        <label class="form-check-label" for="prmNotifyChk">Notify clients about this presale</label>
+                    
+                    <!-- Row 5: Notify Toggle -->
+                    <div class="form-row-animated">
+                        <label class="notify-toggle">
+                            <input id="prmNotifyChk" class="form-check-input" type="checkbox" role="switch" checked>
+                            <span class="notify-toggle-text">
+                                <i class="bi bi-bell"></i> Notify clients about this presale
+                            </span>
+                        </label>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button id="prmSaveRegBtn" class="btn btn-primary">Save Presale</button>
+                <button class="btn-cancel-modern" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Cancel
+                </button>
+                <button id="prmSaveRegBtn" class="btn-save-modern">
+                    <i class="bi bi-check2-circle me-1"></i> Save Presale
+                </button>
             </div>
         </div>
     </div>
@@ -1137,6 +1369,57 @@
         document.getElementById('prmEffectiveDate').value = today;
         document.getElementById('prmEditEffectiveDate').value = today;
 
+        // Presale Price Formatting - Live formatting as user types
+        const presalePriceInput = document.getElementById('prmPresalePrice');
+        const priceDisplayEl = document.getElementById('prmPriceDisplay');
+        
+        function formatPriceInput(value) {
+            // Remove all non-numeric characters
+            let numericValue = value.replace(/[^0-9]/g, '');
+            
+            // Convert to number and format with commas
+            if (numericValue === '') return '';
+            
+            let number = parseInt(numericValue, 10);
+            return number.toLocaleString('en-NG');
+        }
+        
+        function updatePriceDisplay(value) {
+            let numericValue = value.replace(/[^0-9]/g, '');
+            if (numericValue === '' || numericValue === '0') {
+                priceDisplayEl.textContent = '₦0';
+                priceDisplayEl.classList.remove('show');
+            } else {
+                let number = parseInt(numericValue, 10);
+                priceDisplayEl.textContent = '₦' + number.toLocaleString('en-NG');
+                priceDisplayEl.classList.add('show');
+            }
+        }
+        
+        presalePriceInput.addEventListener('input', function(e) {
+            let cursorPos = this.selectionStart;
+            let oldLength = this.value.length;
+            
+            // Format the value
+            this.value = formatPriceInput(this.value);
+            
+            // Adjust cursor position
+            let newLength = this.value.length;
+            cursorPos = cursorPos + (newLength - oldLength);
+            this.setSelectionRange(cursorPos, cursorPos);
+            
+            // Update display
+            updatePriceDisplay(this.value);
+        });
+        
+        presalePriceInput.addEventListener('focus', function() {
+            this.parentElement.parentElement.classList.add('focused');
+        });
+        
+        presalePriceInput.addEventListener('blur', function() {
+            this.parentElement.parentElement.classList.remove('focused');
+        });
+
         // Helper functions
         function initNotificationTypeHandling() {
             const notifyTypeSelect = document.getElementById('prmNotifyType');
@@ -1175,6 +1458,12 @@
             document.getElementById('prmNotes').value = '';
             document.getElementById('prmNotifyChk').checked = true;
             document.getElementById('prmValueModalLabel').textContent = "Set Presale Price";
+            // Reset price display
+            const priceDisplay = document.getElementById('prmPriceDisplay');
+            if (priceDisplay) {
+                priceDisplay.textContent = '₦0';
+                priceDisplay.classList.remove('show');
+            }
         }
 
         function resetEditModal() {
@@ -1269,16 +1558,29 @@
             .then(data => {
                 if (data.existing_price) {
                 const ep = data.existing_price;
-                document.getElementById('prmPresalePrice').value      = ep.presale;
+                const formattedPresale = formatNumber(ep.presale);
+                document.getElementById('prmPresalePrice').value      = formattedPresale;
                 document.getElementById('prmEffectiveDate').value     = ep.effective;
                 document.getElementById('prmNotes').value             = ep.notes;
                 document.getElementById('prmValueModalLabel').textContent = "Update Presale Price";
+                // Update price display
+                const priceDisplay = document.getElementById('prmPriceDisplay');
+                if (priceDisplay) {
+                    priceDisplay.textContent = '₦' + formattedPresale;
+                    priceDisplay.classList.add('show');
+                }
                 } else {
                 // new entry: clear fields & reset label
                 document.getElementById('prmPresalePrice').value      = '';
                 document.getElementById('prmEffectiveDate').value     = new Date().toISOString().slice(0,10);
                 document.getElementById('prmNotes').value             = '';
                 document.getElementById('prmValueModalLabel').textContent = "Set Presale Price";
+                // Reset price display
+                const priceDisplay = document.getElementById('prmPriceDisplay');
+                if (priceDisplay) {
+                    priceDisplay.textContent = '₦0';
+                    priceDisplay.classList.remove('show');
+                }
                 }
             })
             .catch(() => {
@@ -1481,9 +1783,12 @@
         function savePresalePrice() {
             const estateId = document.getElementById('prmEstateSelect').value;
             const unitId = document.getElementById('prmPlotSizeSelect').value;
-            const presale = document.getElementById('prmPresalePrice').value;
+            const presaleRaw = document.getElementById('prmPresalePrice').value;
             const effective = document.getElementById('prmEffectiveDate').value;
             const notes = document.getElementById('prmNotes').value;
+            
+            // Parse the formatted price (remove commas)
+            const presale = presaleRaw.replace(/,/g, '');
             
             if (!estateId || !unitId || !presale || !effective) {
                 return alert('Please fill all required fields');

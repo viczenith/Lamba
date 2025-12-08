@@ -814,7 +814,10 @@
                             data: formData,
                             processData: false,
                             contentType: false,
-                            headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                            headers: { 
+                                "X-CSRFToken": "{{ csrf_token }}",
+                                "X-Requested-With": "XMLHttpRequest"
+                            },
                             success: function(response) {
                                 $("#estateResponseMessage").html(
                                     '<div class="alert alert-success">' +

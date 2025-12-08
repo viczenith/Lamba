@@ -1176,7 +1176,7 @@ def delete_estate(request, pk):
     messages.error(request, "Invalid request. Please try again.")
     return redirect('view-estate')
 
-@csrf_exempt
+@login_required
 def add_estate(request):
     if request.method == "POST":
         # SECURITY: Auto-assign company to prevent cross-tenant data creation
@@ -1196,7 +1196,15 @@ def add_estate(request):
             title_deed=estate_title_deed
         )
 
-        return JsonResponse({'message': f'{estate.name} added successfully!', 'estate_id': estate.id})
+        # Check if it's an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
+        if is_ajax:
+            return JsonResponse({'message': f'{estate.name} added successfully!', 'estate_id': estate.id})
+        else:
+            # Regular form submission - redirect with success message
+            messages.success(request, f'<strong>{estate.name}</strong> added successfully!')
+            return redirect('view-estate')
 
     # For GET request, render the form to add an estate
     return render(request, 'admin_side/add_estate.html', {})
@@ -11678,7 +11686,12 @@ def is_admin(user):
 @login_required
 @user_passes_test(is_admin)
 def estate_plot_sizes(request, estate_id):
-    estate = get_object_or_404(Estate, pk=estate_id)
+    # Company isolation - ensure estate belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    estate = get_object_or_404(Estate, pk=estate_id, company=user_company)
     units = PlotSizeUnits.objects.filter(estate_plot__estate=estate).select_related('plot_size')
     
     plot_units = [{
@@ -11717,8 +11730,14 @@ def estate_plot_sizes(request, estate_id):
 def estate_bulk_price_data(request, estate_id):
     """
     Returns estate info with all plot units and their current prices for bulk updating.
+    Company-isolated for multi-tenant security.
     """
-    estate = get_object_or_404(Estate, pk=estate_id)
+    # Company isolation - ensure estate belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    estate = get_object_or_404(Estate, pk=estate_id, company=user_company)
     
     # Get all plot size units for this estate
     units = PlotSizeUnits.objects.filter(
@@ -11973,7 +11992,13 @@ def send_bulk_price_update_notification(estate, price_changes, unlaunched_plots,
 def property_price_bulk_update(request):
     """
     Bulk update property prices for multiple plot units.
+    Company-isolated for multi-tenant security.
     """
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
         payload = json.loads(request.body)
         estate_id = payload["estate_id"]
@@ -11982,7 +12007,8 @@ def property_price_bulk_update(request):
         notify = payload.get("notify", False)
         updates = payload["updates"]  # List of {plot_unit_id, new_price}
         
-        estate = Estate.objects.get(pk=estate_id)
+        # Company isolation - ensure estate belongs to user's company
+        estate = Estate.objects.get(pk=estate_id, company=user_company)
     except (KeyError, Estate.DoesNotExist, json.JSONDecodeError, ValueError) as e:
         return JsonResponse({"status": "error", "message": f"Invalid payload: {str(e)}"}, status=400)
     
@@ -12119,6 +12145,11 @@ def property_price_bulk_update(request):
 @user_passes_test(is_admin)
 @require_http_methods(["POST"])
 def property_price_add(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
         payload = json.loads(request.body)
         estate_id = payload["estate_id"]
@@ -12127,8 +12158,9 @@ def property_price_add(request):
         effective = payload["effective"]
         notes = payload.get("notes", "")
         
-        estate = Estate.objects.get(pk=estate_id)
-        unit = PlotSizeUnits.objects.get(pk=plot_unit_id)
+        # Company isolation - ensure estate belongs to user's company
+        estate = Estate.objects.get(pk=estate_id, company=user_company)
+        unit = PlotSizeUnits.objects.get(pk=plot_unit_id, estate_plot__estate__company=user_company)
 
     except (KeyError, Estate.DoesNotExist, PlotSizeUnits.DoesNotExist, 
             ValueError, json.JSONDecodeError) as e:
@@ -12343,8 +12375,14 @@ def property_price_edit(request, pk):
     Updates an existing PropertyPrice (only current/effective/notes)
     and appends a PriceHistory entry using the unchanged presale.
     Optionally sends notifications to clients and marketers.
+    Company-isolated for multi-tenant security.
     """
-    pp = get_object_or_404(PropertyPrice, pk=pk)
+    # Company isolation - ensure property price belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    pp = get_object_or_404(PropertyPrice, pk=pk, estate__company=user_company)
 
     try:
         payload = json.loads(request.body)
@@ -12531,10 +12569,16 @@ def property_row_html(request, row_key):
 @login_required
 @require_GET
 def property_price_prefill(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     estate_id = request.GET.get('estate')
     plot_unit_id = request.GET.get('plot_unit')
     try:
-        pp = PropertyPrice.objects.get(estate_id=estate_id, plot_unit_id=plot_unit_id)
+        # Company isolation - ensure property price belongs to user's company
+        pp = PropertyPrice.objects.get(estate_id=estate_id, plot_unit_id=plot_unit_id, estate__company=user_company)
         return JsonResponse({
             'exists': True,
             'presale': str(pp.presale),
@@ -12554,7 +12598,12 @@ from decimal import Decimal
 @user_passes_test(is_admin)
 @require_GET
 def property_price_history(request, pk):
-    pp = get_object_or_404(PropertyPrice, pk=pk)
+    # Company isolation - ensure property price belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    pp = get_object_or_404(PropertyPrice, pk=pk, estate__company=user_company)
     history = []
 
     # Build real history from PriceHistory records
@@ -12647,11 +12696,12 @@ def property_price_history(request, pk):
 @login_required
 @user_passes_test(is_admin)
 @require_http_methods(["POST"])
-@csrf_exempt
-@login_required
-@user_passes_test(is_admin)
-@require_http_methods(["POST"])
 def promo_create(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
         data = json.loads(request.body)
 
@@ -12667,9 +12717,11 @@ def promo_create(request):
 
         promo = PromotionalOffer.objects.create(
             name=name, discount=discount,
-            start=start, end=end, description=description
+            start=start, end=end, description=description,
+            company=user_company  # Company isolation
         )
-        promo.estates.set(Estate.objects.filter(id__in=estate_ids))
+        # Company isolation - only set estates that belong to user's company
+        promo.estates.set(Estate.objects.filter(id__in=estate_ids, company=user_company))
 
         return JsonResponse({
             "status": "ok",
@@ -12687,9 +12739,15 @@ def promo_create(request):
 @user_passes_test(is_admin)
 @require_http_methods(["PUT"])
 def promo_update(request, promo_id):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
         data = json.loads(request.body)
-        promo = get_object_or_404(PromotionalOffer, id=promo_id)
+        # Company isolation - ensure promo belongs to user's company
+        promo = get_object_or_404(PromotionalOffer, id=promo_id, company=user_company)
 
         promo.name = data.get("name", promo.name).strip()
         promo.discount = float(data.get("discount", promo.discount))
@@ -12702,7 +12760,8 @@ def promo_update(request, promo_id):
             return JsonResponse({"status": "error", "message": "Missing required fields."}, status=400)
 
         promo.save()
-        promo.estates.set(Estate.objects.filter(id__in=estate_ids))
+        # Company isolation - only set estates that belong to user's company
+        promo.estates.set(Estate.objects.filter(id__in=estate_ids, company=user_company))
 
         return JsonResponse({
             "status": "ok",
@@ -12719,7 +12778,14 @@ def promo_update(request, promo_id):
 @login_required
 @user_passes_test(is_admin)
 def get_active_promo_for_estate(request, estate_id):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
+        # Company isolation - ensure estate belongs to user's company
+        estate = Estate.objects.get(pk=estate_id, company=user_company)
         # Only return promo that is still active
         promo = PromotionalOffer.objects.filter(
             estates__id=estate_id,
@@ -13041,8 +13107,14 @@ def mark_notification_read(request, un_id):
 def property_price_detail(request, pk):
     """
     Returns JSON detail of a PropertyPrice including an active promo adjustment.
+    Company-isolated for multi-tenant security.
     """
-    pp = get_object_or_404(PropertyPrice, pk=pk)
+    # Company isolation - ensure property price belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    pp = get_object_or_404(PropertyPrice, pk=pk, estate__company=user_company)
     today = now().date()
 
     promo = PromotionalOffer.objects.filter(
