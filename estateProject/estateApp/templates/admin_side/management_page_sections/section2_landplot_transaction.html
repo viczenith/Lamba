@@ -367,7 +367,14 @@
                                         <td>{{ txn.allocation.estate.name }}</td>
                                         <td>{{ txn.allocation.plot_size_unit.plot_size.size }}</td>
                                         <td>{{ txn.marketer.full_name }}</td>
-                                        <td>{{ txn.client.full_name }}</td>
+                                        <td>
+                                            {{ txn.client.full_name }}
+                                            {% if txn.allocation.payment_type == 'part' %}
+                                                <span class="badge bg-info text-white ms-2" title="Installment Client">
+                                                    <i class="bi bi-calendar-range"></i> Installment
+                                                </span>
+                                            {% endif %}
+                                        </td>
                                         <td>{{ txn.transaction_date|date:"d M Y" }}</td>
                         <td>₦{{ txn.total_amount|floatformat:2|intcomma }}</td>
                         <td>₦{{ txn.first_installment|default:"0.00"|floatformat:2|intcomma }}</td>
@@ -380,6 +387,9 @@
                                             {% elif txn.status == 'Paid Complete' %}
                                             <span class="badge badge-paid">
                                                 <i class="bi bi-check-circle me-1"></i>Paid Complete
+                                                {% if txn.allocation.payment_type == 'full' and txn.allocation.plot_number %}
+                                                    <span class="small">+ Plot Allocated</span>
+                                                {% endif %}
                                             </span>
                                             {% elif txn.status == 'Part Payment' %}
                                             <span class="badge badge-partial">
@@ -407,24 +417,35 @@
                                             <button class="btn btn-sm btn-primary"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#transactionDetailsModal"
-                                                    data-id="{{ txn.id }}">
+                                                    data-id="{{ txn.id }}"
+                                                    title="View Details">
                                                 <i class="bi bi-eye"></i>
+                                            </button>
+
+                                            <button class="btn btn-sm btn-warning"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editTransactionModal"
+                                                    data-id="{{ txn.id }}"
+                                                    title="Edit Transaction">
+                                                <i class="bi bi-pencil-square"></i>
                                             </button>
 
                                             {% if txn.status != 'Fully Paid' and txn.status != 'Paid Complete' %}
                                                 <button class="btn btn-sm btn-success"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#recordPaymentModal"
-                                                        data-id="{{ txn.id }}">
+                                                        data-id="{{ txn.id }}"
+                                                        title="Record Payment">
                                                 <i class="bi bi-cash"></i>
                                                 </button>
                                             {% endif %}
 
                                             {% if txn.status == 'Overdue' %}
-                                                <button class="btn btn-sm btn-warning"
+                                                <button class="btn btn-sm btn-danger"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#sendReminderModal"
-                                                        data-id="{{ txn.id }}">
+                                                        data-id="{{ txn.id }}"
+                                                        title="Send Reminder">
                                                 <i class="bi bi-envelope"></i>
                                                 </button>
                                             {% endif %}
@@ -575,6 +596,151 @@
                         <span class="btn-spinner" style="display: none;">
                             <span class="spinner-border spinner-border-sm me-2"></span>Processing...
                         </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div class="modal fade" id="editTransactionModal" tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <form id="editTransactionForm" class="modal-content">
+                {% csrf_token %}
+                <input type="hidden" id="edit_txn_id" name="transaction_id">
+                
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="editTransactionModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i>Edit Transaction
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body">
+                    <!-- Error Alert -->
+                    <div id="edit_error_alert" class="alert alert-danger alert-dismissible fade" role="alert" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span id="edit_error_message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
+                    <div class="row">
+                        <!-- Left Column -->
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Transaction Information</h6>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Client Name</label>
+                                <input type="text" id="edit_client" class="form-control" readonly>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Estate</label>
+                                <input type="text" id="edit_estate" class="form-control" readonly>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Plot Size</label>
+                                <input type="text" id="edit_plot_size" class="form-control" readonly>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Marketer</label>
+                                <input type="text" id="edit_marketer" class="form-control" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Editable Fields</h6>
+
+                            <div class="mb-3">
+                                <label class="form-label">Transaction Date <span class="text-danger">*</span></label>
+                                <input type="date" id="edit_transaction_date" name="transaction_date" class="form-control" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Total Amount (₦) <span class="text-danger">*</span></label>
+                                <input type="number" id="edit_total_amount" name="total_amount" class="form-control" step="0.01" min="0" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select id="edit_payment_method" name="payment_method" class="form-select" required>
+                                    <option value="">Select payment method</option>
+                                    <option value="bank">Bank Transfer</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="pos">POS</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div id="edit_installment_section" style="display: none;">
+                                <h6 class="mb-3 mt-3">Installment Plan</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">First Installment (₦)</label>
+                                        <input type="number" id="edit_first_installment" name="first_installment" class="form-control" step="0.01" min="0">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Second Installment (₦)</label>
+                                        <input type="number" id="edit_second_installment" name="second_installment" class="form-control" step="0.01" min="0">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Third Installment (₦)</label>
+                                        <input type="number" id="edit_third_installment" name="third_installment" class="form-control" step="0.01" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Records Section -->
+                    <div id="edit_payment_records_section" class="mt-4" style="display: none;">
+                        <h6 class="mb-3">Payment Records</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Installment</th>
+                                        <th>Current Amount (₦)</th>
+                                        <th>Date</th>
+                                        <th>Update Amount (₦)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="edit_payment_records_list">
+                                    <!-- Dynamic payment records will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Plot Number Section -->
+                    <div id="edit_plot_section" class="mt-4" style="display: none;">
+                        <h6 class="mb-3">Plot Allocation</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Current Plot Number</label>
+                                <input type="text" id="edit_current_plot" class="form-control" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Reallocate to New Plot</label>
+                                <select id="edit_plot_number" name="plot_number_id" class="form-select" data-live-search="true">
+                                    <option value="">Keep current / No change</option>
+                                </select>
+                                <small class="text-muted">Search available plots by number</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-warning" id="edit_submit_btn">
+                        <i class="bi bi-check-circle me-2"></i>Update Transaction
                     </button>
                 </div>
             </form>
@@ -1280,13 +1446,15 @@
                                     $plotSel.append(`<option value="${plot.id}">Plot ${plot.number}</option>`);
                                 });
                             } else {
+                                console.log('Plot response:', resp);
                                 $('#rp_plot_number').html('<option value="">No plots available - Manual allocation required</option>');
                                 showError('No available plots found. Payment can proceed, but plot allocation will need to be done manually.');
                             }
                         },
-                        error: function() {
+                        error: function(xhr, status, error) {
+                            console.error('Plot loading error:', {xhr, status, error, response: xhr.responseText});
                             $('#rp_plot_number').html('<option value="">Error loading plots</option>');
-                            showError('Failed to load available plots. Please try again.');
+                            showError('Failed to load available plots: ' + (xhr.responseJSON?.error || error || 'Unknown error'));
                         }
                     });
                 }
@@ -1422,6 +1590,192 @@
                 }
             });
         });
+
+
+
+        // ============================================
+        // EDIT TRANSACTION MODAL
+        // ============================================
+
+        $('#editTransactionModal').on('show.bs.modal', function(e) {
+            const $trigger = $(e.relatedTarget);
+            const txnId = $trigger.attr('data-id');
+            
+            console.log('Edit modal triggered with ID:', txnId);
+            
+            if (!txnId || isNaN(txnId)) {
+                showEditError('Invalid transaction ID');
+                return;
+            }
+            
+            $('#edit_txn_id').val(txnId);
+            
+            // Reset form and alerts
+            $('#edit_error_alert').hide().removeClass('show');
+            $('#editTransactionForm')[0].reset();
+            
+            // Fetch transaction details
+            $.ajax({
+                url: `/ajax/get-transaction-details/`,
+                method: 'GET',
+                data: { transaction_id: txnId },
+                beforeSend: function() {
+                    // Show loading state
+                    $('.modal-body input, .modal-body select').prop('disabled', true);
+                    $('#edit_submit_btn').prop('disabled', true).html('<i class="spinner-border spinner-border-sm me-2"></i>Loading...');
+                },
+                success: function(resp) {
+                    if (resp.success) {
+                        const txn = resp.transaction;
+                        const alloc = resp.allocation;
+                        
+                        // Populate read-only fields
+                        $('#edit_client').val(txn.client);
+                        $('#edit_estate').val(alloc.estate);
+                        $('#edit_plot_size').val(alloc.plot_size);
+                        $('#edit_marketer').val(txn.marketer);
+                        
+                        // Populate editable fields
+                        $('#edit_transaction_date').val(txn.transaction_date);
+                        $('#edit_total_amount').val(txn.total_amount);
+                        $('#edit_payment_method').val(txn.payment_method);
+                        
+                        // Handle installments
+                        if (alloc.payment_type === 'part') {
+                            $('#edit_installment_section').show();
+                            $('#edit_first_installment').val(alloc.first_installment || '');
+                            $('#edit_second_installment').val(alloc.second_installment || '');
+                            $('#edit_third_installment').val(alloc.third_installment || '');
+                            
+                            // Display payment records
+                            if (resp.payment_records && resp.payment_records.length > 0) {
+                                $('#edit_payment_records_section').show();
+                                const $tbody = $('#edit_payment_records_list').empty();
+                                
+                                resp.payment_records.forEach((payment, idx) => {
+                                    const installmentLabel = payment.installment == 1 ? '1st' : 
+                                                           payment.installment == 2 ? '2nd' : 
+                                                           payment.installment == 3 ? '3rd' : 'N/A';
+                                    
+                                    $tbody.append(`
+                                        <tr>
+                                            <td>${installmentLabel} Installment</td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" 
+                                                       value="${parseFloat(payment.amount_paid).toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" 
+                                                       disabled>
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" 
+                                                       value="${payment.payment_date}" disabled>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm" 
+                                                       name="payment_record_${payment.id}" 
+                                                       data-payment-id="${payment.id}"
+                                                       placeholder="Update amount"
+                                                       step="0.01" min="0">
+                                            </td>
+                                        </tr>
+                                    `);
+                                });
+                            } else {
+                                $('#edit_payment_records_section').hide();
+                            }
+                        } else {
+                            $('#edit_installment_section').hide();
+                            $('#edit_payment_records_section').hide();
+                        }
+                        
+                        // Handle plot number - Always show for allocation/reallocation
+                        $('#edit_plot_section').show();
+                        if (alloc.plot_number) {
+                            $('#edit_current_plot').val('Plot ' + alloc.plot_number);
+                        } else {
+                            $('#edit_current_plot').val('Not Allocated');
+                        }
+                        
+                        // Load available plots for allocation/reassignment
+                        $.ajax({
+                            url: "{% url 'ajax_get_available_plots' %}",
+                            method: 'GET',
+                            data: { allocation_id: alloc.id },
+                            success: function(plotResp) {
+                                const $plotSel = $('#edit_plot_number').empty()
+                                    .append('<option value="">Keep current / No change</option>');
+                                    
+                                if (plotResp.success && plotResp.plots && plotResp.plots.length > 0) {
+                                    plotResp.plots.forEach(plot => {
+                                        $plotSel.append(`<option value="${plot.id}">Plot ${plot.number}</option>`);
+                                    });
+                                } else {
+                                    $plotSel.append('<option value="" disabled>No plots available</option>');
+                                }
+                            },
+                            error: function() {
+                                $('#edit_plot_number').html('<option value="">Error loading plots</option>');
+                            }
+                        });
+                        
+                        // Enable form
+                        $('.modal-body input:not([readonly]), .modal-body select').prop('disabled', false);
+                        $('#edit_submit_btn').prop('disabled', false).html('<i class="bi bi-check-circle me-2"></i>Update Transaction');
+                        
+                    } else {
+                        showEditError(resp.error || 'Failed to load transaction details');
+                    }
+                },
+                error: function(xhr) {
+                    showEditError('Error loading transaction: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                }
+            });
+        });
+
+        // Submit edit transaction form
+        $('#editTransactionForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const $submitBtn = $('#edit_submit_btn');
+            const originalText = $submitBtn.html();
+            
+            // Disable button
+            $submitBtn.prop('disabled', true).html('<i class="spinner-border spinner-border-sm me-2"></i>Updating...');
+            
+            $.ajax({
+                url: `/ajax/update-transaction/`,
+                method: 'POST',
+                data: $(this).serialize(),
+                headers: {
+                    'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                },
+                success: function(resp) {
+                    if (resp.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updated!',
+                            text: 'Transaction has been updated successfully.',
+                            confirmButtonColor: '#10b981'
+                        }).then(() => {
+                            $('#editTransactionModal').modal('hide');
+                            location.reload();
+                        });
+                    } else {
+                        showEditError(resp.error || 'Failed to update transaction');
+                        $submitBtn.prop('disabled', false).html(originalText);
+                    }
+                },
+                error: function(xhr) {
+                    showEditError('Error updating transaction: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                    $submitBtn.prop('disabled', false).html(originalText);
+                }
+            });
+        });
+
+        // Helper function to show errors in edit modal
+        function showEditError(message) {
+            $('#edit_error_message').text(message);
+            $('#edit_error_alert').show().addClass('show');
+        }
 
 
 

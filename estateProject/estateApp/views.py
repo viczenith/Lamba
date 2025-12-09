@@ -9652,16 +9652,27 @@ def ajax_get_available_plots(request):
         allocation = PlotAllocation.objects.get(pk=allocation_id)
         company = allocation.estate.company
         
-        # Find available plots for this estate and plot size
+        # Get the estate plot for this allocation's estate
+        estate_plot = EstatePlot.objects.filter(estate=allocation.estate).first()
+        
+        if not estate_plot:
+            return JsonResponse({
+                "success": False, 
+                "error": "No estate plot configuration found for this estate"
+            }, status=404)
+        
+        # Find available plots for this estate that are linked to the estate plot
+        # and not already allocated
+        allocated_plot_ids = PlotAllocation.objects.filter(
+            estate=allocation.estate,
+            plot_number__isnull=False
+        ).values_list('plot_number_id', flat=True)
+        
         available_plots = PlotNumber.objects.filter(
-            estates__estate=allocation.estate,
-            estates__plot_size=allocation.plot_size,
+            estates=estate_plot,
             company=company
         ).exclude(
-            id__in=PlotAllocation.objects.filter(
-                estate=allocation.estate,
-                plot_number__isnull=False
-            ).values('plot_number_id')
+            id__in=allocated_plot_ids
         ).order_by('number')
         
         plots_data = [{
@@ -9719,6 +9730,184 @@ def ajax_assign_plot_after_payment(request):
         return JsonResponse({"success": False, "error": "Allocation not found"}, status=404)
     except PlotNumber.DoesNotExist:
         return JsonResponse({"success": False, "error": "Plot number not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+@login_required
+def ajax_get_transaction_details(request):
+    """Fetch transaction details for editing"""
+    try:
+        transaction_id = request.GET.get('transaction_id')
+        
+        if not transaction_id:
+            return JsonResponse({"success": False, "error": "Transaction ID required"}, status=400)
+        
+        # Get company - handle both direct company FK and through allocation
+        try:
+            company = request.user.company
+            company_id = company.id if hasattr(company, 'id') else company
+        except AttributeError:
+            return JsonResponse({"success": False, "error": "User has no associated company"}, status=403)
+        
+        # Get transaction with company isolation - use all_objects to bypass CompanyAwareManager
+        txn = Transaction.all_objects.select_related(
+            'allocation__estate__company',
+            'allocation__plot_size_unit',
+            'allocation__plot_number',
+            'marketer',
+            'client',
+            'company'
+        ).get(id=int(transaction_id), company_id=company_id)
+        
+        alloc = txn.allocation
+        
+        # Get payment records for this transaction - use all_objects to bypass CompanyAwareManager
+        payment_records = PaymentRecord.all_objects.filter(
+            transaction=txn
+        ).order_by('installment', 'payment_date').values(
+            'id', 'installment', 'amount_paid', 'payment_date', 'payment_method'
+        )
+        
+        # Get client name
+        client_name = txn.client.get_full_name() if hasattr(txn.client, 'get_full_name') else str(txn.client)
+        
+        # Build response data
+        data = {
+            "success": True,
+            "transaction": {
+                "id": txn.id,
+                "client": client_name,
+                "marketer": txn.marketer.get_full_name() if txn.marketer else "N/A",
+                "transaction_date": txn.transaction_date.strftime('%Y-%m-%d'),
+                "total_amount": str(txn.total_amount),
+                "payment_method": txn.payment_method or ""
+            },
+            "allocation": {
+                "id": alloc.id,
+                "estate": alloc.estate.name,
+                "plot_size": alloc.plot_size,
+                "payment_type": alloc.payment_type,
+                "plot_number": alloc.plot_number.plot_number if alloc.plot_number else None,
+                "plot_number_id": alloc.plot_number.id if alloc.plot_number else None,
+                "first_installment": str(alloc.first_installment) if alloc.first_installment else None,
+                "second_installment": str(alloc.second_installment) if alloc.second_installment else None,
+                "third_installment": str(alloc.third_installment) if alloc.third_installment else None
+            },
+            "payment_records": [
+                {
+                    "id": pr['id'],
+                    "installment": pr['installment'],
+                    "amount_paid": str(pr['amount_paid']),
+                    "payment_date": pr['payment_date'].strftime('%Y-%m-%d'),
+                    "payment_method": pr['payment_method']
+                }
+                for pr in payment_records
+            ]
+        }
+        
+        return JsonResponse(data)
+        
+    except Transaction.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Transaction not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def ajax_update_transaction(request):
+    """Update transaction details"""
+    try:
+        transaction_id = request.POST.get('transaction_id')
+        
+        if not transaction_id:
+            return JsonResponse({"success": False, "error": "Transaction ID required"}, status=400)
+        
+        # Get company
+        try:
+            company = request.user.company
+            company_id = company.id if hasattr(company, 'id') else company
+        except AttributeError:
+            return JsonResponse({"success": False, "error": "User has no associated company"}, status=403)
+        
+        # Get transaction with company isolation - use all_objects to bypass CompanyAwareManager
+        txn = Transaction.all_objects.select_related(
+            'allocation__estate__company',
+            'allocation__plot_number',
+            'company'
+        ).get(id=int(transaction_id), company_id=company_id)
+        alloc = txn.allocation
+        
+        # Update transaction fields
+        txn.transaction_date = request.POST.get('transaction_date')
+        txn.total_amount = Decimal(request.POST.get('total_amount', 0))
+        txn.payment_method = request.POST.get('payment_method', '')
+        
+        # Update installment fields if part payment
+        if alloc.payment_type == 'part':
+            first_inst = request.POST.get('first_installment')
+            second_inst = request.POST.get('second_installment')
+            third_inst = request.POST.get('third_installment')
+            
+            if first_inst:
+                alloc.first_installment = Decimal(first_inst)
+            if second_inst:
+                alloc.second_installment = Decimal(second_inst)
+            if third_inst:
+                alloc.third_installment = Decimal(third_inst)
+            
+            # Update individual payment records
+            for key, value in request.POST.items():
+                if key.startswith('payment_record_') and value:
+                    payment_id = key.replace('payment_record_', '')
+                    try:
+                        payment_record = PaymentRecord.objects.get(
+                            id=payment_id,
+                            transaction=txn
+                        )
+                        payment_record.amount_paid = Decimal(value)
+                        payment_record.save()
+                    except PaymentRecord.DoesNotExist:
+                        pass
+                    except ValueError:
+                        pass
+        
+        # Handle plot number change
+        new_plot_id = request.POST.get('plot_number_id')
+        if new_plot_id:
+            # Release current plot
+            if alloc.plot_number:
+                old_plot = alloc.plot_number
+                old_plot.status = 'available'
+                old_plot.save()
+            
+            # Assign new plot - validate it belongs to same company
+            new_plot = PlotNumber.objects.get(
+                id=new_plot_id,
+                company=alloc.estate.company,
+                status='available'
+            )
+            new_plot.status = 'sold'
+            new_plot.save()
+            
+            alloc.plot_number = new_plot
+        
+        # Save changes
+        alloc.save()
+        txn.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": "Transaction updated successfully"
+        })
+        
+    except Transaction.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Transaction not found"}, status=404)
+    except PlotNumber.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Selected plot is not available"}, status=400)
+    except ValueError as e:
+        return JsonResponse({"success": False, "error": f"Invalid number format: {str(e)}"}, status=400)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
