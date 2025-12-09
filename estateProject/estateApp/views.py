@@ -9437,7 +9437,13 @@ def ajax_get_unpaid_installments(request):
             "remaining": f"{inst.get('remaining', 0):.2f}",
         })
 
-    return JsonResponse({"installments": payload})
+    return JsonResponse({
+        "installments": payload,
+        "total_balance": float(txn.balance),
+        "allocation_id": txn.allocation.id if txn.allocation else None,
+        "is_part_payment": txn.allocation.payment_type == 'part' if txn.allocation else False,
+        "has_plot_number": bool(txn.allocation.plot_number) if txn.allocation else False
+    })
 
 
 @login_required
@@ -9617,15 +9623,105 @@ def ajax_record_payment(request):
     # Create all records at once
     PaymentRecord.objects.bulk_create(records)
     
-    # Update transaction status if fully paid
-    if txn.balance <= 0:
-        # This will be reflected in the status property next time it's accessed
-        pass
+    # Check if payment is now complete
+    payment_complete = txn.balance <= 0
+    allocation = txn.allocation
+    needs_plot_allocation = payment_complete and allocation.payment_type == 'part' and not allocation.plot_number
 
     return JsonResponse({
         "success": True,
         "reference_code": reference_code,
+        "payment_complete": payment_complete,
+        "needs_plot_allocation": needs_plot_allocation,
+        "transaction_id": txn.id,
+        "allocation_id": allocation.id if allocation else None
     })
+
+@require_http_methods(["GET"])
+def ajax_get_available_plots(request):
+    """
+    Fetch available plot numbers for a specific allocation.
+    Used when payment is complete and plot needs to be assigned.
+    """
+    allocation_id = request.GET.get('allocation_id')
+    
+    if not allocation_id:
+        return JsonResponse({"success": False, "error": "Missing allocation_id"}, status=400)
+    
+    try:
+        allocation = PlotAllocation.objects.get(pk=allocation_id)
+        company = allocation.estate.company
+        
+        # Find available plots for this estate and plot size
+        available_plots = PlotNumber.objects.filter(
+            estates__estate=allocation.estate,
+            estates__plot_size=allocation.plot_size,
+            company=company
+        ).exclude(
+            id__in=PlotAllocation.objects.filter(
+                estate=allocation.estate,
+                plot_number__isnull=False
+            ).values('plot_number_id')
+        ).order_by('number')
+        
+        plots_data = [{
+            'id': plot.id,
+            'number': plot.number
+        } for plot in available_plots]
+        
+        return JsonResponse({
+            "success": True,
+            "plots": plots_data,
+            "estate_name": allocation.estate.name,
+            "plot_size": str(allocation.plot_size)
+        })
+    except PlotAllocation.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Allocation not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+@require_POST
+@transaction.atomic
+def ajax_assign_plot_after_payment(request):
+    """
+    Assign plot number to allocation after part payment is completed.
+    This maintains transaction as 'part payment' but marks allocation as 'full' with plot number.
+    """
+    allocation_id = request.POST.get('allocation_id')
+    plot_number_id = request.POST.get('plot_number_id')
+    
+    if not all([allocation_id, plot_number_id]):
+        return JsonResponse({"success": False, "error": "Missing required fields"}, status=400)
+    
+    try:
+        allocation = PlotAllocation.objects.get(pk=allocation_id)
+        plot_number = PlotNumber.objects.get(pk=plot_number_id, company=allocation.estate.company)
+        
+        # Verify plot is still available
+        if PlotAllocation.objects.filter(estate=allocation.estate, plot_number=plot_number).exists():
+            return JsonResponse({
+                "success": False,
+                "error": f"Plot {plot_number.number} is already allocated to another client."
+            }, status=400)
+        
+        # Assign plot and change allocation status to full
+        allocation.plot_number = plot_number
+        allocation.payment_type = 'full'  # Client is now considered fully allocated
+        allocation.save()
+        
+        return JsonResponse({
+            "success": True,
+            "plot_number": plot_number.number,
+            "message": f"Plot {plot_number.number} successfully allocated to {allocation.client.full_name}"
+        })
+    except PlotAllocation.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Allocation not found"}, status=404)
+    except PlotNumber.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Plot number not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
 
 def payment_receipt(request, reference_code):
     # For full payments
@@ -12196,6 +12292,121 @@ def property_price_add(request):
     })
 
 
+@require_POST
+@login_required
+def property_price_bulk_presale(request):
+    """
+    Handle bulk presale price setting for multiple plot sizes at once.
+    Expects JSON payload with:
+    - estate_id: ID of the estate
+    - effective: Effective date for all presale prices
+    - notes: Optional notes
+    - notify: Boolean for notification
+    - presales: Array of {plot_unit_id, presale} objects
+    """
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    try:
+        payload = json.loads(request.body)
+        estate_id = payload["estate_id"]
+        effective = payload["effective"]
+        notes = payload.get("notes", "")
+        notify = payload.get("notify", True)
+        presales = payload.get("presales", [])
+        
+        if not presales:
+            return HttpResponseBadRequest("No presale prices provided")
+        
+        # Company isolation - ensure estate belongs to user's company
+        estate = Estate.objects.get(pk=estate_id, company=user_company)
+
+    except (KeyError, Estate.DoesNotExist, ValueError, json.JSONDecodeError) as e:
+        return HttpResponseBadRequest(f"Invalid payload: {str(e)}")
+
+    saved_count = 0
+    created_count = 0
+    updated_count = 0
+    errors = []
+    
+    with transaction.atomic():
+        for item in presales:
+            try:
+                plot_unit_id = item["plot_unit_id"]
+                presale_value = Decimal(str(item["presale"]))
+                
+                # Company isolation - ensure plot unit belongs to user's company
+                unit = PlotSizeUnits.objects.get(
+                    pk=plot_unit_id, 
+                    estate_plot__estate__company=user_company
+                )
+                
+                # Check if this is an update or new entry
+                existing = PropertyPrice.objects.filter(
+                    estate=estate,
+                    plot_unit=unit
+                ).first()
+                
+                if existing:
+                    # Update existing - only update presale if it changed
+                    if existing.presale != presale_value:
+                        existing.presale = presale_value
+                        existing.effective = effective
+                        existing.notes = notes
+                        existing.save()
+                        
+                        PriceHistory.objects.create(
+                            price=existing,
+                            presale=presale_value,
+                            previous=existing.previous,
+                            current=existing.current,
+                            effective=effective,
+                            notes=f"Presale updated: {notes}" if notes else "Presale price updated"
+                        )
+                        updated_count += 1
+                else:
+                    # Create new PropertyPrice
+                    obj = PropertyPrice.objects.create(
+                        estate=estate,
+                        plot_unit=unit,
+                        presale=presale_value,
+                        previous=presale_value,
+                        current=presale_value,
+                        effective=effective,
+                        notes=notes
+                    )
+                    
+                    PriceHistory.objects.create(
+                        price=obj,
+                        presale=presale_value,
+                        previous=presale_value,
+                        current=presale_value,
+                        effective=effective,
+                        notes=notes or "Initial presale price set"
+                    )
+                    created_count += 1
+                
+                saved_count += 1
+                
+            except (KeyError, PlotSizeUnits.DoesNotExist, ValueError) as e:
+                errors.append(f"Plot {plot_unit_id}: {str(e)}")
+                continue
+
+    response_data = {
+        "status": "ok",
+        "saved_count": saved_count,
+        "created_count": created_count,
+        "updated_count": updated_count,
+    }
+    
+    if errors:
+        response_data["errors"] = errors
+    
+    return JsonResponse(response_data)
+
+
 def send_single_price_update_notification(estate, plot_size, presale_price, previous_price, new_price, effective_date, notes):
     """
     Send notification to clients and marketers about a single property price update.
@@ -12438,6 +12649,11 @@ def property_price_edit(request, pk):
 @login_required
 @require_POST
 def property_price_save(request):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     estate_id = request.POST.get('estate')
     plot_unit_id = request.POST.get('plot_unit')
     presale = request.POST.get('presale')
@@ -12446,8 +12662,9 @@ def property_price_save(request):
     effective = request.POST.get('effective')
     notes = request.POST.get('notes', '')
 
-    estate = get_object_or_404(Estate, id=estate_id)
-    unit = get_object_or_404(PlotSizeUnits, id=plot_unit_id)
+    # Company isolation - ensure estate and unit belong to user's company
+    estate = get_object_or_404(Estate, id=estate_id, company=user_company)
+    unit = get_object_or_404(PlotSizeUnits, id=plot_unit_id, estate_plot__estate__company=user_company)
     created = False
 
     try:
@@ -12483,16 +12700,24 @@ def property_price_save(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
+@login_required
 def property_row_html(request, row_key):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     estate_id, unit_id = row_key.split('-')
     today = date.today()
     
     try:
+        # Company isolation - ensure property price belongs to user's company
         pp = PropertyPrice.objects.select_related(
             'estate', 'plot_unit__plot_size'
         ).get(
             estate_id=estate_id, 
-            plot_unit_id=unit_id
+            plot_unit_id=unit_id,
+            estate__company=user_company
         )
         
         # Check for active promo

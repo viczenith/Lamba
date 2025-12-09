@@ -286,6 +286,8 @@ urlpatterns = [
     #PAYMENT RECORD
     path('ajax/unpaid-installments/', ajax_get_unpaid_installments, name='ajax_get_unpaid_installments'),
     path('ajax/record-payment/', ajax_record_payment, name='ajax_record_payment'),
+    path('ajax/get-available-plots/', ajax_get_available_plots, name='ajax_get_available_plots'),
+    path('ajax/assign-plot-after-payment/', ajax_assign_plot_after_payment, name='ajax_assign_plot_after_payment'),
 
     path('receipt/<int:transaction_id>/', generate_receipt_pdf, name='generate-receipt-pdf'),
     path('payment-history/', ajax_payment_history, name='ajax_payment_history'),
@@ -317,6 +319,7 @@ urlpatterns = [
     path("api/estate/<int:estate_id>/plot-sizes/", estate_plot_sizes, name="estate-plot-sizes"),
     path("api/estate/<int:estate_id>/bulk-price-data/", estate_bulk_price_data, name="estate-bulk-price-data"),
     path("api/property-price/add/", property_price_add, name="property-price-add"),
+    path("api/property-price/bulk-presale/", property_price_bulk_presale, name="property-price-bulk-presale"),
     path("api/property-price/bulk-update/", property_price_bulk_update, name="property-price-bulk-update"),
     path("api/property-price/<int:pk>/edit/", property_price_edit, name="property-price-edit"),
     path("api/property-price/<int:pk>/history/", property_price_history, name="property-price-history"),

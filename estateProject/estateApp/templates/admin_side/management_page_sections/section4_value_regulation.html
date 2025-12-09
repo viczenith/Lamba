@@ -88,7 +88,7 @@
         gap: 6px;
     }
     #prmValueModal .form-label-modern i {
-        color: #667eea;
+        color: #0d6efd;
         font-size: 1rem;
     }
     #prmValueModal .form-control-modern,
@@ -102,13 +102,112 @@
     }
     #prmValueModal .form-control-modern:focus,
     #prmValueModal .form-select-modern:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.15);
         outline: none;
     }
     #prmValueModal .form-control-modern:hover,
     #prmValueModal .form-select-modern:hover {
-        border-color: #667eea;
+        border-color: #0d6efd;
+    }
+    /* Error state for form fields */
+    #prmValueModal .form-control-modern.is-invalid,
+    #prmValueModal .form-select-modern.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
+    }
+    #prmValueModal .field-error {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 0.35rem;
+        display: none;
+        align-items: center;
+        gap: 4px;
+        animation: shakeError 0.4s ease;
+    }
+    #prmValueModal .field-error.show {
+        display: flex;
+    }
+    @keyframes shakeError {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-5px); }
+        40%, 80% { transform: translateX(5px); }
+    }
+    /* Error banner styling */
+    #prmValueModal .error-banner {
+        background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+        border: 1px solid #fc8181;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        animation: fadeInDown 0.3s ease;
+    }
+    #prmValueModal .error-banner i {
+        color: #e53e3e;
+        font-size: 1.25rem;
+    }
+    #prmValueModal .error-banner span {
+        color: #c53030;
+        font-weight: 500;
+    }
+    #prmValueModal .form-error-banner {
+        background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+        border: 1px solid #fc8181;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        animation: fadeInDown 0.3s ease;
+    }
+    #prmValueModal .form-error-banner.show {
+        display: flex;
+    }
+    #prmValueModal .form-error-banner i {
+        color: #e53e3e;
+        font-size: 1.25rem;
+    }
+    #prmValueModal .form-error-banner span {
+        color: #c53030;
+        font-weight: 500;
+    }
+    /* Edit Modal error banner */
+    #prmEditModal .error-banner {
+        background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+        border: 1px solid #fc8181;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        animation: fadeInDown 0.3s ease;
+    }
+    #prmEditModal .error-banner i {
+        color: #e53e3e;
+        font-size: 1.25rem;
+    }
+    #prmEditModal .error-banner span {
+        color: #c53030;
+        font-weight: 500;
+    }
+    #prmEditModal .field-error {
+        border-color: #e53e3e !important;
+        box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15) !important;
+    }
+    #prmEditModal .error-message {
+        color: #e53e3e;
+        font-size: 0.85rem;
+        margin-top: 0.35rem;
+        display: none;
+    }
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     #prmValueModal .input-group-modern {
         position: relative;
@@ -308,7 +407,6 @@
         min-width: 150px;
         max-width: 220px;
         line-height: 1.3;
-        /* box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); */
         transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     }
     .badge-gradient-prm:hover {
@@ -325,71 +423,873 @@
         font-weight: 600;
     }
 
-    /* Bulk Update Modal Styles */
-    #prmBulkUpdateModal .modal-xl {
-        max-width: 1200px;
+    /* ============================================
+       PROMOTIONAL OFFER MODAL STYLES
+       ============================================ */
+    #prmPromoModal .modal-content {
+        border: none;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    #prmPromoModal .modal-header {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        border: none;
+        padding: 1.5rem 2rem;
+        position: relative;
+    }
+    #prmPromoModal .modal-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #fff3cd, #ffc107, #fff3cd);
+        background-size: 200% 100%;
+        animation: shimmerGold 2s linear infinite;
+    }
+    @keyframes shimmerGold {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    #prmPromoModal .modal-title {
+        font-weight: 700;
+        font-size: 1.4rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    #prmPromoModal .modal-title i {
+        font-size: 1.5rem;
+    }
+    #prmPromoModal .modal-body {
+        padding: 2rem;
+        background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+    }
+    #prmPromoModal .form-label-promo {
+        font-weight: 600;
+        color: #4a4a4a;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+    #prmPromoModal .form-label-promo i {
+        color: #e67e22;
+        font-size: 1rem;
+    }
+    #prmPromoModal .form-control-promo {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+    #prmPromoModal .form-control-promo:focus {
+        border-color: #f39c12;
+        box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.15);
+        outline: none;
+    }
+    #prmPromoModal .form-control-promo.field-error {
+        border-color: #dc3545;
+        background-color: #fff8f8;
+    }
+    #prmPromoModal .form-select-promo {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: #fff;
+        min-height: 120px;
+    }
+    #prmPromoModal .form-select-promo:focus {
+        border-color: #f39c12;
+        box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.15);
+        outline: none;
+    }
+    #prmPromoModal .form-select-promo.field-error {
+        border-color: #dc3545;
+    }
+    #prmPromoModal .discount-input-wrapper {
+        position: relative;
+    }
+    #prmPromoModal .discount-suffix {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #e67e22;
+    }
+    #prmPromoModal .discount-preview {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+        text-align: center;
+        border: 1px solid #ffc107;
+    }
+    #prmPromoModal .discount-preview .preview-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #856404;
+        margin-bottom: 0.5rem;
+    }
+    #prmPromoModal .discount-preview .preview-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #e67e22;
+    }
+    #prmPromoModal .date-range-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+    }
+    #prmPromoModal .date-range-card .date-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+    #prmPromoModal .date-range-card .date-icon.start {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: #fff;
+    }
+    #prmPromoModal .date-range-card .date-icon.end {
+        background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        color: #fff;
+    }
+    #prmPromoModal .modal-footer {
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        padding: 1.25rem 2rem;
+        gap: 12px;
+    }
+    #prmPromoModal .btn-cancel-promo {
+        background: #fff;
+        border: 2px solid #dee2e6;
+        color: #6c757d;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    #prmPromoModal .btn-cancel-promo:hover {
+        background: #e8eaed;
+        transform: translateY(-2px);
+    }
+    #prmPromoModal .btn-save-promo {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        border: none;
+        color: #fff;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+    }
+    #prmPromoModal .btn-save-promo:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(243, 156, 18, 0.5);
+    }
+    #prmPromoModal .btn-save-promo:disabled {
+        background: #ccc;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+    #prmPromoModal .error-banner-promo {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border: 1px solid #f5c6cb;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        color: #721c24;
+        font-weight: 500;
+    }
+    #prmPromoModal .error-banner-promo i {
+        font-size: 1.25rem;
+        margin-right: 10px;
+    }
+    #prmPromoModal .error-message-promo {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    #prmPromoModal .estates-help {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    #prmPromoModal .section-divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e9ecef, transparent);
+        margin: 1.5rem 0;
+    }
+
+    /* ============================================
+       PRESALE MODAL TABLE STYLES (Bulk Entry)
+       ============================================ */
+    #prmValueModal .modal-dialog {
+        max-width: 900px;
+    }
+    
+    /* Estate Info Card for Presale Modal */
+    .estate-info-card-presale {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(118, 75, 162, 0.2);
+    }
+    .estate-info-card-presale .estate-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #4a148c;
+        margin-bottom: 0.25rem;
+    }
+    .estate-info-card-presale .estate-location {
+        color: #7b1fa2;
+        font-size: 0.9rem;
+    }
+    .plot-count-presale {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* Table Container for Presale */
+    .table-container-presale {
+        background: #fff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(102, 126, 234, 0.15);
+        margin-bottom: 1.5rem;
+    }
+    .table-container-presale table {
+        margin: 0;
+    }
+    .table-container-presale thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .table-container-presale thead th {
+        color: #fff !important;
+        font-weight: 600;
+        padding: 1rem 0.75rem;
+        border: none;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .table-container-presale tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    .table-container-presale tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+    }
+    .table-container-presale tbody td {
+        padding: 1rem 0.75rem;
+        vertical-align: middle;
+    }
+    
+    /* Presale Price Input */
+    .presale-price-input {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        text-align: right;
+    }
+    .presale-price-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+    .presale-price-input:disabled {
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+    }
+    .presale-price-input.has-change {
+        border-color: #667eea;
+        background-color: #f3e5f5;
+    }
+    
+    /* Status Badge for Presale */
+    .status-badge-presale {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-badge-presale.available {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+    }
+    .status-badge-presale.sold-out {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        color: #721c24;
+    }
+    .status-badge-presale.has-presale {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: #2e7d32;
+    }
+    .status-badge-presale.no-presale {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        color: #e65100;
+    }
+    
+    /* Summary Section for Presale */
+    .summary-section-presale {
+        background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e0e0e0;
+    }
+    .section-title-presale {
+        font-weight: 700;
+        color: #4a148c;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+    }
+    .section-title-presale i {
+        margin-right: 8px;
+        color: #667eea;
+    }
+    .summary-card-presale {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        transition: all 0.2s ease;
+    }
+    .summary-card-presale:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .summary-card-presale .label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    .summary-card-presale .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .summary-card-presale.primary .value {
+        color: #667eea;
+    }
+    .summary-card-presale.success .value {
+        color: #28a745;
+    }
+    .summary-card-presale.info .value {
+        color: #17a2b8;
+    }
+    
+    /* Notes Section for Presale */
+    .notes-section-presale {
+        margin-bottom: 1.25rem;
+    }
+    .notes-textarea-presale {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        resize: none;
+        transition: all 0.2s ease;
+    }
+    .notes-textarea-presale:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+    
+    /* Notify Toggle for Presale */
+    .notify-toggle-presale {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 0.5rem;
+    }
+    .notify-toggle-presale:hover {
+        background: linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%);
+    }
+    .notify-toggle-presale .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+    .notify-toggle-presale .notify-toggle-text {
+        font-weight: 500;
+        color: #7b1fa2;
+    }
+    .notify-toggle-presale .notify-toggle-text i {
+        margin-right: 8px;
+    }
+    
+    /* Loading State */
+    .table-container-presale .loading-row td {
+        padding: 2rem;
+    }
+    .table-container-presale .loading-spinner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: #667eea;
+    }
+    
+    /* Presale button disabled state */
+    #prmValueModal .btn-save-modern:disabled {
+        background: #ccc;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* ============================================
+       MODERN BULK UPDATE MODAL STYLES
+       ============================================ */
+    #prmBulkUpdateModal .modal-content {
+        border: none;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    #prmBulkUpdateModal .modal-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        padding: 1.5rem 2rem;
+        position: relative;
+    }
+    #prmBulkUpdateModal .modal-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+        background-size: 200% 100%;
+        animation: shimmerPurple 2s linear infinite;
+    }
+    @keyframes shimmerPurple {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    #prmBulkUpdateModal .modal-title {
+        font-weight: 700;
+        font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #fff;
+    }
+    #prmBulkUpdateModal .modal-title::before {
+        content: '\F4CB';
+        font-family: 'bootstrap-icons';
+        font-size: 1.5rem;
+        background: rgba(255,255,255,0.2);
+        padding: 8px;
+        border-radius: 10px;
+    }
+    #prmBulkUpdateModal .modal-body {
+        padding: 2rem;
+        background: linear-gradient(180deg, #f8fff8 0%, #ffffff 100%);
+    }
+    #prmBulkUpdateModal .modal-footer {
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        padding: 1.25rem 2rem;
+    }
+    
+    /* Error Banner */
+    #prmBulkUpdateModal .error-banner {
+        background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+        border: 1px solid #fc8181;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        animation: fadeInDown 0.3s ease;
+    }
+    #prmBulkUpdateModal .error-banner i {
+        color: #e53e3e;
+        font-size: 1.25rem;
+    }
+    #prmBulkUpdateModal .error-banner span {
+        color: #c53030;
+        font-weight: 500;
+    }
+    
+    /* Form Controls */
+    #prmBulkUpdateModal .form-label-modern {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    #prmBulkUpdateModal .form-label-modern i {
+        color: #28a745;
+    }
+    #prmBulkUpdateModal .form-select-modern,
+    #prmBulkUpdateModal .form-control-modern {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #fff;
+    }
+    #prmBulkUpdateModal .form-select-modern:focus,
+    #prmBulkUpdateModal .form-control-modern:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.15);
+        outline: none;
+    }
+    #prmBulkUpdateModal .field-error {
+        border-color: #e53e3e !important;
+        box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15) !important;
+    }
+    #prmBulkUpdateModal .error-message {
+        color: #e53e3e;
+        font-size: 0.85rem;
+        margin-top: 0.35rem;
+        display: none;
+    }
+    
+    /* Estate Info Card */
+    #prmBulkUpdateModal .estate-info-card {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border: none;
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.15);
+    }
+    #prmBulkUpdateModal .estate-info-card .estate-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1b5e20;
+    }
+    #prmBulkUpdateModal .estate-info-card .estate-location {
+        color: #2e7d32;
+        font-size: 0.9rem;
+    }
+    #prmBulkUpdateModal .estate-info-card .plot-count {
+        background: #fff;
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    /* Modern Table Styling */
+    #prmBulkUpdateModal .table-container {
+        border: 1px solid #e0e0e0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+    #prmBulkUpdateModal .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+        border: none;
+    }
+    #prmBulkUpdateModal .table {
+        margin-bottom: 0;
     }
     #prmBulkUpdateModal .table thead {
         position: sticky;
         top: 0;
         z-index: 10;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    #prmBulkUpdateModal .table thead th {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 1rem 0.75rem;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    #prmBulkUpdateModal .table thead th:first-child {
+        border-radius: 0;
+    }
+    #prmBulkUpdateModal .table thead th:last-child {
+        border-radius: 0;
+    }
+    #prmBulkUpdateModal .table tbody tr {
+        transition: all 0.2s ease;
+    }
+    #prmBulkUpdateModal .table tbody tr:hover {
+        background: #f8fff8;
+    }
+    #prmBulkUpdateModal .table tbody td {
+        padding: 1rem 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    /* Checkbox Styling */
+    #prmBulkUpdateModal .bulk-plot-checkbox,
+    #prmBulkUpdateModal #bulkSelectAll {
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+        accent-color: #28a745;
+    }
+    
+    /* Price Input */
     #prmBulkUpdateModal .bulk-new-price {
         font-weight: 600;
         border: 2px solid #e9ecef;
-        transition: all 0.2s;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+        transition: all 0.3s ease;
+        width: 100%;
     }
     #prmBulkUpdateModal .bulk-new-price:focus {
         border-color: #28a745;
-        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+        outline: none;
     }
-    #prmBulkUpdateModal .table-responsive {
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-    }
-    #prmBulkUpdateModal .bulk-plot-checkbox {
-        cursor: pointer;
-        width: 18px;
-        height: 18px;
-    }
-    #bulkSelectAll {
-        cursor: pointer;
-        width: 18px;
-        height: 18px;
+    #prmBulkUpdateModal .bulk-new-price:disabled {
+        background: #f8f9fa;
+        cursor: not-allowed;
     }
     
-    /* Enhanced percentage display */
+    /* Percentage Badges */
     #prmBulkUpdateModal td span[class*="change-percent"],
     #prmBulkUpdateModal td span[class*="total-percent"] {
         display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
+        padding: 0.35rem 0.6rem;
+        border-radius: 8px;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         transition: all 0.3s ease;
-        min-width: 60px;
+        min-width: 65px;
         text-align: center;
+        background: #e9ecef;
+        color: #6c757d;
     }
     #prmBulkUpdateModal .increase-prm {
-        color: #ffffff !important;
-        background-color: #28a745;
+        color: #fff !important;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
         animation: pulseGreen 0.5s ease;
     }
     #prmBulkUpdateModal .decrease-prm {
-        color: #ffffff !important;
-        background-color: #dc3545;
+        color: #fff !important;
+        background: linear-gradient(135deg, #dc3545 0%, #e63757 100%) !important;
         animation: pulseRed 0.5s ease;
     }
     
     @keyframes pulseGreen {
         0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); background-color: #20c997; }
+        50% { transform: scale(1.05); }
     }
-    
     @keyframes pulseRed {
         0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); background-color: #e63757; }
+        50% { transform: scale(1.05); }
+    }
+    
+    /* Summary Cards */
+    #prmBulkUpdateModal .summary-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    #prmBulkUpdateModal .summary-section .section-title {
+        font-weight: 700;
+        color: #28a745;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    #prmBulkUpdateModal .summary-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+    }
+    #prmBulkUpdateModal .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+    #prmBulkUpdateModal .summary-card .label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    #prmBulkUpdateModal .summary-card .value {
+        font-size: 1.4rem;
+        font-weight: 700;
+    }
+    #prmBulkUpdateModal .summary-card.primary .value { color: #667eea; }
+    #prmBulkUpdateModal .summary-card.success .value { color: #28a745; }
+    #prmBulkUpdateModal .summary-card.danger .value { color: #dc3545; }
+    #prmBulkUpdateModal .summary-card.info .value { color: #17a2b8; }
+    
+    /* Notes Section */
+    #prmBulkUpdateModal .notes-section {
+        margin-top: 1.5rem;
+    }
+    #prmBulkUpdateModal .notes-textarea {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1rem;
+        resize: vertical;
+        min-height: 80px;
+        transition: all 0.3s ease;
+    }
+    #prmBulkUpdateModal .notes-textarea:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.15);
+        outline: none;
+    }
+    
+    /* Notify Toggle */
+    #prmBulkUpdateModal .notify-toggle {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: all 0.3s ease;
+    }
+    #prmBulkUpdateModal .notify-toggle:hover {
+        transform: translateX(5px);
+    }
+    #prmBulkUpdateModal .notify-toggle-text {
+        font-weight: 500;
+        color: #1565c0;
+    }
+    #prmBulkUpdateModal .notify-toggle-text i {
+        margin-right: 6px;
+    }
+    
+    /* Footer Buttons */
+    #prmBulkUpdateModal .btn-cancel-modern {
+        background: #e8eaed;
+        border: none;
+        color: #5f6368;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    #prmBulkUpdateModal .btn-cancel-modern:hover {
+        background: #dadce0;
+        transform: translateY(-2px);
+    }
+    #prmBulkUpdateModal .btn-save-modern {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: #fff;
+        padding: 0.75rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+    }
+    #prmBulkUpdateModal .btn-save-modern:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5);
+    }
+    #prmBulkUpdateModal .btn-save-modern:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    /* Status Badges */
+    #prmBulkUpdateModal .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    #prmBulkUpdateModal .status-badge.available {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+    }
+    #prmBulkUpdateModal .status-badge.sold-out {
+        background: linear-gradient(135deg, #e2e3e5 0%, #d6d8db 100%);
+        color: #6c757d;
+    }
+    
+    /* Loading State */
+    #prmBulkUpdateModal .loading-row td {
+        text-align: center;
+        padding: 3rem !important;
+    }
+    #prmBulkUpdateModal .loading-spinner {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: #28a745;
+    }
+    
+    /* Warning Text */
+    #prmBulkUpdateModal .warning-text {
+        color: #856404;
+        background: #fff3cd;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 0.35rem;
     }
 
 
@@ -422,7 +1322,7 @@
                     <i class="bi bi-plus-circle"></i> Set Presale Prize Only
                 </button>
                 <button id="prmBulkUpdateBtn" class="btn btn-success btn-sm me-1">
-                    <i class="bi bi-pencil-square"></i> Bulk Price Update
+                    <i class="bi bi-pencil-square"></i> Price Update
                 </button>
                 <button id="prmCreatePromoBtn" class="btn btn-promo-prm btn-sm me-1">
                     <i class="bi bi-tag"></i> Create Promo
@@ -492,9 +1392,6 @@
                             </td>
 
                             <!-- Previous -->
-                            <!-- <td class="text-end">
-                                {% if row.previous %}{{ row.previous|intcomma }}{% endif %}
-                            </td> -->
                             <td class="text-end">
                                 {% if row.effective|stringformat:"s" > today %}
                                     {{ row.presale|intcomma }}
@@ -559,10 +1456,6 @@
                             <!-- Actions -->
                             <td>
                                 {% if row.id %}
-                                <button class="btn btn-sm btn-outline-primary action-btn-prm"
-                                        data-action="edit" data-id="{{ row.id }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
                                 <button class="btn btn-sm btn-outline-secondary action-btn-prm"
                                         data-action="history" data-id="{{ row.id }}">
                                     <i class="bi bi-clock-history"></i>
@@ -594,88 +1487,128 @@
     </div>
 </div>
 
-<!-- PRESALE MODAL -->
+<!-- PRESALE MODAL (Redesigned - Bulk Style) -->
 <div class="modal fade modal-prm" id="prmValueModal" tabindex="-1" aria-labelledby="prmValueModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="prmValueModalLabel">Set Presale Price</h5>
+                <h5 class="modal-title text-light" id="prmValueModalLabel">Set Presale Prices</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Error Banner -->
+                <div id="prmErrorBanner" class="error-banner" style="display: none;">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <span id="prmErrorMessage">Please fill all required fields</span>
+                </div>
+                
                 <form id="prmRegForm">
                     <input type="hidden" id="prmPropertyId">
                     
-                    <!-- Row 1: Estate & Plot Size -->
-                    <div class="row mb-4 form-row-animated">
+                    <!-- Row 1: Estate & Effective Date Selection -->
+                    <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label-modern">
-                                <i class="bi bi-building"></i> Estate
+                                <i class="bi bi-building"></i> Select Estate
                             </label>
                             <select id="prmEstateSelect" class="form-select-modern w-100" required>
-                                <option value="">Select Estate</option>
+                                <option value="">Choose Estate...</option>
                                 {% for e in estates %}
-                                <option value="{{ e.id }}">{{ e.name }}</option>
+                                <option value="{{ e.id }}">{{ e.name }} - {{ e.location }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label-modern">
-                                <i class="bi bi-grid-3x3"></i> Plot Size
-                            </label>
-                            <select id="prmPlotSizeSelect" class="form-select-modern w-100" required>
-                                <option value="">Select Plot</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <!-- Row 2: Location & Effective Date -->
-                    <div class="row mb-4 form-row-animated">
-                        <div class="col-md-6">
-                            <label class="form-label-modern">
-                                <i class="bi bi-geo-alt"></i> Location
-                            </label>
-                            <input id="prmLocation" type="text" class="form-control-modern" readonly required placeholder="Auto-filled from estate">
+                            <div class="error-message" id="prmEstateError"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label-modern">
                                 <i class="bi bi-calendar-event"></i> Effective Date
                             </label>
                             <input id="prmEffectiveDate" type="date" class="form-control-modern" required>
+                            <div class="error-message" id="prmDateError"></div>
                         </div>
                     </div>
-                    
-                    <!-- Row 3: Presale Price (Featured) -->
-                    <div class="mb-4 form-row-animated">
-                        <label class="form-label-modern">
-                            <i class="bi bi-currency-exchange"></i> Presale Price
-                        </label>
-                        <div class="price-input-wrapper">
-                            <div class="input-group-modern">
-                                <span class="currency-prefix">₦</span>
-                                <input id="prmPresalePrice" type="text" class="form-control-modern" 
-                                       placeholder="0" required autocomplete="off"
-                                       style="font-size: 1.25rem; font-weight: 600;">
+
+                    <!-- Estate Info Card -->
+                    <div id="presaleEstateInfo" class="estate-info-card-presale d-none">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="estate-name" id="presaleEstateNameDisplay"></div>
+                                <div class="estate-location" id="presaleEstateLocationDisplay">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>
+                                    <span id="presaleEstateLocationText"></span>
+                                </div>
                             </div>
-                            <div id="prmPriceDisplay" class="price-display">₦0</div>
+                            <div class="plot-count-presale">
+                                <i class="bi bi-grid-3x3-gap me-1"></i>
+                                <span id="presaleTotalPlots">0</span> Plot Sizes
+                            </div>
                         </div>
                     </div>
-                    
-                    <!-- Row 4: Notes -->
-                    <div class="mb-4 form-row-animated">
-                        <label class="form-label-modern">
-                            <i class="bi bi-journal-text"></i> Notes <span class="text-muted fw-normal">(optional)</span>
-                        </label>
-                        <textarea id="prmNotes" class="form-control-modern" rows="3" 
-                                  placeholder="Add any relevant notes about this presale pricing..."></textarea>
-                    </div>
-                    
-                    <!-- Row 5: Notify Toggle -->
-                    <div class="form-row-animated">
-                        <label class="notify-toggle">
+
+                    <!-- Plot Sizes Presale Table -->
+                    <div id="presalePriceContainer" class="d-none">
+                        <div class="table-container-presale">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 6%;">
+                                                <input type="checkbox" id="presaleSelectAll" class="form-check-input">
+                                            </th>
+                                            <th style="width: 30%; color: black !important;">Plot Size</th>
+                                            <th style="width: 15%; color: black !important;">Status</th>
+                                            <th style="width: 22%; color: black !important;">Current Presale (₦)</th>
+                                            <th style="width: 27%; color: black !important;">New Presale Price (₦)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="presalePlotTableBody">
+                                        <!-- Plot rows will be inserted here dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Presale Summary Section -->
+                        <div class="summary-section-presale">
+                            <div class="section-title-presale">
+                                <i class="bi bi-calculator-fill"></i> Presale Summary
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4 col-6">
+                                    <div class="summary-card-presale primary">
+                                        <div class="label">Selected Plots</div>
+                                        <div class="value" id="presaleSelectedCount">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-6">
+                                    <div class="summary-card-presale success">
+                                        <div class="label">New Presales</div>
+                                        <div class="value" id="presaleNewCount">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-6">
+                                    <div class="summary-card-presale info">
+                                        <div class="label">Updates</div>
+                                        <div class="value" id="presaleUpdateCount">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes Section -->
+                        <div class="notes-section-presale">
+                            <label class="form-label-modern">
+                                <i class="bi bi-journal-text"></i> Notes <span class="text-muted fw-normal">(optional)</span>
+                            </label>
+                            <textarea id="prmNotes" class="notes-textarea-presale w-100" rows="2" 
+                                      placeholder="Add any relevant notes about these presale prices..."></textarea>
+                        </div>
+
+                        <!-- Notify Toggle -->
+                        <label class="notify-toggle-presale">
                             <input id="prmNotifyChk" class="form-check-input" type="checkbox" role="switch" checked>
                             <span class="notify-toggle-text">
-                                <i class="bi bi-bell"></i> Notify clients about this presale
+                                <i class="bi bi-bell-fill"></i> Notify clients about these presale prices
                             </span>
                         </label>
                     </div>
@@ -685,8 +1618,8 @@
                 <button class="btn-cancel-modern" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg me-1"></i> Cancel
                 </button>
-                <button id="prmSaveRegBtn" class="btn-save-modern">
-                    <i class="bi bi-check2-circle me-1"></i> Save Presale
+                <button id="prmSaveRegBtn" class="btn-save-modern" disabled>
+                    <i class="bi bi-check2-circle me-1"></i> Save Selected Presales
                 </button>
             </div>
         </div>
@@ -702,6 +1635,12 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Error Banner -->
+                <div id="prmEditErrorBanner" class="error-banner" style="display: none;">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <span id="prmEditErrorMessage">Please fill all required fields</span>
+                </div>
+                
                 <form id="prmEditForm">
                     <input type="hidden" id="prmEditPropertyId">
                     <div class="row mb-3">
@@ -722,6 +1661,7 @@
                         <div class="col">
                             <label>Effective Date</label>
                             <input id="prmEditEffectiveDate" type="date" class="form-control" required>
+                            <div class="error-message" id="prmEditDateError"></div>
                         </div>
                     </div>
                     <div class="row mb-3">
@@ -737,6 +1677,7 @@
                     <div class="mb-3">
                         <label>New Current Price (₦)</label>
                         <input id="prmEditCurrentPrice" type="number" class="form-control" min="0" required>
+                        <div class="error-message" id="prmEditCurrentError"></div>
                     </div>
                     <div class="mb-3">
                         <label>Price Change Calculation</label>
@@ -898,189 +1839,270 @@
     </div>
 </div>
 
-<!-- PROMO MODAL -->
+<!-- PROMO MODAL (Redesigned) -->
 <div class="modal fade modal-prm" id="prmPromoModal" tabindex="-1" aria-labelledby="prmPromoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-secondary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title" id="prmPromoModalLabel">
-                    {% if current_promo %}Edit Promotional Offer{% else %}Create Promotional Offer{% endif %}
+                    <i class="bi bi-tag-fill"></i>
+                    <span id="promoModalTitleText">Create Promotional Offer</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Error Banner -->
+                <div id="promoErrorBanner" class="error-banner-promo" style="display: none;">
+                    <i class="bi bi-exclamation-circle"></i>
+                    <span id="promoErrorMessage">Please fill all required fields</span>
+                </div>
+                
                 <form id="prmPromoForm">
-                    <input type="hidden" id="prmPromoId" value="{% if current_promo %}{{ current_promo.id }}{% endif %}">
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label>Promo Name</label>
-                            <input id="prmPromoName" class="form-control" required
-                                value="{% if current_promo %}{{ current_promo.name }}{% endif %}">
+                    <input type="hidden" id="prmPromoId" value="">
+                    
+                    <!-- Row 1: Promo Name & Discount -->
+                    <div class="row mb-4">
+                        <div class="col-md-7">
+                            <label class="form-label-promo">
+                                <i class="bi bi-megaphone-fill"></i> Promo Name
+                            </label>
+                            <input id="prmPromoName" class="form-control-promo w-100" 
+                                   placeholder="e.g., End of Year Sale" required>
+                            <div class="error-message-promo" id="promoNameError"></div>
                         </div>
-                        <div class="col">
-                            <label>Discount (%)</label>
-                            <input id="prmPromoDiscount" type="number" class="form-control" min="1" max="100" required
-                                value="{% if current_promo %}{{ current_promo.discount }}{% endif %}">
+                        <div class="col-md-5">
+                            <label class="form-label-promo">
+                                <i class="bi bi-percent"></i> Discount
+                            </label>
+                            <div class="discount-input-wrapper">
+                                <input id="prmPromoDiscount" type="number" class="form-control-promo w-100" 
+                                       min="1" max="100" placeholder="10" required>
+                                <span class="discount-suffix">%</span>
+                            </div>
+                            <div class="error-message-promo" id="promoDiscountError"></div>
                         </div>
                     </div>
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label>Start</label>
-                            <input id="prmPromoStart" type="date" class="form-control" required
-                                value="{% if current_promo %}{{ current_promo.start|date:'Y-m-d' }}{% endif %}">
+                    
+                    <!-- Discount Preview -->
+                    <div class="discount-preview" id="discountPreview" style="display: none;">
+                        <div class="preview-label">Customers will save</div>
+                        <div class="preview-value"><span id="discountPreviewValue">0</span>% OFF</div>
+                    </div>
+                    
+                    <div class="section-divider"></div>
+                    
+                    <!-- Row 2: Date Range -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label-promo">
+                                <i class="bi bi-calendar-check"></i> Start Date
+                            </label>
+                            <div class="date-range-card">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="date-icon start">
+                                        <i class="bi bi-play-fill"></i>
+                                    </div>
+                                    <input id="prmPromoStart" type="date" class="form-control-promo flex-grow-1" required>
+                                </div>
+                            </div>
+                            <div class="error-message-promo" id="promoStartError"></div>
                         </div>
-                        <div class="col">
-                            <label>End</label>
-                            <input id="prmPromoEnd" type="date" class="form-control" required
-                                value="{% if current_promo %}{{ current_promo.end|date:'Y-m-d' }}{% endif %}">
+                        <div class="col-md-6">
+                            <label class="form-label-promo">
+                                <i class="bi bi-calendar-x"></i> End Date
+                            </label>
+                            <div class="date-range-card">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="date-icon end">
+                                        <i class="bi bi-stop-fill"></i>
+                                    </div>
+                                    <input id="prmPromoEnd" type="date" class="form-control-promo flex-grow-1" required>
+                                </div>
+                            </div>
+                            <div class="error-message-promo" id="promoEndError"></div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label>Applicable Estates</label>
-                        <select id="prmPromoEstates" class="form-select" multiple required>
+                    
+                    <div class="section-divider"></div>
+                    
+                    <!-- Row 3: Applicable Estates -->
+                    <div class="mb-4">
+                        <label class="form-label-promo">
+                            <i class="bi bi-buildings"></i> Applicable Estates
+                        </label>
+                        <select id="prmPromoEstates" class="form-select-promo w-100" multiple required>
                             {% for estate in estates %}
-                                <option value="{{ estate.id }}"
-                                    {% if current_promo and estate in current_promo.estates.all %}selected{% endif %}>
-                                    {{ estate.name }}
-                                </option>
+                            <option value="{{ estate.id }}">{{ estate.name }} - {{ estate.location }}</option>
                             {% endfor %}
                         </select>
+                        <div class="estates-help">
+                            <i class="bi bi-info-circle me-1"></i>Hold Ctrl (Cmd on Mac) to select multiple estates
+                        </div>
+                        <div class="error-message-promo" id="promoEstatesError"></div>
                     </div>
-                    <div>
-                        <label>Description</label>
-                        <textarea id="prmPromoDesc" class="form-control" rows="3">{% if current_promo %}{{ current_promo.description }}{% endif %}</textarea>
+                    
+                    <!-- Row 4: Description -->
+                    <div class="mb-3">
+                        <label class="form-label-promo">
+                            <i class="bi bi-card-text"></i> Description <span class="text-muted fw-normal">(optional but necessary)</span>
+                        </label>
+                        <textarea id="prmPromoDesc" class="form-control-promo w-100" rows="3" 
+                                  placeholder="Describe the promotional offer..."></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button id="prmSavePromoBtn" class="btn btn-promo-prm">
-                    {% if current_promo %}Update Promo{% else %}Create Promo{% endif %}
+                <button class="btn-cancel-promo" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Cancel
+                </button>
+                <button id="prmSavePromoBtn" class="btn-save-promo">
+                    <i class="bi bi-check2-circle me-1"></i> <span id="promoSaveBtnText">Create Promo</span>
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- BULK PRICE UPDATE MODAL -->
+<!-- PRICE UPDATE MODAL -->
 <div class="modal fade modal-prm" id="prmBulkUpdateModal" tabindex="-1" aria-labelledby="prmBulkUpdateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="prmBulkUpdateModalLabel">Bulk Price Update Review</h5>
+            <div class="modal-header">
+                <h5 class="modal-title" id="prmBulkUpdateModalLabel">Price Update</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Error Banner -->
+                <div id="bulkErrorBanner" class="error-banner" style="display: none;">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <span id="bulkErrorMessage">Please fill all required fields</span>
+                </div>
+                
                 <form id="prmBulkUpdateForm">
-                    <!-- Estate Selection -->
+                    <!-- Row 1: Estate & Effective Date Selection -->
                     <div class="row mb-4">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Select Estate</label>
-                            <select id="prmBulkEstateSelect" class="form-select" required>
+                            <label class="form-label-modern">
+                                <i class="bi bi-building"></i> Select Estate
+                            </label>
+                            <select id="prmBulkEstateSelect" class="form-select-modern w-100" required>
                                 <option value="">Choose Estate...</option>
                                 {% for estate in estates %}
                                 <option value="{{ estate.id }}">{{ estate.name }} - {{ estate.location }}</option>
                                 {% endfor %}
                             </select>
+                            <div class="error-message" id="bulkEstateError"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Effective Date</label>
-                            <input id="prmBulkEffectiveDate" type="date" class="form-control" required>
+                            <label class="form-label-modern">
+                                <i class="bi bi-calendar-event"></i> Effective Date
+                            </label>
+                            <input id="prmBulkEffectiveDate" type="date" class="form-control-modern" required>
+                            <div class="error-message" id="bulkDateError"></div>
                         </div>
                     </div>
 
-                    <!-- Estate Info Display -->
-                    <div id="bulkEstateInfo" class="alert alert-info d-none mb-4">
+                    <!-- Estate Info Card -->
+                    <div id="bulkEstateInfo" class="estate-info-card d-none">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong id="bulkEstateNameDisplay"></strong>
-                                <div class="text-muted small" id="bulkEstateLocationDisplay"></div>
+                                <div class="estate-name" id="bulkEstateNameDisplay"></div>
+                                <div class="estate-location" id="bulkEstateLocationDisplay">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>
+                                    <span id="bulkEstateLocationText"></span>
+                                </div>
                             </div>
-                            <div class="text-end">
-                                <small class="text-muted">Total Plots: <span id="bulkTotalPlots" class="fw-bold">0</span></small>
+                            <div class="plot-count">
+                                <i class="bi bi-grid-3x3-gap me-1"></i>
+                                <span id="bulkTotalPlots">0</span> Plot Sizes
                             </div>
                         </div>
                     </div>
 
                     <!-- Plot Sizes Price Update Table -->
                     <div id="bulkPriceContainer" class="d-none">
-                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-hover table-bordered">
-                                <thead class="sticky-top bg-light">
-                                    <tr>
-                                        <th style="width: 5%;">
-                                            <input type="checkbox" id="bulkSelectAll" class="form-check-input">
-                                        </th>
-                                        <th style="width: 15%;">Plot Size</th>
-                                        <th style="width: 10%;">Status</th>
-                                        <th style="width: 15%;">Presale (₦)</th>
-                                        <th style="width: 15%;">Previous (₦)</th>
-                                        <th style="width: 20%;">New Current (₦)</th>
-                                        <th style="width: 10%;">% Change</th>
-                                        <th style="width: 10%;">Total %</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="bulkPlotTableBody">
-                                    <!-- Plot rows will be inserted here dynamically -->
-                                </tbody>
-                            </table>
+                        <div class="table-container">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 5%;">
+                                                <input type="checkbox" id="bulkSelectAll" class="form-check-input">
+                                            </th>
+                                            <th style="width: 18%;">Plot Size</th>
+                                            <th style="width: 10%;">Status</th>
+                                            <th style="width: 14%;">Presale (₦)</th>
+                                            <th style="width: 14%;">Previous (₦)</th>
+                                            <th style="width: 17%;">New Price (₦)</th>
+                                            <th style="width: 11%;">% Change</th>
+                                            <th style="width: 11%;">Total %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bulkPlotTableBody">
+                                        <!-- Plot rows will be inserted here dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
-                        <!-- Price Change Calculator Summary -->
-                        <div class="card mt-4 bg-light">
-                            <div class="card-header bg-success text-white">
-                                <h6 class="mb-0"><i class="bi bi-calculator"></i> Price Change Summary</h6>
+                        <!-- Price Change Summary Section -->
+                        <div class="summary-section">
+                            <div class="section-title">
+                                <i class="bi bi-calculator-fill"></i> Price Change Summary
                             </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="text-center p-3 bg-white rounded shadow-sm">
-                                            <small class="text-muted d-block">Selected Plots</small>
-                                            <h5 id="bulkSelectedCount" class="mb-0 text-primary">0</h5>
-                                        </div>
+                            <div class="row g-3">
+                                <div class="col-md-3 col-6">
+                                    <div class="summary-card primary">
+                                        <div class="label">Selected Plots</div>
+                                        <div class="value" id="bulkSelectedCount">0</div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="text-center p-3 bg-white rounded shadow-sm">
-                                            <small class="text-muted d-block">Avg % Change</small>
-                                            <h5 id="bulkAvgChange" class="mb-0">0%</h5>
-                                        </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="summary-card info">
+                                        <div class="label">Avg % Change</div>
+                                        <div class="value" id="bulkAvgChange">0%</div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="text-center p-3 bg-white rounded shadow-sm">
-                                            <small class="text-muted d-block">Total Increase</small>
-                                            <h5 id="bulkTotalIncrease" class="mb-0 text-success">₦0</h5>
-                                        </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="summary-card success">
+                                        <div class="label">Total Increase</div>
+                                        <div class="value" id="bulkTotalIncrease">₦0</div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="text-center p-3 bg-white rounded shadow-sm">
-                                            <small class="text-muted d-block">Total Decrease</small>
-                                            <h5 id="bulkTotalDecrease" class="mb-0 text-danger">₦0</h5>
-                                        </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="summary-card danger">
+                                        <div class="label">Total Decrease</div>
+                                        <div class="value" id="bulkTotalDecrease">₦0</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Notes Section -->
-                        <div class="mb-3 mt-4">
-                            <label class="form-label fw-bold">Notes</label>
-                            <textarea id="prmBulkNotes" class="form-control" rows="3" placeholder="Add notes about these price changes..."></textarea>
+                        <div class="notes-section">
+                            <label class="form-label-modern">
+                                <i class="bi bi-journal-text"></i> Notes <span class="text-muted fw-normal">(optional)</span>
+                            </label>
+                            <textarea id="prmBulkNotes" class="notes-textarea w-100" rows="2" 
+                                      placeholder="Add any relevant notes about these price changes..."></textarea>
                         </div>
 
-                        <!-- Notify Checkbox -->
-                        <div class="form-check">
-                            <input id="prmBulkNotifyChk" class="form-check-input" type="checkbox" checked>
-                            <label class="form-check-label fw-bold" for="prmBulkNotifyChk">
-                                Notify clients & marketers about these price changes
-                            </label>
-                        </div>
+                        <!-- Notify Toggle -->
+                        <label class="notify-toggle">
+                            <input id="prmBulkNotifyChk" class="form-check-input" type="checkbox" role="switch" checked>
+                            <span class="notify-toggle-text">
+                                <i class="bi bi-bell-fill"></i> Notify clients & marketers about these changes
+                            </span>
+                        </label>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button id="prmSaveBulkBtn" class="btn btn-success" disabled>
-                    <i class="bi bi-check-circle"></i> Update Selected Prices
+                <button class="btn-cancel-modern" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Cancel
+                </button>
+                <button id="prmSaveBulkBtn" class="btn-save-modern" disabled>
+                    <i class="bi bi-check2-circle me-1"></i> Update Selected Prices
                 </button>
             </div>
         </div>
@@ -1108,6 +2130,7 @@
               <option value="marketer_update">Marketers</option>
               <option value="general_notification">General</option>
             </select>
+            <small class="text-muted">Selecting a type will auto-fill a demo message</small>
           </div>
           <div class="mb-3">
             <label for="prmNotifySubject" class="form-label">Subject</label>
@@ -1124,18 +2147,20 @@
                 <option value="{{ e.id }}">{{ e.name }}</option>
               {% endfor %}
             </select>
+            <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
           </div>
-          <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" id="prmNotifyEmail" checked>
-            <label class="form-check-label" for="prmNotifyEmail">Send via Email</label>
-          </div>
-          <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" id="prmNotifySMS">
-            <label class="form-check-label" for="prmNotifySMS">Send via SMS</label>
-          </div>
-          <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" id="prmNotifyInApp" checked>
-            <label class="form-check-label" for="prmNotifyInApp">Send via In-App</label>
+          <div class="mb-3">
+            <label class="form-label">Delivery Channels</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="prmNotifyEmail" checked>
+                <label class="form-check-label" for="prmNotifyEmail">Email</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="prmNotifyInApp" checked>
+                <label class="form-check-label" for="prmNotifyInApp">In-App</label>
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -1176,28 +2201,7 @@
       </div>
     </div>
   </div>
-</div>
-
-
-
-
-<!-- SUCCESS MODAL -->
-<div class="modal fade" id="successModal" tabindex="-1" role="dialog" aria-labelledby="successModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
-        <div class="modal-content border-success">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="successModalLabel">Success</h5>
-            </div>
-            <div class="modal-body text-center">
-                <p id="successModalMessage">Property price saved successfully!</p>
-                <p id="successModalDetail" class="text-muted mb-0"></p>
-                <button type="button" class="btn btn-sm btn-success mt-2" data-bs-dismiss="modal">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
+</div><script>
     let dispatchPollTimer = null;
 
     function clearDispatchPolling() {
@@ -1205,6 +2209,11 @@
             clearInterval(dispatchPollTimer);
             dispatchPollTimer = null;
         }
+    }
+    
+    // Global formatNumber function (used by both DOMContentLoaded scope and global helpers)
+    function formatNumber(n) {
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     function getCookie(name) {
@@ -1220,22 +2229,61 @@
     const csrftoken = getCookie('csrftoken');
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Bootstrap modal instances
-        const prmValueModal   = new bootstrap.Modal('#prmValueModal');
-        const prmEditModal    = new bootstrap.Modal('#prmEditModal');
-        const prmHistoryModal = new bootstrap.Modal('#prmHistoryModal');
-        const prmNotifyModal  = new bootstrap.Modal('#prmNotifyModal');
-        const prmBulkUpdateModal = new bootstrap.Modal('#prmBulkUpdateModal');
-        const successModalEl  = document.getElementById('successModal');
-        const successModal    = new bootstrap.Modal(successModalEl);
-        const successMessageEl = document.getElementById('successModalMessage');
-        const successDetailEl  = document.getElementById('successModalDetail');
+        const requiredIds = ['prmValueModal', 'prmBulkUpdateModal'];
+        const missingCoreIds = requiredIds.filter(id => !document.getElementById(id));
+        if (missingCoreIds.length) {
+            return;
+        }
 
-        successModalEl.addEventListener('hidden.bs.modal', clearDispatchPolling);
+        const getEl = (id) => document.getElementById(id);
+        const addListener = (id, event, handler) => {
+            const el = getEl(id);
+            if (el) {
+                el.addEventListener(event, handler);
+            }
+            return el;
+        };
+
+        let currentPresaleEstateId = null;
+        let presaleFetchController = null;
+        let presaleLoading = false;
+
+        let currentBulkEstateId = null;
+        let bulkFetchController = null;
+        let bulkLoading = false;
+
+        // Bootstrap modal instances (guard optional ones to avoid interference)
+        const prmValueModal   = new bootstrap.Modal(document.getElementById('prmValueModal'));
+        const prmEditModalEl  = getEl('prmEditModal');
+        const prmHistoryModalEl = getEl('prmHistoryModal');
+        const prmNotifyModalEl  = getEl('prmNotifyModal');
+        const prmBulkUpdateModal = new bootstrap.Modal(document.getElementById('prmBulkUpdateModal'));
+        const prmEditModal    = prmEditModalEl ? new bootstrap.Modal(prmEditModalEl) : null;
+        const prmHistoryModal = prmHistoryModalEl ? new bootstrap.Modal(prmHistoryModalEl) : null;
+        const prmNotifyModal  = prmNotifyModalEl ? new bootstrap.Modal(prmNotifyModalEl) : null;
+        const successModalEl  = getEl('successModal');
+        const successModal    = successModalEl ? new bootstrap.Modal(successModalEl) : null;
+        const successMessageEl = getEl('successModalMessage');
+        const successDetailEl  = getEl('successModalDetail');
+
+        if (successModalEl) {
+            successModalEl.addEventListener('hidden.bs.modal', clearDispatchPolling);
+        }
         
+        // Fix aria-hidden focus issue - blur focused elements before modal hides
+        const modalElements = document.querySelectorAll('.modal');
+        modalElements.forEach(modal => {
+            modal.addEventListener('hide.bs.modal', function() {
+                const focusedElement = this.querySelector(':focus');
+                if (focusedElement) {
+                    focusedElement.blur();
+                }
+            });
+        });
 
-        // cache your promo modal elements up top
-        const promoModal       = new bootstrap.Modal('#prmPromoModal');
+        // cache promo modal elements and guard optional modal
+        const promoModalEl     = document.getElementById('prmPromoModal');
+        const promoModal       = promoModalEl ? new bootstrap.Modal(promoModalEl) : null;
         const promoIdInput     = document.getElementById('prmPromoId');
         const promoNameInput   = document.getElementById('prmPromoName');
         const promoDiscount    = document.getElementById('prmPromoDiscount');
@@ -1244,88 +2292,124 @@
         const promoDesc        = document.getElementById('prmPromoDesc');
         const promoEstates     = document.getElementById('prmPromoEstates');
         const promoTitle       = document.getElementById('prmPromoModalLabel');
+        
 
         // Set Presale Price
-        const setPresaleBtn = document.getElementById('prmAddRegBtn');
-        if (!setPresaleBtn) {
-            console.error('⚠️ #prmAddRegBtn not found');
-        } else {
-            setPresaleBtn.addEventListener('click', () => {
+        const setPresaleBtn = addListener('prmAddRegBtn', 'click', () => {
             resetValueModal();
             prmValueModal.show();
-            });
-        }
+        });
 
         // Bulk Price Update Button
-        document.getElementById('prmBulkUpdateBtn').addEventListener('click', () => {
+        const bulkBtn = addListener('prmBulkUpdateBtn', 'click', () => {
             openBulkUpdateModal();
         });
 
-        // 1) Open “Create Promotional Offer” modal, fully reset form:
-        document.getElementById('prmCreatePromoBtn').addEventListener('click', () => {
-        const today = new Date().toISOString().slice(0,10);
-
-        promoIdInput.value     = '';
-        promoNameInput.value   = '';
-        promoDiscount.value    = '';
-        promoStart.value       = today;
-        promoEnd.value         = today;
-        promoDesc.value        = '';
-
-        // clear ALL selected estates
-        Array.from(promoEstates.options).forEach(opt => opt.selected = false);
-
-        promoTitle.textContent = 'Create Promotional Offer';
-        promoModal.show();
-        });
+        // Open “Create Promotional Offer” modal only when promo modal exists
+        if (promoModal) {
+            const createPromoBtn = addListener('prmCreatePromoBtn', 'click', () => {
+                resetPromoModal();
+                promoModal.show();
+            });
+        }
 
 
-        // Prefill fields if a single estate is selected
-        promoEstates.addEventListener('change', () => {
-            const selected = Array.from(promoEstates.selectedOptions).map(opt => opt.value);
-            if (selected.length === 1) {
-                fetch(`/api/promo/estate/${selected[0]}/active/`, {
-                    headers: { 'X-CSRFToken': csrftoken }
-                })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.status === 'ok' && res.data) {
-                        const p = res.data;
+        if (promoModal && promoEstates) {
+            // Prefill fields if a single estate is selected AND it has an active promo
+            promoEstates.addEventListener('change', () => {
+                const selected = Array.from(promoEstates.selectedOptions).map(opt => opt.value);
+                if (selected.length === 1) {
+                    fetch(`/api/promo/estate/${selected[0]}/active/`, {
+                        headers: { 'X-CSRFToken': csrftoken }
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        // Only prefill if there's an active promo for this estate
+                        if (res.status === 'ok' && res.data) {
+                            const p = res.data;
+                            promoIdInput.value   = p.id || '';
+                            promoNameInput.value = p.name;
+                            promoDiscount.value  = p.discount;
+                            promoStart.value     = p.start.slice(0,10);
+                            promoEnd.value       = p.end.slice(0,10);
+                            promoDesc.value      = p.description || '';
+                            document.getElementById('promoModalTitleText').textContent = 'Edit Promotional Offer';
+                            document.getElementById('promoSaveBtnText').textContent = 'Update Promo';
+                            
+                            // Show discount preview
+                            const preview = document.getElementById('discountPreview');
+                            const previewValue = document.getElementById('discountPreviewValue');
+                            if (preview && previewValue && p.discount > 0) {
+                                previewValue.textContent = p.discount;
+                                preview.style.display = 'block';
+                            }
+                        } else {
+                            // No active promo - clear prefilled fields and reset to Create mode
+                            promoIdInput.value   = '';
+                            promoNameInput.value = '';
+                            promoDiscount.value  = '';
+                            promoDesc.value      = '';
+                            const today = new Date().toISOString().slice(0,10);
+                            promoStart.value     = today;
+                            promoEnd.value       = today;
+                            document.getElementById('promoModalTitleText').textContent = 'Create Promotional Offer';
+                            document.getElementById('promoSaveBtnText').textContent = 'Create Promo';
+                            
+                            const preview = document.getElementById('discountPreview');
+                            if (preview) preview.style.display = 'none';
+                        }
+                    })
+                    .catch(() => {
+                        // On error - reset to Create mode
                         promoIdInput.value   = '';
-                        promoNameInput.value = p.name;
-                        promoDiscount.value  = p.discount;
-                        promoStart.value     = p.start.slice(0,10);
-                        promoEnd.value       = p.end.slice(0,10);
-                        promoDesc.value      = p.description || '';
-                        promoTitle.textContent = 'Edit Promotional Offer';
-                    } else {
-                        // Clear form if no promo found
                         promoNameInput.value = '';
                         promoDiscount.value  = '';
                         promoDesc.value      = '';
                         const today = new Date().toISOString().slice(0,10);
                         promoStart.value     = today;
                         promoEnd.value       = today;
-                        promoTitle.textContent = 'Create Promotional Offer';
-                    }
-                })
-                .catch(() => {
-                    // Fallback: clear
-                    promoNameInput.value = '';
-                    promoDiscount.value  = '';
-                    promoDesc.value      = '';
-                    const today = new Date().toISOString().slice(0,10);
-                    promoStart.value     = today;
-                    promoEnd.value       = today;
-                    promoTitle.textContent = 'Create Promotional Offer';
-                });
-            }
-        });
+                        document.getElementById('promoModalTitleText').textContent = 'Create Promotional Offer';
+                        document.getElementById('promoSaveBtnText').textContent = 'Create Promo';
+                        const preview = document.getElementById('discountPreview');
+                        if (preview) preview.style.display = 'none';
+                    });
+                }
+            });
+        }
                 
-        // document.getElementById('prmCreatePromoBtn').onclick = () => prmPromoModal.show();
-        document.getElementById('prmCreatePromoBtn').onclick = () => promoModal.show();
-        document.getElementById('prmNotifyClientsBtn').onclick = () => prmNotifyModal.show();
-        document.getElementById('prmSendNotifyBtn').addEventListener('click', sendNotification);
+        const notifyBtn = getEl('prmNotifyClientsBtn');
+        if (notifyBtn && prmNotifyModal) {
+            notifyBtn.addEventListener('click', () => prmNotifyModal.show());
+        }
+        addListener('prmSendNotifyBtn', 'click', sendNotification);
+
+        // Demo messages for notification types (must be defined before initNotificationTypeHandling)
+        const notifyDemoMessages = {
+            price_update: {
+                subject: 'Property Value Update Notice',
+                message: 'Dear Valued Customer,\n\nWe are pleased to inform you that property values in your estate have been updated. This reflects the current market appreciation and infrastructure developments.\n\nPlease log in to your dashboard to view the updated prices.\n\nBest regards,\nThe Management Team'
+            },
+            promotion: {
+                subject: 'Exclusive Promotional Offer!',
+                message: 'Dear Customer,\n\nGreat news! We have an exciting promotional offer just for you.\n\nFor a limited time, enjoy special discounts on selected properties. Don\'t miss this opportunity to expand your investment portfolio at reduced rates.\n\nTerms and conditions apply.\n\nWarm regards,\nThe Sales Team'
+            },
+            new_launch: {
+                subject: 'New Estate Launch Announcement',
+                message: 'Dear Esteemed Customer,\n\nWe are thrilled to announce the launch of our newest estate development!\n\nThis premium project features:\n- Strategic location with excellent accessibility\n- Modern infrastructure and amenities\n- Flexible payment plans\n- Attractive early-bird discounts\n\nBe among the first to secure your plot.\n\nBest regards,\nThe Development Team'
+            },
+            client_update: {
+                subject: 'Important Update for Clients',
+                message: 'Dear Client,\n\nWe hope this message finds you well. We have an important update regarding your account/property.\n\nPlease review the details in your dashboard and contact our support team if you have any questions.\n\nThank you for your continued trust in us.\n\nSincerely,\nCustomer Relations Team'
+            },
+            marketer_update: {
+                subject: 'Marketer Update & Commission Notice',
+                message: 'Dear Marketing Partner,\n\nThank you for your continued efforts in promoting our properties.\n\nThis is to inform you of important updates regarding:\n- Commission structures\n- New properties available for marketing\n- Upcoming training sessions\n- Performance incentives\n\nPlease check your dashboard for full details.\n\nBest regards,\nThe Marketing Department'
+            },
+            general_notification: {
+                subject: 'Important Announcement',
+                message: 'Dear Customer,\n\nWe hope this message finds you well.\n\nWe have an important announcement to share with you. Please take a moment to read through this notification carefully.\n\nFor any questions, please reach out to our support team.\n\nThank you.\n\nBest regards,\nThe Management'
+            }
+        };
 
         // Initialize notification type handling
         initNotificationTypeHandling();
@@ -1334,113 +2418,95 @@
         initPriceChart();
 
         // Event handlers
-        document.getElementById('prmEstateSelect').addEventListener('change', handleEstateChange);
-        document.getElementById('prmPlotSizeSelect').addEventListener('change', handlePlotSizeChange);
-        document.getElementById('prmEditCurrentPrice').addEventListener('input', calculatePriceChange);
-        document.getElementById('prmSaveRegBtn').addEventListener('click', savePresalePrice);
-        document.getElementById('prmSaveEditBtn').addEventListener('click', saveEditPrice);
+        addListener('prmEstateSelect', 'change', handleEstateChange);
+        addListener('prmEditCurrentPrice', 'input', calculatePriceChange);
+        addListener('prmSaveRegBtn', 'click', savePresalePrice);
+        addListener('prmSaveEditBtn', 'click', saveEditPrice);
         // prmSavePromoBtn listener will be added after savePromo function is defined
-        document.getElementById('prmSendNotifyBtn').addEventListener('click', sendNotification);
+        
+        // Clear errors on input - Presale modal
+        addListener('prmEffectiveDate', 'change', function() {
+            clearFieldError(this, 'prmDateError');
+            hideErrorBanner();
+        });
+        
+        // Clear errors on input - Edit modal
+        addListener('prmEditCurrentPrice', 'input', function() {
+            clearFieldError(this, 'prmEditCurrentError');
+            hideEditErrorBanner();
+        });
+        addListener('prmEditEffectiveDate', 'change', function() {
+            clearFieldError(this, 'prmEditDateError');
+            hideEditErrorBanner();
+        });
         
         // Action button handlers
-        document.querySelector('#prmPropertyTable').addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            
-            const action = btn.getAttribute('data-action');
-            const id = btn.getAttribute('data-id');
-            const estateId = btn.getAttribute('data-estate');
-            const unitId = btn.getAttribute('data-unit');
-            
-            if (action === 'edit') {
-                prmEditModal.show();
-                openEditModal(id);
-            } 
-            else if (action === 'history') {
-                openHistoryModal(id);
-            }
-            else if (action === 'add') {
-                openAddModal(estateId, unitId);
-            }
-        });
+        const propertyTable = document.querySelector('#prmPropertyTable');
+        if (propertyTable) {
+            propertyTable.addEventListener('click', (e) => {
+                try {
+                    const btn = e.target.closest('button');
+                    if (!btn) return;
+                    
+                    const action = btn.getAttribute('data-action');
+                    const id = btn.getAttribute('data-id');
+                    const estateId = btn.getAttribute('data-estate');
+                    const unitId = btn.getAttribute('data-unit');
+                    
+                    if (action === 'edit') {
+                        openEditModal(id);
+                    } 
+                    else if (action === 'history') {
+                        openHistoryModal(id);
+                    }
+                    else if (action === 'add') {
+                        openAddModal(estateId, unitId);
+                    }
+                } catch (error) {
+                    console.error('Error in action handler:', error);
+                }
+            });
+        }
 
         // Initialize with today's date
         const today = new Date().toISOString().slice(0,10);
-        document.getElementById('prmEffectiveDate').value = today;
-        document.getElementById('prmEditEffectiveDate').value = today;
-
-        // Presale Price Formatting - Live formatting as user types
-        const presalePriceInput = document.getElementById('prmPresalePrice');
-        const priceDisplayEl = document.getElementById('prmPriceDisplay');
-        
-        function formatPriceInput(value) {
-            // Remove all non-numeric characters
-            let numericValue = value.replace(/[^0-9]/g, '');
-            
-            // Convert to number and format with commas
-            if (numericValue === '') return '';
-            
-            let number = parseInt(numericValue, 10);
-            return number.toLocaleString('en-NG');
-        }
-        
-        function updatePriceDisplay(value) {
-            let numericValue = value.replace(/[^0-9]/g, '');
-            if (numericValue === '' || numericValue === '0') {
-                priceDisplayEl.textContent = '₦0';
-                priceDisplayEl.classList.remove('show');
-            } else {
-                let number = parseInt(numericValue, 10);
-                priceDisplayEl.textContent = '₦' + number.toLocaleString('en-NG');
-                priceDisplayEl.classList.add('show');
-            }
-        }
-        
-        presalePriceInput.addEventListener('input', function(e) {
-            let cursorPos = this.selectionStart;
-            let oldLength = this.value.length;
-            
-            // Format the value
-            this.value = formatPriceInput(this.value);
-            
-            // Adjust cursor position
-            let newLength = this.value.length;
-            cursorPos = cursorPos + (newLength - oldLength);
-            this.setSelectionRange(cursorPos, cursorPos);
-            
-            // Update display
-            updatePriceDisplay(this.value);
-        });
-        
-        presalePriceInput.addEventListener('focus', function() {
-            this.parentElement.parentElement.classList.add('focused');
-        });
-        
-        presalePriceInput.addEventListener('blur', function() {
-            this.parentElement.parentElement.classList.remove('focused');
-        });
+        const presaleDateInput = getEl('prmEffectiveDate');
+        if (presaleDateInput) presaleDateInput.value = today;
+        const editDateInput = getEl('prmEditEffectiveDate');
+        if (editDateInput) editDateInput.value = today;
 
         // Helper functions
         function initNotificationTypeHandling() {
             const notifyTypeSelect = document.getElementById('prmNotifyType');
             const estatesField = document.getElementById('notifyEstatesField');
+            const subjectInput = document.getElementById('prmNotifySubject');
+            const messageInput = document.getElementById('prmNotifyMessage');
+            
+            if (!notifyTypeSelect || !estatesField || !subjectInput || !messageInput) {
+                return;
+            }
+            
+            // Prefill demo message function
+            function prefillDemoMessage(type) {
+                if (notifyDemoMessages[type]) {
+                    subjectInput.value = notifyDemoMessages[type].subject;
+                    messageInput.value = notifyDemoMessages[type].message;
+                }
+            }
             
             // Initial state
             toggleEstatesVisibility(notifyTypeSelect.value, estatesField);
+            prefillDemoMessage(notifyTypeSelect.value);
             
-            // Add change listener
+            // Type change listener
             notifyTypeSelect.addEventListener('change', () => {
                 toggleEstatesVisibility(notifyTypeSelect.value, estatesField);
+                prefillDemoMessage(notifyTypeSelect.value);
             });
         }
         
         function toggleEstatesVisibility(type, element) {
-            const hideTypes = [
-                'client_update', 
-                'marketer_update', 
-                'general_notification'
-            ];
-            
+            const hideTypes = ['client_update', 'marketer_update', 'general_notification'];
             if (hideTypes.includes(type)) {
                 element.classList.add('d-none');
             } else {
@@ -1452,18 +2518,19 @@
         function resetValueModal() {
             document.getElementById('prmPropertyId').value = '';
             document.getElementById('prmEstateSelect').value = '';
-            document.getElementById('prmPlotSizeSelect').innerHTML = '<option value="">Select Plot</option>';
-            document.getElementById('prmLocation').value = '';
-            document.getElementById('prmPresalePrice').value = '';
+            document.getElementById('prmEffectiveDate').value = new Date().toISOString().slice(0,10);
             document.getElementById('prmNotes').value = '';
             document.getElementById('prmNotifyChk').checked = true;
-            document.getElementById('prmValueModalLabel').textContent = "Set Presale Price";
-            // Reset price display
-            const priceDisplay = document.getElementById('prmPriceDisplay');
-            if (priceDisplay) {
-                priceDisplay.textContent = '₦0';
-                priceDisplay.classList.remove('show');
-            }
+            document.getElementById('prmValueModalLabel').textContent = "Set Presale Prices";
+            document.getElementById('presaleEstateInfo').classList.add('d-none');
+            document.getElementById('presalePriceContainer').classList.add('d-none');
+            document.getElementById('prmSaveRegBtn').disabled = true;
+            // Reset summary
+            document.getElementById('presaleSelectedCount').textContent = '0';
+            document.getElementById('presaleNewCount').textContent = '0';
+            document.getElementById('presaleUpdateCount').textContent = '0';
+            // Clear error state
+            clearPresaleErrors();
         }
 
         function resetEditModal() {
@@ -1477,10 +2544,6 @@
             document.getElementById('prmEditNotes').value = '';
             document.getElementById('prmEditNotifyChk').checked = true;
             document.getElementById('prmEditModalLabel').textContent = "Update Property Price";
-        }
-
-        function formatNumber(n) {
-            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
 
         function parseFormattedNumber(str) {
@@ -1508,102 +2571,251 @@
                 (cumulative > 0 ? 'increase-prm' : cumulative < 0 ? 'decrease-prm' : '');
         }
 
-        function handleEstateChange() {
-            const estateId = this.value;
-            const plotSel  = document.getElementById('prmPlotSizeSelect');
-            const locInput = document.getElementById('prmLocation');
-
-            // reset dependent fields
-            plotSel.innerHTML = '<option value="">Loading…</option>';
-            locInput.value    = '';
-            document.getElementById('prmPresalePrice').value  = '';
-            document.getElementById('prmEffectiveDate').value = new Date().toISOString().slice(0,10);
-            document.getElementById('prmNotes').value         = '';
-
+        function handleEstateChange(e) {
+            const selectEl = e && e.target ? e.target : getEl('prmEstateSelect');
+            if (!selectEl) {
+                return;
+            }
+            const estateId = selectEl.value;
+            
+            // Clear error when user selects
+            clearFieldError(selectEl, 'prmEstateError');
+            hideErrorBanner();
+            
             if (!estateId) {
-                plotSel.innerHTML = '<option value="">Select Plot</option>';
+                document.getElementById('presaleEstateInfo').classList.add('d-none');
+                document.getElementById('presalePriceContainer').classList.add('d-none');
+                document.getElementById('prmSaveRegBtn').disabled = true;
                 return;
             }
 
-            fetch(`/api/estate/${estateId}/plot-sizes/`, {
+            // Show loading state
+            const tbody = document.getElementById('presalePlotTableBody');
+            tbody.innerHTML = `
+                <tr class="loading-row">
+                    <td colspan="5">
+                        <div class="loading-spinner">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span>Loading plot sizes...</span>
+                        </div>
+                    </td>
+                </tr>`;
+            document.getElementById('presalePriceContainer').classList.remove('d-none');
+
+            // Fetch estate data with all plot sizes and current presale prices
+            fetch(`/api/estate/${estateId}/bulk-price-data/`, {
                 headers: { 'X-CSRFToken': csrftoken }
             })
             .then(r => r.json())
             .then(data => {
-                // populate plot dropdown
-                plotSel.innerHTML = '<option value="">Select Plot</option>';
-                data.plot_units.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                opt.text  = `${u.size} (${u.available} avail)`;
-                plotSel.add(opt);
+                // Display estate info
+                document.getElementById('presaleEstateNameDisplay').textContent = data.estate.name;
+                const locationTextEl = document.getElementById('presaleEstateLocationText');
+                if (locationTextEl) {
+                    locationTextEl.textContent = data.estate.location;
+                }
+                document.getElementById('presaleTotalPlots').textContent = data.plot_units.length;
+                document.getElementById('presaleEstateInfo').classList.remove('d-none');
+
+                // Populate table with plot sizes
+                tbody.innerHTML = '';
+                
+                if (data.plot_units.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <i class="bi bi-info-circle text-muted me-2"></i>
+                                No plot sizes found for this estate. Add plot sizes first.
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                
+                data.plot_units.forEach((unit, index) => {
+                    const presale = unit.presale || 0;
+                    const isAvailable = unit.available > 0;
+                    const hasPresale = presale > 0;
+                    const isSoldOut = unit.available === 0;
+                    
+                    // Determine status
+                    let statusClass = 'available';
+                    let statusText = 'Available';
+                    if (isSoldOut) {
+                        statusClass = 'sold-out';
+                        statusText = 'Sold Out';
+                    } else if (hasPresale) {
+                        statusClass = 'has-presale';
+                        statusText = 'Has Presale';
+                    } else {
+                        statusClass = 'no-presale';
+                        statusText = 'No Presale';
+                    }
+                    
+                    const row = `
+                        <tr data-unit-id="${unit.id}" data-current-presale="${presale}">
+                            <td>
+                                <input type="checkbox" class="form-check-input presale-plot-checkbox" 
+                                       data-unit-id="${unit.id}" ${!isSoldOut ? 'checked' : ''} 
+                                       ${isSoldOut ? 'disabled' : ''}>
+                            </td>
+                            <td>
+                                <strong>${unit.size}</strong>
+                                <div class="text-muted" style="font-size: 0.8rem;">${unit.available} of ${unit.total} available</div>
+                            </td>
+                            <td>
+                                <span class="status-badge-presale ${statusClass}">
+                                    ${statusText}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold ${presale > 0 ? 'text-success' : 'text-muted'}">
+                                    ${presale > 0 ? '₦' + formatNumber(presale) : '—'}
+                                </span>
+                            </td>
+                            <td>
+                                <input type="text" class="presale-price-input" 
+                                       data-unit-id="${unit.id}" data-raw-value="${presale}" 
+                                       value="${presale > 0 ? formatNumber(presale) : ''}" 
+                                       placeholder="Enter presale" ${isSoldOut ? 'disabled' : ''}>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
                 });
-                // set location
-                locInput.value = data.location || '';
-            })
-            .catch(() => {
-                plotSel.innerHTML = '<option value="">Error loading plots</option>';
-            });
-            }
 
-        function handlePlotSizeChange() {
-            const estateId = document.getElementById('prmEstateSelect').value;
-            const unitId   = this.value;
-            if (!estateId || !unitId) return;
+                // Update summary
+                updatePresaleSummary();
 
-            fetch(`/api/estate/${estateId}/plot-sizes/?plot_unit_id=${unitId}`, {
-                headers: { 'X-CSRFToken': csrftoken }
+                // Add event listeners to new presale price inputs with formatting
+                document.querySelectorAll('.presale-price-input').forEach(input => {
+                    input.addEventListener('input', function(e) {
+                        const cursorPos = this.selectionStart;
+                        const oldLength = this.value.length;
+                        
+                        let rawValue = this.value.replace(/[^0-9]/g, '');
+                        this.setAttribute('data-raw-value', rawValue);
+                        
+                        if (rawValue) {
+                            this.value = formatNumber(parseInt(rawValue, 10));
+                        }
+                        
+                        const newLength = this.value.length;
+                        const diff = newLength - oldLength;
+                        this.setSelectionRange(cursorPos + diff, cursorPos + diff);
+                        
+                        // Check if value changed from original
+                        const row = this.closest('tr');
+                        const originalPresale = row.getAttribute('data-current-presale') || '0';
+                        if (rawValue && rawValue !== originalPresale) {
+                            this.classList.add('has-change');
+                        } else {
+                            this.classList.remove('has-change');
+                        }
+                        
+                        updatePresaleSummary();
+                    });
+                    
+                    input.addEventListener('blur', function() {
+                        const rawValue = this.getAttribute('data-raw-value') || this.value.replace(/[^0-9]/g, '');
+                        if (rawValue) {
+                            this.value = formatNumber(parseInt(rawValue, 10));
+                        }
+                    });
+                });
+
+                // Add event listeners to checkboxes
+                document.querySelectorAll('.presale-plot-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        updatePresaleSummary();
+                        updatePresaleSelectAllState();
+                    });
+                });
+
+                // Select All checkbox handler
+                const selectAllEl = document.getElementById('presaleSelectAll');
+                // Remove existing listener to prevent duplicates
+                const newSelectAll = selectAllEl.cloneNode(true);
+                selectAllEl.parentNode.replaceChild(newSelectAll, selectAllEl);
+                newSelectAll.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('.presale-plot-checkbox:not(:disabled)');
+                    checkboxes.forEach(cb => cb.checked = this.checked);
+                    updatePresaleSummary();
+                });
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.existing_price) {
-                const ep = data.existing_price;
-                const formattedPresale = formatNumber(ep.presale);
-                document.getElementById('prmPresalePrice').value      = formattedPresale;
-                document.getElementById('prmEffectiveDate').value     = ep.effective;
-                document.getElementById('prmNotes').value             = ep.notes;
-                document.getElementById('prmValueModalLabel').textContent = "Update Presale Price";
-                // Update price display
-                const priceDisplay = document.getElementById('prmPriceDisplay');
-                if (priceDisplay) {
-                    priceDisplay.textContent = '₦' + formattedPresale;
-                    priceDisplay.classList.add('show');
-                }
-                } else {
-                // new entry: clear fields & reset label
-                document.getElementById('prmPresalePrice').value      = '';
-                document.getElementById('prmEffectiveDate').value     = new Date().toISOString().slice(0,10);
-                document.getElementById('prmNotes').value             = '';
-                document.getElementById('prmValueModalLabel').textContent = "Set Presale Price";
-                // Reset price display
-                const priceDisplay = document.getElementById('prmPriceDisplay');
-                if (priceDisplay) {
-                    priceDisplay.textContent = '₦0';
-                    priceDisplay.classList.remove('show');
-                }
-                }
-            })
-            .catch(() => {
-                // silently fail
+            .catch(error => {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading data. Please try again.</td></tr>';
             });
         }
+        
+        function updatePresaleSummary() {
+            const checkboxes = document.querySelectorAll('.presale-plot-checkbox:checked');
+            let selectedCount = 0;
+            let newCount = 0;
+            let updateCount = 0;
+            
+            checkboxes.forEach(cb => {
+                const unitId = cb.getAttribute('data-unit-id');
+                const row = cb.closest('tr');
+                const currentPresale = parseFloat(row.getAttribute('data-current-presale')) || 0;
+                const input = row.querySelector('.presale-price-input');
+                const rawValue = input.getAttribute('data-raw-value') || input.value.replace(/[^0-9]/g, '');
+                const newPresale = parseFloat(rawValue) || 0;
+                
+                if (newPresale > 0) {
+                    selectedCount++;
+                    if (currentPresale === 0) {
+                        newCount++;
+                    } else if (newPresale !== currentPresale) {
+                        updateCount++;
+                    }
+                }
+            });
+            
+            document.getElementById('presaleSelectedCount').textContent = selectedCount;
+            document.getElementById('presaleNewCount').textContent = newCount;
+            document.getElementById('presaleUpdateCount').textContent = updateCount;
+            
+            // Enable/disable save button based on whether there are valid entries
+            const saveBtn = document.getElementById('prmSaveRegBtn');
+            saveBtn.disabled = selectedCount === 0;
+        }
+        
+        function updatePresaleSelectAllState() {
+            const allCheckboxes = document.querySelectorAll('.presale-plot-checkbox:not(:disabled)');
+            const checkedBoxes = document.querySelectorAll('.presale-plot-checkbox:checked');
+            const selectAll = document.getElementById('presaleSelectAll');
+            
+            if (checkedBoxes.length === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            } else if (checkedBoxes.length === allCheckboxes.length) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            } else {
+                selectAll.checked = false;
+                selectAll.indeterminate = true;
+            }
+        }
 
+        // Legacy function - kept for table action buttons
         function openAddModal(estateId, unitId) {
             resetValueModal();
-            document.getElementById('prmEstateSelect').value = estateId;
-            const event = new Event('change');
-            document.getElementById('prmEstateSelect').dispatchEvent(event);
-            
-            setTimeout(() => {
-                document.getElementById('prmPlotSizeSelect').value = unitId;
-                const unitEvent = new Event('change');
-                document.getElementById('prmPlotSizeSelect').dispatchEvent(unitEvent);
-            }, 300);
+            const selectEl = document.getElementById('prmEstateSelect');
+            if (!selectEl) {
+                return;
+            }
+            selectEl.value = estateId;
+            // Call handler directly with mock event
+            handleEstateChange({ target: selectEl });
             
             prmValueModal.show();
         }
 
         function openEditModal(id) {
+            if (!prmEditModal) {
+                return;
+            }
+            
             resetEditModal();
             document.getElementById('prmEditPropertyId').value = id;
             
@@ -1621,6 +2833,9 @@
                 // Calculate immediately with current values
                 calculatePriceChange();
             }
+            
+            // Show the modal
+            prmEditModal.show();
 
             // Then fetch updated data from server
             fetch(`/api/property-price/${id}/`, {
@@ -1649,6 +2864,10 @@
         }
 
         function openHistoryModal(id) {
+            if (!prmHistoryModal) {
+                return;
+            }
+            
             fetch(`/api/property-price/${id}/history/`, {
                 headers: { 'X-CSRFToken': csrftoken }
             })
@@ -1707,44 +2926,6 @@
                 window.historyChart.data.datasets[0].data = [...values].reverse();
                 window.historyChart.update();
 
-                // Update chart rendering to show promo periods
-                function renderPromoOverlay(chart, promos) {
-                    const overlay = document.getElementById('promoOverlay');
-                    overlay.innerHTML = '';
-                    
-                    promos.forEach(promo => {
-                        const startX = chart.scales.x.getPixelForValue(new Date(promo.start));
-                        const endX = chart.scales.x.getPixelForValue(new Date(promo.end));
-                        
-                        const rect = document.createElement('div');
-                        rect.className = 'promo-overlay-rect';
-                        rect.style.position = 'absolute';
-                        rect.style.left = `${startX}px`;
-                        rect.style.width = `${endX - startX}px`;
-                        rect.style.top = '0';
-                        rect.style.height = '100%';
-                        rect.style.background = 'rgba(230, 126, 34, 0.1)';
-                        rect.style.borderLeft = '2px dashed #e67e22';
-                        rect.style.borderRight = '2px dashed #e67e22';
-                        rect.style.pointerEvents = 'none';
-                        
-                        const label = document.createElement('div');
-                        label.className = 'promo-overlay-label';
-                        label.style.position = 'absolute';
-                        label.style.left = `${startX + 5}px`;
-                        label.style.top = '5px';
-                        label.style.background = 'rgba(230, 126, 34, 0.7)';
-                        label.style.color = 'white';
-                        label.style.padding = '2px 5px';
-                        label.style.borderRadius = '3px';
-                        label.style.fontSize = '0.7rem';
-                        label.textContent = `${promo.discount}% OFF`;
-                        
-                        overlay.appendChild(rect);
-                        overlay.appendChild(label);
-                    });
-                }
-
                 // 5) Price Performance from server fields
                 document.getElementById('analysisPresale').textContent =
                 '₦' + formatNumber(presaleVal);
@@ -1781,28 +2962,73 @@
         }
 
         function savePresalePrice() {
-            const estateId = document.getElementById('prmEstateSelect').value;
-            const unitId = document.getElementById('prmPlotSizeSelect').value;
-            const presaleRaw = document.getElementById('prmPresalePrice').value;
-            const effective = document.getElementById('prmEffectiveDate').value;
+            // Clear previous errors
+            clearPresaleErrors();
+            
+            const estateSelect = document.getElementById('prmEstateSelect');
+            const effectiveInput = document.getElementById('prmEffectiveDate');
+            
+            const estateId = estateSelect.value;
+            const effective = effectiveInput.value;
             const notes = document.getElementById('prmNotes').value;
+            const notify = document.getElementById('prmNotifyChk').checked;
             
-            // Parse the formatted price (remove commas)
-            const presale = presaleRaw.replace(/,/g, '');
+            // Inline validation
+            let hasError = false;
             
-            if (!estateId || !unitId || !presale || !effective) {
-                return alert('Please fill all required fields');
+            if (!estateId) {
+                showFieldError(estateSelect, 'prmEstateError', 'Please select an estate');
+                hasError = true;
             }
+            
+            if (!effective) {
+                showFieldError(effectiveInput, 'prmDateError', 'Please select an effective date');
+                hasError = true;
+            }
+            
+            // Collect selected plots with presale prices
+            const presaleData = [];
+            const checkboxes = document.querySelectorAll('.presale-plot-checkbox:checked');
+            
+            checkboxes.forEach(cb => {
+                const unitId = cb.getAttribute('data-unit-id');
+                const row = cb.closest('tr');
+                const input = row.querySelector('.presale-price-input');
+                const rawValue = input.getAttribute('data-raw-value') || input.value.replace(/[^0-9]/g, '');
+                const presale = parseFloat(rawValue) || 0;
+                
+                if (presale > 0) {
+                    presaleData.push({
+                        plot_unit_id: unitId,
+                        presale: presale
+                    });
+                }
+            });
+            
+            if (presaleData.length === 0) {
+                showErrorBanner('Please enter at least one presale price');
+                hasError = true;
+            }
+            
+            if (hasError) {
+                return;
+            }
+
+            // Disable save button while saving
+            const saveBtn = document.getElementById('prmSaveRegBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            saveBtn.disabled = true;
 
             const body = {
                 estate_id: estateId,
-                plot_unit_id: unitId,
-                presale: presale,
                 effective: effective,
-                notes: notes
+                notes: notes,
+                notify: notify,
+                presales: presaleData
             };
 
-            fetch('/api/property-price/add/', {
+            fetch('/api/property-price/bulk-presale/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1813,33 +3039,104 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'ok') {
-                    const rowKey = data.row_key || `${estateId}-${unitId}`;
-                    refreshRow(rowKey);
                     prmValueModal.hide();
+                    
+                    // Reload the page to show updated prices
+                    location.reload();
                     
                     // Show success message
                     document.getElementById('successModalMessage').textContent = 
-                        'Presale price saved successfully!';
+                        `Successfully saved ${data.saved_count || presaleData.length} presale price(s)!`;
                     successModal.show();
                 } else {
-                    alert('Failed to save: ' + (data.message || 'Unknown error'));
+                    showErrorBanner('Failed to save: ' + (data.message || 'Unknown error'));
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error saving presale price');
+                showErrorBanner('Error saving presale prices. Please try again.');
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
             });
+        }
+        
+        // Helper functions for inline error handling
+        function showFieldError(element, errorDivId, message) {
+            element.classList.add('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function clearFieldError(element, errorDivId) {
+            element.classList.remove('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.style.display = 'none';
+            }
+        }
+        
+        function showErrorBanner(message) {
+            const banner = document.getElementById('prmErrorBanner');
+            const messageSpan = document.getElementById('prmErrorMessage');
+            if (banner && messageSpan) {
+                messageSpan.textContent = message;
+                banner.style.display = 'flex';
+                // Scroll to top of modal body
+                const modalBody = banner.closest('.modal-body');
+                if (modalBody) modalBody.scrollTop = 0;
+            }
+        }
+        
+        function hideErrorBanner() {
+            const banner = document.getElementById('prmErrorBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        }
+        
+        function clearPresaleErrors() {
+            hideErrorBanner();
+            const estateSelect = document.getElementById('prmEstateSelect');
+            const effectiveInput = document.getElementById('prmEffectiveDate');
+            
+            if (estateSelect) clearFieldError(estateSelect, 'prmEstateError');
+            if (effectiveInput) clearFieldError(effectiveInput, 'prmDateError');
         }
 
         function saveEditPrice() {
+            // Clear previous errors
+            clearEditErrors();
+            
             const id = document.getElementById('prmEditPropertyId').value;
-            const current = document.getElementById('prmEditCurrentPrice').value;
-            const effective = document.getElementById('prmEditEffectiveDate').value;
+            const currentInput = document.getElementById('prmEditCurrentPrice');
+            const effectiveInput = document.getElementById('prmEditEffectiveDate');
+            const current = currentInput.value;
+            const effective = effectiveInput.value;
             const notes = document.getElementById('prmEditNotes').value;
             const notify = document.getElementById('prmEditNotifyChk').checked;
             
-            if (!id || !current || !effective) {
-                return alert('Please fill all required fields');
+            // Inline validation
+            let hasError = false;
+            
+            if (!current) {
+                showFieldError(currentInput, 'prmEditCurrentError', 'Please enter a current price');
+                hasError = true;
+            }
+            
+            if (!effective) {
+                showFieldError(effectiveInput, 'prmEditDateError', 'Please select an effective date');
+                hasError = true;
+            }
+            
+            if (hasError) {
+                showEditErrorBanner('Please fill all required fields');
+                return;
             }
 
             const body = {
@@ -1873,20 +3170,153 @@
                     document.getElementById('successModalMessage').textContent = message;
                     successModal.show();
                 } else {
-                    alert('Failed to update: ' + (data.message || 'Unknown error'));
+                    showEditErrorBanner('Failed to update: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error updating property price');
+                showEditErrorBanner('Error updating property price. Please try again.');
             });
+        }
+        
+        function showEditErrorBanner(message) {
+            const banner = document.getElementById('prmEditErrorBanner');
+            const messageSpan = document.getElementById('prmEditErrorMessage');
+            if (banner && messageSpan) {
+                messageSpan.textContent = message;
+                banner.style.display = 'flex';
+                const modalBody = banner.closest('.modal-body');
+                if (modalBody) modalBody.scrollTop = 0;
+            }
+        }
+        
+        function hideEditErrorBanner() {
+            const banner = document.getElementById('prmEditErrorBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        }
+        
+        function clearEditErrors() {
+            hideEditErrorBanner();
+            const currentInput = document.getElementById('prmEditCurrentPrice');
+            const effectiveInput = document.getElementById('prmEditEffectiveDate');
+            
+            if (currentInput) clearFieldError(currentInput, 'prmEditCurrentError');
+            if (effectiveInput) clearFieldError(effectiveInput, 'prmEditDateError');
         }
 
      
-        function savePromo() {
-            console.log('🔥 savePromo called!'); // Debug log
+        // ============================================
+        // PROMO MODAL FUNCTIONS
+        // ============================================
+        
+        function showPromoErrorBanner(message) {
+            const banner = document.getElementById('promoErrorBanner');
+            const messageSpan = document.getElementById('promoErrorMessage');
+            if (banner && messageSpan) {
+                messageSpan.textContent = message;
+                banner.style.display = 'flex';
+                const modalBody = banner.closest('.modal-body');
+                if (modalBody) modalBody.scrollTop = 0;
+            }
+        }
+        
+        function hidePromoErrorBanner() {
+            const banner = document.getElementById('promoErrorBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        }
+        
+        function showPromoFieldError(element, errorDivId, message) {
+            element.classList.add('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function clearPromoFieldError(element, errorDivId) {
+            element.classList.remove('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.style.display = 'none';
+            }
+        }
+        
+        function clearAllPromoErrors() {
+            hidePromoErrorBanner();
+            clearPromoFieldError(promoNameInput, 'promoNameError');
+            clearPromoFieldError(promoDiscount, 'promoDiscountError');
+            clearPromoFieldError(promoStart, 'promoStartError');
+            clearPromoFieldError(promoEnd, 'promoEndError');
+            clearPromoFieldError(promoEstates, 'promoEstatesError');
+        }
+        
+        function resetPromoModal() {
+            promoIdInput.value = '';
+            promoNameInput.value = '';
+            promoDiscount.value = '';
+            promoStart.value = new Date().toISOString().slice(0, 10);
+            promoEnd.value = new Date().toISOString().slice(0, 10);
+            promoDesc.value = '';
+            Array.from(promoEstates.options).forEach(opt => opt.selected = false);
             
-            // Validate fields
+            document.getElementById('promoModalTitleText').textContent = 'Create Promotional Offer';
+            document.getElementById('promoSaveBtnText').textContent = 'Create Promo';
+            
+            // Hide discount preview
+            document.getElementById('discountPreview').style.display = 'none';
+            
+            clearAllPromoErrors();
+        }
+        
+        // Discount preview handler
+        promoDiscount.addEventListener('input', function() {
+            const value = parseInt(this.value) || 0;
+            const preview = document.getElementById('discountPreview');
+            const previewValue = document.getElementById('discountPreviewValue');
+            
+            if (value > 0 && value <= 100) {
+                previewValue.textContent = value;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+            
+            clearPromoFieldError(this, 'promoDiscountError');
+            hidePromoErrorBanner();
+        });
+        
+        // Clear errors on input
+        promoNameInput.addEventListener('input', function() {
+            clearPromoFieldError(this, 'promoNameError');
+            hidePromoErrorBanner();
+        });
+        
+        promoStart.addEventListener('change', function() {
+            clearPromoFieldError(this, 'promoStartError');
+            hidePromoErrorBanner();
+        });
+        
+        promoEnd.addEventListener('change', function() {
+            clearPromoFieldError(this, 'promoEndError');
+            hidePromoErrorBanner();
+        });
+        
+        promoEstates.addEventListener('change', function() {
+            clearPromoFieldError(this, 'promoEstatesError');
+            hidePromoErrorBanner();
+        });
+        
+        function savePromo() {
+            // Clear previous errors
+            clearAllPromoErrors();
+            
+            // Get form values
             const name = promoNameInput.value.trim();
             const discount = Number(promoDiscount.value);
             const start = promoStart.value;
@@ -1894,27 +3324,41 @@
             const selectedEstates = Array.from(promoEstates.selectedOptions)
                 .map(o => Number(o.value));
 
-            console.log('Promo data:', { name, discount, start, end, selectedEstates });
-
-            // Validation checks
+            // Inline validation
+            let hasError = false;
+            
             if (!name) {
-                alert('Please enter promo name!');
-                return;
+                showPromoFieldError(promoNameInput, 'promoNameError', 'Please enter a promo name');
+                hasError = true;
             }
+            
             if (!discount || discount < 1 || discount > 100) {
-                alert('Please enter a valid discount (1-100%)!');
-                return;
+                showPromoFieldError(promoDiscount, 'promoDiscountError', 'Enter a valid discount (1-100%)');
+                hasError = true;
             }
-            if (!start || !end) {
-                alert('Please select start and end dates!');
-                return;
+            
+            if (!start) {
+                showPromoFieldError(promoStart, 'promoStartError', 'Please select a start date');
+                hasError = true;
             }
-            if (new Date(start) > new Date(end)) {
-                alert('End date must be after start date!');
-                return;
+            
+            if (!end) {
+                showPromoFieldError(promoEnd, 'promoEndError', 'Please select an end date');
+                hasError = true;
             }
+            
+            if (start && end && new Date(start) > new Date(end)) {
+                showPromoFieldError(promoEnd, 'promoEndError', 'End date must be after start date');
+                hasError = true;
+            }
+            
             if (!selectedEstates.length) {
-                alert('Select at least one estate for this promo!');
+                showPromoFieldError(promoEstates, 'promoEstatesError', 'Select at least one estate');
+                hasError = true;
+            }
+            
+            if (hasError) {
+                showPromoErrorBanner('Please correct the errors below');
                 return;
             }
 
@@ -1933,13 +3377,12 @@
                 ? `/api/promo/${promoIdInput.value}/update/`
                 : '/api/promo/create/';
 
-            console.log('Sending request:', { method, url, body });
-
             // Disable button during request
             const saveBtn = document.getElementById('prmSavePromoBtn');
-            const originalText = saveBtn.innerHTML;
+            const saveBtnText = document.getElementById('promoSaveBtnText');
+            const originalText = saveBtnText.textContent;
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            saveBtnText.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
 
             fetch(url, {
                 method: method,
@@ -1950,17 +3393,13 @@
                 body: JSON.stringify(body)
             })
             .then(async r => {
-                console.log('Response status:', r.status);
                 const data = await r.json();
-                console.log('Response data:', data);
-                
                 if (!r.ok) {
                     throw new Error(data.message || `Server error: ${r.status}`);
                 }
                 return data;
             })
             .then(data => {
-                console.log('✅ Promo saved successfully!');
                 promoModal.hide();
                 
                 // Show success message
@@ -1975,72 +3414,17 @@
             })
             .catch(e => {
                 console.error('❌ Promo error:', e);
-                alert('Error saving promo: ' + e.message);
+                showPromoErrorBanner('Error saving promo: ' + e.message);
             })
             .finally(() => {
                 saveBtn.disabled = false;
-                saveBtn.innerHTML = originalText;
+                saveBtnText.textContent = originalText;
             });
         }
 
-        document.getElementById('prmSavePromoBtn').addEventListener('click', savePromo);
-
-        // sendNotification
-        // function sendNotification() {
-        //     const subject = document.getElementById('prmNotifySubject').value;
-        //     const message = document.getElementById('prmNotifyMessage').value;
-        //     const notifyType = document.getElementById('prmNotifyType').value;
-        //     const estateIds = Array.from(
-        //         document.getElementById('prmNotifyEstates').selectedOptions
-        //     ).map(opt => opt.value);
-        //     const sendEmail = document.getElementById('prmNotifyEmail').checked;
-        //     const sendSMS = document.getElementById('prmNotifySMS').checked;
-        //     const sendInApp = document.getElementById('prmNotifyInApp').checked;
-
-        //     if (!subject || !message) {
-        //         alert('Please fill in subject and message');
-        //         return;
-        //     }
-
-        //     const body = {
-        //         subject,
-        //         message,
-        //         type: notifyType,
-        //         send_email: sendEmail,
-        //         send_sms: sendSMS,
-        //         send_inapp: sendInApp
-        //     };
-
-        //     // Only include estates if notification type requires it
-        //     const showEstates = !['client_update', 'marketer_update', 'general_notification'].includes(notifyType);
-        //     if (showEstates) {
-        //         body.estate_ids = estateIds;
-        //     }
-
-        //     fetch('/api/notify-clients/', {
-        //         method: 'POST',
-        //         headers: {
-        //             'Content-Type': 'application/json',
-        //             'X-CSRFToken': csrftoken
-        //         },
-        //         body: JSON.stringify(body)
-        //     })
-        //     .then(response => response.json())
-        //     .then(data => {
-        //         if (data.status === 'success') {
-        //             prmNotifyModal.hide();
-        //             document.getElementById('successModalMessage').textContent = 
-        //                 `Notifications sent to ${data.recipients} recipients!`;
-        //             successModal.show();
-        //         } else {
-        //             alert('Failed to send: ' + (data.message || 'Unknown error'));
-        //         }
-        //     })
-        //     .catch(error => {
-        //         console.error('Error:', error);
-        //         alert('Error sending notifications');
-        //     });
-        // }
+        if (promoModal) {
+            addListener('prmSavePromoBtn', 'click', savePromo);
+        }
 
         function refreshRow(rowKey) {
             fetch(`/api/property-row/${rowKey}/`, {
@@ -2269,7 +3653,8 @@
         // ============================================================
         
         function openBulkUpdateModal() {
-            // Reset form
+            // Reset form and clear errors
+            clearBulkErrors();
             document.getElementById('prmBulkEstateSelect').value = '';
             document.getElementById('prmBulkEffectiveDate').value = new Date().toISOString().slice(0, 10);
             document.getElementById('prmBulkNotes').value = '';
@@ -2280,10 +3665,59 @@
             
             prmBulkUpdateModal.show();
         }
+        
+        // Bulk error handling functions
+        function showBulkErrorBanner(message) {
+            const banner = document.getElementById('bulkErrorBanner');
+            const messageSpan = document.getElementById('bulkErrorMessage');
+            if (banner && messageSpan) {
+                messageSpan.textContent = message;
+                banner.style.display = 'flex';
+                const modalBody = banner.closest('.modal-body');
+                if (modalBody) modalBody.scrollTop = 0;
+            }
+        }
+        
+        function hideBulkErrorBanner() {
+            const banner = document.getElementById('bulkErrorBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        }
+        
+        function showBulkFieldError(element, errorDivId, message) {
+            element.classList.add('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function clearBulkFieldError(element, errorDivId) {
+            element.classList.remove('field-error');
+            const errorDiv = document.getElementById(errorDivId);
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.style.display = 'none';
+            }
+        }
+        
+        function clearBulkErrors() {
+            hideBulkErrorBanner();
+            const estateSelect = document.getElementById('prmBulkEstateSelect');
+            const dateInput = document.getElementById('prmBulkEffectiveDate');
+            if (estateSelect) clearBulkFieldError(estateSelect, 'bulkEstateError');
+            if (dateInput) clearBulkFieldError(dateInput, 'bulkDateError');
+        }
 
         // Estate selection handler
-        document.getElementById('prmBulkEstateSelect').addEventListener('change', function() {
+        const bulkEstateSelect = addListener('prmBulkEstateSelect', 'change', function() {
             const estateId = this.value;
+            
+            // Clear error when user selects
+            clearBulkFieldError(this, 'bulkEstateError');
+            hideBulkErrorBanner();
             
             if (!estateId) {
                 document.getElementById('bulkEstateInfo').classList.add('d-none');
@@ -2293,7 +3727,15 @@
 
             // Show loading state
             const tbody = document.getElementById('bulkPlotTableBody');
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading plot sizes...</td></tr>';
+            tbody.innerHTML = `
+                <tr class="loading-row">
+                    <td colspan="8">
+                        <div class="loading-spinner">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span>Loading plot sizes...</span>
+                        </div>
+                    </td>
+                </tr>`;
             document.getElementById('bulkPriceContainer').classList.remove('d-none');
 
             // Fetch estate data with all plot sizes and current prices
@@ -2302,14 +3744,29 @@
             })
             .then(r => r.json())
             .then(data => {
-                // Display estate info
+                // Display estate info with updated element IDs
                 document.getElementById('bulkEstateNameDisplay').textContent = data.estate.name;
-                document.getElementById('bulkEstateLocationDisplay').textContent = data.estate.location;
+                const locationTextEl = document.getElementById('bulkEstateLocationText');
+                if (locationTextEl) {
+                    locationTextEl.textContent = data.estate.location;
+                }
                 document.getElementById('bulkTotalPlots').textContent = data.plot_units.length;
                 document.getElementById('bulkEstateInfo').classList.remove('d-none');
 
                 // Populate table with plot sizes
                 tbody.innerHTML = '';
+                
+                if (data.plot_units.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <i class="bi bi-info-circle text-muted me-2"></i>
+                                No plot sizes found for this estate. Add plot sizes first.
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                
                 data.plot_units.forEach((unit, index) => {
                     const presale = unit.presale || 0;
                     const previous = unit.previous || 0;
@@ -2321,12 +3778,12 @@
                     // Determine if price input should be disabled
                     const isPriceDisabled = !hasPresale || isSoldOut;
                     
-                    // Create tooltip message
-                    let tooltipMsg = '';
+                    // Create warning message
+                    let warningHtml = '';
                     if (!hasPresale) {
-                        tooltipMsg = 'Set presale price first from "Set Presale Price" modal';
+                        warningHtml = '<div class="warning-text"><i class="bi bi-exclamation-triangle-fill"></i> Set presale first</div>';
                     } else if (isSoldOut) {
-                        tooltipMsg = 'Plot is sold out - price cannot be updated';
+                        warningHtml = '<div class="warning-text"><i class="bi bi-lock-fill"></i> Sold out</div>';
                     }
                     
                     const row = `
@@ -2338,26 +3795,29 @@
                             </td>
                             <td>
                                 <strong>${unit.size}</strong>
-                                <br><small class="text-muted">${unit.available} available / ${unit.total} total</small>
-                                ${tooltipMsg ? `<br><small class="text-warning"><i class="bi bi-exclamation-triangle"></i> ${tooltipMsg}</small>` : ''}
+                                <div class="text-muted" style="font-size: 0.8rem;">${unit.available} of ${unit.total} available</div>
+                                ${warningHtml}
                             </td>
                             <td>
-                                <span class="badge ${isAvailable ? 'bg-success' : 'bg-secondary'}">
+                                <span class="status-badge ${isAvailable ? 'available' : 'sold-out'}">
                                     ${isAvailable ? 'Available' : 'Sold Out'}
                                 </span>
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm bg-light" 
-                                       value="₦${formatNumber(presale)}" disabled>
+                                <span class="fw-semibold ${presale > 0 ? 'text-success' : 'text-muted'}">
+                                    ${presale > 0 ? '₦' + formatNumber(presale) : '—'}
+                                </span>
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm bg-light" 
-                                       value="₦${formatNumber(previous)}" disabled>
+                                <span class="fw-semibold ${previous > 0 ? '' : 'text-muted'}">
+                                    ${previous > 0 ? '₦' + formatNumber(previous) : '—'}
+                                </span>
                             </td>
                             <td>
-                                <input type="number" class="form-control form-control-sm bulk-new-price" 
-                                       data-unit-id="${unit.id}" value="${current}" min="0" step="1000"
-                                       ${isPriceDisabled ? 'disabled' : ''}>
+                                <input type="text" class="bulk-new-price" 
+                                       data-unit-id="${unit.id}" data-raw-value="${current}" 
+                                       value="${current > 0 ? formatNumber(current) : ''}" 
+                                       placeholder="Enter price" ${isPriceDisabled ? 'disabled' : ''}>
                             </td>
                             <td>
                                 <span class="change-percent-${unit.id}">0%</span>
@@ -2374,35 +3834,51 @@
                 calculateAllChanges();
                 updateBulkSummary();
 
-                // Add event listeners to new price inputs (multiple events for better responsiveness)
+                // Add event listeners to new price inputs with formatting
                 document.querySelectorAll('.bulk-new-price').forEach(input => {
-                    // Create handler function
-                    const handlePriceChange = function() {
+                    // Format price on input
+                    input.addEventListener('input', function(e) {
+                        // Get cursor position
+                        const cursorPos = this.selectionStart;
+                        const oldLength = this.value.length;
+                        
+                        // Remove non-numeric characters except for positioning
+                        let rawValue = this.value.replace(/[^0-9]/g, '');
+                        
+                        // Store raw value
+                        this.setAttribute('data-raw-value', rawValue);
+                        
+                        // Format with commas
+                        if (rawValue) {
+                            this.value = formatNumber(parseInt(rawValue, 10));
+                        }
+                        
+                        // Adjust cursor position
+                        const newLength = this.value.length;
+                        const diff = newLength - oldLength;
+                        this.setSelectionRange(cursorPos + diff, cursorPos + diff);
+                        
+                        // Calculate changes
                         const unitId = this.getAttribute('data-unit-id');
-                        console.log(`Price changed for unit ${unitId}, new value: ${this.value}`);
                         calculateRowChange(unitId);
                         updateBulkSummary();
-                    };
+                    });
                     
-                    // Listen to multiple events
-                    input.addEventListener('input', handlePriceChange);
-                    input.addEventListener('change', handlePriceChange);
-                    input.addEventListener('keyup', handlePriceChange);
+                    // Also handle change and blur events
+                    input.addEventListener('change', function() {
+                        const unitId = this.getAttribute('data-unit-id');
+                        calculateRowChange(unitId);
+                        updateBulkSummary();
+                    });
                     
-                    // Also trigger on blur for better UX
-                    input.addEventListener('blur', handlePriceChange);
+                    input.addEventListener('blur', function() {
+                        // Ensure proper formatting on blur
+                        const rawValue = this.getAttribute('data-raw-value') || this.value.replace(/[^0-9]/g, '');
+                        if (rawValue) {
+                            this.value = formatNumber(parseInt(rawValue, 10));
+                        }
+                    });
                 });
-
-                console.log(`✅ Event listeners attached to ${document.querySelectorAll('.bulk-new-price').length} price inputs`);
-
-                // Verify spans exist
-                console.log('Verifying percentage spans...');
-                data.plot_units.forEach(unit => {
-                    const changeSpan = document.querySelector(`.change-percent-${unit.id}`);
-                    const totalSpan = document.querySelector(`.total-percent-${unit.id}`);
-                    console.log(`  Unit ${unit.id}: changeSpan=${!!changeSpan}, totalSpan=${!!totalSpan}`);
-                });
-                console.log('✅ Verification complete');
 
                 // Add event listeners to checkboxes
                 document.querySelectorAll('.bulk-plot-checkbox').forEach(checkbox => {
@@ -2412,15 +3888,19 @@
                     });
                 });
 
-                // Select All checkbox handler
-                document.getElementById('bulkSelectAll').addEventListener('change', function() {
-                    const checkboxes = document.querySelectorAll('.bulk-plot-checkbox');
-                    checkboxes.forEach(cb => cb.checked = this.checked);
-                    updateBulkSummary();
-                });
+                // Select All checkbox handler (reset listener each time to avoid duplicates)
+                const bulkSelectAll = getEl('bulkSelectAll');
+                if (bulkSelectAll) {
+                    const freshSelectAll = bulkSelectAll.cloneNode(true);
+                    bulkSelectAll.parentNode.replaceChild(freshSelectAll, bulkSelectAll);
+                    freshSelectAll.addEventListener('change', function() {
+                        const checkboxes = document.querySelectorAll('.bulk-plot-checkbox');
+                        checkboxes.forEach(cb => cb.checked = this.checked);
+                        updateBulkSummary();
+                    });
+                }
             })
             .catch(error => {
-                console.error('Error loading estate data:', error);
                 tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading data. Please try again.</td></tr>';
             });
         });
@@ -2428,16 +3908,16 @@
         function calculateRowChange(unitId) {
             const row = document.querySelector(`tr[data-unit-id="${unitId}"]`);
             if (!row) {
-                console.error(`Row not found for unit ${unitId}`);
                 return;
             }
             
             const presale = parseFloat(row.getAttribute('data-presale')) || 0;
             const previous = parseFloat(row.getAttribute('data-previous')) || 0;
             const newPriceInput = document.querySelector(`.bulk-new-price[data-unit-id="${unitId}"]`);
-            const newPrice = parseFloat(newPriceInput.value) || 0;
-
-            console.log(`Calculating changes for unit ${unitId}: presale=${presale}, previous=${previous}, new=${newPrice}`);
+            
+            // Get raw value (remove commas for calculation)
+            const rawValue = newPriceInput.getAttribute('data-raw-value') || newPriceInput.value.replace(/[^0-9]/g, '');
+            const newPrice = parseFloat(rawValue) || 0;
 
             // Calculate % change from previous
             let changePercent = 0;
@@ -2456,9 +3936,6 @@
                 } else if (changePercent < 0) {
                     changeSpan.classList.add('decrease-prm');
                 }
-                console.log(`  % Change: ${changePercent.toFixed(1)}% - Updated span text and class`);
-            } else {
-                console.error(`  ❌ changeSpan not found for unit ${unitId}`);
             }
 
             // Calculate total % change from presale
@@ -2478,9 +3955,6 @@
                 } else if (totalPercent < 0) {
                     totalSpan.classList.add('decrease-prm');
                 }
-                console.log(`  Total %: ${totalPercent.toFixed(1)}% - Updated span text and class`);
-            } else {
-                console.error(`  ❌ totalSpan not found for unit ${unitId}`);
             }
 
             // Add visual feedback to the input
@@ -2513,7 +3987,11 @@
                 const unitId = checkbox.getAttribute('data-unit-id');
                 const row = document.querySelector(`tr[data-unit-id="${unitId}"]`);
                 const previous = parseFloat(row.getAttribute('data-previous')) || 0;
-                const newPrice = parseFloat(document.querySelector(`.bulk-new-price[data-unit-id="${unitId}"]`).value) || 0;
+                
+                // Get raw value (remove commas for calculation)
+                const priceInput = document.querySelector(`.bulk-new-price[data-unit-id="${unitId}"]`);
+                const rawValue = priceInput.getAttribute('data-raw-value') || priceInput.value.replace(/[^0-9]/g, '');
+                const newPrice = parseFloat(rawValue) || 0;
 
                 if (previous > 0) {
                     const change = ((newPrice - previous) / previous * 100);
@@ -2535,7 +4013,7 @@
             const avgChange = validChanges > 0 ? (totalChange / validChanges) : 0;
             const avgSpan = document.getElementById('bulkAvgChange');
             avgSpan.textContent = (avgChange > 0 ? '+' : '') + avgChange.toFixed(1) + '%';
-            avgSpan.className = avgChange > 0 ? 'text-success' : avgChange < 0 ? 'text-danger' : '';
+            avgSpan.className = 'value ' + (avgChange > 0 ? 'text-success' : avgChange < 0 ? 'text-danger' : '');
 
             document.getElementById('bulkTotalIncrease').textContent = '₦' + formatNumber(totalIncrease);
             document.getElementById('bulkTotalDecrease').textContent = '₦' + formatNumber(totalDecrease);
@@ -2565,32 +4043,77 @@
         }
 
         // Save bulk price updates
-        document.getElementById('prmSaveBulkBtn').addEventListener('click', function() {
-            const estateId = document.getElementById('prmBulkEstateSelect').value;
-            const effectiveDate = document.getElementById('prmBulkEffectiveDate').value;
+        addListener('prmSaveBulkBtn', 'click', function() {
+            // Clear previous errors
+            clearBulkErrors();
+            
+            const estateSelect = document.getElementById('prmBulkEstateSelect');
+            const dateInput = document.getElementById('prmBulkEffectiveDate');
+            const estateId = estateSelect.value;
+            const effectiveDate = dateInput.value;
             const notes = document.getElementById('prmBulkNotes').value;
             const notify = document.getElementById('prmBulkNotifyChk').checked;
 
-            if (!estateId || !effectiveDate) {
-                return alert('Please select estate and effective date');
+            // Inline validation
+            let hasError = false;
+            
+            if (!estateId) {
+                showBulkFieldError(estateSelect, 'bulkEstateError', 'Please select an estate');
+                hasError = true;
+            }
+            
+            if (!effectiveDate) {
+                showBulkFieldError(dateInput, 'bulkDateError', 'Please select an effective date');
+                hasError = true;
+            }
+            
+            if (hasError) {
+                showBulkErrorBanner('Please fill all required fields');
+                return;
             }
 
-            // Collect selected plots with new prices
+            // Collect selected plots with new prices that have actually changed
             const updates = [];
+            let unchangedCount = 0;
+            
             document.querySelectorAll('.bulk-plot-checkbox:checked').forEach(checkbox => {
                 const unitId = checkbox.getAttribute('data-unit-id');
-                const newPrice = parseFloat(document.querySelector(`.bulk-new-price[data-unit-id="${unitId}"]`).value) || 0;
+                const row = document.querySelector(`tr[data-unit-id="${unitId}"]`);
+                const previousPrice = parseFloat(row.getAttribute('data-previous')) || 0;
+                
+                // Get raw value (remove commas for calculation)
+                const priceInput = document.querySelector(`.bulk-new-price[data-unit-id="${unitId}"]`);
+                const rawValue = priceInput.getAttribute('data-raw-value') || priceInput.value.replace(/[^0-9]/g, '');
+                const newPrice = parseFloat(rawValue) || 0;
                 
                 if (newPrice > 0) {
-                    updates.push({
-                        plot_unit_id: unitId,
-                        new_price: newPrice
-                    });
+                    // Only add to updates if price has actually changed
+                    if (newPrice !== previousPrice) {
+                        updates.push({
+                            plot_unit_id: unitId,
+                            new_price: newPrice
+                        });
+                    } else {
+                        unchangedCount++;
+                    }
                 }
             });
 
+            // Check if no plots are selected
+            const selectedCount = document.querySelectorAll('.bulk-plot-checkbox:checked').length;
+            if (selectedCount === 0) {
+                showBulkErrorBanner('Please select at least one plot to update');
+                return;
+            }
+
+            // Check if all selected plots have no price changes
             if (updates.length === 0) {
-                return alert('Please select at least one plot to update');
+                if (unchangedCount > 0) {
+                    showBulkErrorBanner('No price changes detected. Please modify at least one price before saving.');
+                } else {
+                    showBulkErrorBanner('Please enter valid prices for the selected plots');
+                }
+                return;
             }
 
             // Disable button and show loading
@@ -2633,242 +4156,265 @@
                     document.getElementById('successModalMessage').textContent = successMsg;
                     successModal.show();
                 } else {
-                    alert('Failed to update: ' + (data.message || 'Unknown error'));
+                    showBulkErrorBanner('Failed to update: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error updating prices');
+                showBulkErrorBanner('Error updating prices. Please try again.');
             })
             .finally(() => {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             });
         });
-    });
+        
+        // Clear bulk errors on date input change
+        addListener('prmBulkEffectiveDate', 'change', function() {
+            clearBulkFieldError(this, 'bulkDateError');
+            hideBulkErrorBanner();
+        });
 
+        // ============================================
+        // SEND NOTIFICATION FUNCTION
+        // ============================================
+        function sendNotification() {
+            const subjectEl = document.getElementById('prmNotifySubject');
+            const messageEl = document.getElementById('prmNotifyMessage');
+            const estatesEl = document.getElementById('prmNotifyEstates');
+            
+            const subject = subjectEl.value.trim();
+            const message = messageEl.value.trim();
+            const notifyType = document.getElementById('prmNotifyType').value;
+            const estateIds = Array.from(estatesEl.selectedOptions).map(o => o.value);
+            const sendEmail = document.getElementById('prmNotifyEmail').checked;
+            const sendInApp = document.getElementById('prmNotifyInApp').checked;
 
-    function sendNotification() {
-    const subject    = document.getElementById('prmNotifySubject').value.trim();
-    const message    = document.getElementById('prmNotifyMessage').value.trim();
-    const notifyType = document.getElementById('prmNotifyType').value;
-    const estateIds  = Array.from(document.getElementById('prmNotifyEstates').selectedOptions).map(o => o.value);
-    const sendEmail  = document.getElementById('prmNotifyEmail').checked;
-    const sendSMS    = document.getElementById('prmNotifySMS').checked;
-    const sendInApp  = document.getElementById('prmNotifyInApp').checked;
+            // Validation
+            let hasError = false;
+            
+            if (!subject) {
+                showError('Subject is required');
+                return;
+            }
+            
+            if (!message) {
+                showError('Message is required');
+                return;
+            }
+            
+            const hideTypes = ['client_update', 'marketer_update', 'general_notification'];
+            if (!hideTypes.includes(notifyType) && estateIds.length === 0) {
+                showError('Please select at least one estate');
+                return;
+            }
+            
+            if (!sendEmail && !sendInApp) {
+                showError('Select at least one delivery channel');
+                return;
+            }
 
-    if (!subject || !message) {
-        return showError('Please fill in subject and message');
-    }
+            const payload = { 
+                subject, 
+                message, 
+                type: notifyType, 
+                send_email: sendEmail, 
+                send_sms: false,
+                send_inapp: sendInApp 
+            };
+            if (!hideTypes.includes(notifyType)) payload.estate_ids = estateIds;
 
-    const payload = { subject, message, type: notifyType, send_email: sendEmail, send_sms: sendSMS, send_inapp: sendInApp };
-    const hide = ['client_update','marketer_update','general_notification'];
-    if (!hide.includes(notifyType)) payload.estate_ids = estateIds;
+            const notifyBtn = document.getElementById('prmSendNotifyBtn');
+            const originalBtnHtml = notifyBtn.innerHTML;
+            notifyBtn.disabled = true;
+            notifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
 
-    const notifyBtn = document.getElementById('prmSendNotifyBtn');
-    const originalBtnHtml = notifyBtn.innerHTML;
-    notifyBtn.disabled = true;
-    notifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sending...';
+            fetch("{% url 'notify_clients_marketer' %}", {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','X-CSRFToken':csrftoken},
+                body: JSON.stringify(payload)
+            })
+            .then(async response => {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                const data = isJson ? await response.json() : await response.text();
 
-    const successModalEl = document.getElementById('successModal');
-    const successModal = bootstrap.Modal.getOrCreateInstance(successModalEl);
-    const successMessageEl = document.getElementById('successModalMessage');
-    const successDetailEl = document.getElementById('successModalDetail');
+                if (!response.ok) {
+                    const detail = isJson
+                        ? data.message || data.detail || data.error || JSON.stringify(data)
+                        : data;
+                    throw new Error(detail || `Request failed (${response.status})`);
+                }
 
-    fetch("{% url 'notify_clients_marketer' %}", {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-CSRFToken':csrftoken},
-        body: JSON.stringify(payload)
-    })
-    .then(async response => {
-        const contentType = response.headers.get('content-type') || '';
-        const isJson = contentType.includes('application/json');
-        const payload = isJson ? await response.json() : await response.text();
+                if (!isJson) {
+                    throw new Error('Unexpected response from server.');
+                }
 
-        if (!response.ok) {
-            const detail = isJson
-                ? payload.message || payload.detail || payload.error || JSON.stringify(payload)
-                : payload;
-            throw new Error(detail || `Request failed (${response.status})`);
+                return data;
+            })
+            .then(data => {
+                if (data.status === 'success' || data.status === 'queued') {
+                    prmNotifyModal.hide();
+
+                    successMessageEl.textContent = '';
+                    successDetailEl.innerHTML = '';
+                    clearDispatchPolling();
+
+                    if (data.status === 'queued' && data.dispatch) {
+                        const totalRecipients = data.dispatch.total_recipients || data.recipients;
+                        successMessageEl.innerHTML = renderHeadline(
+                            `🚀 Queue started for <strong>${formatNumber(totalRecipients)}</strong> users.`,
+                            'In progress',
+                            'bg-primary text-white'
+                        );
+                        successDetailEl.innerHTML = renderDispatchDetail(data.dispatch);
+                        startDispatchPolling(data.dispatch.id);
+                    } else {
+                        const deliveredText = data.recipients ? `${formatNumber(data.recipients)} users.` : 'No queue';
+                        successMessageEl.innerHTML = data.recipients
+                            ? renderHeadline(
+                                `✅ Notifications sent to <strong>${deliveredText.replace('.', '')}</strong>`,
+                                'Queue cleared',
+                                'bg-success text-white'
+                            )
+                            : renderHeadline(
+                                '✅ Notifications sent <strong>— No queue</strong>',
+                                'Queue empty',
+                                'bg-secondary text-white'
+                            );
+                        successDetailEl.innerHTML = data.recipients ? '' : '<span>No queue</span>';
+                    }
+
+                    successModal.show();
+                } else {
+                    showError(data.message || 'Something went wrong.');
+                }
+            })
+            .catch(err => {
+                console.error('Notification request failed:', err);
+                showError(err?.message || 'Unable to send notifications. Please try again.');
+            })
+            .finally(() => {
+                notifyBtn.disabled = false;
+                notifyBtn.innerHTML = originalBtnHtml;
+            });
         }
 
-        if (!isJson) {
-            throw new Error('Unexpected response from server.');
-        }
+    }); // End of DOMContentLoaded
 
-        return payload;
-    })
-    .then(data => {
-        if (data.status === 'success' || data.status === 'queued') {
-        bootstrap.Modal.getInstance(document.getElementById('prmNotifyModal')).hide();
-
-        successMessageEl.textContent = '';
-        successDetailEl.innerHTML = '';
-        clearDispatchPolling();
-
-        if (data.status === 'queued' && data.dispatch) {
-            const totalRecipients = data.dispatch.total_recipients || data.recipients;
-            successMessageEl.innerHTML = renderHeadline(
-            `🚀 Queue started for <strong>${formatNumber(totalRecipients)}</strong> users.`,
-            'In progress',
-            'bg-primary text-white'
-            );
-            successDetailEl.innerHTML = renderDispatchDetail(data.dispatch);
-            startDispatchPolling(data.dispatch.id);
-        } else {
-            const deliveredText = data.recipients ? `${formatNumber(data.recipients)} users.` : 'No queue';
-            successMessageEl.innerHTML = data.recipients
-            ? renderHeadline(
-                `✅ Notifications sent to <strong>${deliveredText.replace('.', '')}</strong>`,
-                'Queue cleared',
-                'bg-success text-white'
-            )
-            : renderHeadline(
-                '✅ Notifications sent <strong>— No queue</strong>',
-                'Queue empty',
-                'bg-secondary text-white'
-            );
-            successDetailEl.innerHTML = data.recipients ? '' : '<span>No queue</span>';
-        }
-
-        successModal.show();
-        } else {
-        showError(data.message || 'Something went wrong.');
-        }
-    })
-    .catch(err => {
-        console.error('Notification request failed:', err);
-        showError(err?.message || 'Unable to send notifications. Please try again.');
-    })
-    .finally(() => {
-        notifyBtn.disabled = false;
-        notifyBtn.innerHTML = originalBtnHtml;
-    });
-    }
+    // ============================================
+    // GLOBAL HELPER FUNCTIONS (outside DOMContentLoaded)
+    // ============================================
 
     function renderHeadline(message, badgeLabel = null, badgeClass = 'bg-primary text-white') {
-    const badge = badgeLabel
-        ? `<span class="badge rounded-pill ${badgeClass}">${badgeLabel}</span>`
-        : '';
+        const badge = badgeLabel
+            ? `<span class="badge rounded-pill ${badgeClass}">${badgeLabel}</span>`
+            : '';
 
-    return `
-        <div class="d-flex flex-column flex-md-row align-items-center justify-content-center gap-2 text-center">
-            <span>${message}</span>
-            ${badge}
-        </div>
-    `;
+        return `
+            <div class="d-flex flex-column flex-md-row align-items-center justify-content-center gap-2 text-center">
+                <span>${message}</span>
+                ${badge}
+            </div>
+        `;
     }
 
     function renderDispatchDetail(dispatch) {
-    if (!dispatch) {
-        return '<span>No queue</span>';
-    }
+        if (!dispatch) {
+            return '<span>No queue</span>';
+        }
 
-    const totalRecipients = dispatch.total_recipients || 0;
-    const processedRecipients = dispatch.processed_recipients || 0;
-    const remainingRecipients = dispatch.remaining_recipients ?? Math.max(totalRecipients - processedRecipients, 0);
+        const totalRecipients = dispatch.total_recipients || 0;
+        const processedRecipients = dispatch.processed_recipients || 0;
+        const remainingRecipients = dispatch.remaining_recipients ?? Math.max(totalRecipients - processedRecipients, 0);
 
-    const totalBatches = dispatch.total_batches || 0;
-    const processedBatches = dispatch.processed_batches || 0;
-    const remainingBatches = dispatch.remaining_batches ?? Math.max(totalBatches - processedBatches, 0);
+        const totalBatches = dispatch.total_batches || 0;
+        const processedBatches = dispatch.processed_batches || 0;
+        const remainingBatches = dispatch.remaining_batches ?? Math.max(totalBatches - processedBatches, 0);
 
-    const progressPercent = dispatch.progress_percent ?? (
-        totalRecipients > 0
-            ? Math.round((processedRecipients / totalRecipients) * 10000) / 100
-            : (processedRecipients > 0 ? 100 : 0)
-    );
+        const progressPercent = dispatch.progress_percent ?? (
+            totalRecipients > 0
+                ? Math.round((processedRecipients / totalRecipients) * 10000) / 100
+                : (processedRecipients > 0 ? 100 : 0)
+        );
 
-    const formattedProcessed = `${formatNumber(processedRecipients)} / ${formatNumber(totalRecipients)}`;
-    const formattedBatches = `${formatNumber(processedBatches)} / ${formatNumber(totalBatches)}`;
+        const formattedProcessed = `${formatNumber(processedRecipients)} / ${formatNumber(totalRecipients)}`;
+        const formattedBatches = `${formatNumber(processedBatches)} / ${formatNumber(totalBatches)}`;
 
-    return `
-        <div class="text-start">
-            <div class="small text-muted mb-1">Recipients processed</div>
-            <div class="fw-semibold">${formattedProcessed}</div>
-            <div class="progress my-2" style="height: 6px;">
-                <div class="progress-bar" role="progressbar" style="width: ${Math.min(progressPercent, 100)}%;" aria-valuenow="${progressPercent}" aria-valuemin="0" aria-valuemax="100"></div>
+        return `
+            <div class="text-start">
+                <div class="small text-muted mb-1">Recipients processed</div>
+                <div class="fw-semibold">${formattedProcessed}</div>
+                <div class="progress my-2" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: ${Math.min(progressPercent, 100)}%;" aria-valuenow="${progressPercent}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span>${formatNumber(processedRecipients)} processed</span>
+                    <span>${formatNumber(remainingRecipients)} remaining</span>
+                </div>
+                <hr class="my-2">
+                <div class="small text-muted mb-1">Batches processed</div>
+                <div>${formattedBatches}</div>
+                <div class="d-flex justify-content-between small">
+                    <span>${formatNumber(processedBatches)} processed</span>
+                    <span>${formatNumber(remainingBatches)} remaining</span>
+                </div>
+                <div class="small mt-2"><strong>Status:</strong> ${dispatch.status || 'queued'}</div>
             </div>
-            <div class="d-flex justify-content-between small">
-                <span>${formatNumber(processedRecipients)} processed</span>
-                <span>${formatNumber(remainingRecipients)} remaining</span>
-            </div>
-            <hr class="my-2">
-            <div class="small text-muted mb-1">Batches processed</div>
-            <div>${formattedBatches}</div>
-            <div class="d-flex justify-content-between small">
-                <span>${formatNumber(processedBatches)} processed</span>
-                <span>${formatNumber(remainingBatches)} remaining</span>
-            </div>
-            <div class="small mt-2"><strong>Status:</strong> ${dispatch.status || 'queued'}</div>
-        </div>
-    `;
+        `;
     }
 
     function startDispatchPolling(dispatchId) {
-    clearDispatchPolling();
-
-    const successMessageEl = document.getElementById('successModalMessage');
-    const successDetailEl = document.getElementById('successModalDetail');
-
-    const poll = () => {
-        fetch(`/api/notification-dispatch/${dispatchId}/status/`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(r => r.json())
-        .then(payload => {
-        if (!payload.ok) {
-            return;
-        }
-
-        const dispatch = payload.dispatch;
-        successDetailEl.innerHTML = renderDispatchDetail(dispatch);
-
-        if (dispatch.status === 'completed' || dispatch.status === 'failed') {
-            if (dispatch.status === 'completed') {
-            successMessageEl.innerHTML = renderHeadline(
-                '✅ Queue completed',
-                'All recipients processed',
-                'bg-success text-white'
-            );
-            } else {
-            successMessageEl.innerHTML = renderHeadline(
-                '❌ Queue failed',
-                dispatch.last_error ? 'Check error details below' : 'Encountered an error',
-                'bg-danger text-white'
-            );
-            if (dispatch.last_error) {
-                successDetailEl.innerHTML += `<div class="alert alert-danger mt-3" role="alert">${dispatch.last_error}</div>`;
-            }
-            }
-            clearDispatchPolling();
-        }
-        })
-        .catch(() => {
         clearDispatchPolling();
-        });
-    };
 
-    poll();
-    dispatchPollTimer = setInterval(poll, 3000);
+        const successMessageEl = document.getElementById('successModalMessage');
+        const successDetailEl = document.getElementById('successModalDetail');
+
+        const poll = () => {
+            fetch(`/api/notification-dispatch/${dispatchId}/status/`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(payload => {
+                if (!payload.ok) {
+                    return;
+                }
+
+                const dispatch = payload.dispatch;
+                successDetailEl.innerHTML = renderDispatchDetail(dispatch);
+
+                if (dispatch.status === 'completed' || dispatch.status === 'failed') {
+                    if (dispatch.status === 'completed') {
+                        successMessageEl.innerHTML = renderHeadline(
+                            '✅ Queue completed',
+                            'All recipients processed',
+                            'bg-success text-white'
+                        );
+                    } else {
+                        successMessageEl.innerHTML = renderHeadline(
+                            '❌ Queue failed',
+                            dispatch.last_error ? 'Check error details below' : 'Encountered an error',
+                            'bg-danger text-white'
+                        );
+                        if (dispatch.last_error) {
+                            successDetailEl.innerHTML += `<div class="alert alert-danger mt-3" role="alert">${dispatch.last_error}</div>`;
+                        }
+                    }
+                    clearDispatchPolling();
+                }
+            })
+            .catch(() => {
+                clearDispatchPolling();
+            });
+        };
+
+        poll();
+        dispatchPollTimer = setInterval(poll, 3000);
     }
 
     function showError(msg) {
-    document.getElementById('errorModalMessage').textContent = `❌ ${msg}`;
-    new bootstrap.Modal(document.getElementById('errorModal')).show();
+        document.getElementById('errorModalMessage').textContent = `❌ ${msg}`;
+        new bootstrap.Modal(document.getElementById('errorModal')).show();
     }
-
-    // function showFeedbackModal(message, isSuccess) {
-    //     const header = document.getElementById('prmFeedbackHeader');
-    //     const title = document.getElementById('prmFeedbackLabel');
-    //     const body = document.getElementById('prmFeedbackMessage');
-
-    //     body.textContent = message;
-    //     header.classList.remove('bg-success', 'bg-danger');
-    //     header.classList.add(isSuccess ? 'bg-success' : 'bg-danger');
-    //     title.textContent = isSuccess ? 'Success' : 'Error';
-
-    //     new bootstrap.Modal(document.getElementById('prmFeedbackModal')).show();
-    // }
-
 
 </script>

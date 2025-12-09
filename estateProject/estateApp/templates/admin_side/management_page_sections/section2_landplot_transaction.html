@@ -1,4 +1,5 @@
 {% load static %}
+{% load humanize %}
 
 <!-- Land Plot Transactions Tab -->
 <style>
@@ -51,6 +52,211 @@
         font-size: 0.75rem;
         font-weight: 600;
     }
+    
+    /* Plot Allocation Section Styling */
+    #plotAllocationSection {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        padding: 20px;
+        border-radius: 8px;
+        border: 2px solid #0ea5e9;
+        animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    #plotAllocationSection .alert-success {
+        border-left: 4px solid #10b981;
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    #rp_plot_number {
+        border: 2px solid #0ea5e9;
+        font-size: 1rem;
+        padding: 10px;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+    
+    #rp_plot_number:focus {
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+    }
+    
+    /* Modern Record Payment Modal Styles */
+    .modern-modal {
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modern-modal-header {
+        background: #10b981;
+        padding: 20px 24px;
+        border: none;
+    }
+    
+    .modern-modal-body {
+        padding: 24px;
+        background: white;
+    }
+    
+    .modern-modal-footer {
+        padding: 16px 24px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        gap: 8px;
+    }
+    
+    /* Simplified Info Display */
+    .info-card {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .info-card-header {
+        font-weight: 600;
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-display {
+        background: white;
+        padding: 10px 12px;
+        border-radius: 6px;
+        font-weight: 500;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* Clean Amount Display */
+    .amount-display {
+        background: #f0fdf4;
+        padding: 16px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #86efac;
+    }
+    
+    .amount-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #059669;
+    }
+    
+    /* Clean Form Controls */
+    .modern-input,
+    .modern-select {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+    
+    .modern-input:focus,
+    .modern-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        outline: none;
+    }
+    
+    .modern-input-group .input-group-text {
+        background: #f8fafc;
+        color: #64748b;
+        border: 1px solid #d1d5db;
+        border-right: none;
+        font-weight: 600;
+    }
+    
+    .modern-input-group .form-control {
+        border-left: none;
+    }
+    
+    /* Plot Allocation Card */
+    .plot-allocation-card {
+        background: #f0fdf4;
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid #86efac;
+        margin-top: 16px;
+    }
+    
+    .plot-allocation-header {
+        color: #059669;
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+    
+    /* Form Labels */
+    .modern-modal-body .form-label {
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 6px;
+        font-size: 13px;
+    }
+    
+    /* Buttons */
+    .btn-cancel {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        background: white;
+        border: 1px solid #d1d5db;
+        color: #64748b;
+    }
+    
+    .btn-cancel:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+    }
+    
+    .btn-submit {
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-weight: 600;
+        background: #10b981;
+        border: none;
+        color: white;
+    }
+    
+    .btn-submit:hover {
+        background: #059669;
+    }
+    
+    .btn-submit:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+    }
+    
+    /* Error Alert */
+    #rp_error_alert {
+        border-radius: 6px;
+        border-left: 3px solid #dc2626;
+    }
+    
+    /* Balance Hint */
+    #rp_balance_hint {
+        font-size: 12px;
+        margin-top: 4px;
+    }
 </style>
 
 <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="payments-tab">
@@ -64,12 +270,7 @@
                                 <i class="bi bi-house-check me-2"></i>Land Plot Transactions
                             </h3>
                             <div>
-                                <!-- <button class="btn btn-primary me-2" id="exportTransactionsBtn">
-                                    <i class="bi bi-download me-2"></i>Export
-                                </button> -->
-                                <!-- <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
-                                    <i class="bi bi-plus-circle me-2"></i>Add Transaction
-                                </button> -->
+                                <!-- Future: Export functionality will be added here -->
                             </div>
                         </div>
 
@@ -168,12 +369,10 @@
                                         <td>{{ txn.marketer.full_name }}</td>
                                         <td>{{ txn.client.full_name }}</td>
                                         <td>{{ txn.transaction_date|date:"d M Y" }}</td>
-                                        <td>₦{{ txn.total_amount|floatformat:2 }}</td>
-                                        <td>₦{{ txn.first_installment|default:"0.00"|floatformat:2 }}</td>
-                                        <td>₦{{ txn.second_installment|default:"0.00"|floatformat:2 }}</td>
-                                        <td>₦{{ txn.third_installment|default:"0.00"|floatformat:2 }}</td>
-
-                                        <td data-label="Status">
+                        <td>₦{{ txn.total_amount|floatformat:2|intcomma }}</td>
+                        <td>₦{{ txn.first_installment|default:"0.00"|floatformat:2|intcomma }}</td>
+                        <td>₦{{ txn.second_installment|default:"0.00"|floatformat:2|intcomma }}</td>
+                        <td>₦{{ txn.third_installment|default:"0.00"|floatformat:2|intcomma }}</td>                                        <td data-label="Status">
                                             {% if txn.status == 'Fully Paid' %}
                                             <span class="badge badge-paid">
                                                 <i class="bi bi-check-circle me-1"></i>Fully Paid
@@ -250,58 +449,134 @@
     </section>
 
 
-    <!-- Record Payment Modal -->
-    <div class="modal fade" id="recordPaymentModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form id="recordPaymentForm" class="modal-content">
-            {% csrf_token %}
-            <input type="hidden" id="rp_transaction_id" name="transaction_id">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">Record Payment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                <label>Client</label>
-                <input id="rp_client" class="form-control" readonly>
+    <!-- Modern Record Payment Modal -->
+    <div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-labelledby="recordPaymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form id="recordPaymentForm" class="modal-content modern-modal">
+                {% csrf_token %}
+                <input type="hidden" id="rp_transaction_id" name="transaction_id">
+                
+                <!-- Header -->
+                <div class="modal-header modern-modal-header text-white">
+                    <h5 class="modal-title mb-0" id="recordPaymentModalLabel">
+                        <i class="bi bi-cash-coin me-2"></i>Record Payment
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="mb-3">
-                <label>Estate &amp; Plot</label>
-                <input id="rp_estate_plot" class="form-control" readonly>
+                
+                <!-- Modal Body -->
+                <div class="modal-body modern-modal-body">
+                    <!-- Error Alert Container -->
+                    <div id="rp_error_alert" class="alert alert-danger alert-dismissible fade" role="alert" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span id="rp_error_message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    
+                    <!-- Client Information -->
+                    <div class="info-card">
+                        <div class="info-card-header">Client Information</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="info-display">
+                                    <i class="bi bi-person me-2 text-muted"></i>
+                                    <span id="rp_client"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-display">
+                                    <i class="bi bi-geo-alt me-2 text-muted"></i>
+                                    <span id="rp_estate_plot"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Amount -->
+                    <div class="amount-display mb-3">
+                        <div class="text-muted small mb-1">Total Amount</div>
+                        <div class="amount-value">₦<span id="rp_total_amount_display">0.00</span></div>
+                    </div>
+                    <input type="hidden" id="rp_total_amount">
+                    
+                    <!-- Installment Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Select Installment <span class="text-danger">*</span></label>
+                        <select id="rp_installment" name="installment" class="form-select modern-select" required>
+                            <option value="">Loading installments...</option>
+                        </select>
+                        <div class="invalid-feedback">Please select an installment</div>
+                    </div>
+                    
+                    <!-- Amount Paid Input -->
+                    <div class="mb-3">
+                        <label class="form-label">Amount Paid <span class="text-danger">*</span></label>
+                        <div class="input-group modern-input-group">
+                            <span class="input-group-text">₦</span>
+                            <input type="number" 
+                                   id="rp_amount_paid"
+                                   name="amount_paid" 
+                                   class="form-control modern-input" 
+                                   placeholder="0.00"
+                                   step="0.01"
+                                   min="0"
+                                   required>
+                        </div>
+                        <small id="rp_balance_hint" class="form-text"></small>
+                        <div class="invalid-feedback">Please enter a valid payment amount</div>
+                    </div>
+                    
+                    <!-- Payment Date -->
+                    <div class="mb-3">
+                        <label class="form-label">Payment Date <span class="text-danger">*</span></label>
+                        <input type="date" 
+                               name="payment_date" 
+                               id="rp_payment_date"
+                               class="form-control modern-input" 
+                               required>
+                        <div class="invalid-feedback">Please select payment date</div>
+                    </div>
+                    
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                        <select name="payment_method" class="form-select modern-select" required>
+                            <option value="">Select payment method</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="cash">Cash</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="pos">POS</option>
+                        </select>
+                        <div class="invalid-feedback">Please select payment method</div>
+                    </div>
+                    
+                    <!-- Plot Allocation Section (shown when payment completes) -->
+                    <div id="plotAllocationSection" class="plot-allocation-card" style="display: none;">
+                        <div class="plot-allocation-header">
+                            <i class="bi bi-geo-alt-fill me-2"></i>Plot Allocation Required
+                        </div>
+                        <p class="mb-2 text-muted small">This payment completes the transaction. Select a plot:</p>
+                        <select id="rp_plot_number" name="plot_number_id" class="form-select modern-select" required>
+                            <option value="">Loading available plots...</option>
+                        </select>
+                    </div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                <label>Total Amount</label>
-                <input id="rp_total_amount" class="form-control" readonly>
+                
+                <!-- Modern Footer -->
+                <div class="modal-footer modern-modal-footer">
+                    <button type="button" class="btn btn-light btn-cancel" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-submit" id="rp_submit_btn">
+                        <span class="btn-text">
+                            <i class="bi bi-check-circle me-2"></i>Record Payment
+                        </span>
+                        <span class="btn-spinner" style="display: none;">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Processing...
+                        </span>
+                    </button>
                 </div>
-                <div class="mb-3">
-                <label>Installment</label>
-                <select id="rp_installment" name="installment" class="form-select" required>
-                    <option>Loading…</option>
-                </select>
-                </div>
-                <div class="mb-3">
-                <label>Amount Paid (₦)</label>
-                <input type="number" name="amount_paid" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                <label>Payment Date</label>
-                <input type="date" name="payment_date" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                <label>Payment Method</label>
-                <select name="payment_method" class="form-select" required>
-                    <option value="">Select…</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="pos">POS</option>
-                </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-success">Record Payment</button>
-            </div>
             </form>
         </div>
     </div>
@@ -626,7 +901,7 @@
             // marketer
             $.get("{% url 'ajax_client_marketer' %}", { client_id: cid })
             .done(d => $('#marketer').val(d.marketer_name))
-            .fail(() => console.error('Failed to load marketer'));
+            .fail(() => alert('Failed to load marketer. Please try again.'));
             // allocations
             $.get("{% url 'ajax_client_allocations' %}", { client_id: cid })
             .done(list => {
@@ -642,7 +917,7 @@
             });
             $alloc.prop('disabled', false);
             })
-            .fail(() => console.error('Failed to load allocations'));
+            .fail(() => alert('Failed to load allocations. Please try again.'));
         });
 
         $('#allocation').on('change', function(){
@@ -748,7 +1023,7 @@
                     $('#fullPaymentFields').hide();
                 }
                 })
-                .fail(() => console.error('Failed to load allocation info'));
+                .fail(() => alert('Failed to load allocation details. Please try again.'));
             });
 
         $('#installment_plan').on('change', function(){
@@ -814,53 +1089,6 @@
             });
         });
 
-
-        // Installment Preview Calculation
-        function calculateInstallments() {
-            const total = parseFloat($('#total_amount').val()) || 0;
-            const plan = $('#installment_plan').val();
-
-            if ($('#payment_type').val() !== 'Part Payment' || total <= 0) {
-                return $('#installmentPreview').hide();
-            }
-
-            let pcts;
-            if (plan === 'custom') {
-                pcts = [
-                    parseFloat($('#first_percent').val()) || 0,
-                    parseFloat($('#second_percent').val()) || 0,
-                    parseFloat($('#third_percent').val()) || 0
-                ];
-            } else {
-                pcts = plan.split('-').map(Number);
-            }
-
-            if (pcts.length !== 3 || pcts.reduce((x,y)=>x+y,0) !== 100) {
-                return $('#installmentPreview').hide();
-            }
-
-            const amounts = pcts.map(p => total * p / 100);
-            displayInstallmentAmounts(amounts[0], amounts[1], amounts[2]);
-        }
-
-        function displayInstallmentAmounts(a, b, c) {
-            $('#installmentPreview').html(`
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Installment amounts:
-                    <ul class="mb-0">
-                        <li>First: ₦${a.toFixed(2)}</li>
-                        <li>Second: ₦${b.toFixed(2)}</li>
-                        <li>Third: ₦${c.toFixed(2)}</li>
-                    </ul>
-                </div>
-            `).show();
-        }
-
-        $('#total_amount, #first_percent, #second_percent, #third_percent').on('input', calculateInstallments);
-
-        // Pending Sales Handling
-        let pendingAllocId = null;
-
         // Pending Transactions
         $('.pending-item').on('click', function(e){
             e.preventDefault();
@@ -900,68 +1128,299 @@
         $('#estateFilter, #statusFilter, #marketerFilter').on('change', applyFilters);
         $('#clientSearch').on('input', applyFilters);
 
-        // // Record Payment Modal
+        // Record Payment Modal - Modern Implementation
         $('#recordPaymentModal').on('show.bs.modal', function(e) {
             const btn = $(e.relatedTarget);
             const txnId = btn.data('id');
             const row = btn.closest('tr');
             
-            $('#rp_transaction_id').val(txnId);
-            $('#rp_client').val(row.find('td').eq(3).text());
-            $('#rp_estate_plot').val(
-                row.find('td').eq(0).text() + ' (' + row.find('td').eq(1).text() + ')'
-            );
+            // Reset form and UI
+            $('#recordPaymentForm')[0].reset();
+            $('#recordPaymentForm').removeClass('was-validated');
+            $('.is-invalid').removeClass('is-invalid');
+            $('.invalid-feedback').hide();
+            $('#rp_error_alert').removeClass('show').hide();
+            $('#plotAllocationSection').hide();
+            $('#rp_plot_number').attr('required', false);
+            $('#rp_balance_hint').html('');
             
-            // Format amount correctly (remove currency symbols)
-            const totalAmount = row.find('td').eq(5).text().replace(/[^\d.]/g, '');
+            // Set transaction ID
+            $('#rp_transaction_id').val(txnId);
+            
+            // Extract and display client information
+            const clientName = row.find('td').eq(4).text().trim();
+            const estateName = row.find('td').eq(1).text().trim();
+            const plotSize = row.find('td').eq(2).text().trim();
+            
+            $('#rp_client').text(clientName);
+            $('#rp_estate_plot').text(`${estateName} (${plotSize})`);
+            
+            // Extract total amount
+            const totalAmountText = row.find('td').eq(6).text().replace(/[^\d.]/g, '');
+            const totalAmount = parseFloat(totalAmountText) || 0;
             $('#rp_total_amount').val(totalAmount);
-
-            // Populate installments dropdown:
-            $.get("{% url 'ajax_get_unpaid_installments' %}", { transaction_id: txnId })
-                .done(data => {
+            $('#rp_total_amount_display').text(totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+            
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            $('#rp_payment_date').val(today);
+            
+            // Fetch installments with error handling
+            $.ajax({
+                url: "{% url 'ajax_get_unpaid_installments' %}",
+                method: 'GET',
+                data: { transaction_id: txnId },
+                beforeSend: function() {
+                    $('#rp_installment').html('<option value="">Loading installments...</option>').prop('disabled', true);
+                },
+                success: function(data) {
                     const $sel = $('#rp_installment').empty()
-                        .append('<option value="">Select Installment</option>');
+                        .append('<option value="">Select installment</option>')
+                        .prop('disabled', false);
 
-                    data.installments.forEach(inst => {
-                        // Only show installments that are not fully paid
-                        if (parseFloat(inst.remaining) > 0) {
-                            const textLabel = inst.label || `Installment ${inst.n}`;
-                            const rem = parseFloat(inst.remaining).toFixed(2);
-                            
-                            $sel.append(
-                                `<option value="${inst.n}">` +
-                                `${textLabel} (Remaining: ₦${rem})` +
-                                `</option>`
-                            );
+                    if (data.installments && data.installments.length > 0) {
+                        data.installments.forEach(inst => {
+                            const remaining = parseFloat(inst.remaining);
+                            if (remaining > 0) {
+                                const textLabel = inst.label || `Installment ${inst.n}`;
+                                const remFormatted = remaining.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                                
+                                $sel.append(
+                                    `<option value="${inst.n}" data-remaining="${remaining}">` +
+                                    `${textLabel} (Remaining: ₦${remFormatted})` +
+                                    `</option>`
+                                );
+                            }
+                        });
+                    } else {
+                        $sel.append('<option value="">No unpaid installments</option>');
+                    }
+                    
+                    // Store transaction metadata
+                    $('#rp_transaction_id')
+                        .data('total-balance', data.total_balance || 0)
+                        .data('allocation-id', data.allocation_id)
+                        .data('is-part-payment', data.is_part_payment)
+                        .data('has-plot', data.has_plot_number);
+                },
+                error: function(xhr, status, error) {
+                    showError('Failed to load installments. Please try again.');
+                    $('#rp_installment').html('<option value="">Error loading installments</option>');
+                }
+            });
+        });
+        
+        // Show error message helper
+        function showError(message) {
+            $('#rp_error_message').text(message);
+            $('#rp_error_alert').addClass('show').slideDown();
+        }
+        
+        // Dismiss error alert
+        $('.alert-dismissible .btn-close').on('click', function() {
+            $(this).closest('.alert').removeClass('show').slideUp();
+        });
+        
+        // Real-time payment amount validation and plot allocation check
+        $('#rp_amount_paid').on('input', function() {
+            const amountPaid = parseFloat($(this).val()) || 0;
+            const totalBalance = parseFloat($('#rp_transaction_id').data('total-balance')) || 0;
+            const allocationId = $('#rp_transaction_id').data('allocation-id');
+            const isPartPayment = $('#rp_transaction_id').data('is-part-payment');
+            const hasPlot = $('#rp_transaction_id').data('has-plot');
+            
+            // Update balance hint with visual feedback
+            const remaining = totalBalance - amountPaid;
+            if (amountPaid > totalBalance) {
+                $('#rp_balance_hint')
+                    .removeClass('text-success text-muted')
+                    .addClass('text-danger')
+                    .html('<i class="bi bi-exclamation-circle me-1"></i>Amount exceeds remaining balance!');
+            } else if (amountPaid === totalBalance) {
+                $('#rp_balance_hint')
+                    .removeClass('text-danger text-muted')
+                    .addClass('text-success')
+                    .html('<i class="bi bi-check-circle me-1"></i>Payment will complete the transaction!');
+            } else if (amountPaid > 0) {
+                const remainingFormatted = remaining.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                $('#rp_balance_hint')
+                    .removeClass('text-danger text-success')
+                    .addClass('text-muted')
+                    .html(`Remaining balance after payment: ₦${remainingFormatted}`);
+            } else {
+                $('#rp_balance_hint').html('');
+            }
+            
+            // Check if plot allocation needed
+            const willComplete = amountPaid >= totalBalance;
+            const needsPlotAllocation = willComplete && isPartPayment && !hasPlot;
+            
+            if (needsPlotAllocation && allocationId) {
+                // Show plot allocation section with smooth animation
+                if (!$('#plotAllocationSection').is(':visible')) {
+                    $('#plotAllocationSection').slideDown(300);
+                    $('#rp_plot_number').attr('required', true);
+                    
+                    // Fetch available plots
+                    $.ajax({
+                        url: "{% url 'ajax_get_available_plots' %}",
+                        method: 'GET',
+                        data: { allocation_id: allocationId },
+                        beforeSend: function() {
+                            $('#rp_plot_number').html('<option value="">Loading available plots...</option>').prop('disabled', true);
+                        },
+                        success: function(resp) {
+                            if (resp.success && resp.plots && resp.plots.length > 0) {
+                                const $plotSel = $('#rp_plot_number')
+                                    .empty()
+                                    .append('<option value="">Select a plot number</option>')
+                                    .prop('disabled', false);
+                                
+                                resp.plots.forEach(plot => {
+                                    $plotSel.append(`<option value="${plot.id}">Plot ${plot.number}</option>`);
+                                });
+                            } else {
+                                $('#rp_plot_number').html('<option value="">No plots available - Manual allocation required</option>');
+                                showError('No available plots found. Payment can proceed, but plot allocation will need to be done manually.');
+                            }
+                        },
+                        error: function() {
+                            $('#rp_plot_number').html('<option value="">Error loading plots</option>');
+                            showError('Failed to load available plots. Please try again.');
                         }
                     });
-                })
-                .fail(() => {
-                    $('#rp_installment').html('<option>Error loading installments</option>');
-                });
+                }
+            } else {
+                // Hide plot allocation section with smooth animation
+                if ($('#plotAllocationSection').is(':visible')) {
+                    $('#plotAllocationSection').slideUp(300);
+                    $('#rp_plot_number').attr('required', false);
+                }
+            }
         });
 
-        // Submit record-payment form
+        // Submit record-payment form with enhanced error handling
         $('#recordPaymentForm').on('submit', function(e) {
             e.preventDefault();
-            const $btn = $(this).find('button[type=submit]')
-                .prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm"></span> Recording...');
+            
+            // Validate form
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                $(this).addClass('was-validated');
+                return;
+            }
+            
+            // Show loading state
+            const $submitBtn = $('#rp_submit_btn');
+            const originalText = $submitBtn.html();
+            $submitBtn.prop('disabled', true)
+                .html('<span class="spinner-border spinner-border-sm me-2"></span>Recording...');
+            
+            $('#rp_error_alert').removeClass('show').slideUp();
 
-            $.post("{% url 'ajax_record_payment' %}", $(this).serialize())
-                .done(resp => {
+            $.ajax({
+                url: "{% url 'ajax_record_payment' %}",
+                method: 'POST',
+                data: $(this).serialize(),
+                success: function(resp) {
                     if (resp.success) {
-                        // Refresh the page to update payment status
-                        location.reload();
+                        // Check if payment completes and needs plot allocation
+                        if (resp.needs_plot_allocation) {
+                            const plotNumberId = $('#rp_plot_number').val();
+                            
+                            if (!plotNumberId) {
+                                showError('Please select a plot number to allocate.');
+                                $submitBtn.prop('disabled', false).html(originalText);
+                                $('#rp_plot_number').addClass('is-invalid')
+                                    .siblings('.invalid-feedback').show();
+                                return;
+                            }
+                            
+                            // Update button text
+                            $submitBtn.html('<span class="spinner-border spinner-border-sm me-2"></span>Allocating Plot...');
+                            
+                            // Assign plot number
+                            $.ajax({
+                                url: "{% url 'ajax_assign_plot_after_payment' %}",
+                                method: 'POST',
+                                data: {
+                                    allocation_id: resp.allocation_id,
+                                    plot_number_id: plotNumberId,
+                                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                                },
+                                success: function(plotResp) {
+                                    if (plotResp.success) {
+                                        // Success message
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Payment Complete!',
+                                            html: `<p>${plotResp.message}</p>
+                                                   <p class="text-muted small mt-2">
+                                                   <i class="bi bi-info-circle"></i> 
+                                                   Note: Transaction history maintains Part Payment record, 
+                                                   but client is now allocated with plot number.
+                                                   </p>`,
+                                            confirmButtonColor: '#10b981'
+                                        }).then(() => {
+                                            location.reload();
+                                        });
+                                    } else {
+                                        Swal.fire({
+                                            icon: 'warning',
+                                            title: 'Partial Success',
+                                            text: 'Payment recorded but plot allocation failed: ' + (plotResp.error || 'Unknown error'),
+                                            confirmButtonColor: '#f59e0b'
+                                        }).then(() => {
+                                            location.reload();
+                                        });
+                                    }
+                                },
+                                error: function() {
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Partial Success',
+                                        text: 'Payment recorded but plot allocation failed. Please allocate manually.',
+                                        confirmButtonColor: '#f59e0b'
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                }
+                            });
+                        } else if (resp.payment_complete) {
+                            // Payment completed without needing plot allocation
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Payment Complete!',
+                                text: 'Transaction completed successfully.',
+                                confirmButtonColor: '#10b981'
+                            }).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            // Partial payment recorded
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Payment Recorded!',
+                                text: 'Partial payment has been recorded successfully.',
+                                confirmButtonColor: '#10b981'
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
                     } else {
-                        alert('Error: ' + (resp.error || 'Unknown error occurred'));
-                        $btn.prop('disabled', false).text('Record Payment');
+                        showError(resp.error || 'Unknown error occurred. Please try again.');
+                        $submitBtn.prop('disabled', false).html(originalText);
                     }
-                })
-                .fail(xhr => {
-                    alert('Error saving payment: ' + xhr.responseText);
-                    $btn.prop('disabled', false).text('Record Payment');
-                });
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Error saving payment. Please try again.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showError(errorMsg);
+                    $submitBtn.prop('disabled', false).html(originalText);
+                }
+            });
         });
 
 
@@ -1128,35 +1587,6 @@
             $('#sr_amount').val('₦' + outstanding.toFixed(2));
             $('#sr_due_date').val('15 June 2023 (Overdue by 5 days)');
         });
-
-        // // Generate Receipt Button
-        // $('#generateReceiptBtn').on('click', function(){
-        //     const txnId = $(this).data('id');
-        //     const sendReceipt = $('#sendReceiptCheckbox').is(':checked');
-            
-        //     // Generate PDF receipt
-        //     window.open(`/receipt/${txnId}/`, '_blank');
-            
-        //     if (sendReceipt) {
-        //         $.post("{% url 'ajax_send_receipt' %}", { 
-        //             transaction_id: txnId,
-        //             csrfmiddlewaretoken: '{{ csrf_token }}'
-        //         })
-        //         .done(resp => {
-        //             if (resp.success) {
-        //                 alert('Receipt has been sent to client');
-        //             } else {
-        //                 alert('Error sending receipt: ' + (resp.error || 'Unknown error'));
-        //             }
-        //         })
-        //         .fail(() => {
-        //             alert('Error sending receipt. Please try again.');
-        //         });
-        //     }
-            
-        //     $('#generateReceiptModal').modal('hide');
-        // });
-    
     });
 </script>
 
