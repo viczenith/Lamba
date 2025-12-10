@@ -27,12 +27,14 @@ def admin_dashboard_data(request):
                     "available": unit.available_units,
                 })
         # For aggregated estate-level numbers, you may use other queries
+        # Allocated = has plot_number (includes completed part payments)
+        # Pending = no plot_number yet (part payments still in progress)
         estate_allocations.append({
             "estate": estate.name,
             "location": estate.location,
             "estate_size": estate.estate_size,
-            "allocations": PlotAllocation.objects.filter(estate=estate, payment_type='full').count(),
-            "pending": PlotAllocation.objects.filter(estate=estate, payment_type='part').count(),
+            "allocations": PlotAllocation.objects.filter(estate=estate, plot_number__isnull=False).count(),
+            "pending": PlotAllocation.objects.filter(estate=estate, plot_number__isnull=True).count(),
             "available": sum([p["available"] for p in plots]),
             "plots": plots,  # List of plot sizes
         })

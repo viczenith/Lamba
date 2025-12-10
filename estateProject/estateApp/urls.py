@@ -288,6 +288,7 @@ urlpatterns = [
     path('ajax/record-payment/', ajax_record_payment, name='ajax_record_payment'),
     path('ajax/get-available-plots/', ajax_get_available_plots, name='ajax_get_available_plots'),
     path('ajax/assign-plot-after-payment/', ajax_assign_plot_after_payment, name='ajax_assign_plot_after_payment'),
+    path('ajax/remove-plot-allocation/', ajax_remove_plot_allocation, name='ajax_remove_plot_allocation'),
     path('ajax/get-transaction-details/', ajax_get_transaction_details, name='ajax_get_transaction_details'),
     path('ajax/update-transaction/', ajax_update_transaction, name='ajax_update_transaction'),
 

@@ -52,13 +52,13 @@
             {% endif %}
 
             
-            <!-- Client Rank Badge -->
+            <!-- Client Rank Badge (Company-Scoped) -->
             <div class="rank-badge mt-2">
               <div class="d-flex align-items-center justify-content-center p-2 rounded rank-badge-inner">
                 <i class="bi bi-trophy-fill me-2 rank-trophy"></i>
                 <div class="text-start">
                   <div class="small text-muted">Client Rank</div>
-                  {% with tag=client.rank_tag %}
+                  {% with tag=company_rank_tag %}
                   <div class="mb-1">
                     <span class="badge badge-rank 
                       {% if tag == 'Royal Elite' %}rank-royal{% elif tag == 'Estate Ambassador' %}rank-ambassador{% elif tag == 'Prime Investor' %}rank-prime{% elif tag == 'Smart Owner' %}rank-smart{% else %}rank-first{% endif %}">
@@ -66,7 +66,7 @@
                     </span>
                   </div>
                   {% endwith %}
-                  <small class="text-muted">₦{{ client.total_value|floatformat:0|intcomma }} • {{ client.plot_count }} plots</small>
+                  <small class="text-muted">₦{{ company_total_value|floatformat:0|intcomma }} • {{ company_plot_count }} plot{{ company_plot_count|pluralize }}</small>
                 </div>
               </div>
             </div>
@@ -74,11 +74,11 @@
             <div class="stats-container mt-4">
               <div class="row text-center">
                 <div class="col-6 border-end">
-                  <div class="stat-value" style="font-size: 16px;">{{ client.plot_count }}</div>
+                  <div class="stat-value" style="font-size: 16px;">{{ company_plot_count }}</div>
                   <div class="stat-label">Properties</div>
                 </div>
                 <div class="col-6">
-                  <div class="stat-value" style="font-size: 16px;">₦{{ client.total_value|floatformat:"2g" }}</div>
+                  <div class="stat-value" style="font-size: 16px;">₦{{ company_total_value|floatformat:"2g" }}</div>
                   <div class="stat-label">Total Value</div>
                 </div>
               </div>
@@ -131,11 +131,6 @@
                   Value Appreciation
                 </button>
               </li>
-              <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-edit">
-                  Edit Profile
-                </button>
-              </li>
             </ul>
 
             <div class="tab-content">
@@ -177,16 +172,16 @@
                   <div class="col-12 col-sm-6 col-lg-4">
                     <div class="card summary-card h-100">
                       <div class="card-body d-flex flex-column justify-content-center p-3">
-                        <h5 class="card-title text-center text-lg-start mb-3">Portfolio Summary</h5>
+                        <h5 class="card-title text-center text-lg-start mb-3">Portfolio Summary</small></h5>
 
                         <ul class="list-unstyled mb-0">
                           <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
                             <span class="text-truncate me-2" style="max-width: 70%;">Total Properties:</span>
-                            <strong class="flex-shrink-0">{{ client.plot_count }}</strong>
+                            <strong class="flex-shrink-0">{{ company_plot_count }}</strong>
                           </li>
                           <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
                             <span class="text-truncate me-2" style="max-width: 70%;">Total Investment:</span>
-                            <strong class="flex-shrink-0">₦{{ client.total_value|floatformat:"2g" }}</strong>
+                            <strong class="flex-shrink-0">₦{{ company_total_value|floatformat:"2g" }}</strong>
                           </li>
                           <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
                             <span class="text-truncate me-2" style="max-width: 70%;">Current Value:</span>
@@ -404,6 +399,9 @@
                 </div>
               </div><!-- End Value Appreciation Tab -->
 
+              <!-- NOTE: Edit Profile tab removed - Companies should not edit client profiles -->
+              <!-- Clients manage their own profile through their personal dashboard -->
+
               <!-- Transaction Details Modal -->
               <div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg">
@@ -469,76 +467,6 @@
                 </div>
               </div>
 
-              <!-- Edit Profile Tab -->
-              <div class="tab-pane fade" id="profile-edit">
-                <form method="POST" enctype="multipart/form-data" class="row g-3">
-                  {% csrf_token %}
-                  {% if messages %}
-                    <div class="col-12">
-                      {% for message in messages %}
-                      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-
-                  <div class="col-12 col-md-4 text-center">
-                    {% if client.profile_image %}
-                      <img src="{{ client.profile_image.url }}"
-                           alt="{{ client.full_name }} Profile"
-                           class="rounded-circle img-fluid mb-2"
-                           style="max-width: 100px; height: auto;">
-                    {% else %}
-                      <img src="{% static 'assets/img/profile_avatar.jpeg' %}"
-                           alt="Avatar"
-                           class="rounded-circle img-fluid mb-2"
-                           style="max-width: 100px;">
-                    {% endif %}
-                    <div>
-                      <input type="file" name="profile_image" class="form-control">
-                    </div>
-                  </div>
-
-                  <div class="col-12 col-md-8">
-                    <div class="row g-3">
-                      <div class="col-12 col-lg-6">
-                        <label for="fullName" class="form-label">Full Name</label>
-                        <input name="fullName" type="text" class="form-control" id="fullName" value="{{ client.full_name }}">
-                      </div>
-                      <div class="col-12 col-lg-6">
-                        <label for="email" class="form-label">Email</label>
-                        <input name="email" type="email" class="form-control" id="email" value="{{ client.email }}">
-                      </div>
-                      <div class="col-12">
-                        <label for="about" class="form-label">About</label>
-                        <textarea name="about" class="form-control" id="about" rows="3">{{ client.about }}</textarea>
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <label for="company" class="form-label">Company</label>
-                        <input name="company" type="text" class="form-control" id="company" value="{{ client.company|default:'' }}">
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <label for="job" class="form-label">Job</label>
-                        <input name="job" type="text" class="form-control" id="job" value="{{ client.job|default:'' }}">
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <label for="country" class="form-label">Country</label>
-                        <input name="country" type="text" class="form-control" id="country" value="{{ client.country|default:'' }}">
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <label for="address" class="form-label">Address</label>
-                        <input name="address" type="text" class="form-control" id="address" value="{{ client.address|default:'' }}">
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <label for="phone" class="form-label">Phone</label>
-                        <input name="phone" type="text" class="form-control" id="phone" value="{{ client.phone|default:'' }}">
-                      </div>
-                      <div class="col-12 text-center">
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              </div><!-- End Edit Profile Tab -->
             </div><!-- End Tab Content -->
           </div>
         </div>

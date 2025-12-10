@@ -6441,6 +6441,19 @@
         color: #6b7280;
     }
 
+    .performer-target {
+        margin-top: 4px;
+    }
+
+    .performer-target .badge {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+
+    .performer-commission {
+        font-size: 12px;
+    }
+
     .performer-sales {
         font-weight: 700;
         color: #059669;
@@ -7473,7 +7486,7 @@
 
         const data = analyticsData.currentPeriod;
         
-        // Aggregate by marketer
+        // Aggregate by marketer - include commission and target data
         const marketerTotals = {};
         data.forEach(item => {
             const id = item.marketer_id;
@@ -7482,11 +7495,20 @@
                     name: item.marketer_name,
                     profile_image: item.profile_image,
                     totalSales: 0,
-                    totalDeals: 0
+                    totalDeals: 0,
+                    commissionRate: item.commission_rate || 0,
+                    commissionEarned: 0,
+                    targetAmount: 0
                 };
             }
             marketerTotals[id].totalSales += item.total_sales || 0;
             marketerTotals[id].totalDeals += item.closed_deals || 0;
+            marketerTotals[id].commissionEarned += item.commission_earned || 0;
+            marketerTotals[id].targetAmount += item.target_amount || 0;
+            // Keep the latest commission rate
+            if (item.commission_rate) {
+                marketerTotals[id].commissionRate = item.commission_rate;
+            }
         });
 
         const sorted = Object.values(marketerTotals)
@@ -7505,6 +7527,52 @@
             const avatarHtml = m.profile_image 
                 ? `<img src="${m.profile_image}" alt="${m.name}" class="performer-avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 10px;">`
                 : `<div class="performer-avatar-initial" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; margin-right: 10px;"><span class="text-white fw-bold">${m.name?.charAt(0) || 'M'}</span></div>`;
+            
+            // Commission % styling - matching section3_marketers_performance.html
+            const commClass = m.commissionRate >= 10 ? 'text-success fw-bold' : (m.commissionRate > 0 ? 'text-primary' : 'text-muted');
+            const commDisplay = m.commissionRate > 0 ? `${m.commissionRate}%` : '<span class="fst-italic">Not Set</span>';
+            
+            // Target Status calculation - matching section3_marketers_performance.html and Historical Records
+            let statusBadge = '';
+            const hasData = m.totalSales > 0 || m.totalDeals > 0;
+            
+            if (m.targetAmount > 0 && hasData) {
+                const targetPercent = Math.round((m.totalSales / m.targetAmount) * 100) || 0;
+                
+                // Target Logic: 0-49% = Below Target, 50-100% = On Target, 101%+ = Above Target
+                if (targetPercent > 100) {
+                    // Above Target: 101%+
+                    const above = targetPercent - 100;
+                    if (above <= 10) {
+                        statusBadge = `<span class="badge bg-success">${above}% Above Target</span>`;
+                    } else if (above <= 25) {
+                        statusBadge = `<span class="badge bg-teal">${above}% Above Target</span>`;
+                    } else if (above <= 50) {
+                        statusBadge = `<span class="badge bg-indigo">${above}% Above Target</span>`;
+                    } else {
+                        statusBadge = `<span class="badge bg-purple">${above}% Above Target</span>`;
+                    }
+                } else if (targetPercent >= 50) {
+                    // On Target: 50-100%
+                    statusBadge = `<span class="badge bg-primary">On Target (${targetPercent}%)</span>`;
+                } else {
+                    // Below Target: 0-49%
+                    if (targetPercent >= 40) {
+                        statusBadge = `<span class="badge bg-warning text-dark">Below Target (${targetPercent}%)</span>`;
+                    } else if (targetPercent >= 25) {
+                        statusBadge = `<span class="badge bg-orange">Below Target (${targetPercent}%)</span>`;
+                    } else if (targetPercent >= 10) {
+                        statusBadge = `<span class="badge bg-coral">Below Target (${targetPercent}%)</span>`;
+                    } else {
+                        statusBadge = `<span class="badge bg-danger">Below Target (${targetPercent}%)</span>`;
+                    }
+                }
+            } else if (m.targetAmount > 0 && !hasData) {
+                statusBadge = '<span class="badge bg-secondary">No Sales Yet</span>';
+            } else {
+                statusBadge = '<span class="badge bg-secondary">No Target Set</span>';
+            }
+            
             return `
                 <div class="top-performer-item d-flex align-items-center">
                     <div class="performer-rank ${rankClass}">${idx + 1}</div>
@@ -7512,8 +7580,13 @@
                     <div class="performer-info flex-grow-1">
                         <div class="performer-name">${m.name}</div>
                         <div class="performer-deals">${m.totalDeals} deals closed</div>
+                        <div class="performer-target mt-1">${statusBadge}</div>
                     </div>
-                    <div class="performer-sales">₦${formatNumber(m.totalSales)}</div>
+                    <div class="text-end">
+                        <div class="performer-sales fw-bold">₦${formatNumber(m.totalSales)}</div>
+                        <div class="performer-commission ${commClass}" style="font-size: 12px;">${commDisplay}</div>
+                        <div class="text-success" style="font-size: 11px;">₦${formatNumber(m.commissionEarned)} earned</div>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -7807,29 +7880,32 @@
             if (record.target_amount > 0 && hasData) {
                 const targetPercent = Math.round((record.total_sales / record.target_amount) * 100) || 0;
                 
-                if (targetPercent >= 100) {
+                // Target Logic: 0-49% = Below Target, 50-100% = On Target, 101%+ = Above Target
+                if (targetPercent > 100) {
+                    // Above Target: 101%+
                     const above = targetPercent - 100;
-                    if (above === 0) {
-                        statusBadge = '<span class="badge bg-primary">Target Achieved</span>';
-                    } else if (above <= 10) {
-                        statusBadge = `<span class="badge bg-success">${above}% Above</span>`;
+                    if (above <= 10) {
+                        statusBadge = `<span class="badge bg-success">${above}% Above Target</span>`;
                     } else if (above <= 25) {
-                        statusBadge = `<span class="badge bg-teal">${above}% Above</span>`;
+                        statusBadge = `<span class="badge bg-teal">${above}% Above Target</span>`;
                     } else if (above <= 50) {
-                        statusBadge = `<span class="badge bg-indigo">${above}% Above</span>`;
+                        statusBadge = `<span class="badge bg-indigo">${above}% Above Target</span>`;
                     } else {
-                        statusBadge = `<span class="badge bg-purple">${above}% Above</span>`;
+                        statusBadge = `<span class="badge bg-purple">${above}% Above Target</span>`;
                     }
+                } else if (targetPercent >= 50) {
+                    // On Target: 50-100%
+                    statusBadge = `<span class="badge bg-primary">On Target (${targetPercent}%)</span>`;
                 } else {
-                    const below = 100 - targetPercent;
-                    if (below <= 10) {
-                        statusBadge = `<span class="badge bg-warning text-dark">${below}% Below</span>`;
-                    } else if (below <= 25) {
-                        statusBadge = `<span class="badge bg-orange">${below}% Below</span>`;
-                    } else if (below <= 50) {
-                        statusBadge = `<span class="badge bg-coral">${below}% Below</span>`;
+                    // Below Target: 0-49%
+                    if (targetPercent >= 40) {
+                        statusBadge = `<span class="badge bg-warning text-dark">Below Target (${targetPercent}%)</span>`;
+                    } else if (targetPercent >= 25) {
+                        statusBadge = `<span class="badge bg-orange">Below Target (${targetPercent}%)</span>`;
+                    } else if (targetPercent >= 10) {
+                        statusBadge = `<span class="badge bg-coral">Below Target (${targetPercent}%)</span>`;
                     } else {
-                        statusBadge = `<span class="badge bg-danger">${below}% Below</span>`;
+                        statusBadge = `<span class="badge bg-danger">Below Target (${targetPercent}%)</span>`;
                     }
                 }
             } else if (record.target_amount > 0 && !hasData) {
@@ -7999,7 +8075,7 @@
     }
 
     function getTargetStatus(record) {
-        // Target Logic: Below Target (<50%), On Target (50-100%), Above Target (>100%)
+        // Target Logic: 0-49% = Below Target, 50-100% = On Target, 101%+ = Above Target
         const hasData = record.total_sales > 0 || record.closed_deals > 0;
         
         if (record.target_amount > 0 && hasData) {
@@ -8011,8 +8087,7 @@
             } else if (targetPercent >= 50) {
                 return `On Target (${targetPercent}%)`;
             } else {
-                const below = 100 - targetPercent;
-                return `${below}% Below Target`;
+                return `Below Target (${targetPercent}%)`;
             }
         } else if (record.target_amount > 0 && !hasData) {
             return 'No Sales Yet';
@@ -8054,37 +8129,37 @@
         if (record.target_amount > 0 && hasData) {
             const targetPercent = achievement;
             
-            if (targetPercent >= 100) {
+            // Target Logic: 0-49% = Below Target, 50-100% = On Target, 101%+ = Above Target
+            if (targetPercent > 100) {
+                // Above Target: 101%+
                 const above = targetPercent - 100;
-                if (above === 0) {
-                    statusText = 'Target Achieved';
-                    statusClass = 'primary';
-                } else if (above <= 10) {
-                    statusText = `${above}% Above`;
+                if (above <= 10) {
+                    statusText = `${above}% Above Target`;
                     statusClass = 'success';
                 } else if (above <= 25) {
-                    statusText = `${above}% Above`;
+                    statusText = `${above}% Above Target`;
                     statusClass = 'teal';
                 } else if (above <= 50) {
-                    statusText = `${above}% Above`;
+                    statusText = `${above}% Above Target`;
                     statusClass = 'indigo';
                 } else {
-                    statusText = `${above}% Above`;
+                    statusText = `${above}% Above Target`;
                     statusClass = 'purple';
                 }
+            } else if (targetPercent >= 50) {
+                // On Target: 50-100%
+                statusText = `On Target (${targetPercent}%)`;
+                statusClass = 'primary';
             } else {
-                const below = 100 - targetPercent;
-                if (below <= 10) {
-                    statusText = `${below}% Below`;
+                // Below Target: 0-49%
+                statusText = `Below Target (${targetPercent}%)`;
+                if (targetPercent >= 40) {
                     statusClass = 'warning';
-                } else if (below <= 25) {
-                    statusText = `${below}% Below`;
+                } else if (targetPercent >= 25) {
                     statusClass = 'orange';
-                } else if (below <= 50) {
-                    statusText = `${below}% Below`;
+                } else if (targetPercent >= 10) {
                     statusClass = 'coral';
                 } else {
-                    statusText = `${below}% Below`;
                     statusClass = 'danger';
                 }
             }

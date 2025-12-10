@@ -120,24 +120,26 @@ def tenant_admin_dashboard(request, company_slug):
     total_marketers = len(primary_marketers.union(affiliation_marketers))
     
     # Estates scoped to this company to prevent cross-tenant leakage
+    # Allocated = has plot_number (includes completed part payments)
+    # Reserved = no plot_number yet (includes part payments in progress)
     estates = Estate.objects.prefetch_related(
         Prefetch('estate_plots__plotsizeunits',
                  queryset=PlotSizeUnits.objects.annotate(
-                     allocated=Count('allocations', filter=Q(allocations__payment_type='full')),
-                     reserved=Count('allocations', filter=Q(allocations__payment_type='part'))
+                     allocated=Count('allocations', filter=Q(allocations__plot_number__isnull=False)),
+                     reserved=Count('allocations', filter=Q(allocations__plot_number__isnull=True))
                  ))
     ).filter(company=company)
 
     # Allocations should be counted only for this company
+    # Allocated = has plot_number assigned (includes completed part payments)
     total_allocations = PlotAllocation.objects.filter(
         estate__company=company,
-        payment_type='full',
         plot_number__isnull=False
     ).count()
 
+    # Pending = no plot_number yet (payments not yet complete or plot not assigned)
     pending_allocations = PlotAllocation.objects.filter(
         estate__company=company,
-        payment_type='part',
         plot_number__isnull=True
     ).count()
     

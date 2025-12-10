@@ -1299,12 +1299,23 @@ def plot_allocation(request):
         }
         return render(request, 'admin_side/plot_allocation.html', context)
 
+@login_required
 def load_plots(request):
     estate_id = request.GET.get('estate_id')
     allocation_id = request.GET.get('allocation_id')  # Get allocation ID for update scenarios
     
+    # SECURITY: Get user's company for data isolation
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
+    # SECURITY: Verify estate belongs to user's company
+    if not Estate.objects.filter(id=estate_id, company=company).exists():
+        return JsonResponse({'error': 'Estate not found or access denied'}, status=404)
+    
     plot_size_units = PlotSizeUnits.objects.filter(
         estate_plot__estate_id=estate_id,
+        estate_plot__estate__company=company,  # SECURITY: Company filter
         available_units__gt=0
     ).select_related('plot_size').annotate(
         formatted_size=Concat(F('plot_size__size'), Value(' sqm'))
@@ -1351,9 +1362,16 @@ def load_plots(request):
     })
 
 
+@login_required
 def check_availability(request, size_id):
+    # SECURITY: Get user's company for data isolation
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({'error': 'No company access'}, status=403)
+    
     try:
-        size = PlotSizeUnits.objects.get(id=size_id)
+        # SECURITY: Filter by company through estate relationship
+        size = PlotSizeUnits.objects.get(id=size_id, estate_plot__estate__company=company)
         allocated_reserved = size.full_allocations + size.part_allocations
         available_units = size.total_units - allocated_reserved
         message = f"{size.plot_size.size} sqm units are available" if available_units > 0 else f"{size.plot_size.size} sqm units are completely allocated"
@@ -1470,7 +1488,7 @@ def update_allocated_plot(request):
         ).annotate(
             full_alloc_count=Count(
                 'allocations',
-                filter=Q(allocations__payment_type='full', allocations__plot_number__isnull=False)
+                filter=Q(allocations__plot_number__isnull=False)  # Count all with plot_number assigned
             )
         )
         # When editing, always include the currently assigned plot size unit.
@@ -1633,9 +1651,15 @@ def delete_estate_plots(request):
 
 @login_required
 def edit_estate_plot(request, id):
-    estate_plot = get_object_or_404(EstatePlot, id=id)
+    # SECURITY: Company isolation - get user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, 'No company access')
+        return redirect('estate_plot_list')
+    
+    # SECURITY: Ensure estate plot belongs to user's company
+    estate_plot = get_object_or_404(EstatePlot, id=id, estate__company=company)
     # SECURITY: Only show company's plot sizes
-    company = getattr(request, 'company', None)
     plot_sizes = PlotSize.objects.filter(company=company)
 
     if request.method == 'POST':
@@ -1953,8 +1977,11 @@ def allocated_plot(request, estate_id):
     # Fetch all plot allocations for this estate
     plot_allocations = PlotAllocation.objects.filter(estate=estate)
 
-    allocated_plots = plot_allocations.filter(payment_type='full')
-    unallocated_plots = plot_allocations.filter(payment_type='part')
+    # Allocated = has plot_number assigned (regardless of payment_type)
+    # This includes both full payments and completed part payments
+    allocated_plots = plot_allocations.filter(plot_number__isnull=False)
+    # Unallocated = no plot_number assigned yet
+    unallocated_plots = plot_allocations.filter(plot_number__isnull=True)
 
     # Fetch client details for those who have paid full and partial
     clients_allocated = []
@@ -2019,12 +2046,17 @@ def fetch_plot_data(request):
 def estate_property_list(request):
     return render(request, "admin_side/estate_property_list.html",)
 
+@login_required
 def add_floor_plan(request):
     estate_id = request.GET.get('estate_id')
-    estate = get_object_or_404(Estate, id=estate_id)
     
-    # SECURITY: Get company context
-    company = getattr(request, 'company', None)
+    # SECURITY: Get company context and verify estate belongs to company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
+    
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     
     # Get plot sizes available for this estate - ONLY from this company
     plot_sizes = PlotSize.objects.filter(
@@ -2075,13 +2107,20 @@ def get_plot_sizes_for_floor_plan(request, estate_id):
     return JsonResponse(list(plot_sizes), safe=False)
 
 
+@login_required
 def estate_details(request):
     estate_id = request.GET.get("estate_id")
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
         return redirect("view-estate")
     
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return redirect("view-estate")
+    
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     floor_plans = EstateFloorPlan.objects.filter(estate=estate)\
         .select_related("estate", "plot_size")\
         .order_by("-date_uploaded")
@@ -2098,13 +2137,20 @@ def estate_details(request):
 
 
 # protoTypes
+@login_required
 def add_prototypes(request):
     estate_id = request.GET.get('estate_id')
     
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
+    
     try:
-        estate = Estate.objects.get(id=estate_id)
+        estate = Estate.objects.get(id=estate_id, company=company)
     except Estate.DoesNotExist:
-        messages.error(request, "Estate not found")
+        messages.error(request, "Estate not found or access denied")
         return get_tenant_dashboard_redirect(request)
 
     # Get plot sizes available for this estate
@@ -2200,6 +2246,7 @@ def deallocate_plot(request, allocation_id):
 
 
 # Estate Amenities
+@login_required
 def update_estate_amenities(request):
     # Get estate_id from query parameters
     estate_id = request.GET.get('estate_id')
@@ -2207,7 +2254,13 @@ def update_estate_amenities(request):
         messages.error(request, "Estate ID is missing.")
         return redirect('appropriate_redirect_view')  # Replace with a valid redirect
     
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
+    
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     amenity_record, created = EstateAmenitie.objects.get_or_create(estate=estate)
 
     if request.method == "POST":
@@ -2240,13 +2293,20 @@ def update_estate_amenities(request):
     })
 
 # Estate Layout
+@login_required
 def add_estate_layout(request):
     estate_id = request.GET.get('estate_id')
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
         return get_tenant_dashboard_redirect(request)
+    
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
 
-    estate = get_object_or_404(Estate, id=estate_id)
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
 
     if request.method == "POST":
         layout_image = request.FILES.get('layout_image')
@@ -2273,13 +2333,20 @@ def add_estate_layout(request):
     return render(request, "admin_side/add_estate_layout.html", context)
 
 # Estate Map
+@login_required
 def add_estate_map(request):
     estate_id = request.GET.get("estate_id")
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
         return get_tenant_dashboard_redirect(request)
     
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
+    
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
     
     # Get or create the estate map record
     estate_map, created = EstateMap.objects.get_or_create(estate=estate)
@@ -2309,13 +2376,20 @@ def add_estate_map(request):
     return render(request, "admin_side/add_estate_map.html", context)
 
 # Estate Work Progress
+@login_required
 def add_progress_status(request):
     estate_id = request.GET.get('estate_id')
     if not estate_id:
         messages.error(request, "Estate ID is missing.")
         return get_tenant_dashboard_redirect(request)
 
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: Verify estate belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        messages.error(request, "No company access")
+        return get_tenant_dashboard_redirect(request)
+
+    estate = get_object_or_404(Estate, id=estate_id, company=company)
 
     if request.method == "POST":
         progress_text = request.POST.get('progress_status')
@@ -2447,12 +2521,21 @@ def api_marketer_list(request):
     # Serialize the data
     marketers_data = []
     for marketer in combined:
+        # Get profile image URL if exists
+        profile_image_url = None
+        if hasattr(marketer, 'profile_image') and marketer.profile_image:
+            try:
+                profile_image_url = marketer.profile_image.url
+            except:
+                profile_image_url = None
+        
         marketers_data.append({
             'id': marketer.id,
             'full_name': marketer.full_name,
             'email': marketer.email,
             'phone': getattr(marketer, 'phone', ''),
             'date_registered': marketer.date_registered.isoformat() if hasattr(marketer, 'date_registered') else None,
+            'profile_image': profile_image_url,
         })
     
     return JsonResponse({'marketers': marketers_data})
@@ -6029,6 +6112,52 @@ def client_profile(request, slug=None, pk=None, company_slug=None):
     properties_count = transactions.count()
     average_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0
     
+    # ============================================================
+    # STEP 6: Calculate company-scoped client rank metrics
+    # ============================================================
+    # Get fully-paid transactions for this client WITHIN this company only
+    fully_paid_transactions = Transaction.objects.filter(
+        client_id=client.id,
+        company=company
+    ).annotate(
+        total_paid_sum=Coalesce(
+            Sum('payment_records__amount_paid'),
+            Decimal('0'),
+            output_field=DecimalField(max_digits=18, decimal_places=2)
+        )
+    ).filter(
+        Q(allocation__payment_type='full') |
+        Q(total_paid_sum__gte=F('total_amount'))
+    )
+    
+    # Company-scoped plot count (distinct allocations from fully paid transactions)
+    company_plot_count = fully_paid_transactions.values('allocation_id').distinct().count()
+    
+    # Company-scoped total value (sum of fully paid transactions)
+    company_total_value = fully_paid_transactions.aggregate(
+        tv=Coalesce(
+            Sum('total_amount'),
+            Decimal('0'),
+            output_field=DecimalField(max_digits=18, decimal_places=2)
+        )
+    ).get('tv') or Decimal('0')
+    
+    # Calculate company-scoped rank tag based on thresholds
+    def get_rank_tag(total_val, plot_cnt):
+        """Rank tag derived from total_value and plot_count thresholds."""
+        tv_num = Decimal(total_val) if total_val else Decimal('0')
+        if tv_num >= Decimal('150000000') and plot_cnt >= 5:
+            return 'Royal Elite'
+        if tv_num >= Decimal('100000000') or plot_cnt >= 4:
+            return 'Estate Ambassador'
+        if tv_num >= Decimal('50000000') or plot_cnt >= 3:
+            return 'Prime Investor'
+        if tv_num >= Decimal('20000000') or plot_cnt >= 2:
+            return 'Smart Owner'
+        return 'First-Time Investor'
+    
+    company_rank_tag = get_rank_tag(company_total_value, company_plot_count)
+    
     context = {
         'client': client,
         'company': company,
@@ -6040,6 +6169,10 @@ def client_profile(request, slug=None, pk=None, company_slug=None):
         'average_growth': average_growth,
         'highest_growth_rate': highest_growth_rate,
         'highest_growth_property': highest_growth_property,
+        # Company-scoped rank metrics
+        'company_plot_count': company_plot_count,
+        'company_total_value': company_total_value,
+        'company_rank_tag': company_rank_tag,
     }
     
     return render(request, 'admin_side/client_profile.html', context)
@@ -6408,8 +6541,9 @@ def price_update_json(request, pk):
 def client_dashboard(request):
     allocations = PlotAllocation.objects.filter(client=request.user)
     total_properties = allocations.count()
-    fully_paid_allocations = allocations.filter(payment_type="full").count()
-    not_fully_paid_allocations = allocations.exclude(payment_type="full").count()
+    # Fully paid/allocated = has plot_number assigned (includes completed part payments)
+    fully_paid_allocations = allocations.filter(plot_number__isnull=False).count()
+    not_fully_paid_allocations = allocations.filter(plot_number__isnull=True).count()
 
     client_estates = Estate.objects.filter(plotallocation__client=request.user).distinct()
 
@@ -7634,7 +7768,13 @@ def marketer_company_portfolio(request, company_id=None):
 
 @login_required
 def view_client_estate(request, estate_id, plot_size_id):
-    estate = get_object_or_404(Estate, id=estate_id)
+    # SECURITY: Company isolation - ensure user can only view estates from their company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        messages.error(request, "No company access")
+        return redirect('client_dashboard')
+    
+    estate = get_object_or_404(Estate, id=estate_id, company=user_company)
 
     plot_size = get_object_or_404(PlotSize, id=plot_size_id)
     
@@ -7662,7 +7802,8 @@ def marketer_dashboard(request):
 
     # 1) Totals
     total_transactions = Transaction.objects.filter(marketer=user, company=user.company_profile).count()
-    total_estates_sold = Transaction.objects.filter(marketer=user, allocation__payment_type='full', company=user.company_profile).count()
+    # Estates sold = allocations with plot_number assigned (includes completed part payments)
+    total_estates_sold = Transaction.objects.filter(marketer=user, allocation__plot_number__isnull=False, company=user.company_profile).count()
     
     # Count clients assigned to this marketer - include both direct assignments and ClientMarketerAssignment records
     direct_clients = ClientUser.objects.filter(assigned_marketer=user, company_profile=user.company_profile).count()
@@ -7694,8 +7835,8 @@ def marketer_dashboard(request):
             )
             tx_counts.append(tx_qs.count())
 
-            # full-payment estates sold
-            est_qs = tx_qs.filter(allocation__payment_type='full')
+            # completed estates (allocated plots)
+            est_qs = tx_qs.filter(allocation__plot_number__isnull=False)
             est_counts.append(est_qs.count())
 
             # new clients assigned in this window
@@ -9414,12 +9555,19 @@ def ajax_company_portfolio(request, company_id):
     return JsonResponse({'html': html})
 
 
+@login_required
 @require_GET
 def ajax_get_unpaid_installments(request):
     txn_id = request.GET.get("transaction_id")
     if not txn_id:
         return JsonResponse({"error": "Missing transaction_id"}, status=400)
-    txn = get_object_or_404(Transaction, pk=txn_id)
+    
+    # SECURITY: Verify transaction belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({"error": "No company access"}, status=403)
+    
+    txn = get_object_or_404(Transaction, pk=txn_id, company=company)
 
     label_map = {
         1: "First",
@@ -9448,9 +9596,22 @@ def ajax_get_unpaid_installments(request):
 
 @login_required
 def generate_receipt_pdf(request, transaction_id):
-    transaction = get_object_or_404(Transaction.objects.select_related(
-        'client', 'allocation__estate', 'marketer'
-    ), pk=transaction_id)
+    # SECURITY: Verify transaction belongs to user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    user_role = getattr(request.user, 'role', None)
+    
+    # Build base query with select_related for efficiency
+    txn_query = Transaction.objects.select_related('client', 'allocation__estate', 'marketer')
+    
+    # Apply company filtering based on role
+    if user_role == 'client':
+        # Clients can only access their own transactions
+        transaction = get_object_or_404(txn_query, pk=transaction_id, client=request.user)
+    elif user_company:
+        # Company users can only access their company's transactions
+        transaction = get_object_or_404(txn_query, pk=transaction_id, company=user_company)
+    else:
+        return HttpResponse("Access denied: No company context", status=403)
     
     # Generate a unique receipt ID
     receipt_id = f"REC-{uuid.uuid4().hex[:8].upper()}"
@@ -9553,6 +9714,7 @@ def ajax_payment_history(request):
 
     return JsonResponse({"payments": payments})
 
+@login_required
 @require_POST
 @transaction.atomic
 def ajax_record_payment(request):
@@ -9565,7 +9727,12 @@ def ajax_record_payment(request):
     if not all([txn_id, amt_s, pay_date, method]):
         return HttpResponseBadRequest("Missing required fields")
 
-    txn = get_object_or_404(Transaction, pk=txn_id)
+    # SECURITY: Verify transaction belongs to user's company
+    company = getattr(request.user, 'company_profile', None)
+    if not company:
+        return JsonResponse({"success": False, "error": "No company access"}, status=403)
+    
+    txn = get_object_or_404(Transaction, pk=txn_id, company=company)
     total = Decimal(amt_s)
     
     # Cap payment at remaining balance
@@ -9637,19 +9804,28 @@ def ajax_record_payment(request):
         "allocation_id": allocation.id if allocation else None
     })
 
+@login_required
 @require_http_methods(["GET"])
 def ajax_get_available_plots(request):
     """
     Fetch available plot numbers for a specific allocation.
     Used when payment is complete and plot needs to be assigned.
+    If include_all=true, also returns all plots for search (showing allocated status).
     """
     allocation_id = request.GET.get('allocation_id')
+    include_all = request.GET.get('include_all', '').lower() == 'true'
     
     if not allocation_id:
         return JsonResponse({"success": False, "error": "Missing allocation_id"}, status=400)
     
+    # SECURITY: Verify user has company access
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({"success": False, "error": "No company access"}, status=403)
+    
     try:
-        allocation = PlotAllocation.objects.get(pk=allocation_id)
+        # SECURITY: Verify allocation belongs to user's company
+        allocation = PlotAllocation.objects.get(pk=allocation_id, estate__company=user_company)
         company = allocation.estate.company
         
         # Get the estate plot for this allocation's estate
@@ -9661,14 +9837,14 @@ def ajax_get_available_plots(request):
                 "error": "No estate plot configuration found for this estate"
             }, status=404)
         
-        # Find available plots for this estate that are linked to the estate plot
-        # and not already allocated
+        # Find allocated plot IDs for this estate
         allocated_plot_ids = PlotAllocation.objects.filter(
             estate=allocation.estate,
             plot_number__isnull=False
         ).values_list('plot_number_id', flat=True)
         
-        available_plots = PlotNumber.objects.filter(
+        # Get available plots (not allocated)
+        available_plots = PlotNumber.all_objects.filter(
             estates=estate_plot,
             company=company
         ).exclude(
@@ -9680,18 +9856,34 @@ def ajax_get_available_plots(request):
             'number': plot.number
         } for plot in available_plots]
         
-        return JsonResponse({
+        response_data = {
             "success": True,
             "plots": plots_data,
             "estate_name": allocation.estate.name,
             "plot_size": str(allocation.plot_size)
-        })
+        }
+        
+        # If include_all, also return all plots for search functionality
+        if include_all:
+            all_plots = PlotNumber.all_objects.filter(
+                estates=estate_plot,
+                company=company
+            ).order_by('number')
+            
+            response_data["all_plots"] = [{
+                'id': plot.id,
+                'number': plot.number,
+                'is_allocated': plot.id in allocated_plot_ids
+            } for plot in all_plots]
+        
+        return JsonResponse(response_data)
     except PlotAllocation.DoesNotExist:
         return JsonResponse({"success": False, "error": "Allocation not found"}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
+@login_required
 @require_POST
 @transaction.atomic
 def ajax_assign_plot_after_payment(request):
@@ -9705,9 +9897,15 @@ def ajax_assign_plot_after_payment(request):
     if not all([allocation_id, plot_number_id]):
         return JsonResponse({"success": False, "error": "Missing required fields"}, status=400)
     
+    # SECURITY: Verify user has company access
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({"success": False, "error": "No company access"}, status=403)
+    
     try:
-        allocation = PlotAllocation.objects.get(pk=allocation_id)
-        plot_number = PlotNumber.objects.get(pk=plot_number_id, company=allocation.estate.company)
+        # SECURITY: Verify allocation belongs to user's company
+        allocation = PlotAllocation.objects.get(pk=allocation_id, estate__company=user_company)
+        plot_number = PlotNumber.objects.get(pk=plot_number_id, company=user_company)
         
         # Verify plot is still available
         if PlotAllocation.objects.filter(estate=allocation.estate, plot_number=plot_number).exists():
@@ -9716,10 +9914,15 @@ def ajax_assign_plot_after_payment(request):
                 "error": f"Plot {plot_number.number} is already allocated to another client."
             }, status=400)
         
-        # Assign plot and change allocation status to full
+        # Assign plot number - DO NOT change payment_type
+        # Keep payment_type as 'part' to preserve installment payment records
+        # The presence of plot_number indicates the allocation is complete
         allocation.plot_number = plot_number
-        allocation.payment_type = 'full'  # Client is now considered fully allocated
         allocation.save()
+        
+        # Update the plot number status to 'sold'
+        plot_number.status = 'sold'
+        plot_number.save()
         
         return JsonResponse({
             "success": True,
@@ -9735,22 +9938,73 @@ def ajax_assign_plot_after_payment(request):
 
 
 @login_required
+@require_http_methods(["POST"])
+def ajax_remove_plot_allocation(request):
+    """Remove plot allocation from a transaction - reverses the plot assignment"""
+    try:
+        allocation_id = request.POST.get('allocation_id')
+        
+        if not allocation_id:
+            return JsonResponse({"success": False, "error": "Allocation ID required"}, status=400)
+        
+        # Get allocation using objects manager
+        allocation = PlotAllocation.objects.select_related(
+            'plot_number', 'estate__company', 'client'
+        ).get(id=int(allocation_id))
+        
+        # SECURITY: Company isolation check
+        alloc_company = allocation.estate.company if allocation.estate else None
+        if not alloc_company:
+            return JsonResponse({"success": False, "error": "Allocation has no associated company"}, status=400)
+        
+        user = request.user
+        user_company = getattr(user, 'company_profile', None)
+        is_superuser = user.is_superuser or getattr(user, 'is_system_admin', False)
+        is_company_member = user_company and user_company.id == alloc_company.id
+        
+        if not (is_superuser or is_company_member):
+            return JsonResponse({"success": False, "error": "Access denied"}, status=403)
+        
+        # Check if plot is allocated
+        if not allocation.plot_number:
+            return JsonResponse({"success": False, "error": "No plot allocated to this transaction"}, status=400)
+        
+        # Store plot info for response
+        removed_plot_number = allocation.plot_number.number
+        client_name = allocation.client.full_name if allocation.client else 'Unknown'
+        
+        # Release the plot - make it available again
+        plot = allocation.plot_number
+        plot.status = 'available'
+        plot.save()
+        
+        # Remove plot from allocation
+        allocation.plot_number = None
+        allocation.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": f"Plot {removed_plot_number} has been removed from {client_name} and is now available.",
+            "removed_plot": removed_plot_number
+        })
+        
+    except PlotAllocation.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Allocation not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+@login_required
+@login_required
 def ajax_get_transaction_details(request):
-    """Fetch transaction details for editing"""
+    """Fetch transaction details for editing - with company isolation"""
     try:
         transaction_id = request.GET.get('transaction_id')
         
         if not transaction_id:
             return JsonResponse({"success": False, "error": "Transaction ID required"}, status=400)
         
-        # Get company - handle both direct company FK and through allocation
-        try:
-            company = request.user.company
-            company_id = company.id if hasattr(company, 'id') else company
-        except AttributeError:
-            return JsonResponse({"success": False, "error": "User has no associated company"}, status=403)
-        
-        # Get transaction with company isolation - use all_objects to bypass CompanyAwareManager
+        # Get transaction by ID - use all_objects to bypass CompanyAwareManager
         txn = Transaction.all_objects.select_related(
             'allocation__estate__company',
             'allocation__plot_size_unit',
@@ -9758,7 +10012,29 @@ def ajax_get_transaction_details(request):
             'marketer',
             'client',
             'company'
-        ).get(id=int(transaction_id), company_id=company_id)
+        ).get(id=int(transaction_id))
+        
+        # SECURITY: Company isolation check
+        # Get the transaction's company (through allocation -> estate -> company)
+        txn_company = txn.company or (txn.allocation.estate.company if txn.allocation and txn.allocation.estate else None)
+        
+        if not txn_company:
+            return JsonResponse({"success": False, "error": "Transaction has no associated company"}, status=400)
+        
+        # Check if user has access to this company
+        user = request.user
+        user_company = getattr(user, 'company_profile', None)
+        
+        # Allow access if:
+        # 1. User is a superuser/system admin
+        # 2. User's company_profile matches the transaction's company
+        # 3. User is the client who owns this transaction
+        is_superuser = user.is_superuser or getattr(user, 'is_system_admin', False)
+        is_company_member = user_company and user_company.id == txn_company.id
+        is_transaction_client = txn.client and txn.client.id == user.id
+        
+        if not (is_superuser or is_company_member or is_transaction_client):
+            return JsonResponse({"success": False, "error": "Access denied: You don't have permission to view this transaction"}, status=403)
         
         alloc = txn.allocation
         
@@ -9772,6 +10048,12 @@ def ajax_get_transaction_details(request):
         # Get client name
         client_name = txn.client.get_full_name() if hasattr(txn.client, 'get_full_name') else str(txn.client)
         
+        # Get plot size string safely
+        try:
+            plot_size_str = str(alloc.plot_size) if alloc.plot_size else "N/A"
+        except:
+            plot_size_str = "N/A"
+        
         # Build response data
         data = {
             "success": True,
@@ -9781,18 +10063,18 @@ def ajax_get_transaction_details(request):
                 "marketer": txn.marketer.get_full_name() if txn.marketer else "N/A",
                 "transaction_date": txn.transaction_date.strftime('%Y-%m-%d'),
                 "total_amount": str(txn.total_amount),
-                "payment_method": txn.payment_method or ""
+                "payment_method": txn.payment_method or "",
+                "first_installment": str(txn.first_installment) if txn.first_installment else None,
+                "second_installment": str(txn.second_installment) if txn.second_installment else None,
+                "third_installment": str(txn.third_installment) if txn.third_installment else None
             },
             "allocation": {
                 "id": alloc.id,
-                "estate": alloc.estate.name,
-                "plot_size": alloc.plot_size,
+                "estate": alloc.estate.name if alloc.estate else "N/A",
+                "plot_size": plot_size_str,
                 "payment_type": alloc.payment_type,
-                "plot_number": alloc.plot_number.plot_number if alloc.plot_number else None,
-                "plot_number_id": alloc.plot_number.id if alloc.plot_number else None,
-                "first_installment": str(alloc.first_installment) if alloc.first_installment else None,
-                "second_installment": str(alloc.second_installment) if alloc.second_installment else None,
-                "third_installment": str(alloc.third_installment) if alloc.third_installment else None
+                "plot_number": alloc.plot_number.number if alloc.plot_number else None,
+                "plot_number_id": alloc.plot_number.id if alloc.plot_number else None
             },
             "payment_records": [
                 {
@@ -9817,26 +10099,40 @@ def ajax_get_transaction_details(request):
 @login_required
 @require_http_methods(["POST"])
 def ajax_update_transaction(request):
-    """Update transaction details"""
+    """Update transaction details - with company isolation"""
     try:
         transaction_id = request.POST.get('transaction_id')
         
         if not transaction_id:
             return JsonResponse({"success": False, "error": "Transaction ID required"}, status=400)
         
-        # Get company
-        try:
-            company = request.user.company
-            company_id = company.id if hasattr(company, 'id') else company
-        except AttributeError:
-            return JsonResponse({"success": False, "error": "User has no associated company"}, status=403)
-        
-        # Get transaction with company isolation - use all_objects to bypass CompanyAwareManager
+        # Get transaction by ID - use all_objects to bypass CompanyAwareManager
         txn = Transaction.all_objects.select_related(
             'allocation__estate__company',
             'allocation__plot_number',
-            'company'
-        ).get(id=int(transaction_id), company_id=company_id)
+            'company',
+            'client'
+        ).get(id=int(transaction_id))
+        
+        # SECURITY: Company isolation check
+        txn_company = txn.company or (txn.allocation.estate.company if txn.allocation and txn.allocation.estate else None)
+        
+        if not txn_company:
+            return JsonResponse({"success": False, "error": "Transaction has no associated company"}, status=400)
+        
+        # Check if user has access to edit this transaction
+        user = request.user
+        user_company = getattr(user, 'company_profile', None)
+        
+        # Only allow edit if:
+        # 1. User is a superuser/system admin
+        # 2. User's company_profile matches the transaction's company (company staff)
+        is_superuser = user.is_superuser or getattr(user, 'is_system_admin', False)
+        is_company_member = user_company and user_company.id == txn_company.id
+        
+        if not (is_superuser or is_company_member):
+            return JsonResponse({"success": False, "error": "Access denied: You don't have permission to edit this transaction"}, status=403)
+        
         alloc = txn.allocation
         
         # Update transaction fields
@@ -9844,27 +10140,28 @@ def ajax_update_transaction(request):
         txn.total_amount = Decimal(request.POST.get('total_amount', 0))
         txn.payment_method = request.POST.get('payment_method', '')
         
-        # Update installment fields if part payment
+        # Update installment fields if part payment - installments are on Transaction, not PlotAllocation
         if alloc.payment_type == 'part':
             first_inst = request.POST.get('first_installment')
             second_inst = request.POST.get('second_installment')
             third_inst = request.POST.get('third_installment')
             
             if first_inst:
-                alloc.first_installment = Decimal(first_inst)
+                txn.first_installment = Decimal(first_inst)
             if second_inst:
-                alloc.second_installment = Decimal(second_inst)
+                txn.second_installment = Decimal(second_inst)
             if third_inst:
-                alloc.third_installment = Decimal(third_inst)
+                txn.third_installment = Decimal(third_inst)
             
-            # Update individual payment records
+            # Update individual payment records - verify they belong to this transaction
             for key, value in request.POST.items():
                 if key.startswith('payment_record_') and value:
                     payment_id = key.replace('payment_record_', '')
                     try:
-                        payment_record = PaymentRecord.objects.get(
+                        # Use all_objects and verify ownership through transaction
+                        payment_record = PaymentRecord.all_objects.get(
                             id=payment_id,
-                            transaction=txn
+                            transaction=txn  # Ensures payment belongs to this transaction
                         )
                         payment_record.amount_paid = Decimal(value)
                         payment_record.save()
@@ -9873,7 +10170,8 @@ def ajax_update_transaction(request):
                     except ValueError:
                         pass
         
-        # Handle plot number change
+        # Handle plot number change (reallocation)
+        # Note: Plot removal is handled by ajax_remove_plot_allocation endpoint
         new_plot_id = request.POST.get('plot_number_id')
         if new_plot_id:
             # Release current plot
@@ -9882,11 +10180,10 @@ def ajax_update_transaction(request):
                 old_plot.status = 'available'
                 old_plot.save()
             
-            # Assign new plot - validate it belongs to same company
-            new_plot = PlotNumber.objects.get(
+            # Assign new plot - validate it belongs to same company (SECURITY: company isolation)
+            new_plot = PlotNumber.all_objects.get(
                 id=new_plot_id,
-                company=alloc.estate.company,
-                status='available'
+                company=txn_company  # Use the verified transaction company
             )
             new_plot.status = 'sold'
             new_plot.save()
@@ -9912,7 +10209,19 @@ def ajax_update_transaction(request):
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
+@login_required
 def payment_receipt(request, reference_code):
+    """
+    Generate and display payment receipt.
+    
+    SECURITY: Role-based access control:
+    - Clients: Can only view receipts for their own transactions
+    - Admins/Company Admins/Marketers/Support: Can view receipts within their company
+    """
+    user = request.user
+    user_role = getattr(user, 'role', None)
+    user_company = getattr(user, 'company_profile', None)
+    
     # For full payments
     if Transaction.objects.filter(reference_code=reference_code).exists():
         txn = Transaction.objects.get(reference_code=reference_code)
@@ -9928,6 +10237,20 @@ def payment_receipt(request, reference_code):
         txn = payments.first().transaction
         payment = payments.first()
         payments_total = sum(p.amount_paid for p in payments)
+    
+    # SECURITY: Role-based access control for receipt viewing
+    # Clients can only view their own receipts
+    # Admins/Marketers/Support can only view receipts within their company
+    if user_role == 'client':
+        if txn.client_id != user.id:
+            return HttpResponse("Access Denied: You can only view your own receipts.", status=403)
+    elif user_role in ('admin', 'company_admin', 'marketer', 'support'):
+        if user_company and txn.company != user_company:
+            return HttpResponse("Access Denied: This receipt belongs to a different company.", status=403)
+    else:
+        # Unknown role - only allow if user is the client
+        if txn.client_id != user.id:
+            return HttpResponse("Access Denied: Unauthorized.", status=403)
     
     # Resolve company from transaction allocation (tenant-aware)
     company_obj = None
@@ -12062,10 +12385,11 @@ def estate_bulk_price_data(request, estate_id):
     })
 
 
-def send_bulk_price_update_notification(estate, price_changes, unlaunched_plots, effective_date, notes):
+def send_bulk_price_update_notification(estate, price_changes, unlaunched_plots, effective_date, notes, company=None):
     """
     Send comprehensive notifications to clients and marketers about bulk price updates.
     Uses the SAME notification system as the "Send Notification" modal.
+    Company-isolated for multi-tenant security.
     
     Args:
         estate: Estate object
@@ -12073,10 +12397,14 @@ def send_bulk_price_update_notification(estate, price_changes, unlaunched_plots,
         unlaunched_plots: List of plot sizes (strings) that have no PropertyPrice yet
         effective_date: Date string for when prices become effective
         notes: Additional notes about the price update
+        company: Company profile for tenant isolation (REQUIRED for security)
     
     Returns:
         dict with notification counts
     """
+    # SECURITY: Company is required for proper tenant isolation
+    if not company:
+        return {'clients_notified': 0, 'marketers_notified': 0, 'total_notified': 0, 'error': 'No company provided'}
     from datetime import datetime
     
     # Get User model
@@ -12234,25 +12562,27 @@ def send_bulk_price_update_notification(estate, price_changes, unlaunched_plots,
     full_message = ''.join(message_parts)
     subject = f'Price Update: {estate.name}'
     
-    # Create notification for CLIENTS (using SAME approach as notify_clients_marketer)
+    # Create notification for CLIENTS (company-isolated)
     client_notif = Notification.objects.create(
         title=subject,
         message=full_message,
-        notification_type=Notification.CLIENT_ANNOUNCEMENT
+        notification_type=Notification.CLIENT_ANNOUNCEMENT,
+        company=company  # SECURITY: Company isolation
     )
     
-    # Create notification for MARKETERS
+    # Create notification for MARKETERS (company-isolated)
     marketer_notif = Notification.objects.create(
         title=subject,
         message=full_message,
-        notification_type=Notification.MARKETER_ANNOUNCEMENT
+        notification_type=Notification.MARKETER_ANNOUNCEMENT,
+        company=company  # SECURITY: Company isolation
     )
     
-    # Get users by role (SAME as notify_clients_marketer function)
-    clients = User.objects.filter(role='client')
-    marketers = User.objects.filter(role='marketer')
+    # SECURITY: Get users by role FILTERED BY COMPANY (tenant isolation)
+    clients = User.objects.filter(role='client', company_profile=company)
+    marketers = User.objects.filter(role='marketer', company_profile=company)
     
-    # Link notifications to users (SAME approach as notify_clients_marketer)
+    # Link notifications to users (company-scoped)
     clients_count = 0
     for user in clients:
         UserNotification.objects.get_or_create(user=user, notification=client_notif)
@@ -12403,7 +12733,7 @@ def property_price_bulk_update(request):
                 except PropertyPrice.DoesNotExist:
                     unlaunched_plots.append(unit.plot_size.size)
     
-    # Send notifications if requested
+    # Send notifications if requested (company-isolated)
     if notify and price_changes:
         try:
             notification_result = send_bulk_price_update_notification(
@@ -12411,7 +12741,8 @@ def property_price_bulk_update(request):
                 price_changes=price_changes,
                 unlaunched_plots=unlaunched_plots,
                 effective_date=effective,
-                notes=notes
+                notes=notes,
+                company=user_company  # SECURITY: Pass company for tenant isolation
             )
         except Exception as e:
             # Log error but don't fail the update
@@ -12596,9 +12927,10 @@ def property_price_bulk_presale(request):
     return JsonResponse(response_data)
 
 
-def send_single_price_update_notification(estate, plot_size, presale_price, previous_price, new_price, effective_date, notes):
+def send_single_price_update_notification(estate, plot_size, presale_price, previous_price, new_price, effective_date, notes, company=None):
     """
     Send notification to clients and marketers about a single property price update.
+    Company-isolated for multi-tenant security.
     
     Args:
         estate: Estate object
@@ -12608,7 +12940,12 @@ def send_single_price_update_notification(estate, plot_size, presale_price, prev
         new_price: Float - updated current price
         effective_date: Date string for when price becomes effective
         notes: Additional notes about the price update
+        company: Company profile for tenant isolation (REQUIRED for security)
     """
+    # SECURITY: Company is required for proper tenant isolation
+    if not company:
+        return {'clients_count': 0, 'marketers_count': 0, 'error': 'No company provided'}
+    
     from datetime import datetime
     
     # Get User model
@@ -12735,25 +13072,27 @@ def send_single_price_update_notification(estate, plot_size, presale_price, prev
     
     subject = f'🏘️ Price Alert: {estate.name} - {plot_size}'
     
-    # Create notification for CLIENTS
+    # Create notification for CLIENTS (company-isolated)
     client_notif = Notification.objects.create(
         title=subject,
         message=message,
-        notification_type=Notification.CLIENT_ANNOUNCEMENT
+        notification_type=Notification.CLIENT_ANNOUNCEMENT,
+        company=company  # SECURITY: Company isolation
     )
     
-    # Create notification for MARKETERS
+    # Create notification for MARKETERS (company-isolated)
     marketer_notif = Notification.objects.create(
         title=subject,
         message=message,
-        notification_type=Notification.MARKETER_ANNOUNCEMENT
+        notification_type=Notification.MARKETER_ANNOUNCEMENT,
+        company=company  # SECURITY: Company isolation
     )
     
-    # Get users by role
-    clients = User.objects.filter(role='client')
-    marketers = User.objects.filter(role='marketer')
+    # SECURITY: Get users by role FILTERED BY COMPANY (tenant isolation)
+    clients = User.objects.filter(role='client', company_profile=company)
+    marketers = User.objects.filter(role='marketer', company_profile=company)
     
-    # Link notifications to users
+    # Link notifications to users (company-scoped)
     for user in clients:
         UserNotification.objects.get_or_create(user=user, notification=client_notif)
     
@@ -12811,7 +13150,7 @@ def property_price_edit(request, pk):
         notes=pp.notes
     )
 
-    # Send notifications if requested
+    # Send notifications if requested (company-isolated)
     notification_sent = False
     if notify:
         try:
@@ -12822,7 +13161,8 @@ def property_price_edit(request, pk):
                 previous_price=float(previous_current),
                 new_price=float(current),
                 effective_date=effective,
-                notes=notes
+                notes=notes,
+                company=user_company  # SECURITY: Pass company for tenant isolation
             )
             notification_sent = True
         except Exception as e:
@@ -13097,12 +13437,238 @@ def property_price_history(request, pk):
     else:
         current_change = 0.0
         total_change = 0.0
+    
+    # === Enhanced Market Analysis Data ===
+    from datetime import datetime as dt_datetime
+    from dateutil.relativedelta import relativedelta
+    
+    # Calculate investment duration
+    if combined_history and len(combined_history) >= 2:
+        first_date = django_parse_date(combined_history[0]['effective'])
+        last_date = django_parse_date(combined_history[-1]['effective'])
+        if first_date and last_date:
+            duration_months = (last_date.year - first_date.year) * 12 + (last_date.month - first_date.month)
+            duration_months = max(duration_months, 1)  # Minimum 1 month
+        else:
+            duration_months = 1
+    else:
+        duration_months = 1
+    
+    # Calculate CAGR (Compound Annual Growth Rate)
+    years = max(duration_months / 12, 0.0833)  # Minimum 1 month = 0.0833 years
+    if float(presale_val) > 0 and float(latest_val) > 0:
+        cagr = (pow(float(latest_val) / float(presale_val), 1 / years) - 1) * 100
+    else:
+        cagr = 0.0
+    
+    # Monthly average growth
+    monthly_growth = total_change / max(duration_months, 1) if duration_months > 0 else 0.0
+    
+    # Value gained
+    value_gained = float(latest_val - presale_val) if presale_val else 0.0
+    
+    # Price projections based on CAGR
+    current_price = float(latest_val) if latest_val else 0.0
+    growth_rate = max(cagr, 5.0) / 100  # Use CAGR or minimum 5% annual growth
+    
+    projection_1y = current_price * (1 + growth_rate)
+    projection_3y = current_price * pow(1 + growth_rate, 3)
+    projection_5y = current_price * pow(1 + growth_rate, 5)
+    
+    # Get estate location for market comparison
+    estate = pp.estate
+    estate_location = getattr(estate, 'location', '') or ''
+    
+    # Extract location parts for comparison (Estate model only has 'location' CharField)
+    # Try to parse location into parts (e.g., "Lekki, Lagos" -> area="Lekki", region="Lagos")
+    location_parts = [part.strip() for part in estate_location.split(',') if part.strip()]
+    location_area = location_parts[0] if location_parts else ''
+    location_region = location_parts[-1] if len(location_parts) > 1 else ''
+    
+    # Calculate average growth rates for comparison (from company's other properties)
+    # Area Average - properties in same local area (first part of location)
+    area_growths = []
+    if location_area:
+        area_properties = PropertyPrice.objects.filter(
+            estate__company=user_company,
+            estate__location__icontains=location_area
+        ).exclude(pk=pk)
+        
+        for prop in area_properties:
+            prop_history = prop.history.order_by('effective')
+            if prop_history.count() >= 2:
+                first_price = float(prop_history.first().current)
+                last_price = float(prop_history.last().current)
+                if first_price > 0:
+                    area_growths.append((last_price - first_price) / first_price * 100)
+    
+    lga_avg_growth = sum(area_growths) / len(area_growths) if area_growths else 8.5  # Default market avg
+    
+    # Region Average - properties in same region (last part of location, e.g., state/city)
+    region_growths = []
+    if location_region and location_region != location_area:
+        region_properties = PropertyPrice.objects.filter(
+            estate__company=user_company,
+            estate__location__icontains=location_region
+        ).exclude(pk=pk)
+        
+        for prop in region_properties:
+            prop_history = prop.history.order_by('effective')
+            if prop_history.count() >= 2:
+                first_price = float(prop_history.first().current)
+                last_price = float(prop_history.last().current)
+                if first_price > 0:
+                    region_growths.append((last_price - first_price) / first_price * 100)
+    
+    state_avg_growth = sum(region_growths) / len(region_growths) if region_growths else 10.0  # Default region avg
+    
+    # National average (Nigerian real estate market average ~ 12-15% annually)
+    national_avg_growth = 12.5
+    
+    # Calculate market position percentile
+    all_company_properties = PropertyPrice.objects.filter(estate__company=user_company)
+    all_growths = []
+    for prop in all_company_properties:
+        prop_history = prop.history.order_by('effective')
+        if prop_history.count() >= 2:
+            first_price = float(prop_history.first().current)
+            last_price = float(prop_history.last().current)
+            if first_price > 0:
+                all_growths.append((last_price - first_price) / first_price * 100)
+    
+    if all_growths and total_change is not None:
+        sorted_growths = sorted(all_growths)
+        position = sum(1 for g in sorted_growths if g <= total_change)
+        percentile = (position / len(sorted_growths)) * 100
+    else:
+        percentile = 50.0
+    
+    # Generate investment rating (1-5 stars)
+    rating = 3  # Default rating
+    if cagr > 20:
+        rating = 5
+    elif cagr > 15:
+        rating = 4
+    elif cagr > 10:
+        rating = 3
+    elif cagr > 5:
+        rating = 2
+    else:
+        rating = 1
+    
+    # Market trend analysis
+    if total_change > 15:
+        trend = "strong_upward"
+        trend_title = "Strong Upward Trend"
+        trend_desc = "Exceptional appreciation. This property is significantly outperforming expectations."
+    elif total_change > 5:
+        trend = "upward"
+        trend_title = "Upward Trend"
+        trend_desc = "Consistent positive growth. This property shows healthy appreciation."
+    elif total_change > 0:
+        trend = "stable"
+        trend_title = "Stable Growth"
+        trend_desc = "Modest but steady appreciation. Consider holding for long-term gains."
+    elif total_change > -5:
+        trend = "flat"
+        trend_title = "Flat Trend"
+        trend_desc = "Minimal change. Market conditions may be affecting growth."
+    else:
+        trend = "downward"
+        trend_title = "Declining Value"
+        trend_desc = "Negative growth detected. Review market conditions and pricing strategy."
+    
+    # Generate key insights
+    insights = []
+    if total_change > lga_avg_growth:
+        insights.append({"type": "success", "text": f"Outperforming LGA average by {(total_change - lga_avg_growth):.1f}%"})
+    else:
+        insights.append({"type": "warning", "text": f"Below LGA average by {(lga_avg_growth - total_change):.1f}%"})
+    
+    if total_change > state_avg_growth:
+        insights.append({"type": "success", "text": f"Beating state average growth rate"})
+    
+    if cagr > 15:
+        insights.append({"type": "success", "text": "Strong compound annual growth rate"})
+    
+    if duration_months < 12 and total_change > 10:
+        insights.append({"type": "success", "text": "Rapid early-stage appreciation"})
+    
+    if total_change > national_avg_growth:
+        insights.append({"type": "success", "text": "Exceeding national market average"})
+    else:
+        insights.append({"type": "warning", "text": "Monitor for market volatility"})
+    
+    # Generate recommendation
+    if rating >= 4:
+        recommendation = "Excellent investment property with strong growth potential. Consider holding for maximum returns or strategic selling at peak."
+    elif rating >= 3:
+        recommendation = "Good investment showing stable appreciation. Continue monitoring market trends for optimal timing."
+    elif rating >= 2:
+        recommendation = "Moderate performance. Consider market conditions and potential value-add improvements."
+    else:
+        recommendation = "Underperforming property. Review pricing strategy and market positioning."
+    
+    # Get plot size for price per SQM calculation
+    try:
+        plot_size_str = str(pp.plot_size) if pp.plot_size else "500"
+        # Extract numeric value from plot size string (e.g., "500 sqm" -> 500)
+        import re
+        size_match = re.search(r'(\d+)', plot_size_str)
+        plot_size_sqm = int(size_match.group(1)) if size_match else 500
+    except:
+        plot_size_sqm = 500
+    
+    price_per_sqm = current_price / plot_size_sqm if plot_size_sqm > 0 else 0
 
     return JsonResponse({
         "history": combined_history,
         "current_change": round(current_change, 2),
         "total_change": round(total_change, 2),
-        "has_promos": len(promos) > 0
+        "has_promos": len(promos) > 0,
+        
+        # Enhanced analysis data
+        "analysis": {
+            "presale_price": float(presale_val),
+            "current_price": current_price,
+            "value_gained": round(value_gained, 2),
+            "cagr": round(cagr, 2),
+            "monthly_growth": round(monthly_growth, 2),
+            "annual_return": round(cagr, 2),
+            "duration_months": duration_months,
+            "price_per_sqm": round(price_per_sqm, 2),
+            
+            # Location data
+            "location": estate_location,
+            "area": location_area,
+            "region": location_region,
+            
+            # Market comparison
+            "your_growth": round(total_change, 2),
+            "lga_avg_growth": round(lga_avg_growth, 2),
+            "state_avg_growth": round(state_avg_growth, 2),
+            "national_avg_growth": round(national_avg_growth, 2),
+            "market_percentile": round(percentile, 1),
+            
+            # Projections
+            "projection_1y": round(projection_1y, 2),
+            "projection_3y": round(projection_3y, 2),
+            "projection_5y": round(projection_5y, 2),
+            "projection_1y_pct": round((projection_1y - current_price) / current_price * 100 if current_price else 0, 1),
+            "projection_3y_pct": round((projection_3y - current_price) / current_price * 100 if current_price else 0, 1),
+            "projection_5y_pct": round((projection_5y - current_price) / current_price * 100 if current_price else 0, 1),
+            
+            # Intelligence
+            "rating": rating,
+            "trend": trend,
+            "trend_title": trend_title,
+            "trend_desc": trend_desc,
+            "insights": insights[:4],  # Max 4 insights
+            "recommendation": recommendation,
+            
+            # Market position badge
+            "market_badge": "Outperforming Market" if total_change > lga_avg_growth else "Tracking Market" if total_change > lga_avg_growth * 0.8 else "Below Market Average"
+        }
     })
 
 
@@ -13228,9 +13794,16 @@ def get_active_promo_for_estate(request, estate_id):
 # # MANAGEMENT NOTIFICATIONS
 
 @csrf_exempt
+@login_required
+@user_passes_test(is_admin)
 def notify_clients_marketer(request):
     if request.method != 'POST':
         return JsonResponse({'status':'error','message':'Invalid request method'}, status=405)
+
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    if not user_company:
+        return JsonResponse({'error': 'No company access'}, status=403)
 
     try:
         data = json.loads(request.body)
@@ -13242,26 +13815,36 @@ def notify_clients_marketer(request):
 
         User = get_user_model()
         
+        # CRITICAL: Filter ALL users by company for proper tenant isolation
         if notify_type == 'client_update':
-            users     = User.objects.filter(role='client')
+            users     = User.objects.filter(role='client', company_profile=user_company)
             ntype     = Notification.CLIENT_ANNOUNCEMENT
         elif notify_type == 'marketer_update':
-            users     = User.objects.filter(role='marketer')
+            users     = User.objects.filter(role='marketer', company_profile=user_company)
             ntype     = Notification.MARKETER_ANNOUNCEMENT
         elif notify_type == 'general_notification':
-            users     = User.objects.exclude(role='admin')
+            users     = User.objects.filter(company_profile=user_company).exclude(role='admin')
             ntype     = Notification.ANNOUNCEMENT
         else:
-            users     = User.objects.filter(estate__id__in=estate_ids).distinct()
+            # Company isolation - filter by estates that belong to user's company
+            company_estate_ids = Estate.objects.filter(
+                company=user_company, 
+                id__in=estate_ids
+            ).values_list('id', flat=True)
+            users     = User.objects.filter(
+                company_profile=user_company,
+                estate__id__in=company_estate_ids
+            ).distinct()
             ntype     = Notification.ANNOUNCEMENT
 
         recipients = list(dict.fromkeys(users.values_list('id', flat=True)))
 
-        # create one Notification record
+        # create one Notification record (company-isolated)
         notif = Notification.objects.create(
             title=subject,
             message=message,
-            notification_type=ntype
+            notification_type=ntype,
+            company=user_company  # Associate notification with company
         )
 
         dispatched = False
@@ -13340,8 +13923,19 @@ def notify_clients_marketer(request):
 @login_required
 @require_GET
 def notification_dispatch_status(request, dispatch_id: int):
+    # Company isolation - get user's company
+    user_company = getattr(request.user, 'company_profile', None)
+    
     try:
-        dispatch = NotificationDispatch.objects.get(pk=dispatch_id)
+        # Company isolation - ensure dispatch belongs to user's company
+        if user_company:
+            dispatch = NotificationDispatch.objects.get(
+                pk=dispatch_id,
+                notification__company=user_company
+            )
+        else:
+            # For users without company (shouldn't happen for admins)
+            dispatch = NotificationDispatch.objects.get(pk=dispatch_id)
     except NotificationDispatch.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'Dispatch not found'}, status=404)
 

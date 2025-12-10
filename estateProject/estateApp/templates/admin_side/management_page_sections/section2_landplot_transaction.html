@@ -383,11 +383,14 @@
                                             {% if txn.status == 'Fully Paid' %}
                                             <span class="badge badge-paid">
                                                 <i class="bi bi-check-circle me-1"></i>Fully Paid
+                                                {% if txn.allocation.plot_number %}
+                                                    <span class="small">+ Plot Allocated</span>
+                                                {% endif %}
                                             </span>
                                             {% elif txn.status == 'Paid Complete' %}
                                             <span class="badge badge-paid">
                                                 <i class="bi bi-check-circle me-1"></i>Paid Complete
-                                                {% if txn.allocation.payment_type == 'full' and txn.allocation.plot_number %}
+                                                {% if txn.allocation.plot_number %}
                                                     <span class="small">+ Plot Allocated</span>
                                                 {% endif %}
                                             </span>
@@ -581,7 +584,6 @@
                             <option value="">Loading available plots...</option>
                         </select>
                     </div>
-                    </div>
                 </div>
                 
                 <!-- Modern Footer -->
@@ -601,8 +603,6 @@
             </form>
         </div>
     </div>
-
-    <!-- Edit Transaction Modal -->
     <div class="modal fade" id="editTransactionModal" tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <form id="editTransactionForm" class="modal-content">
@@ -677,19 +677,19 @@
                             </div>
 
                             <div id="edit_installment_section" style="display: none;">
-                                <h6 class="mb-3 mt-3">Installment Plan</h6>
+                                <h6 class="mb-3 mt-3">Installment Plan <small class="text-muted">(Read-only)</small></h6>
                                 <div class="row">
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-4 mb-3">
                                         <label class="form-label">First Installment (₦)</label>
-                                        <input type="number" id="edit_first_installment" name="first_installment" class="form-control" step="0.01" min="0">
+                                        <input type="text" id="edit_first_installment" class="form-control bg-light" readonly>
                                     </div>
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-4 mb-3">
                                         <label class="form-label">Second Installment (₦)</label>
-                                        <input type="number" id="edit_second_installment" name="second_installment" class="form-control" step="0.01" min="0">
+                                        <input type="text" id="edit_second_installment" class="form-control bg-light" readonly>
                                     </div>
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-4 mb-3">
                                         <label class="form-label">Third Installment (₦)</label>
-                                        <input type="number" id="edit_third_installment" name="third_installment" class="form-control" step="0.01" min="0">
+                                        <input type="text" id="edit_third_installment" class="form-control bg-light" readonly>
                                     </div>
                                 </div>
                             </div>
@@ -722,14 +722,37 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label class="form-label">Current Plot Number</label>
-                                <input type="text" id="edit_current_plot" class="form-control" readonly>
+                                <div class="input-group">
+                                    <input type="text" id="edit_current_plot" class="form-control bg-light" readonly>
+                                    <button type="button" class="btn btn-danger" id="edit_remove_plot_btn" 
+                                            title="Remove Plot Allocation" style="display: none;">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Reallocate to New Plot</label>
-                                <select id="edit_plot_number" name="plot_number_id" class="form-select" data-live-search="true">
-                                    <option value="">Keep current / No change</option>
-                                </select>
-                                <small class="text-muted">Search available plots by number</small>
+                                <div class="dropdown w-100">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" 
+                                            type="button" 
+                                            id="edit_plot_dropdown_btn" 
+                                            data-bs-toggle="dropdown" 
+                                            data-bs-auto-close="outside"
+                                            aria-expanded="false">
+                                        <span id="edit_plot_selected_text">Select a plot...</span>
+                                    </button>
+                                    <div class="dropdown-menu w-100 p-2" aria-labelledby="edit_plot_dropdown_btn" style="max-height: 300px; overflow-y: auto;">
+                                        <!-- Search box inside dropdown -->
+                                        <div class="input-group mb-2">
+                                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                                            <input type="text" id="edit_plot_search" class="form-control" placeholder="Search plot number...">
+                                        </div>
+                                        <div id="edit_plot_status" class="mb-2" style="display: none;"></div>
+                                        <!-- Plot results list -->
+                                        <div id="edit_plot_dropdown" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;"></div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="edit_plot_number" name="plot_number_id">
                             </div>
                         </div>
                     </div>
@@ -1640,12 +1663,13 @@
                         $('#edit_total_amount').val(txn.total_amount);
                         $('#edit_payment_method').val(txn.payment_method);
                         
-                        // Handle installments
+                        // Handle installments - format as currency (readonly)
                         if (alloc.payment_type === 'part') {
                             $('#edit_installment_section').show();
-                            $('#edit_first_installment').val(alloc.first_installment || '');
-                            $('#edit_second_installment').val(alloc.second_installment || '');
-                            $('#edit_third_installment').val(alloc.third_installment || '');
+                            const formatVal = (val) => val ? '₦' + parseFloat(val).toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+                            $('#edit_first_installment').val(formatVal(txn.first_installment));
+                            $('#edit_second_installment').val(formatVal(txn.second_installment));
+                            $('#edit_third_installment').val(formatVal(txn.third_installment));
                             
                             // Display payment records
                             if (resp.payment_records && resp.payment_records.length > 0) {
@@ -1661,19 +1685,19 @@
                                         <tr>
                                             <td>${installmentLabel} Installment</td>
                                             <td>
-                                                <input type="text" class="form-control form-control-sm" 
-                                                       value="${parseFloat(payment.amount_paid).toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" 
-                                                       disabled>
+                                                <input type="text" class="form-control form-control-sm bg-light" 
+                                                       value="₦${parseFloat(payment.amount_paid).toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" 
+                                                       readonly>
                                             </td>
                                             <td>
-                                                <input type="date" class="form-control form-control-sm" 
-                                                       value="${payment.payment_date}" disabled>
+                                                <input type="text" class="form-control form-control-sm bg-light" 
+                                                       value="${payment.payment_date}" readonly>
                                             </td>
                                             <td>
                                                 <input type="number" class="form-control form-control-sm" 
                                                        name="payment_record_${payment.id}" 
                                                        data-payment-id="${payment.id}"
-                                                       placeholder="Update amount"
+                                                       placeholder="New amount"
                                                        step="0.01" min="0">
                                             </td>
                                         </tr>
@@ -1689,31 +1713,47 @@
                         
                         // Handle plot number - Always show for allocation/reallocation
                         $('#edit_plot_section').show();
+                        
                         if (alloc.plot_number) {
-                            $('#edit_current_plot').val('Plot ' + alloc.plot_number);
+                            $('#edit_current_plot')
+                                .val('Plot ' + alloc.plot_number)
+                                .data('plot-number', alloc.plot_number);  // Store in data attribute
+                            // Show remove button for allocations with plot assigned
+                            // Allow removal for both part and full payment (for corrections)
+                            $('#edit_remove_plot_btn').show();
                         } else {
-                            $('#edit_current_plot').val('Not Allocated');
+                            $('#edit_current_plot')
+                                .val('Not Allocated')
+                                .removeData('plot-number');
+                            $('#edit_remove_plot_btn').hide();
                         }
                         
-                        // Load available plots for allocation/reassignment
+                        // Store allocation ID in data attribute (not window)
+                        $('#edit_txn_id').data('allocation-id', alloc.id);
+                        
+                        // Reset plot dropdown
+                        $('#edit_plot_search').val('');
+                        $('#edit_plot_number').val('');
+                        $('#edit_plot_status').hide();
+                        $('#edit_plot_dropdown').empty();
+                        $('#edit_plot_selected_text').text('Select a plot...');
+                        
+                        // Store plots data in modal data attributes (not global window)
+                        const $modal = $('#editTransactionModal');
+                        $modal.data('allocation-id', alloc.id);
+                        $modal.data('all-plots', []);
+                        $modal.data('available-plots', []);
+                        
+                        // Load all plots for this estate (both available and allocated)
                         $.ajax({
                             url: "{% url 'ajax_get_available_plots' %}",
                             method: 'GET',
-                            data: { allocation_id: alloc.id },
+                            data: { allocation_id: alloc.id, include_all: true },
                             success: function(plotResp) {
-                                const $plotSel = $('#edit_plot_number').empty()
-                                    .append('<option value="">Keep current / No change</option>');
-                                    
-                                if (plotResp.success && plotResp.plots && plotResp.plots.length > 0) {
-                                    plotResp.plots.forEach(plot => {
-                                        $plotSel.append(`<option value="${plot.id}">Plot ${plot.number}</option>`);
-                                    });
-                                } else {
-                                    $plotSel.append('<option value="" disabled>No plots available</option>');
+                                if (plotResp.success) {
+                                    $modal.data('available-plots', plotResp.plots || []);
+                                    $modal.data('all-plots', plotResp.all_plots || plotResp.plots || []);
                                 }
-                            },
-                            error: function() {
-                                $('#edit_plot_number').html('<option value="">Error loading plots</option>');
                             }
                         });
                         
@@ -1776,6 +1816,168 @@
             $('#edit_error_message').text(message);
             $('#edit_error_alert').show().addClass('show');
         }
+
+        // Plot search functionality - inside dropdown
+        $('#edit_plot_search').on('input', function() {
+            const searchTerm = $(this).val().trim().toLowerCase();
+            const $dropdown = $('#edit_plot_dropdown');
+            const $status = $('#edit_plot_status');
+            const $modal = $('#editTransactionModal');
+            
+            // Get plots from modal data attributes (not window)
+            const allPlots = $modal.data('all-plots') || [];
+            const availablePlots = $modal.data('available-plots') || [];
+            const availableIds = availablePlots.map(p => p.id);
+            
+            // If no search term, show all available plots
+            let matches;
+            if (searchTerm.length === 0) {
+                matches = allPlots;
+            } else {
+                // Filter plots matching search
+                matches = allPlots.filter(plot => 
+                    plot.number.toString().toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (matches.length === 0) {
+                $dropdown.html('<div class="text-center text-muted py-3"><i class="bi bi-x-circle me-1"></i>No plots found</div>');
+                $status.html('<span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>NOT FOUND</span>').show();
+                return;
+            }
+            
+            // Build dropdown list
+            $dropdown.empty();
+            matches.slice(0, 15).forEach(plot => {
+                const isAvailable = availableIds.includes(plot.id);
+                if (isAvailable) {
+                    $dropdown.append(`
+                        <a href="#" class="list-group-item list-group-item-action plot-option py-2" 
+                           data-plot-id="${plot.id}" data-plot-number="${plot.number}">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            Plot ${plot.number} 
+                            <span class="badge bg-success float-end">Available</span>
+                        </a>
+                    `);
+                } else {
+                    $dropdown.append(`
+                        <div class="list-group-item list-group-item-light text-muted py-2">
+                            <i class="bi bi-lock-fill text-danger me-2"></i>
+                            Plot ${plot.number}
+                            <span class="badge bg-danger float-end">ALLOCATED</span>
+                        </div>
+                    `);
+                }
+            });
+            
+            $status.hide();
+        });
+
+        // When dropdown opens, load all plots and focus search
+        $('#edit_plot_dropdown_btn').on('show.bs.dropdown', function() {
+            // Trigger initial load of all plots
+            $('#edit_plot_search').val('').trigger('input').focus();
+        });
+
+        // Handle plot selection from dropdown
+        $(document).on('click', '.plot-option', function(e) {
+            e.preventDefault();
+            const plotId = $(this).data('plot-id');
+            const plotNumber = $(this).data('plot-number');
+            
+            // Update hidden input and button text
+            $('#edit_plot_number').val(plotId);
+            $('#edit_plot_selected_text').html('<i class="bi bi-check-circle text-success me-1"></i>Plot ' + plotNumber + ' <span class="badge bg-success ms-2">Selected</span>');
+            
+            // Close dropdown
+            $('#edit_plot_dropdown_btn').dropdown('hide');
+        });
+
+        // Prevent dropdown from closing when clicking inside search box
+        $('#edit_plot_search').on('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // Handle Remove Plot Allocation button - IMMEDIATE removal via AJAX
+        $('#edit_remove_plot_btn').on('click', function() {
+            // Get values from data attributes instead of window variables
+            const originalPlot = $('#edit_current_plot').data('plot-number');
+            const allocationId = $('#edit_txn_id').data('allocation-id');
+            
+            if (!originalPlot || !allocationId) {
+                return;
+            }
+            
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Remove Plot Allocation?',
+                html: `<p>Are you sure you want to remove <strong>Plot ${originalPlot}</strong> from this transaction?</p>
+                       <p class="text-danger"><small><i class="bi bi-exclamation-triangle me-1"></i>
+                       This will make the plot available for other clients.</small></p>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-trash me-1"></i>Yes, Remove',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading state
+                    Swal.fire({
+                        title: 'Removing Plot...',
+                        html: 'Please wait while we remove the plot allocation.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Make immediate AJAX call to remove plot
+                    $.ajax({
+                        url: '/ajax/remove-plot-allocation/',
+                        method: 'POST',
+                        data: {
+                            allocation_id: allocationId
+                        },
+                        headers: {
+                            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                        },
+                        success: function(resp) {
+                            if (resp.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Plot Removed!',
+                                    text: resp.message,
+                                    confirmButtonColor: '#10b981'
+                                }).then(() => {
+                                    // Close modal and reload page
+                                    $('#editTransactionModal').modal('hide');
+                                    location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: resp.error || 'Failed to remove plot allocation',
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: xhr.responseJSON?.error || 'Failed to remove plot allocation',
+                                confirmButtonColor: '#dc3545'
+                            });
+                        }
+                    });
+                }
+            });
+        });
+
+        // No longer needed - plot removal is now immediate via AJAX
+        // Modal reset is automatic on page reload
 
 
 

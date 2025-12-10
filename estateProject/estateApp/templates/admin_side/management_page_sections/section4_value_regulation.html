@@ -395,6 +395,308 @@
         color: #e67e22;
     }
 
+    /* ============================================
+       ENHANCED ANALYSIS TAB STYLES
+       ============================================ */
+    .analysis-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .analysis-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12) !important;
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #198754 0%, #157347 100%);
+    }
+    
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%);
+    }
+    
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    }
+    
+    .bg-gradient-purple {
+        background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+    }
+    
+    .bg-gradient-dark {
+        background: linear-gradient(135deg, #343a40 0%, #212529 100%);
+    }
+    
+    .analysis-metric-box {
+        transition: background-color 0.2s ease;
+    }
+    
+    .analysis-metric-box:hover {
+        background-color: #e9ecef !important;
+    }
+    
+    .comparison-box {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .comparison-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .projection-item {
+        transition: background-color 0.2s ease;
+    }
+    
+    .projection-item:hover {
+        background-color: #e9ecef !important;
+    }
+    
+    .intelligence-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .rating-stars i {
+        font-size: 1rem;
+        margin-right: 2px;
+    }
+    
+    .recommendation-box {
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .bg-success-subtle {
+        background-color: rgba(25, 135, 84, 0.1) !important;
+    }
+    
+    .bg-primary-subtle {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+    }
+    
+    .bg-warning-subtle {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+    }
+    
+    .bg-info-subtle {
+        background-color: rgba(13, 202, 240, 0.1) !important;
+    }
+    
+    .bg-danger-subtle {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+    
+    .text-success { color: #198754 !important; }
+    .text-primary { color: #0d6efd !important; }
+    .text-warning { color: #ffc107 !important; }
+    .text-danger { color: #dc3545 !important; }
+    .text-info { color: #0dcaf0 !important; }
+    
+    #analysis-tab-pane .card-header h6 {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    #analysis-tab-pane .card-body {
+        font-size: 0.875rem;
+    }
+    
+    .projection-chart-container canvas,
+    .chart-container canvas {
+        max-height: 100%;
+    }
+    
+    /* ============================================
+       MODERN WAVE CHART STYLES
+       ============================================ */
+    .chart-wrapper {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 
+            0 4px 20px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .chart-wrapper::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+    }
+    
+    .chart-wrapper::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .chart-controls {
+        padding: 0 5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .chart-title-badge .badge {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        border-radius: 30px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        border: none;
+    }
+    
+    .stat-pill {
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 20px !important;
+    }
+    
+    .stat-pill:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-insights {
+        background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        color: #1e293b;
+    }
+    
+    .chart-insights:hover {
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.1);
+        border-color: rgba(99, 102, 241, 0.3);
+    }
+    
+    .growth-badge .badge {
+        padding: 10px 20px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border-radius: 12px;
+    }
+    
+    .trend-indicator i {
+        transition: transform 0.3s ease;
+    }
+    
+    .chart-insights:hover .trend-indicator i {
+        transform: scale(1.1);
+    }
+    
+    /* Modern Chart Canvas Glow */
+    #priceHistoryChart {
+        filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.1));
+    }
+    
+    /* Stat Pills for Light Theme */
+    .chart-stats .stat-pill {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        color: #374151 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    
+    .chart-stats .stat-pill.bg-success-subtle {
+        border-color: rgba(34, 197, 94, 0.25);
+        background: rgba(34, 197, 94, 0.1) !important;
+        color: #166534 !important;
+    }
+    
+    .chart-stats .stat-pill.bg-danger-subtle {
+        border-color: rgba(239, 68, 68, 0.25);
+        background: rgba(239, 68, 68, 0.1) !important;
+        color: #991b1b !important;
+    }
+    
+    .chart-stats .stat-pill.bg-primary-subtle {
+        border-color: rgba(99, 102, 241, 0.25);
+        background: rgba(99, 102, 241, 0.1) !important;
+        color: #4338ca !important;
+    }
+    
+    /* Animated Gradient Border */
+    @keyframes gradientBorder {
+        0%, 100% { border-color: rgba(99, 102, 241, 0.3); }
+        25% { border-color: rgba(139, 92, 246, 0.3); }
+        50% { border-color: rgba(168, 85, 247, 0.3); }
+        75% { border-color: rgba(236, 72, 153, 0.3); }
+    }
+    
+    .chart-wrapper:hover {
+        animation: gradientBorder 3s ease infinite;
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.12);
+    }
+    
+    /* Pulse effect on data points hover */
+    @keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+        50% { box-shadow: 0 0 20px 10px rgba(139, 92, 246, 0); }
+    }
+    
+    /* Responsive adjustments for analysis tab */
+    @media (max-width: 768px) {
+        #analysis-tab-pane .row.g-3 > div {
+            margin-bottom: 1rem;
+        }
+        
+        .comparison-box {
+            margin-bottom: 0.5rem;
+        }
+        
+        .intelligence-item {
+            margin-bottom: 1rem;
+        }
+        
+        .chart-controls {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .chart-stats {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .chart-wrapper {
+            padding: 15px;
+            border-radius: 14px;
+        }
+    }
+    
+    /* Animation for loading */
+    @keyframes analysisShimmer {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+    
+    #analysisLoading {
+        animation: analysisShimmer 1.5s ease-in-out infinite;
+    }
+
     .badge-gradient-prm {
         display: inline-block;
         padding: .6rem .8rem;
@@ -1337,6 +1639,7 @@
                 <table class="table table-hover mb-0">
                     <thead>
                         <tr>
+                            <th style="width: 50px;">S/N</th>
                             <th>Estate</th>
                             <th>Plot</th>
                             <th>Location</th>
@@ -1353,6 +1656,8 @@
                     <tbody id="prmPropertyTable">
                         {% for row in rows %}
                             <tr id="row-{{ row.estate.id }}-{{ row.plot_unit.id }}" data-id="{{ row.id }}">
+                            <!-- Row Number -->
+                            <td class="text-center fw-semibold text-muted">{{ forloop.counter }}</td>
                             <!-- Estate + Badge -->
                             <td>
                                 <div class="d-flex align-items-center">
@@ -1764,66 +2069,373 @@
                         </div>
                     </div>
                     <div class="tab-pane fade" id="chart-tab-pane" role="tabpanel" tabindex="0">
-                        <div class="chart-container">
+                        <!-- Chart Controls -->
+                        <div class="chart-controls d-flex justify-content-between align-items-center mb-3">
+                            <div class="chart-title-badge">
+                                <span class="badge bg-gradient-primary px-3 py-2 d-flex align-items-center gap-2">
+                                    <i class="bi bi-activity"></i>
+                                    <span>Price Wave Trend</span>
+                                </span>
+                            </div>
+                            <div class="chart-stats d-flex gap-3">
+                                <div class="stat-pill bg-success-subtle text-success rounded-pill px-3 py-1">
+                                    <small><i class="bi bi-arrow-up-right me-1"></i>Highest: <span id="chartHighest">₦0</span></small>
+                                </div>
+                                <div class="stat-pill bg-danger-subtle text-danger rounded-pill px-3 py-1">
+                                    <small><i class="bi bi-arrow-down-right me-1"></i>Lowest: <span id="chartLowest">₦0</span></small>
+                                </div>
+                                <div class="stat-pill bg-primary-subtle text-primary rounded-pill px-3 py-1">
+                                    <small><i class="bi bi-graph-up me-1"></i>Avg: <span id="chartAverage">₦0</span></small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Main Chart Container -->
+                        <div class="chart-wrapper position-relative" style="height: 350px;">
+                            <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading chart...</span>
+                                </div>
+                            </div>
                             <canvas id="priceHistoryChart"></canvas>
+                        </div>
+                        
+                        <!-- Chart Insights Footer -->
+                        <div class="chart-insights mt-3 p-3 rounded-4">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="trend-indicator" id="chartTrendIndicator">
+                                            <i class="bi bi-graph-up-arrow text-success fs-3"></i>
+                                        </span>
+                                        <div>
+                                            <span class="fw-bold text-dark" id="chartTrendText">Upward Trend</span>
+                                            <small class="text-muted d-block" id="chartTrendDesc">Consistent price appreciation over time</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="growth-badge">
+                                        <span class="badge bg-gradient fs-5" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;" id="chartGrowthBadge">+0.00%</span>
+                                        <small class="text-muted d-block mt-1">Total Growth</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="tab-pane fade" id="analysis-tab-pane" role="tabpanel" tabindex="0">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card mb-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Price Performance</h5>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Presale Price:</span>
-                                            <span class="fw-bold" id="analysisPresale">₦0</span>
+                        <!-- Analysis Loading Overlay -->
+                        <div id="analysisLoading" class="text-center py-4 d-none">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading analysis...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Generating market analysis...</p>
+                        </div>
+                        
+                        <div id="analysisContent">
+                            <!-- Row 1: Price Performance & Investment Summary -->
+                            <div class="row g-3 mb-3">
+                                <!-- Price Performance Card -->
+                                <div class="col-lg-6">
+                                    <div class="card h-100 analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <h6 class="card-title mb-0 text-dark">
+                                                <i class="bi bi-graph-up-arrow me-2 text-primary"></i>Price Performance
+                                            </h6>
                                         </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Current Price:</span>
-                                            <span class="fw-bold" id="analysisCurrent">₦0</span>
+                                        <div class="card-body">
+                                            <div class="row text-center mb-3">
+                                                <div class="col-6">
+                                                    <div class="analysis-metric-box bg-light rounded p-2">
+                                                        <small class="text-muted d-block">Presale Price</small>
+                                                        <span class="fw-bold text-dark" id="analysisPresale">₦0</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="analysis-metric-box bg-light rounded p-2">
+                                                        <small class="text-muted d-block">Current Price</small>
+                                                        <span class="fw-bold text-primary" id="analysisCurrent">₦0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2 py-1 border-bottom">
+                                                <span class="text-muted small">Latest Change:</span>
+                                                <span class="badge bg-success-subtle text-success" id="analysisCurrentChange">+0.00%</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2 py-1 border-bottom">
+                                                <span class="text-muted small">Total Appreciation:</span>
+                                                <span class="badge bg-primary-subtle text-primary" id="analysisTotalChange">+0.00%</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2 py-1 border-bottom">
+                                                <span class="text-muted small">CAGR (Compound Annual):</span>
+                                                <span class="fw-bold text-success" id="analysisCAGR">0.00%</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center py-1">
+                                                <span class="text-muted small">Price per SQM:</span>
+                                                <span class="fw-bold" id="analysisPricePerSqm">₦0</span>
+                                            </div>
                                         </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Current Increment:</span>
-                                            <span class="text-success fw-bold" id="analysisCurrentChange">+0.00%</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Commulative Increase:</span>
-                                            <span class="text-success fw-bold" id="analysisTotalChange">+0.00%</span>
-                                        </div>                                        
                                     </div>
                                 </div>
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Annual Growth</h5>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Year 1:</span>
-                                            <span class="text-success fw-bold" id="analysisYear1">+0.00%</span>
+                                
+                                <!-- Investment Summary Card -->
+                                <div class="col-lg-6">
+                                    <div class="card h-100 analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <h6 class="card-title mb-0 text-dark">
+                                                <i class="bi bi-cash-coin me-2 text-success"></i>Investment Summary
+                                            </h6>
                                         </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Projected Year 2:</span>
-                                            <span class="text-success fw-bold" id="analysisYear2">+0.00%</span>
+                                        <div class="card-body">
+                                            <div class="investment-highlight text-center mb-3 p-3 bg-success-subtle rounded">
+                                                <small class="text-muted d-block">Total Value Gained</small>
+                                                <h4 class="text-success mb-0" id="analysisValueGained">₦0</h4>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2 py-1 border-bottom">
+                                                <span class="text-muted small">Investment Duration:</span>
+                                                <span class="fw-bold" id="analysisInvestDuration">0 months</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2 py-1 border-bottom">
+                                                <span class="text-muted small">Monthly Avg Growth:</span>
+                                                <span class="fw-bold text-success" id="analysisMonthlyGrowth">+0.00%</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center py-1">
+                                                <span class="text-muted small">Annualized Return:</span>
+                                                <span class="fw-bold text-primary" id="analysisAnnualReturn">0.00%</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Market Comparison</h5>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Local Average:</span>
-                                            <span class="fw-bold" id="localAvg">+0.00%</span>
+                            
+                            <!-- Row 2: Location-Based Market Comparison -->
+                            <div class="row g-3 mb-3">
+                                <div class="col-12">
+                                    <div class="card analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="card-title mb-0 text-dark">
+                                                    <i class="bi bi-geo-alt-fill me-2 text-info"></i>Location Market Comparison
+                                                </h6>
+                                                <span class="badge bg-info-subtle text-info" id="analysisLocation">Loading...</span>
+                                            </div>
                                         </div>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Regional Average:</span>
-                                            <span class="fw-bold" id="regionalAvg">+0.00%</span>
+                                        <div class="card-body">
+                                            <div class="row g-3">
+                                                <!-- Your Property -->
+                                                <div class="col-md-3">
+                                                    <div class="comparison-box text-center p-3 rounded bg-primary-subtle border border-primary">
+                                                        <i class="bi bi-house-fill fs-4 text-primary mb-2 d-block"></i>
+                                                        <small class="text-muted d-block">This Property</small>
+                                                        <h5 class="text-primary mb-1" id="compareYourGrowth">+0.0%</h5>
+                                                        <small class="text-muted">Growth Rate</small>
+                                                    </div>
+                                                </div>
+                                                <!-- LGA Average -->
+                                                <div class="col-md-3">
+                                                    <div class="comparison-box text-center p-3 rounded bg-light">
+                                                        <i class="bi bi-buildings fs-4 text-secondary mb-2 d-block"></i>
+                                                        <small class="text-muted d-block" id="compareLGAName">LGA Average</small>
+                                                        <h5 class="mb-1" id="compareLGAGrowth">+0.0%</h5>
+                                                        <small id="compareLGADiff" class="text-success">+0% vs LGA</small>
+                                                    </div>
+                                                </div>
+                                                <!-- State Average -->
+                                                <div class="col-md-3">
+                                                    <div class="comparison-box text-center p-3 rounded bg-light">
+                                                        <i class="bi bi-map fs-4 text-secondary mb-2 d-block"></i>
+                                                        <small class="text-muted d-block" id="compareStateName">State Average</small>
+                                                        <h5 class="mb-1" id="compareStateGrowth">+0.0%</h5>
+                                                        <small id="compareStateDiff" class="text-success">+0% vs State</small>
+                                                    </div>
+                                                </div>
+                                                <!-- National Average -->
+                                                <div class="col-md-3">
+                                                    <div class="comparison-box text-center p-3 rounded bg-light">
+                                                        <i class="bi bi-globe-africa fs-4 text-secondary mb-2 d-block"></i>
+                                                        <small class="text-muted d-block">National Average</small>
+                                                        <h5 class="mb-1" id="compareNationalGrowth">+0.0%</h5>
+                                                        <small id="compareNationalDiff" class="text-success">+0% vs National</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Market Position Indicator -->
+                                            <div class="mt-3 pt-3 border-top">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <span class="text-muted small">Market Position Percentile:</span>
+                                                    <span class="fw-bold" id="marketPercentile">Top 50%</span>
+                                                </div>
+                                                <div class="progress" style="height: 8px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" id="marketPositionBar" style="width: 50%"></div>
+                                                </div>
+                                                <div class="d-flex justify-content-between mt-1">
+                                                    <small class="text-muted">Bottom Performer</small>
+                                                    <small class="text-muted">Top Performer</small>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Competitor:</span>
-                                            <span class="fw-bold" id="competitorAvg">+0.00%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Row 3: Price Projections & Market Intelligence -->
+                            <div class="row g-3 mb-3">
+                                <!-- Price Projections -->
+                                <div class="col-lg-6">
+                                    <div class="card h-100 analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <h6 class="card-title mb-0 text-dark">
+                                                <i class="bi bi-rocket-takeoff me-2 text-warning"></i>Price Projections
+                                            </h6>
                                         </div>
-                                        <div class="mt-3">
-                                            <span class="badge bg-success value-change-badge" id="marketBadge">Outperforming Market</span>
+                                        <div class="card-body">
+                                            <p class="text-muted small mb-3">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                Based on historical growth patterns and market trends
+                                            </p>
+                                            
+                                            <!-- Projection Timeline -->
+                                            <div class="projection-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                                                <div>
+                                                    <i class="bi bi-calendar-event text-warning me-2"></i>
+                                                    <span>1 Year Projection</span>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="fw-bold text-success" id="projection1Y">₦0</span>
+                                                    <small class="text-muted d-block" id="projection1YPct">(+0%)</small>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="projection-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                                                <div>
+                                                    <i class="bi bi-calendar-range text-warning me-2"></i>
+                                                    <span>3 Year Projection</span>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="fw-bold text-success" id="projection3Y">₦0</span>
+                                                    <small class="text-muted d-block" id="projection3YPct">(+0%)</small>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="projection-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                                                <div>
+                                                    <i class="bi bi-calendar3 text-warning me-2"></i>
+                                                    <span>5 Year Projection</span>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="fw-bold text-success" id="projection5Y">₦0</span>
+                                                    <small class="text-muted d-block" id="projection5YPct">(+0%)</small>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Projection Chart Mini -->
+                                            <div class="projection-chart-container mt-3" style="height: 100px;">
+                                                <canvas id="projectionMiniChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Market Intelligence -->
+                                <div class="col-lg-6">
+                                    <div class="card h-100 analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <h6 class="card-title mb-0 text-dark">
+                                                <i class="bi bi-lightbulb me-2 text-purple"></i>Market Intelligence
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Market Trend -->
+                                            <div class="intelligence-item d-flex align-items-start mb-3">
+                                                <div class="intelligence-icon bg-success-subtle text-success rounded-circle p-2 me-3">
+                                                    <i class="bi bi-arrow-up-right"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1" id="marketTrendTitle">Upward Trend</h6>
+                                                    <p class="text-muted small mb-0" id="marketTrendDesc">
+                                                        This property is showing consistent appreciation.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Investment Rating -->
+                                            <div class="intelligence-item d-flex align-items-start mb-3">
+                                                <div class="intelligence-icon bg-warning-subtle text-warning rounded-circle p-2 me-3">
+                                                    <i class="bi bi-star-fill"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1">Investment Rating</h6>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="rating-stars me-2" id="investmentRating">
+                                                            <i class="bi bi-star-fill text-warning"></i>
+                                                            <i class="bi bi-star-fill text-warning"></i>
+                                                            <i class="bi bi-star-fill text-warning"></i>
+                                                            <i class="bi bi-star text-muted"></i>
+                                                            <i class="bi bi-star text-muted"></i>
+                                                        </div>
+                                                        <span class="text-muted small" id="ratingLabel">Good</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Key Insights -->
+                                            <div class="intelligence-item">
+                                                <h6 class="mb-2"><i class="bi bi-clipboard-data me-2 text-info"></i>Key Insights</h6>
+                                                <ul class="list-unstyled mb-0" id="keyInsightsList">
+                                                    <li class="mb-1">
+                                                        <i class="bi bi-check-circle text-success me-1"></i>
+                                                        <small>Outperforming local market average</small>
+                                                    </li>
+                                                    <li class="mb-1">
+                                                        <i class="bi bi-check-circle text-success me-1"></i>
+                                                        <small>Strong appreciation potential</small>
+                                                    </li>
+                                                    <li class="mb-1">
+                                                        <i class="bi bi-exclamation-circle text-warning me-1"></i>
+                                                        <small>Monitor for market volatility</small>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Row 4: Comparative Analysis & Recommendations -->
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="card analysis-card border-0 shadow-sm">
+                                        <div class="card-header bg-transparent border-bottom py-2">
+                                            <h6 class="card-title mb-0 text-dark">
+                                                <i class="bi bi-bar-chart-line me-2 text-secondary"></i>Comparative Growth Analysis
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-lg-8">
+                                                    <div class="chart-container" style="height: 200px;">
+                                                        <canvas id="comparativeGrowthChart"></canvas>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <h6 class="text-muted mb-3">Analysis Summary</h6>
+                                                    <div class="summary-badge mb-2">
+                                                        <span class="badge rounded-pill bg-success-subtle text-success" id="marketBadge">
+                                                            <i class="bi bi-trophy me-1"></i>Outperforming Market
+                                                        </span>
+                                                    </div>
+                                                    <div class="recommendation-box p-3 bg-light rounded">
+                                                        <h6 class="text-dark mb-2">
+                                                            <i class="bi bi-chat-left-quote text-primary me-2"></i>Recommendation
+                                                        </h6>
+                                                        <p class="text-muted small mb-0" id="analysisRecommendation">
+                                                            This property shows strong growth potential. 
+                                                            Continue monitoring market trends for optimal selling/holding decisions.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1834,6 +2446,33 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ERROR MODAL (For displaying errors instead of alerts) -->
+<div class="modal fade" id="prmErrorModal" tabindex="-1" aria-labelledby="prmErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white py-3">
+                <h5 class="modal-title" id="prmErrorModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Error
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="error-icon mb-3">
+                    <i class="bi bi-x-circle-fill text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="mb-2" id="errorModalTitle">Something went wrong</h5>
+                <p class="text-muted mb-0" id="errorModalMessage">An unexpected error occurred. Please try again.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger px-4" id="errorModalRetryBtn" style="display: none;">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                </button>
             </div>
         </div>
     </div>
@@ -2300,7 +2939,7 @@
             prmValueModal.show();
         });
 
-        // Bulk Price Update Button
+        // Price Update Button
         const bulkBtn = addListener('prmBulkUpdateBtn', 'click', () => {
             openBulkUpdateModal();
         });
@@ -2868,6 +3507,12 @@
                 return;
             }
             
+            // Show loading state for analysis
+            const analysisLoading = document.getElementById('analysisLoading');
+            const analysisContent = document.getElementById('analysisContent');
+            if (analysisLoading) analysisLoading.classList.remove('d-none');
+            if (analysisContent) analysisContent.style.opacity = '0.5';
+            
             fetch(`/api/property-price/${id}/history/`, {
                 headers: { 'X-CSRFToken': csrftoken }
             })
@@ -2921,23 +3566,17 @@
                 document.getElementById('historyCurrent').textContent =
                 '₦' + formatNumber(latestVal);
 
-                // 4) Chart update
-                window.historyChart.data.labels   = [...labels].reverse();
-                window.historyChart.data.datasets[0].data = [...values].reverse();
-                window.historyChart.update();
+                // 4) Chart update with wave animation
+                const chartData = [...values].reverse();
+                window.historyChart.data.labels = [...labels].reverse();
+                window.historyChart.data.datasets[0].data = chartData;
+                window.historyChart.update('active');
+                
+                // Update chart statistics
+                updateChartStats(chartData);
 
-                // 5) Price Performance from server fields
-                document.getElementById('analysisPresale').textContent =
-                '₦' + formatNumber(presaleVal);
-                document.getElementById('analysisCurrent').textContent =
-                '₦' + formatNumber(latestVal);
-
-                document.getElementById('analysisCurrentChange').textContent =
-                (json.current_change > 0 ? '+' : '') +
-                json.current_change.toFixed(1) + '%';
-                document.getElementById('analysisTotalChange').textContent =
-                (json.total_change   > 0 ? '+' : '') +
-                json.total_change.toFixed(1)   + '%';
+                // 5) Enhanced Analysis Population
+                populateEnhancedAnalysis(json, presaleVal, latestVal, values, labels);
 
                 // 6) Promo badge (guarded)
                 const badge = document.getElementById('promoBadge');
@@ -2951,13 +3590,273 @@
                     badge.classList.add('d-none');
                 }
                 }
+                
+                // Hide loading state
+                if (analysisLoading) analysisLoading.classList.add('d-none');
+                if (analysisContent) analysisContent.style.opacity = '1';
 
                 // 7) Finally show it
                 prmHistoryModal.show();
             })
             .catch(err => {
                 console.error('Error loading history:', err);
-                alert('Failed to load price history.');
+                if (analysisLoading) analysisLoading.classList.add('d-none');
+                if (analysisContent) analysisContent.style.opacity = '1';
+                showHistoryErrorModal('Failed to load price history. Please try again.');
+            });
+        }
+        
+        // Enhanced Analysis Population Function
+        function populateEnhancedAnalysis(json, presaleVal, latestVal, values, labels) {
+            const analysis = json.analysis || {};
+            
+            // Price Performance
+            document.getElementById('analysisPresale').textContent = '₦' + formatNumber(presaleVal);
+            document.getElementById('analysisCurrent').textContent = '₦' + formatNumber(latestVal);
+            
+            const currentChange = json.current_change || 0;
+            const totalChange = json.total_change || 0;
+            
+            // Current Change with color
+            const currentChangeEl = document.getElementById('analysisCurrentChange');
+            currentChangeEl.textContent = (currentChange >= 0 ? '+' : '') + currentChange.toFixed(2) + '%';
+            currentChangeEl.className = currentChange >= 0 ? 'badge bg-success-subtle text-success' : 'badge bg-danger-subtle text-danger';
+            
+            // Total Change with color
+            const totalChangeEl = document.getElementById('analysisTotalChange');
+            totalChangeEl.textContent = (totalChange >= 0 ? '+' : '') + totalChange.toFixed(2) + '%';
+            totalChangeEl.className = totalChange >= 0 ? 'badge bg-primary-subtle text-primary' : 'badge bg-danger-subtle text-danger';
+            
+            // CAGR & Price per SQM
+            const cagr = analysis.cagr || 0;
+            document.getElementById('analysisCAGR').textContent = cagr.toFixed(2) + '%';
+            document.getElementById('analysisCAGR').className = cagr >= 0 ? 'fw-bold text-success' : 'fw-bold text-danger';
+            
+            document.getElementById('analysisPricePerSqm').textContent = '₦' + formatNumber(analysis.price_per_sqm || 0);
+            
+            // Investment Summary
+            const valueGained = analysis.value_gained || (latestVal - presaleVal);
+            document.getElementById('analysisValueGained').textContent = (valueGained >= 0 ? '+' : '') + '₦' + formatNumber(Math.abs(valueGained));
+            document.getElementById('analysisValueGained').className = valueGained >= 0 ? 'text-success mb-0' : 'text-danger mb-0';
+            
+            const durationMonths = analysis.duration_months || 1;
+            const years = Math.floor(durationMonths / 12);
+            const months = durationMonths % 12;
+            let durationText = '';
+            if (years > 0) durationText += years + ' year' + (years > 1 ? 's' : '');
+            if (months > 0) durationText += (years > 0 ? ' ' : '') + months + ' month' + (months > 1 ? 's' : '');
+            document.getElementById('analysisInvestDuration').textContent = durationText || '< 1 month';
+            
+            const monthlyGrowth = analysis.monthly_growth || 0;
+            document.getElementById('analysisMonthlyGrowth').textContent = (monthlyGrowth >= 0 ? '+' : '') + monthlyGrowth.toFixed(2) + '%';
+            document.getElementById('analysisMonthlyGrowth').className = monthlyGrowth >= 0 ? 'fw-bold text-success' : 'fw-bold text-danger';
+            
+            document.getElementById('analysisAnnualReturn').textContent = (analysis.annual_return || 0).toFixed(2) + '%';
+            
+            // Location Comparison
+            document.getElementById('analysisLocation').textContent = analysis.location || 'N/A';
+            
+            const yourGrowth = analysis.your_growth || totalChange;
+            document.getElementById('compareYourGrowth').textContent = (yourGrowth >= 0 ? '+' : '') + yourGrowth.toFixed(1) + '%';
+            
+            // Area (LGA) Comparison
+            const lgaAvg = analysis.lga_avg_growth || 8.5;
+            document.getElementById('compareLGAName').textContent = (analysis.area || 'Area') + ' Avg';
+            document.getElementById('compareLGAGrowth').textContent = '+' + lgaAvg.toFixed(1) + '%';
+            const lgaDiff = yourGrowth - lgaAvg;
+            const lgaDiffEl = document.getElementById('compareLGADiff');
+            lgaDiffEl.textContent = (lgaDiff >= 0 ? '+' : '') + lgaDiff.toFixed(1) + '% vs Area';
+            lgaDiffEl.className = lgaDiff >= 0 ? 'text-success' : 'text-danger';
+            
+            // Region (State) Comparison
+            const stateAvg = analysis.state_avg_growth || 10;
+            document.getElementById('compareStateName').textContent = (analysis.region || 'Region') + ' Avg';
+            document.getElementById('compareStateGrowth').textContent = '+' + stateAvg.toFixed(1) + '%';
+            const stateDiff = yourGrowth - stateAvg;
+            const stateDiffEl = document.getElementById('compareStateDiff');
+            stateDiffEl.textContent = (stateDiff >= 0 ? '+' : '') + stateDiff.toFixed(1) + '% vs Region';
+            stateDiffEl.className = stateDiff >= 0 ? 'text-success' : 'text-danger';
+            
+            // National Comparison
+            const nationalAvg = analysis.national_avg_growth || 12.5;
+            document.getElementById('compareNationalGrowth').textContent = '+' + nationalAvg.toFixed(1) + '%';
+            const nationalDiff = yourGrowth - nationalAvg;
+            const nationalDiffEl = document.getElementById('compareNationalDiff');
+            nationalDiffEl.textContent = (nationalDiff >= 0 ? '+' : '') + nationalDiff.toFixed(1) + '% vs National';
+            nationalDiffEl.className = nationalDiff >= 0 ? 'text-success' : 'text-danger';
+            
+            // Market Position Percentile
+            const percentile = analysis.market_percentile || 50;
+            document.getElementById('marketPercentile').textContent = 'Top ' + Math.round(100 - percentile) + '%';
+            document.getElementById('marketPositionBar').style.width = percentile + '%';
+            document.getElementById('marketPositionBar').className = 
+                percentile >= 70 ? 'progress-bar bg-success' : 
+                percentile >= 40 ? 'progress-bar bg-warning' : 'progress-bar bg-danger';
+            
+            // Price Projections
+            document.getElementById('projection1Y').textContent = '₦' + formatNumber(analysis.projection_1y || 0);
+            document.getElementById('projection1YPct').textContent = '(+' + (analysis.projection_1y_pct || 0).toFixed(1) + '%)';
+            
+            document.getElementById('projection3Y').textContent = '₦' + formatNumber(analysis.projection_3y || 0);
+            document.getElementById('projection3YPct').textContent = '(+' + (analysis.projection_3y_pct || 0).toFixed(1) + '%)';
+            
+            document.getElementById('projection5Y').textContent = '₦' + formatNumber(analysis.projection_5y || 0);
+            document.getElementById('projection5YPct').textContent = '(+' + (analysis.projection_5y_pct || 0).toFixed(1) + '%)';
+            
+            // Update projection mini chart
+            updateProjectionChart(latestVal, analysis);
+            
+            // Market Intelligence
+            const trendIcon = document.querySelector('.intelligence-icon');
+            if (trendIcon) {
+                const trend = analysis.trend || 'stable';
+                if (trend === 'strong_upward' || trend === 'upward') {
+                    trendIcon.className = 'intelligence-icon bg-success-subtle text-success rounded-circle p-2 me-3';
+                    trendIcon.innerHTML = '<i class="bi bi-arrow-up-right"></i>';
+                } else if (trend === 'stable' || trend === 'flat') {
+                    trendIcon.className = 'intelligence-icon bg-warning-subtle text-warning rounded-circle p-2 me-3';
+                    trendIcon.innerHTML = '<i class="bi bi-arrow-right"></i>';
+                } else {
+                    trendIcon.className = 'intelligence-icon bg-danger-subtle text-danger rounded-circle p-2 me-3';
+                    trendIcon.innerHTML = '<i class="bi bi-arrow-down-right"></i>';
+                }
+            }
+            
+            document.getElementById('marketTrendTitle').textContent = analysis.trend_title || 'Stable Growth';
+            document.getElementById('marketTrendDesc').textContent = analysis.trend_desc || 'Monitoring market conditions.';
+            
+            // Investment Rating Stars
+            const rating = analysis.rating || 3;
+            const ratingHtml = Array(5).fill(0).map((_, i) => 
+                i < rating ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-star text-muted"></i>'
+            ).join('');
+            document.getElementById('investmentRating').innerHTML = ratingHtml;
+            
+            const ratingLabels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+            document.getElementById('ratingLabel').textContent = ratingLabels[rating - 1] || 'Good';
+            
+            // Key Insights
+            const insightsList = document.getElementById('keyInsightsList');
+            if (insightsList && analysis.insights) {
+                insightsList.innerHTML = analysis.insights.map(insight => `
+                    <li class="mb-1">
+                        <i class="bi bi-${insight.type === 'success' ? 'check-circle text-success' : 'exclamation-circle text-warning'} me-1"></i>
+                        <small>${insight.text}</small>
+                    </li>
+                `).join('');
+            }
+            
+            // Recommendation
+            document.getElementById('analysisRecommendation').textContent = analysis.recommendation || 
+                'Continue monitoring market trends for optimal investment decisions.';
+            
+            // Market Badge
+            const marketBadge = document.getElementById('marketBadge');
+            if (marketBadge) {
+                const badge = analysis.market_badge || 'Tracking Market';
+                marketBadge.textContent = badge;
+                if (badge.includes('Outperforming')) {
+                    marketBadge.className = 'badge rounded-pill bg-success-subtle text-success';
+                    marketBadge.innerHTML = '<i class="bi bi-trophy me-1"></i>' + badge;
+                } else if (badge.includes('Tracking')) {
+                    marketBadge.className = 'badge rounded-pill bg-info-subtle text-info';
+                    marketBadge.innerHTML = '<i class="bi bi-graph-up me-1"></i>' + badge;
+                } else {
+                    marketBadge.className = 'badge rounded-pill bg-warning-subtle text-warning';
+                    marketBadge.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>' + badge;
+                }
+            }
+            
+            // Update comparative growth chart
+            updateComparativeChart(yourGrowth, lgaAvg, stateAvg, nationalAvg);
+        }
+        
+        // Projection Mini Chart
+        let projectionMiniChart = null;
+        function updateProjectionChart(currentPrice, analysis) {
+            const ctx = document.getElementById('projectionMiniChart');
+            if (!ctx) return;
+            
+            if (projectionMiniChart) {
+                projectionMiniChart.destroy();
+            }
+            
+            projectionMiniChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Now', '1Y', '3Y', '5Y'],
+                    datasets: [{
+                        data: [
+                            currentPrice,
+                            analysis.projection_1y || currentPrice,
+                            analysis.projection_3y || currentPrice,
+                            analysis.projection_5y || currentPrice
+                        ],
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#ffc107',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: true, grid: { display: false } },
+                        y: { display: false }
+                    }
+                }
+            });
+        }
+        
+        // Comparative Growth Chart
+        let comparativeGrowthChart = null;
+        function updateComparativeChart(yourGrowth, lgaAvg, stateAvg, nationalAvg) {
+            const ctx = document.getElementById('comparativeGrowthChart');
+            if (!ctx) return;
+            
+            if (comparativeGrowthChart) {
+                comparativeGrowthChart.destroy();
+            }
+            
+            comparativeGrowthChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['This Property', 'LGA Average', 'State Average', 'National Average'],
+                    datasets: [{
+                        label: 'Growth %',
+                        data: [yourGrowth, lgaAvg, stateAvg, nationalAvg],
+                        backgroundColor: [
+                            'rgba(13, 110, 253, 0.8)',
+                            'rgba(108, 117, 125, 0.6)',
+                            'rgba(108, 117, 125, 0.6)',
+                            'rgba(108, 117, 125, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgb(13, 110, 253)',
+                            'rgb(108, 117, 125)',
+                            'rgb(108, 117, 125)',
+                            'rgb(108, 117, 125)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { callback: v => v + '%' }
+                        }
+                    }
+                }
             });
         }
 
@@ -3448,11 +4347,25 @@
         function initPriceChart() {
             const ctx = document.getElementById('priceHistoryChart').getContext('2d');
             
-            // Create gradient for the line
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, 'rgba(102, 126, 234, 0.4)');
-            gradient.addColorStop(0.5, 'rgba(102, 126, 234, 0.2)');
-            gradient.addColorStop(1, 'rgba(102, 126, 234, 0.05)');
+            // Create stunning multi-layer gradients for ultra-modern wave effect
+            const primaryGradient = ctx.createLinearGradient(0, 0, 0, 350);
+            primaryGradient.addColorStop(0, 'rgba(99, 102, 241, 0.8)');
+            primaryGradient.addColorStop(0.2, 'rgba(139, 92, 246, 0.6)');
+            primaryGradient.addColorStop(0.4, 'rgba(168, 85, 247, 0.4)');
+            primaryGradient.addColorStop(0.6, 'rgba(217, 70, 239, 0.2)');
+            primaryGradient.addColorStop(0.8, 'rgba(236, 72, 153, 0.1)');
+            primaryGradient.addColorStop(1, 'rgba(251, 146, 60, 0.02)');
+            
+            // Glowing line gradient (horizontal)
+            const lineGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+            lineGradient.addColorStop(0, '#6366f1');
+            lineGradient.addColorStop(0.25, '#8b5cf6');
+            lineGradient.addColorStop(0.5, '#a855f7');
+            lineGradient.addColorStop(0.75, '#d946ef');
+            lineGradient.addColorStop(1, '#ec4899');
+            
+            // Store chart type state
+            window.currentChartType = 'wave';
             
             window.historyChart = new Chart(ctx, {
                 type: 'line',
@@ -3461,27 +4374,25 @@
                     datasets: [{
                         label: 'Property Value',
                         data: [],
-                        borderColor: '#667eea',
-                        backgroundColor: gradient,
-                        borderWidth: 3,
-                        pointRadius: 6,
-                        pointHoverRadius: 8,
-                        pointBackgroundColor: '#667eea',
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointHoverBackgroundColor: '#764ba2',
-                        pointHoverBorderColor: '#ffffff',
-                        pointHoverBorderWidth: 3,
-                        tension: 0.4,
+                        borderColor: lineGradient,
+                        backgroundColor: primaryGradient,
+                        borderWidth: 4,
+                        pointRadius: 0,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#8b5cf6',
+                        pointBorderWidth: 4,
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#8b5cf6',
+                        pointHoverBorderWidth: 5,
+                        tension: 0.5,  // Ultra-smooth wave curve
                         fill: true,
-                        segment: {
-                            borderColor: ctx => {
-                                // Color segments based on trend
-                                const current = ctx.p1.parsed.y;
-                                const previous = ctx.p0.parsed.y;
-                                return current >= previous ? '#28a745' : '#dc3545';
-                            }
-                        }
+                        cubicInterpolationMode: 'monotone',
+                        // Add shadow effect
+                        shadowOffsetX: 0,
+                        shadowOffsetY: 10,
+                        shadowBlur: 30,
+                        shadowColor: 'rgba(139, 92, 246, 0.4)'
                     }]
                 },
                 options: {
@@ -3497,64 +4408,83 @@
                             position: 'top',
                             align: 'end',
                             labels: {
-                                boxWidth: 12,
-                                boxHeight: 12,
-                                padding: 15,
+                                boxWidth: 16,
+                                boxHeight: 16,
+                                padding: 25,
                                 font: {
-                                    size: 13,
-                                    weight: '600',
-                                    family: "'Segoe UI', sans-serif"
+                                    size: 14,
+                                    weight: '700',
+                                    family: "'Inter', 'Segoe UI', sans-serif"
                                 },
-                                color: '#495057',
+                                color: '#374151',
                                 usePointStyle: true,
-                                pointStyle: 'circle'
+                                pointStyle: 'circle',
+                                generateLabels: function(chart) {
+                                    return [{
+                                        text: '💎 Property Value Trend',
+                                        fillStyle: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+                                        strokeStyle: '#8b5cf6',
+                                        lineWidth: 3,
+                                        hidden: false,
+                                        index: 0
+                                    }];
+                                }
                             }
                         },
                         tooltip: {
                             enabled: true,
-                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: '#667eea',
-                            borderWidth: 1,
-                            padding: 12,
-                            displayColors: true,
+                            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                            titleColor: '#1e293b',
+                            bodyColor: '#475569',
+                            borderColor: 'rgba(99, 102, 241, 0.4)',
+                            borderWidth: 2,
+                            padding: 18,
+                            cornerRadius: 16,
+                            displayColors: false,
+                            boxPadding: 8,
+                            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
                             titleFont: {
-                                size: 14,
-                                weight: 'bold',
-                                family: "'Segoe UI', sans-serif"
+                                size: 15,
+                                weight: '700',
+                                family: "'Inter', sans-serif"
                             },
                             bodyFont: {
-                                size: 13,
-                                family: "'Segoe UI', sans-serif"
+                                size: 14,
+                                weight: '500',
+                                family: "'Inter', sans-serif"
                             },
+                            caretSize: 8,
+                            caretPadding: 10,
                             callbacks: {
                                 title: function(context) {
-                                    return context[0].label;
+                                    return '📅 ' + context[0].label;
                                 },
                                 label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed.y !== null) {
-                                        label += '₦' + context.parsed.y.toLocaleString('en-US', {
-                                            minimumFractionDigits: 0,
-                                            maximumFractionDigits: 0
-                                        });
-                                    }
-                                    return label;
+                                    const value = context.parsed.y;
+                                    const formattedValue = '₦' + value.toLocaleString('en-US', {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    });
+                                    return '💰 Value: ' + formattedValue;
                                 },
                                 afterLabel: function(context) {
-                                    // Show percentage change from previous point
                                     const index = context.dataIndex;
                                     if (index > 0) {
                                         const current = context.parsed.y;
                                         const previous = context.chart.data.datasets[0].data[index - 1];
                                         const change = ((current - previous) / previous * 100).toFixed(1);
-                                        const arrow = change >= 0 ? '↑' : '↓';
-                                        const color = change >= 0 ? '🟢' : '🔴';
-                                        return `${color} ${Math.abs(change)}% ${arrow} from previous`;
+                                        const emoji = change >= 0 ? '📈' : '📉';
+                                        const sign = change >= 0 ? '+' : '';
+                                        return `${emoji} ${sign}${change}% change`;
+                                    }
+                                    return '🚀 Initial price point';
+                                },
+                                footer: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const data = context[0].chart.data.datasets[0].data;
+                                    if (data.length > 1 && index > 0) {
+                                        const total = ((data[index] - data[0]) / data[0] * 100).toFixed(1);
+                                        return '━━━━━━━━━━━━━━━\n📊 Total Growth: ' + (total >= 0 ? '+' : '') + total + '%';
                                     }
                                     return '';
                                 }
@@ -3564,23 +4494,24 @@
                     scales: {
                         y: {
                             beginAtZero: false,
-                            grace: '5%',
+                            grace: '15%',
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.06)',
+                                color: 'rgba(139, 92, 246, 0.06)',
                                 drawBorder: false,
-                                lineWidth: 1
+                                lineWidth: 1,
+                                tickLength: 0
                             },
                             border: {
                                 display: false
                             },
                             ticks: {
-                                padding: 10,
+                                padding: 15,
                                 font: {
-                                    size: 12,
+                                    size: 11,
                                     weight: '600',
-                                    family: "'Segoe UI', sans-serif"
+                                    family: "'Inter', 'Segoe UI', sans-serif"
                                 },
-                                color: '#6c757d',
+                                color: '#64748b',
                                 callback: function(value) {
                                     if (value >= 1000000) {
                                         return '₦' + (value / 1000000).toFixed(1) + 'M';
@@ -3591,18 +4522,7 @@
                                 }
                             },
                             title: {
-                                display: true,
-                                text: 'Property Value (₦)',
-                                font: {
-                                    size: 13,
-                                    weight: 'bold',
-                                    family: "'Segoe UI', sans-serif"
-                                },
-                                color: '#495057',
-                                padding: {
-                                    top: 10,
-                                    bottom: 0
-                                }
+                                display: false
                             }
                         },
                         x: {
@@ -3616,40 +4536,113 @@
                             ticks: {
                                 padding: 10,
                                 font: {
-                                    size: 12,
-                                    weight: '600',
-                                    family: "'Segoe UI', sans-serif"
+                                    size: 11,
+                                    weight: '500',
+                                    family: "'Inter', 'Segoe UI', sans-serif"
                                 },
-                                color: '#6c757d',
-                                maxRotation: 45,
-                                minRotation: 0
+                                color: '#94a3b8',
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: 8
                             },
                             title: {
-                                display: true,
-                                text: 'Time Period',
-                                font: {
-                                    size: 13,
-                                    weight: 'bold',
-                                    family: "'Segoe UI', sans-serif"
-                                },
-                                color: '#495057',
-                                padding: {
-                                    top: 10,
-                                    bottom: 0
-                                }
+                                display: false
                             }
                         }
                     },
                     animation: {
                         duration: 1500,
-                        easing: 'easeInOutQuart'
+                        easing: 'easeInOutQuart',
+                        delay: function(context) {
+                            let delay = 0;
+                            if (context.type === 'data' && context.mode === 'default') {
+                                delay = context.dataIndex * 100 + context.datasetIndex * 100;
+                            }
+                            return delay;
+                        }
+                    },
+                    elements: {
+                        line: {
+                            capBezierPoints: true
+                        },
+                        point: {
+                            hoverRadius: 12,
+                            hoverBorderWidth: 4
+                        }
+                    },
+                    hover: {
+                        mode: 'nearest',
+                        intersect: false,
+                        animationDuration: 200
                     }
                 }
             });
+            
+            // Setup chart type toggle buttons
+        }
+        
+        // Update chart stats (called when data is loaded)
+        function updateChartStats(values) {
+            if (!values || values.length === 0) return;
+            
+            const highest = Math.max(...values);
+            const lowest = Math.min(...values);
+            const average = values.reduce((a, b) => a + b, 0) / values.length;
+            const totalGrowth = values.length > 1 ? 
+                ((values[values.length - 1] - values[0]) / values[0] * 100) : 0;
+            
+            document.getElementById('chartHighest').textContent = '₦' + formatNumber(highest);
+            document.getElementById('chartLowest').textContent = '₦' + formatNumber(lowest);
+            document.getElementById('chartAverage').textContent = '₦' + formatNumber(average);
+            
+            // Growth badge
+            const growthBadge = document.getElementById('chartGrowthBadge');
+            if (growthBadge) {
+                growthBadge.textContent = (totalGrowth >= 0 ? '+' : '') + totalGrowth.toFixed(2) + '%';
+                growthBadge.className = totalGrowth >= 0 ? 'badge bg-success fs-6' : 'badge bg-danger fs-6';
+            }
+            
+            // Trend indicator
+            const trendIndicator = document.getElementById('chartTrendIndicator');
+            const trendText = document.getElementById('chartTrendText');
+            const trendDesc = document.getElementById('chartTrendDesc');
+            
+            if (totalGrowth > 10) {
+                trendIndicator.innerHTML = '<i class="bi bi-arrow-up-circle-fill text-success fs-4"></i>';
+                trendText.textContent = 'Strong Upward Trend';
+                trendDesc.textContent = 'Excellent price appreciation over time';
+            } else if (totalGrowth > 0) {
+                trendIndicator.innerHTML = '<i class="bi bi-arrow-up-right-circle-fill text-success fs-4"></i>';
+                trendText.textContent = 'Upward Trend';
+                trendDesc.textContent = 'Consistent positive price movement';
+            } else if (totalGrowth > -5) {
+                trendIndicator.innerHTML = '<i class="bi bi-arrow-right-circle-fill text-warning fs-4"></i>';
+                trendText.textContent = 'Stable';
+                trendDesc.textContent = 'Price holding steady with minimal change';
+            } else {
+                trendIndicator.innerHTML = '<i class="bi bi-arrow-down-circle-fill text-danger fs-4"></i>';
+                trendText.textContent = 'Downward Trend';
+                trendDesc.textContent = 'Price decline - review market conditions';
+            }
+        }
+        
+        // Error Modal Helper Function
+        function showHistoryErrorModal(message, title = 'Error Loading Data') {
+            const errorModal = document.getElementById('prmErrorModal');
+            if (!errorModal) {
+                console.error('Error modal not found:', message);
+                return;
+            }
+            
+            document.getElementById('errorModalTitle').textContent = title;
+            document.getElementById('errorModalMessage').textContent = message;
+            
+            const modal = new bootstrap.Modal(errorModal);
+            modal.show();
         }
 
         // ============================================================
-        // BULK PRICE UPDATE FUNCTIONS
+        // PRICE UPDATE FUNCTIONS
         // ============================================================
         
         function openBulkUpdateModal() {
@@ -4042,7 +5035,7 @@
             }
         }
 
-        // Save bulk price updates
+        // Save price updates
         addListener('prmSaveBulkBtn', 'click', function() {
             // Clear previous errors
             clearBulkErrors();
