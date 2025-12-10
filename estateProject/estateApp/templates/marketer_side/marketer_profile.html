@@ -55,7 +55,13 @@
                 <div class="col-4">
                   <div class="stat-value" style="font-size: 16px;">
                     {% if user_entry.has_target %}
-                      <span>+{{ user_entry.diff_pct|floatformat:0 }}% {{ user_entry.category }}</span>
+                      {% if user_entry.category == 'Above Target' %}
+                        <span class="badge bg-success">{{ user_entry.diff_pct|floatformat:0 }}% Above Target</span>
+                      {% elif user_entry.category == 'On Target' %}
+                        <span class="badge bg-primary">On Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                      {% elif user_entry.category == 'Below Target' %}
+                        <span class="badge bg-warning text-dark">Below Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                      {% endif %}
                     {% else %}
                       <span><em>{{ current_year }} Target is yet to be set</em></span>
                     {% endif %}

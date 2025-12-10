@@ -1,81 +1,74 @@
 {% extends 'admin_base.html' %}
-{% load static %}
+{% load static humanize %}
 {% block content %}
 
 <main id="main" class="main">
-
   <div class="pagetitle">
-    <h1>Marketer Profile</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Home</a></li>
-        <li class="breadcrumb-item">Marketers</li>
-        <li class="breadcrumb-item active">{{ marketer.full_name }}</li>
-      </ol>
-    </nav>
-  </div><!-- End Page Title -->
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1>Profile</h1>
+        <nav>
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
+            <li class="breadcrumb-item active">Profile</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
 
   <section class="section profile">
     <div class="row">
       <div class="col-xl-4">
-        <div class="card">
-          <div class="card-body profile-card pt-4 d-flex flex-column align-items-center">
-            {% if marketer.profile_image %}
-              <img src="{{ marketer.profile_image.url }}" alt="{{ marketer.full_name }} Profile" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
-            {% else %}
-              <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Avatar" class="rounded-circle mb-3" style="width: 150px; height: 150px;">
-            {% endif %}
-            <h2>{{ marketer.full_name }}</h2>
-            <h3>Marketer</h3>
-            
-            <div class="mt-4">
-              <div class="d-flex justify-content-around w-100">
-                <div class="text-center">
-                  <h4 class="mb-0">{{ total_clients }}</h4>
-                  <p class="small mb-0">Clients</p>
-                </div>
-                <div class="text-center">
-                  <h4 class="mb-0">{{ total_sales|floatformat:"2g" }}</h4>
-                  <p class="small mb-0">Total Sales (₦)</p>
-                </div>
-                <div class="text-center">
-                  <h4 class="mb-0">{{ total_commissions|floatformat:"2g" }}</h4>
-                  <p class="small mb-0">Commissions (₦)</p>
-                </div>
-              </div>
+        <div class="card profile-card">
+          <div class="card-body d-flex flex-column align-items-center">
+            <div class="text-center mb-4">
+              {% if user.profile_image and user.profile_image.name %}
+                <img src="{{ user.profile_image.url }}" alt="Profile" class="profile-avatar">
+              {% else %}
+                <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" class="profile-avatar">
+              {% endif %}
+              <h2 class="mt-3">{{ user.full_name }}</h2>
+              <h4 class="text-muted">{{ user.job | default:"Marketer" }}</h4>
             </div>
-          </div>
-        </div>
+            
+            <!-- Performance Summary -->
+            <div class="performance-summary mt-4 justify-content-between">
+              <div class="row text-center">
+                <div class="col-4">
+                  <div class="stat-value">{{ performance.commission_rate|floatformat:1 }}%
 
-        <!-- Performance Summary -->
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Performance Summary</h5>
-            <div class="progress mb-3" style="height: 10px;">
-              <div class="progress-bar bg-success" role="progressbar" 
-                   style="width: {{ performance.target_achievement }}%" 
-                   aria-valuenow="{{ performance.target_achievement }}" 
-                   aria-valuemin="0" 
-                   aria-valuemax="100"></div>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-              <span class="small">Target Achievement</span>
-              <span class="small">{{ performance.target_achievement }}%</span>
+                  </div>
+                  <div class="stat-label">Commission</div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-value" style="font-size: 16px;">
+                    {% if user_entry.has_target %}
+                      {% if user_entry.category == 'Above Target' %}
+                        <span class="badge bg-success">{{ user_entry.diff_pct|floatformat:0 }}% Above Target</span>
+                      {% elif user_entry.category == 'On Target' %}
+                        <span class="badge bg-primary">On Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                      {% elif user_entry.category == 'Below Target' %}
+                        <span class="badge bg-warning text-dark">Below Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                      {% endif %}
+                    {% else %}
+                      <span><em>{{ current_year }} Target is yet to be set</em></span>
+                    {% endif %}
+                  </div>
+                  <div class="stat-label">{{ current_year }} Target</div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-value">{{ performance.closed_deals }}</div>
+                  <div class="stat-label">Deals</div>
+                </div>
+              </div>
             </div>
             
-            <div class="mt-4">
-              <div class="d-flex justify-content-between mb-1">
-                <span>Closed Deals:</span>
-                <strong>{{ performance.closed_deals }}</strong>
-              </div>
-              <div class="d-flex justify-content-between mb-1">
-                <span>Average Deal Size:</span>
-                <strong>₦{{ performance.avg_deal_size|floatformat:"2g" }}</strong>
-              </div>
-              <div class="d-flex justify-content-between mb-1">
-                <span>Commission Rate:</span>
-                <strong>{{ commission_rate }}%</strong>
-              </div>
+            <!-- Badges -->
+            <div class="badges mt-4">
+              <span class="badge bg-gold">Gold</span>
+              <span class="badge bg-silver">Elite Marketer</span>
+              <span class="badge bg-bronze">Consistent Performer</span>
             </div>
           </div>
         </div>
@@ -84,156 +77,275 @@
       <div class="col-xl-8">
         <div class="card">
           <div class="card-body pt-3">
+            <!-- Bordered Tabs -->
             <ul class="nav nav-tabs nav-tabs-bordered">
               <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile-overview">Overview</button>
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile-overview">Details</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-clients">Clients</button>
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#performance">Performance</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-performance">Performance</button>
-              </li>
-              <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-edit">Edit Profile</button>
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#top-performers">Top Performers</button>
               </li>
             </ul>
             
-            <div class="tab-content pt-2">
-              <!-- Overview Tab -->
+            <div class="tab-content pt-4">
+              <!-- Details Tab -->
               <div class="tab-pane fade show active" id="profile-overview">
-                <h5 class="card-title">About</h5>
-                <p class="small fst-italic">{{ marketer.about|default:"No information provided" }}</p>
+                <div class="profile-container">
+                  {% if success %}
+                    <div class="alert alert-success alert-container">{{ success }}</div>
+                  {% elif error %}
+                    <div class="alert alert-danger alert-container">{{ error }}</div>
+                  {% endif %}
 
-                <h5 class="card-title">Profile Details</h5>
-                <div class="row">
-                  <div class="col-lg-3 col-md-4 label">Full Name</div>
-                  <div class="col-lg-9 col-md-8">{{ marketer.full_name }}</div>
-                </div>
-                <div class="row">
-                  <div class="col-lg-3 col-md-4 label">Email</div>
-                  <div class="col-lg-9 col-md-8">{{ marketer.email }}</div>
-                </div>
-                <div class="row">
-                  <div class="col-lg-3 col-md-4 label">Phone</div>
-                  <div class="col-lg-9 col-md-8">{{ marketer.phone }}</div>
-                </div>
-                <div class="row">
-                  <div class="col-lg-3 col-md-4 label">Date Joined</div>
-                  <div class="col-lg-9 col-md-8">{{ marketer.date_joined|date:"M d, Y" }}</div>
-                </div>
-              </div>
-
-              <!-- Clients Tab -->
-              <div class="tab-pane fade" id="profile-clients">
-                <h5 class="card-title">Client Portfolio</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle">
-                    <thead>
-                      <tr>
-                        <th>Client</th>
-                        <th>Location</th>
-                        <th>Properties</th>
-                        <th>Total Value (₦)</th>
-                        <th>Last Purchase</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for client in clients %}
-                        <tr>
-                          <td>
-                            <a href="{% url 'client-profile-slug' slug=client.user_ptr.username %}?company={{ company.slug }}">
-                              {{ client.full_name }}
-                            </a>
-                          </td>
-                          <td>{{ client.country|default:"-" }}</td>
-                          <td>{{ client.properties_count }}</td>
-                          <td class="fw-bold">₦{{ client.total_value|floatformat:"2g" }}</td>
-                          <td>{{ client.last_purchase|date:"M d, Y"|default:"-" }}</td>
-                          <td>
-                            <span class="badge bg-{% if client.is_active %}success{% else %}secondary{% endif %}">
-                              {% if client.is_active %}Active{% else %}Inactive{% endif %}
-                            </span>
-                          </td>
-                        </tr>
-                      {% empty %}
-                        <tr>
-                          <td colspan="6" class="text-center py-4">
-                            <i class="bi bi-people display-6 text-muted"></i>
-                            <p class="mt-3">No clients assigned</p>
-                          </td>
-                        </tr>
+                  {% if messages %}
+                    <div class="alert-container">
+                      {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} mb-3">{{ message|safe }}</div>
                       {% endfor %}
-                    </tbody>
-                  </table>
+                    </div>
+                  {% endif %}
+                  
+                  <div class="profile-about">
+                    <h5 class="card-title mb-3">About</h5>
+                    <p class="mb-0">{{ user.about|default:"No information available." }}</p>
+                  </div>
+
+                  <h5 class="card-title mb-4">Profile Details</h5>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-person"></i> Full Name
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.full_name }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-building"></i> Company
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.company|default:"-" }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-briefcase"></i> Job
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.job|default:"-" }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-globe"></i> Country
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.country|default:"-" }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-geo-alt"></i> Address
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.address|default:"-" }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-telephone"></i> Phone
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.phone|default:"-" }}</div>
+                  </div>
+
+                  <div class="row profile-detail-row">
+                    <div class="col-lg-3 col-md-4 detail-label">
+                      <i class="bi bi-envelope"></i> Email
+                    </div>
+                    <div class="col-lg-9 col-md-8 detail-value">{{ user.email }}</div>
+                  </div>
                 </div>
-                
-                <div class="mt-4">
-                  <h5 class="card-title">Client Distribution</h5>
-                  <div class="chart-container" style="position: relative; height:250px;">
-                    <canvas id="clientDistributionChart"></canvas>
+              </div>
+              
+              <!-- PERFORMANCE TAB -->
+              <div class="tab-pane fade" id="performance">
+                <h5 class="card-title">Marketer Performance</h5>
+
+                <div class="row mb-4">
+                  <!-- Closed Deals -->
+                  <div class="col-md-4">
+                    <div class="card stat-card bg-success text-white">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                          <div>
+                            <h6 class="text-white-50">CLOSED DEALS</h6>
+                            <h4>{{ performance.closed_deals }}</h4>
+                          </div>
+                          <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Commission Earned -->
+                  <div class="col-md-4">
+                    <div class="card stat-card bg-info text-white">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                          <div>
+                            <h6 class="text-white-50">COMMISSION EARNED</h6>
+                            <h4>₦{{ performance.commission_earned|intcomma }}</h4>
+                          </div>
+                          <i class="bi bi-cash-coin fs-1 opacity-50"></i>
+                        </div>
+                        <div class="progress mt-2" style="height:5px;">
+                          <div class="progress-bar bg-light" role="progressbar"
+                              style="width:{{ performance.commission_rate }}%">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Metrics -->
+                <div class="card">
+                  <div class="card-header bg-light">
+                    <h6>Performance Metrics</h6>
+                  </div>
+                  <div class="card-body">
+                    <!-- Yearly Target Achievement -->
+                    <div class="metric mb-4">
+                      <div class="d-flex justify-content-between">
+                        <span>Yearly Target Achieved <strong class="badge bg-success">{{ current_year }}</strong></span>
+                        {% if performance.yearly_target_achievement is not None %}
+                          <strong>{{ performance.yearly_target_achievement|floatformat:0 }}%</strong>
+                        {% else %}
+                          <strong class="text-muted">Yet to be set</strong>
+                        {% endif %}
+                      </div>
+                      <div class="progress mt-1" style="height:8px;">
+                        {% if performance.yearly_target_achievement is not None %}
+                          <div class="progress-bar bg-info" role="progressbar"
+                              style="width:{{ performance.yearly_target_achievement }}%">
+                          </div>
+                        {% else %}
+                          <div class="progress-bar bg-secondary" role="progressbar" style="width:0%"></div>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <!-- Commission Rate -->
+                    <div class="metric">
+                      <div class="d-flex justify-content-between">
+                        <span>Commission Rate</span>
+                        <strong>{{ performance.commission_rate|floatformat:1 }}%</strong>
+                      </div>
+                      <div class="progress mt-1" style="height:8px;">
+                        <div class="progress-bar bg-warning" role="progressbar"
+                            style="width:{{ performance.commission_rate }}%">
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Performance Tab -->
-              <div class="tab-pane fade" id="profile-performance">
-                <div class="row">
-                  <div class="col-lg-6">
-                    <h5 class="card-title">Sales Performance</h5>
-                    <div class="chart-container" style="position: relative; height:300px;">
-                      <canvas id="salesPerformanceChart"></canvas>
-                    </div>
-                  </div>
-                  <div class="col-lg-6">
-                    <h5 class="card-title">Commission Earnings</h5>
-                    <div class="chart-container" style="position: relative; height:300px;">
-                      <canvas id="commissionChart"></canvas>
-                    </div>
-                  </div>
+              
+              <!-- Top Performers Tab -->
+              <div class="tab-pane fade" id="top-performers">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h5 class="card-title mb-0">Top Performers</h5>
                 </div>
                 
-                <div class="mt-4">
-                  <h5 class="card-title">Recent Transactions</h5>
-                  <div class="table-responsive">
-                    <table class="table table-sm table-hover">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Client</th>
-                          <th>Estate</th>
-                          <th>Amount (₦)</th>
-                          <th>Commission (₦)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for transaction in recent_transactions %}
-                          <tr>
-                            <td>{{ transaction.transaction_date|date:"M d" }}</td>
-                            <td>{{ transaction.client.full_name|truncatechars:12 }}</td>
-                            <td>{{ transaction.allocation.estate.name|truncatechars:15 }}</td>
-                            <td>{{ transaction.total_amount|floatformat:"2g" }}</td>
-                            <td class="text-success fw-bold">{{ transaction.commission_earned|floatformat:"2g" }}</td>
-                          </tr>
-                        {% empty %}
-                          <tr>
-                            <td colspan="5" class="text-center py-3 text-muted">
-                              No recent transactions
-                            </td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
+                <!-- Top Performers Leaderboard -->
+                <div class="card mb-4">
+                  <div class="card-header bg-light d-flex justify-content-between">
+                    <h6 class="mb-0">Leaderboard</h6>
+                    <h6 class="mb-0 badge text-bg-success">{{ current_year }}</h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="leaderboard">
+                      {% for item in top3 %}
+                        <div class="leaderboard-item 
+                                    {% if item.rank == 1 %}gold
+                                    {% elif item.rank == 2 %}silver
+                                    {% elif item.rank == 3 %}bronze{% endif %}">
+                          
+                          <div class="rank">{{ item.rank }}</div>
+                          
+                          <div class="avatar">
+                            <img
+                              src="{% if item.marketer.profile_image and item.marketer.profile_image.name %}{{ item.marketer.profile_image.url }}{% else %}{% static 'assets/img/profile_avatar.jpeg' %}{% endif %}"
+                              alt="{{ item.marketer.full_name }}"
+                            >
+                            <span class="badge 
+                              {% if item.rank == 1 %}bg-gold
+                              {% elif item.rank == 2 %}bg-silver
+                              {% elif item.rank == 3 %}bg-bronze{% endif %}">
+                                {% if item.rank == 1 %}Gold
+                                {% elif item.rank == 2 %}Silver
+                                {% elif item.rank == 3 %}Bronze{% endif %}
+                            </span>
+                          </div>
+                          
+                          <div class="info">
+                            <div class="name">{{ item.marketer.full_name }}</div>
+                            <div class="stats">
+                              {% if item.has_target %}
+                                {% if item.category == 'Above Target' %}
+                                  <span class="badge bg-success">{{ item.diff_pct|floatformat:0 }}% Above Target</span>
+                                {% elif item.category == 'On Target' %}
+                                  <span class="badge bg-primary">On Target ({{ item.target_pct|floatformat:0 }}%)</span>
+                                {% elif item.category == 'Below Target' %}
+                                  <span class="badge bg-warning text-dark">Below Target ({{ item.target_pct|floatformat:0 }}%)</span>
+                                {% endif %}
+                              {% else %}
+                                <span><em>{{ current_year }} Target is yet to be set</em></span>
+                              {% endif %}
+                            </div>
+                          </div>
+                          
+                          <div class="percentage">Top {{ item.rank }}%</div>
+                        </div>
+                      {% endfor %}
+                      
+                      {% if user_entry %}
+                        <hr>
+                        <div class="leaderboard-item current-user">
+                          <div class="rank">{{ user_entry.rank }}</div>
+                          
+                          <div class="avatar">
+                            <img
+                              src="{% if user_entry.marketer.profile_image and user_entry.marketer.profile_image.name %}{{ user_entry.marketer.profile_image.url }}{% else %}{% static 'assets/img/profile_avatar.jpeg' %}{% endif %}"
+                              alt="{{ user_entry.marketer.full_name }}"
+                            >
+                            <span class="badge bg-primary">You</span>
+                          </div>
+                          
+                          <div class="info">
+                            <div class="name">{{ user_entry.marketer.full_name }}</div>
+                            <div class="stats">
+                              {% if user_entry.has_target %}
+                                {% if user_entry.category == 'Above Target' %}
+                                  <span class="badge bg-success">{{ user_entry.diff_pct|floatformat:0 }}% Above Target</span>
+                                {% elif user_entry.category == 'On Target' %}
+                                  <span class="badge bg-primary">On Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                                {% elif user_entry.category == 'Below Target' %}
+                                  <span class="badge bg-warning text-dark">Below Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
+                                {% endif %}
+                              {% else %}
+                                <span><em>{{ current_year }} Target is yet to be set</em></span>
+                              {% endif %}
+                            </div>
+                          </div>
+                          
+                          <div class="percentage">Top {{ user_entry.rank }}%</div>
+                        </div>
+                      {% endif %}
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <!-- Edit Profile Tab (existing code) -->
-              <div class="tab-pane fade" id="profile-edit">
-                <!-- Existing edit form code -->
-              </div>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -241,134 +353,271 @@
   </section>
 </main>
 
+<style>
+  .profile-container {
+    background: #f8f9fa;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+    padding: 25px;
+  }
+  
+  .profile-detail-row {
+    padding: 15px 0;
+    border-bottom: 1px solid #e9ecef;
+    transition: background 0.3s;
+  }
+  
+  .profile-detail-row:hover {
+    background-color: rgba(37, 117, 252, 0.03);
+  }
+  
+  .detail-label {
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+  }
+  
+  .detail-label i {
+    margin-right: 10px;
+    color: #2575fc;
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+  }
+  
+  .detail-value {
+    color: #343a40;
+    font-weight: 500;
+  }
+  
+  .form-container {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  }
+  
+  .profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid white;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .profile-about {
+    background: rgba(37, 117, 252, 0.05);
+    border-radius: 10px;
+    padding: 20px;
+    border-left: 4px solid #2575fc;
+    margin-bottom: 25px;
+  }
+  
+  .alert-container {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .profile-card {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border: none;
+  }
+  
+  .profile-card img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border: 5px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .performance-summary {
+    background: rgba(37, 117, 252, 0.05);
+    border-radius: 12px;
+    padding: 15px;
+    width: 100%;
+  }
+  
+  .stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #2575fc;
+  }
+  
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+  
+  .badges .badge {
+    margin: 0 3px;
+    font-weight: 500;
+    border-radius: 20px;
+    padding: 0.5em 0.8em;
+  }
+  
+  .bg-gold {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+  }
+  
+  .bg-silver {
+    background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%);
+    color: #000;
+  }
+  
+  .bg-bronze {
+    background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+    color: #fff;
+  }
+  
+  .stat-card {
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+    border: none;
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .leaderboard {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  
+  .leaderboard-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    transition: all 0.3s;
+  }
+  
+  .leaderboard-item:last-child {
+    border-bottom: none;
+  }
+  
+  .leaderboard-item:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .leaderboard-item.gold {
+    background: rgba(255, 215, 0, 0.05);
+    border-left: 4px solid #FFD700;
+  }
+  
+  .leaderboard-item.silver {
+    background: rgba(192, 192, 192, 0.05);
+    border-left: 4px solid #C0C0C0;
+  }
+  
+  .leaderboard-item.bronze {
+    background: rgba(205, 127, 50, 0.05);
+    border-left: 4px solid #CD7F32;
+  }
+  
+  .leaderboard-item.current-user {
+    background: rgba(37, 117, 252, 0.08);
+    border-left: 4px solid #2575fc;
+  }
+  
+  .leaderboard-item .rank {
+    font-size: 1.5rem;
+    font-weight: 700;
+    width: 40px;
+    text-align: center;
+    color: #495057;
+  }
+  
+  .leaderboard-item .avatar {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    margin: 0 15px;
+  }
+  
+  .leaderboard-item .avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .leaderboard-item .avatar .badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    font-size: 0.6rem;
+    padding: 0.25em 0.6em;
+  }
+  
+  .leaderboard-item .info {
+    flex: 1;
+  }
+  
+  .leaderboard-item .name {
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .leaderboard-item .stats {
+    display: flex;
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+  
+  .leaderboard-item .stats span {
+    margin-right: 15px;
+  }
+  
+  .leaderboard-item .percentage {
+    font-weight: 600;
+    color: #2575fc;
+    min-width: 70px;
+    text-align: right;
+  }
+  
+  .metric {
+    margin-bottom: 1.5rem;
+  }
+  
+  .btn-search {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #6c757d;
+  }
+</style>
+
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Client Distribution Chart
-    const clientCtx = document.getElementById('clientDistributionChart').getContext('2d');
-    const clientChart = new Chart(clientCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Active Clients', 'New Clients', 'Inactive Clients'],
-        datasets: [{
-          data: [12, 5, 3],
-          backgroundColor: ['#4154f1', '#2eca6a', '#ff771d'],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              padding: 20,
-              usePointStyle: true
-            }
-          }
-        }
-      }
-    });
-    
-    // Sales Performance Chart
-    const salesCtx = document.getElementById('salesPerformanceChart').getContext('2d');
-    const salesChart = new Chart(salesCtx, {
-      type: 'bar',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        datasets: [{
-          label: 'Sales (₦)',
-          data: [25000000, 32000000, 28000000, 41000000, 37000000, 52000000, 49000000, 61000000, 55000000, 72000000, 68000000, 79000000],
-          backgroundColor: 'rgba(65, 84, 241, 0.7)',
-          borderColor: '#4154f1',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '₦' + (value/1000000).toFixed(0) + 'M';
-              }
-            }
-          }
-        }
-      }
-    });
-    
-    // Commission Chart
-    const commissionCtx = document.getElementById('commissionChart').getContext('2d');
-    const commissionChart = new Chart(commissionCtx, {
-      type: 'line',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        datasets: [{
-          label: 'Commission (₦)',
-          data: [1250000, 1600000, 1400000, 2050000, 1850000, 2600000, 2450000, 3050000, 2750000, 3600000, 3400000, 3950000],
-          borderColor: '#2eca6a',
-          backgroundColor: 'rgba(46, 202, 106, 0.1)',
-          borderWidth: 3,
-          pointRadius: 5,
-          pointBackgroundColor: '#fff',
-          pointBorderWidth: 2,
-          tension: 0.3,
-          fill: true
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '₦' + (value/1000).toFixed(0) + 'K';
-              }
-            }
-          }
-        }
-      }
+    // Leaderboard animation
+    const leaderboardItems = document.querySelectorAll('.leaderboard-item');
+    leaderboardItems.forEach((item, index) => {
+      setTimeout(() => {
+        item.style.opacity = 0;
+        item.style.transform = 'translateY(20px)';
+        item.style.display = 'flex';
+        
+        setTimeout(() => {
+          item.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+          item.style.opacity = 1;
+          item.style.transform = 'translateY(0)';
+        }, 10);
+      }, index * 150);
     });
   });
 </script>
-
-<style>
-  .profile-card img {
-    border: 4px solid #f0f4f8;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  }
-  .progress {
-    border-radius: 10px;
-    height: 12px;
-  }
-  .progress-bar {
-    border-radius: 10px;
-  }
-  .nav-tabs .nav-link {
-    font-weight: 600;
-    color: #495057;
-  }
-  .nav-tabs .nav-link.active {
-    color: #4154f1;
-    border-bottom: 3px solid #4154f1;
-  }
-  .table th {
-    background-color: #f8f9fa;
-    color: #495057;
-    font-weight: 600;
-  }
-  .table-hover tbody tr:hover {
-    background-color: rgba(65, 84, 241, 0.05);
-  }
-  .badge {
-    font-weight: 500;
-    padding: 0.5em 0.75em;
-  }
-</style>
 
 {% endblock %}

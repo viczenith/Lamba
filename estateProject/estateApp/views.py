@@ -2802,13 +2802,15 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
 
         tgt = (
             MarketerTarget.objects.filter(
-                marketer=m, 
+                marketer=m,
+                company=company,  # <-- STRICT COMPANY FILTER
                 period_type='annual', 
                 specific_period=year_str
             ).first()
             or
             MarketerTarget.objects.filter(
-                marketer=None, 
+                marketer=None,
+                company=company,  # <-- STRICT COMPANY FILTER (default target) 
                 period_type='annual', 
                 specific_period=year_str
             ).first()
@@ -2824,19 +2826,20 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
     for idx, e in enumerate(sales_data[:3], start=1):
         pct = e['pct']
         if pct is None:
-            category = diff = None
+            category = diff = target_pct = None
         elif pct > 100:
-            category, diff = 'Above Target', round(pct - 100, 1)
+            category, diff, target_pct = 'Above Target', round(pct - 100, 1), round(pct, 1)
         elif pct >= 50:
-            category, diff = 'On Target', round(pct, 1)
+            category, diff, target_pct = 'On Target', round(pct, 1), round(pct, 1)
         else:
-            category, diff = 'Below Target', round(100 - pct, 1)
+            category, diff, target_pct = 'Below Target', round(pct, 1), round(pct, 1)
 
         top3.append({
             'rank': idx,
             'marketer': e['marketer'],
             'category': category,
             'diff_pct': diff,
+            'target_pct': target_pct,
             'has_target': e['target_amt'] is not None,
         })
 
@@ -2845,52 +2848,40 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
         if e['marketer'].id == marketer.id:
             pct = e['pct']
             if pct is None:
-                category = diff = None
+                category = diff = target_pct = None
             elif pct > 100:
-                category, diff = 'Above Target', round(pct - 100, 1)
+                category, diff, target_pct = 'Above Target', round(pct - 100, 1), round(pct, 1)
             elif pct >= 50:
-                category, diff = 'On Target', round(pct, 1)
+                category, diff, target_pct = 'On Target', round(pct, 1), round(pct, 1)
             else:
-                category, diff = 'Below Target', round(100 - pct, 1)
+                category, diff, target_pct = 'Below Target', round(pct, 1), round(pct, 1)
 
             user_entry = {
                 'rank': idx,
                 'marketer': marketer,
                 'category': category,
                 'diff_pct': diff,
+                'target_pct': target_pct,
                 'has_target': e['target_amt'] is not None,
             }
             break
 
-    if request.method == 'POST':
-        # Profile update
-        if request.POST.get("update_profile"):
-            ok = update_profile_data(marketer, request)
-            if ok:
-                messages.success(request, "Your profile has been updated successfully!")
-            else:
-                messages.error(request, "Failed to update your profile.")
+    # NOTE: POST handling for profile edit and password change removed.
+    # Companies should NOT be able to modify marketer profiles or passwords.
+    # Marketers can only edit their own profile via marketer_side/marketer_profile.html
 
-        # Password change
-        elif request.POST.get('change_password'):
-            password_response = change_password(request)
-            cd = password_response.context_data
-            if cd.get('success'):
-                messages.success(request, cd['success'])
-            elif cd.get('error'):
-                messages.error(request, cd['error'])
-
-        return redirect('marketer-profile')
-
-
+    # Build home URL for breadcrumb
+    home_url = reverse('tenant-dashboard', kwargs={'company_slug': company.slug}) if company else '/'
 
     return render(request, 'admin_side/marketer_profile.html', {
-        'password_response': password_response,
+        'user': marketer,  # The marketer being viewed
+        'marketer': marketer,  # Alias for consistency
         'performance': performance,
         'top3':        top3,
         'user_entry':  user_entry,
         'current_year': current_year,
         'company': company,
+        'home_url': home_url,
     })
 
 
@@ -8023,19 +8014,20 @@ def marketer_profile(request):
     for idx, e in enumerate(sales_data[:3], start=1):
         pct = e['pct']
         if pct is None:
-            category = diff = None
+            category = diff = target_pct = None
         elif pct > 100:
-            category, diff = 'Above Target', round(pct - 100, 1)
+            category, diff, target_pct = 'Above Target', round(pct - 100, 1), round(pct, 1)
         elif pct >= 50:
-            category, diff = 'On Target', round(pct, 1)
+            category, diff, target_pct = 'On Target', round(pct, 1), round(pct, 1)
         else:
-            category, diff = 'Below Target', round(100 - pct, 1)
+            category, diff, target_pct = 'Below Target', round(pct, 1), round(pct, 1)
 
         top3.append({
             'rank': idx,
             'marketer': e['marketer'],
             'category': category,
             'diff_pct': diff,
+            'target_pct': target_pct,
             'has_target': e['target_amt'] is not None,
         })
 
@@ -8044,19 +8036,20 @@ def marketer_profile(request):
         if e['marketer'].id == marketer.id:
             pct = e['pct']
             if pct is None:
-                category = diff = None
+                category = diff = target_pct = None
             elif pct > 100:
-                category, diff = 'Above Target', round(pct - 100, 1)
+                category, diff, target_pct = 'Above Target', round(pct - 100, 1), round(pct, 1)
             elif pct >= 50:
-                category, diff = 'On Target', round(pct, 1)
+                category, diff, target_pct = 'On Target', round(pct, 1), round(pct, 1)
             else:
-                category, diff = 'Below Target', round(100 - pct, 1)
+                category, diff, target_pct = 'Below Target', round(pct, 1), round(pct, 1)
 
             user_entry = {
                 'rank': idx,
                 'marketer': marketer,
                 'category': category,
                 'diff_pct': diff,
+                'target_pct': target_pct,
                 'has_target': e['target_amt'] is not None,
             }
             break

@@ -123,7 +123,7 @@ def target_status(achievement):
     - Below Target: 0% to 49% achievement
     - On Target: 50% to 100% achievement  
     - Above Target: 101%+ achievement
-    Examples: "50% Below Target", "On Target (75%)", "10% Above Target"
+    Examples: "Below Target (14%)", "On Target (75%)", "25% Above Target"
     """
     try:
         if achievement is None:
@@ -137,8 +137,7 @@ def target_status(achievement):
         elif achievement >= 50:
             return f"On Target ({int(achievement)}%)"
         else:
-            below = int(100 - achievement)
-            return f"{below}% Below Target"
+            return f"Below Target ({int(achievement)}%)"
     except (ValueError, TypeError):
         return "No Target Set"
 

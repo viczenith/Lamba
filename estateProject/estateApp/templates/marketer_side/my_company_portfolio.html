@@ -30,59 +30,84 @@
     </div>
   </div>
 
-  <!-- Leaderboard Section -->
-  <div class="leaderboard-section">
-    <div class="leaderboard-header">
-      <h3><i class="bi bi-trophy"></i> Top 3 Performers of the Year</h3>
-      <span class="year-badge">{{ current_year }}</span>
-    </div>
-    <div class="leaderboard-body">
-      {% if top3 %}
-        {% for item in top3 %}
-          <div class="leaderboard-item {% if item.rank == 1 %}gold{% elif item.rank == 2 %}silver{% elif item.rank == 3 %}bronze{% endif %}">
-            <div class="rank">#{{ item.rank }}</div>
-            <div class="avatar">
-              {% if item.marketer.profile_image %}
-                <img src="{{ item.marketer.profile_image.url }}" alt="{{ item.marketer.full_name }}">
-              {% else %}
-                <span class="avatar-letter">{{ item.marketer.full_name|slice:":1"|upper }}</span>
+  <!-- Leaderboard Accordion Section -->
+  <div class="leaderboard-accordion">
+    <div class="accordion" id="leaderboardAccordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="leaderboardHeading">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#leaderboardCollapse" aria-expanded="false" aria-controls="leaderboardCollapse">
+            <div class="accordion-header-content">
+              <div class="header-left">
+                <i class="bi bi-trophy-fill trophy-icon"></i>
+                <span class="header-title">Top 3 Performers of the Year</span>
+              </div>
+              <span class="year-badge">{{ current_year }}</span>
+            </div>
+          </button>
+        </h2>
+        <div id="leaderboardCollapse" class="accordion-collapse collapse" aria-labelledby="leaderboardHeading" data-bs-parent="#leaderboardAccordion">
+          <div class="accordion-body leaderboard-body">
+            {% if top3 %}
+              {% for item in top3 %}
+                <div class="leaderboard-item {% if item.rank == 1 %}gold{% elif item.rank == 2 %}silver{% elif item.rank == 3 %}bronze{% endif %}">
+                  <div class="rank">#{{ item.rank }}</div>
+                  <div class="avatar">
+                    {% if item.marketer.profile_image %}
+                      <img src="{{ item.marketer.profile_image.url }}" alt="{{ item.marketer.full_name }}">
+                    {% else %}
+                      <span class="avatar-letter">{{ item.marketer.full_name|slice:":1"|upper }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="info">
+                    <span class="name">{{ item.marketer.full_name }}</span>
+                  </div>
+                  <div class="rank-medal">
+                    {% if item.rank == 1 %}
+                      <i class="bi bi-award-fill gold-medal"></i>
+                    {% elif item.rank == 2 %}
+                      <i class="bi bi-award-fill silver-medal"></i>
+                    {% elif item.rank == 3 %}
+                      <i class="bi bi-award-fill bronze-medal"></i>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+              
+              <!-- Current User's Position -->
+              {% if user_entry %}
+                <div class="leaderboard-divider">
+                  <span>Your Position</span>
+                </div>
+                <div class="leaderboard-item current-user">
+                  <div class="rank">#{{ user_entry.rank }}</div>
+                  <div class="avatar">
+                    {% if user_entry.marketer.profile_image %}
+                      <img src="{{ user_entry.marketer.profile_image.url }}" alt="{{ user_entry.marketer.full_name }}">
+                    {% else %}
+                      <span class="avatar-letter">{{ user_entry.marketer.full_name|slice:":1"|upper }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="info">
+                    <span class="name">{{ user_entry.marketer.full_name }}</span>
+                    <span class="you-tag">You</span>
+                  </div>
+                </div>
               {% endif %}
-            </div>
-            <div class="info">
-              <span class="name">{{ item.marketer.full_name }}</span>
-            </div>
+            {% else %}
+              <div class="empty-leaderboard">
+                <i class="bi bi-people"></i>
+                <span>No performers yet</span>
+              </div>
+            {% endif %}
           </div>
-        {% endfor %}
-        
-        <!-- Current User's Position -->
-        {% if user_entry %}
-          <div class="leaderboard-divider"></div>
-          <div class="leaderboard-item current-user">
-            <div class="rank">#{{ user_entry.rank }}</div>
-            <div class="avatar">
-              {% if user_entry.marketer.profile_image %}
-                <img src="{{ user_entry.marketer.profile_image.url }}" alt="{{ user_entry.marketer.full_name }}">
-              {% else %}
-                <span class="avatar-letter">{{ user_entry.marketer.full_name|slice:":1"|upper }}</span>
-              {% endif %}
-            </div>
-            <div class="info">
-              <span class="name">{{ user_entry.marketer.full_name }} <span class="you-tag">You</span></span>
-            </div>
-          </div>
-        {% endif %}
-      {% else %}
-        <div class="empty-leaderboard">
-          <i class="bi bi-people"></i>
-          <span>No performers yet</span>
         </div>
-      {% endif %}
+      </div>
     </div>
   </div>
 
   <!-- Clients Grid -->
-  <div class="section-title">
-    <h2><i class="bi bi-people"></i> Clients</h2>
+  <div class="section-title mt-5">
+    <h2><i class="bi bi-people"></i> Your Clients</h2>
     <span class="count">{{ clients|length }}</span>
   </div>
   
@@ -729,44 +754,73 @@
   color: var(--text-light);
 }
 
-/* Leaderboard Section */
-.leaderboard-section {
-  background: var(--card);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+/* Leaderboard Accordion Section */
+.leaderboard-accordion {
   margin-bottom: 1.5rem;
-  overflow: hidden;
 }
 
-.leaderboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.leaderboard-accordion .accordion-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.leaderboard-accordion .accordion-button {
+  background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
+  color: white;
   padding: 1rem 1.25rem;
-  background: var(--primary);
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.leaderboard-accordion .accordion-button:not(.collapsed) {
+  background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
   color: white;
 }
 
-.leaderboard-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0;
+.leaderboard-accordion .accordion-button::after {
+  filter: brightness(0) invert(1);
+  transition: transform 0.3s ease;
+}
+
+.leaderboard-accordion .accordion-button.collapsed::after {
+  filter: brightness(0) invert(1);
+}
+
+.accordion-header-content {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 1rem;
 }
 
-.leaderboard-header h3 i {
-  font-size: 1.125rem;
+.accordion-header-content .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.accordion-header-content .trophy-icon {
+  font-size: 1.25rem;
   color: #fbbf24;
+  filter: drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3));
 }
 
-.year-badge {
+.accordion-header-content .header-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.accordion-header-content .year-badge {
   background: rgba(255,255,255,0.2);
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 500;
+  backdrop-filter: blur(4px);
 }
 
 /* Leaderboard Body */
@@ -876,6 +930,71 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   vertical-align: middle;
+}
+
+/* Rank Medals */
+.rank-medal {
+  margin-left: auto;
+  font-size: 1.25rem;
+}
+
+.rank-medal .gold-medal {
+  color: #f59e0b;
+  filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.3));
+}
+
+.rank-medal .silver-medal {
+  color: #94a3b8;
+  filter: drop-shadow(0 2px 4px rgba(148, 163, 184, 0.3));
+}
+
+.rank-medal .bronze-medal {
+  color: #ea580c;
+  filter: drop-shadow(0 2px 4px rgba(234, 88, 12, 0.3));
+}
+
+/* Leaderboard Divider */
+.leaderboard-divider {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1.25rem;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-divider span {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Current User Highlight */
+.leaderboard-item.current-user {
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 3px solid var(--primary);
+}
+
+.leaderboard-item.current-user .rank {
+  background: linear-gradient(135deg, var(--primary), #1e40af);
+}
+
+/* Empty Leaderboard */
+.empty-leaderboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text-light);
+  gap: 0.5rem;
+}
+
+.empty-leaderboard i {
+  font-size: 2rem;
+  opacity: 0.5;
 }
 
 /* Status Badges */
