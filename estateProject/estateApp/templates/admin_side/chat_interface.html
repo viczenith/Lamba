@@ -192,6 +192,7 @@
     .sidebar-search {
         padding: 8px 12px;
         background: var(--wa-header-bg);
+        position: relative;
     }
 
     .search-box {
@@ -652,15 +653,23 @@
 
     .mobile-sidebar-toggle {
         display: none;
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background: transparent;
+        background: var(--wa-green);
         border: none;
-        color: var(--wa-text-secondary);
+        color: #ffffff;
         cursor: pointer;
         align-items: center;
         justify-content: center;
+        font-size: 18px;
+        box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .mobile-sidebar-toggle:hover {
+        background: var(--wa-green-dark);
+        transform: scale(1.05);
     }
 
     .chat-header-avatar {
@@ -1317,10 +1326,11 @@
             left: 0;
             top: 0;
             bottom: 0;
-            z-index: 100;
+            z-index: 1000;
             width: 320px;
             transform: translateX(-100%);
             transition: transform 0.3s ease;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.3);
         }
 
         .chat-sidebar.open {
@@ -1335,7 +1345,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.5);
-            z-index: 99;
+            z-index: 999;
         }
 
         .sidebar-overlay.active {
@@ -1343,7 +1353,7 @@
         }
 
         .mobile-sidebar-toggle {
-            display: flex;
+            display: flex !important;
         }
 
         .chat-window {
@@ -1353,9 +1363,18 @@
         #chat-form {
             padding: 10px 16px;
         }
+        
+        /* Ensure chat main area takes full width on mobile */
+        .chat-main {
+            width: 100%;
+        }
     }
 
     @media (max-width: 600px) {
+        .chat-sidebar {
+            width: 100%;
+        }
+        
         .wa-bubble {
             max-width: 85%;
         }
@@ -1422,16 +1441,16 @@
 
             <!-- Filter Tabs -->
             <div class="filter-tabs">
-                <button class="filter-tab active" data-filter="all">
+                <button type="button" class="filter-tab active" data-filter="all" onclick="handleFilterClick(this, 'all')">
                     <i class="bi bi-chat-dots"></i>
                     All
                 </button>
-                <button class="filter-tab" data-filter="clients">
+                <button type="button" class="filter-tab" data-filter="clients" onclick="handleFilterClick(this, 'clients')">
                     <i class="bi bi-people"></i>
                     Clients
                     <span class="badge" id="client-count">{{ clients|length }}</span>
                 </button>
-                <button class="filter-tab" data-filter="marketers">
+                <button type="button" class="filter-tab" data-filter="marketers" onclick="handleFilterClick(this, 'marketers')">
                     <i class="bi bi-briefcase"></i>
                     Marketers
                     <span class="badge" id="marketer-count">{{ marketers|length }}</span>
@@ -1528,7 +1547,7 @@
                 {% endfor %}
 
                 {% if not clients and not marketers %}
-                <div class="list-empty-state">
+                <div class="list-empty-state" id="chat-list-empty-state">
                     <i class="bi bi-chat-square-dots"></i>
                     <h5>No conversations yet</h5>
                     <p>When clients or marketers message you, they'll appear here.</p>
@@ -1723,6 +1742,7 @@
 </main>
   
 <script>
+(function() {
 // ========== Global State ==========
 var currentUserId = {% if client %}{{ client.id }}{% else %}null{% endif %};
 var currentUserType = '{% if is_marketer %}marketer{% else %}client{% endif %}';
@@ -1795,8 +1815,56 @@ document.body.addEventListener('click', function initAudio() {
     document.body.removeEventListener('click', initAudio);
 }, { once: true });
 
-// ========== Async Chat Loading ==========
-function loadChatAsync(userId, userType, clickedElement) {
+// ========== Filter Tab Handler (Global for onclick) ==========
+window.handleFilterClick = function(clickedTab, filter) {
+    console.log('Filter clicked:', filter); // Debug
+    
+    // Update active state
+    document.querySelectorAll('.filter-tab').forEach(function(tab) {
+        tab.classList.remove('active');
+    });
+    clickedTab.classList.add('active');
+    
+    // Update global filter
+    currentFilter = filter;
+    
+    // Update search placeholder
+    var searchInput = document.getElementById('chat-search');
+    if (searchInput) {
+        if (filter === 'clients') {
+            searchInput.placeholder = 'Search conversations or find clients...';
+            searchInput.dataset.mode = 'clients';
+        } else if (filter === 'marketers') {
+            searchInput.placeholder = 'Search conversations or find marketers...';
+            searchInput.dataset.mode = 'marketers';
+        } else {
+            searchInput.placeholder = 'Search conversations...';
+            searchInput.dataset.mode = 'all';
+        }
+        searchInput.value = '';
+    }
+    
+    // Filter visible items
+    document.querySelectorAll('.chat-list-item').forEach(function(item) {
+        var itemType = item.dataset.type;
+        if (filter === 'all') {
+            item.style.display = 'flex';
+        } else if (filter === 'clients' && itemType === 'client') {
+            item.style.display = 'flex';
+        } else if (filter === 'marketers' && itemType === 'marketer') {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // Hide search dropdown
+    var searchResultsDropdown = document.getElementById('search-results-dropdown');
+    if (searchResultsDropdown) searchResultsDropdown.classList.remove('visible');
+};
+
+// ========== Async Chat Loading (Global for onclick) ==========
+window.loadChatAsync = function(userId, userType, clickedElement) {
     var loadingOverlay = document.getElementById('chat-loading-overlay');
     var hubWelcome = document.getElementById('hub-welcome-state');
     var activeChatArea = document.getElementById('active-chat-area');
@@ -1881,7 +1949,7 @@ function loadChatAsync(userId, userType, clickedElement) {
     .finally(function() {
         if (loadingOverlay) loadingOverlay.classList.remove('visible');
     });
-}
+};
 
 // ========== Polling for New Messages ==========
 function startPolling() {
@@ -1974,53 +2042,11 @@ document.addEventListener("DOMContentLoaded", function() {
     if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
-    // ========== Filter Tabs with Dynamic Search ==========
-    var filterTabs = document.querySelectorAll('.filter-tab');
+    // ========== Search Functionality Variables ==========
     var chatListItems = document.querySelectorAll('.chat-list-item');
     var searchInput = document.getElementById('chat-search');
     var searchResultsDropdown = document.getElementById('search-results-dropdown');
     var clearSearchBtn = document.getElementById('clear-search');
-
-    filterTabs.forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            filterTabs.forEach(function(t) { t.classList.remove('active'); });
-            this.classList.add('active');
-
-            currentFilter = this.dataset.filter;
-            
-            // Update search placeholder based on filter
-            if (searchInput) {
-                if (currentFilter === 'clients') {
-                    searchInput.placeholder = 'Search conversations or find clients...';
-                    searchInput.dataset.mode = 'clients';
-                } else if (currentFilter === 'marketers') {
-                    searchInput.placeholder = 'Search conversations or find marketers...';
-                    searchInput.dataset.mode = 'marketers';
-                } else {
-                    searchInput.placeholder = 'Search conversations...';
-                    searchInput.dataset.mode = 'all';
-                }
-            }
-
-            // Filter visible items
-            chatListItems.forEach(function(item) {
-                var itemType = item.dataset.type;
-                if (currentFilter === 'all') {
-                    item.style.display = 'flex';
-                } else if (currentFilter === 'clients' && itemType === 'client') {
-                    item.style.display = 'flex';
-                } else if (currentFilter === 'marketers' && itemType === 'marketer') {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-            
-            // Clear search
-            if (searchInput) searchInput.value = '';
-            if (searchResultsDropdown) searchResultsDropdown.classList.remove('visible');
-        });
-    });
 
     // ========== Enhanced Search Functionality ==========
     if (searchInput) {
@@ -2058,21 +2084,21 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
 
-            // For client/marketer filters, also search for users to initiate new chats
+            // ALWAYS search for users in company when using client/marketer filters (to find ALL users, not just those with conversations)
             if (mode === 'clients' || mode === 'marketers') {
                 clearTimeout(searchDebounceTimer);
                 searchDebounceTimer = setTimeout(function() {
-                    if (query.length >= 2) {
+                    if (query.length >= 1) {  // Reduced from 2 to 1 character for faster search
                         searchForUsers(query, mode === 'clients' ? 'client' : 'marketer');
                     }
-                }, 300);
+                }, 200);  // Reduced debounce time for faster response
             }
         });
 
         searchInput.addEventListener('focus', function() {
             var query = this.value.trim();
             var mode = this.dataset.mode || 'all';
-            if (query.length >= 2 && (mode === 'clients' || mode === 'marketers')) {
+            if (query.length >= 1 && (mode === 'clients' || mode === 'marketers')) {
                 if (searchResultsDropdown) searchResultsDropdown.classList.add('visible');
             }
         });
@@ -2453,6 +2479,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Check for new clients with messages
                 if (data.admin_unread_clients) {
                     data.admin_unread_clients.forEach(function(clientData) {
+                        // Check if user exists in sidebar, if not add them
+                        var existingItem = document.querySelector('.chat-list-item[data-user-id="' + clientData.id + '"][data-user-type="client"]');
+                        if (!existingItem) {
+                            addNewUserToSidebar(clientData, 'client');
+                        }
+                        
                         // If this client wasn't in previous list or has more unread, and is NOT current user
                         if (currentUserId !== clientData.id || currentUserType !== 'client') {
                             var prevClient = previousClientUnreadIds.find(function(p) { return p.id === clientData.id; });
@@ -2469,6 +2501,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Check for new marketers with messages
                 if (data.admin_unread_marketers) {
                     data.admin_unread_marketers.forEach(function(marketerData) {
+                        // Check if user exists in sidebar, if not add them
+                        var existingItem = document.querySelector('.chat-list-item[data-user-id="' + marketerData.id + '"][data-user-type="marketer"]');
+                        if (!existingItem) {
+                            addNewUserToSidebar(marketerData, 'marketer');
+                        }
+                        
                         if (currentUserId !== marketerData.id || currentUserType !== 'marketer') {
                             var prevMarketer = previousMarketerUnreadIds.find(function(p) { return p.id === marketerData.id; });
                             if (!prevMarketer || marketerData.unread_count > prevMarketer.unread_count) {
@@ -2515,6 +2553,70 @@ document.addEventListener("DOMContentLoaded", function() {
         setTimeout(pollSidebarUnreadCounts, 3000);
     }
     
+    // Add new user to sidebar dynamically when they send their first message
+    function addNewUserToSidebar(userData, userType) {
+        var chatList = document.getElementById('chat-list');
+        if (!chatList) return;
+        
+        // Check if user already exists in sidebar
+        var existingItem = document.querySelector('.chat-list-item[data-user-id="' + userData.id + '"][data-user-type="' + userType + '"]');
+        if (existingItem) return; // Already exists
+        
+        // Create new chat list item (matching exact HTML structure)
+        var newItem = document.createElement('a');
+        newItem.href = 'javascript:void(0)';
+        newItem.className = 'chat-list-item';
+        newItem.setAttribute('data-type', userType);
+        newItem.setAttribute('data-name', (userData.full_name || 'User').toLowerCase());
+        newItem.setAttribute('data-user-id', userData.id);
+        newItem.setAttribute('data-user-type', userType);
+        newItem.setAttribute('onclick', 'loadChatAsync(' + userData.id + ', \'' + userType + '\', this)');
+        
+        var avatarClass = userType === 'marketer' ? 'chat-avatar marketer' : 'chat-avatar';
+        var avatarContent = userData.profile_image 
+            ? '<img src="' + userData.profile_image + '" alt="' + (userData.full_name || 'User') + '">'
+            : (userData.full_name ? userData.full_name[0].toUpperCase() : '?');
+        
+        var lastText = userData.last_content || (userData.last_file ? '📎 Attachment' : 'New message');
+        var typeBadge = userType === 'marketer' ? '<span class="user-type-badge marketer">Marketer</span>' : '<span class="user-type-badge client">Client</span>';
+        
+        newItem.innerHTML = 
+            '<div class="' + avatarClass + '">' + 
+                avatarContent + 
+                '<div class="online-dot"></div>' +
+            '</div>' +
+            '<div class="chat-list-info">' +
+                '<div class="chat-list-top">' +
+                    '<span class="chat-list-name">' + (userData.full_name || 'User') + '</span>' +
+                    '<span class="chat-list-time unread">Just now</span>' +
+                '</div>' +
+                '<div class="chat-list-bottom">' +
+                    '<span class="chat-list-preview">' + typeBadge + lastText.substring(0, 30) + '</span>' +
+                    '<span class="unread-count">' + (userData.unread_count || 1) + '</span>' +
+                '</div>' +
+            '</div>';
+        
+        // Hide the "No conversations yet" empty state
+        var emptyState = document.getElementById('chat-list-empty-state');
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        
+        // Add to top of chat list
+        if (chatList.firstChild) {
+            chatList.insertBefore(newItem, chatList.firstChild);
+        } else {
+            chatList.appendChild(newItem);
+        }
+        
+        // Update filter tab count
+        var countBadge = document.getElementById(userType + '-count');
+        if (countBadge) {
+            var currentCount = parseInt(countBadge.textContent) || 0;
+            countBadge.textContent = currentCount + 1;
+        }
+    }
+    
     function updateChatItemUnread(userId, unreadCount, userType) {
         // Skip if this is the currently active chat (messages are being marked as read)
         if (currentUserId === userId) return;
@@ -2557,6 +2659,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Start sidebar polling
     pollSidebarUnreadCounts();
 });
+})(); // End IIFE
 </script>
 
 <style>

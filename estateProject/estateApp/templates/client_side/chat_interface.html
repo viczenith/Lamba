@@ -470,6 +470,73 @@
     .skeleton-bubble { width:65%; height:44px; border-radius:7.5px; background:linear-gradient(90deg,#e5ddd5 25%,#d4ccc4 37%,#e5ddd5 63%); background-size:400% 100%; animation:skeleton-shimmer 1.4s ease infinite; }
     @keyframes skeleton-shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
 
+    /* Welcome State - No Company Selected */
+    .chat-welcome-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 300px;
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+
+    .chat-welcome-state .welcome-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    .chat-welcome-state .welcome-icon i {
+        font-size: 36px;
+        color: white;
+    }
+
+    .chat-welcome-state h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    .chat-welcome-state p {
+        font-size: 0.9rem;
+        color: #6c757d;
+        max-width: 300px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+
+    .chat-welcome-state .welcome-hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #f0f4ff;
+        padding: 10px 20px;
+        border-radius: 25px;
+        color: #667eea;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .chat-welcome-state .welcome-hint i {
+        font-size: 16px;
+        animation: bounceLeft 1s ease-in-out infinite;
+    }
+
+    @keyframes bounceLeft {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(-5px); }
+    }
+
     /* ========== WhatsApp Message Styles ========== */
     
     /* Message Row */
@@ -886,42 +953,39 @@
                 <div class="chat-header-avatar" id="chat-header-avatar">
                     {% if selected_company and selected_company.logo %}
                         <img src="{{ selected_company.logo.url }}" alt="{{ selected_company.company_name }}" loading="lazy">
-                        <div class="company-logo-badge">
-                            <i class="bi bi-building"></i>
-                        </div>
+                    {% elif selected_company %}
+                        {{ selected_company.company_name|first|upper }}
                     {% else %}
-                        {% if selected_company %}
-                            {{ selected_company.company_name|first|upper }}
-                            <div class="company-logo-badge">
-                                <i class="bi bi-building"></i>
-                            </div>
-                        {% else %}
-                            {{ client.full_name|first|upper }}
-                        {% endif %}
+                        <i class="bi bi-headset"></i>
                     {% endif %}
                 </div>
                 <div class="chat-header-info" id="chat-header-info">
                     {% if selected_company %}
                         <h3 id="chat-header-title">{{ selected_company.company_name }}</h3>
-                        <p id="chat-header-subtitle">Company conversation</p>
+                        <p id="chat-header-subtitle">Admin Support</p>
                     {% else %}
-                        <h3 id="chat-header-title">{{ client.full_name }}</h3>
-                        <p id="chat-header-subtitle">Active now</p>
+                        <h3 id="chat-header-title">Admin Support</h3>
+                        <p id="chat-header-subtitle">Select a company to start chatting</p>
                     {% endif %}
                 </div>
             </div>
 
         <!-- Chat Window -->
         <div id="chat-window" class="chat-window">
-            <div id="chat-skeleton" class="chat-skeleton">
+            <!-- Chat skeleton and typing indicator (always present but hidden) -->
+            <div id="chat-skeleton" class="chat-skeleton" style="display: none;">
                 <div class="chat-avatar admin"></div>
                 <div class="skeleton-bubble"></div>
             </div>
-            <div id="typing-indicator" class="typing-indicator">
+            <div id="typing-indicator" class="typing-indicator" style="display: none;">
                 <div class="chat-avatar admin">A</div>
                 <div class="typing-dots"><span></span><span></span><span></span></div>
                 <span style="font-size:12px;color:#495057;">Typing…</span>
             </div>
+            
+            <!-- Messages container (rendered by JS) -->
+            <div id="messages-container">
+            {% if selected_company %}
             {% load tz %}
             {% for msg in messages %}
                 {% ifchanged msg.date_sent|date:"Y-m-d" %}
@@ -931,25 +995,37 @@
                 {% endifchanged %}
                 {% include 'client_side/chat_message.html' with msg=msg %}
             {% empty %}
-                <div class="chat-empty-state">
+                <div class="chat-empty-state" id="chat-empty-state">
                     <i class="bi bi-chat-heart"></i>
                     <p>No messages yet. Start the conversation!</p>
                 </div>
             {% endfor %}
+            {% endif %}
+            </div>
+            
+            <!-- Welcome screen when no company is selected -->
+            <div id="chat-welcome-state" class="chat-welcome-state" style="{% if selected_company %}display: none;{% endif %}">
+                <div class="welcome-icon">
+                    <i class="bi bi-chat-square-dots"></i>
+                </div>
+                <h3>Chat with Admin Support</h3>
+                <p>Select a company from the list to view your conversation history and send messages to admin support.</p>
+                <div class="welcome-hint">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Choose a company to get started</span>
+                </div>
+            </div>
             <button id="scroll-bottom-btn" class="scroll-bottom-btn" title="Scroll to bottom">
                 <i class="bi bi-arrow-down"></i>
             </button>
-            </div>
+        </div>
 
             <!-- Chat Input Area -->
             {% if companies %}
-            <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'chat' %}">
+            <!-- Chat Form (always present, shown/hidden via JS) -->
+            <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'chat' %}" style="{% if not selected_company %}display: none;{% endif %}">
                 {% csrf_token %}
-                {% if companies and companies.0 %}
-                    <input type="hidden" name="company_id" id="company-id-input" value="{{ companies.0.id }}">
-                {% else %}
-                    <input type="hidden" name="company_id" id="company-id-input" value="">
-                {% endif %}
+                <input type="hidden" name="company_id" id="company-id-input" value="{% if selected_company %}{{ selected_company.id }}{% endif %}">
                 
                 <!-- File Preview (WhatsApp style) -->
                 <div id="file-preview-container" class="file-preview-container">
@@ -978,6 +1054,15 @@
                     </button>
                 </div>
             </form>
+            
+            <!-- No company selected - show prompt (shown/hidden via JS) -->
+            <div id="no-company-prompt" class="chat-input-form no-company-selected" style="align-items:center; {% if selected_company %}display: none;{% endif %}">
+                <div style="flex:1; padding:12px; color:rgba(0,0,0,0.6); display:flex; align-items:center; gap:8px;">
+                    <i class="bi bi-arrow-left-circle" style="font-size:18px; color:#667eea;"></i>
+                    <span>Select a company from the left to start chatting</span>
+                </div>
+                <button class="send-btn" disabled title="Select a company first"><i class="bi bi-send-fill"></i></button>
+            </div>
             {% else %}
             <div class="chat-input-form" style="align-items:center;">
                 <div style="flex:1; padding:12px; color:rgba(0,0,0,0.6);">Chat disabled — you have no companies associated with your account.</div>
@@ -1329,43 +1414,66 @@ document.addEventListener("DOMContentLoaded", function() {
         var tempDiv = document.createElement('div');
         tempDiv.innerHTML = messagesHtml;
         
-        // Get all message rows (wa-message-row containers) - the parent wrappers
-        var messageRows = tempDiv.querySelectorAll('.wa-message-row');
-        var lastDayStr = null;
+        // Get messages container (or chat window if container doesn't exist)
+        var messagesContainer = document.getElementById('messages-container') || chatWindow;
         
-        messageRows.forEach(function(rowElement) {
-            // Get the msg id from the bubble inside the row
-            var bubble = rowElement.querySelector('[data-msg-id]');
-            var msgId = bubble ? bubble.getAttribute('data-msg-id') : null;
-            
-            if (msgId && !document.querySelector('[data-msg-id="' + msgId + '"]')) {
-                // insert day separator when date changes
-                var ts = rowElement.getAttribute('data-msg-timestamp');
-                var d = ts ? new Date(parseInt(ts,10)*1000) : null;
-                var dayStr = d ? d.toDateString() : null;
-                if (dayStr && dayStr !== lastDayStr) {
-                    var divider = document.createElement('div');
-                    divider.className='chat-day-divider';
-                    var span = document.createElement('span');
-                    span.textContent = d.toLocaleDateString(undefined,{weekday:'short', year:'numeric', month:'short', day:'numeric'});
-                    divider.appendChild(span);
-                    chatWindow.appendChild(divider);
-                    lastDayStr = dayStr;
+        // Get all elements including day dividers from server
+        var allElements = tempDiv.querySelectorAll('.wa-message-row, .chat-day-divider');
+        
+        allElements.forEach(function(element) {
+            if (element.classList.contains('chat-day-divider')) {
+                // Day divider from server - just append it
+                messagesContainer.appendChild(element);
+            } else {
+                // Message row
+                var bubble = element.querySelector('[data-msg-id]');
+                var msgId = bubble ? bubble.getAttribute('data-msg-id') : null;
+                
+                if (msgId && !document.querySelector('[data-msg-id="' + msgId + '"]')) {
+                    // Append the entire message row (includes avatar, bubble, proper alignment)
+                    messagesContainer.appendChild(element);
+                    lastMessageId = Math.max(lastMessageId, parseInt(msgId));
                 }
-                // Append the entire message row (includes avatar, bubble, proper alignment)
-                chatWindow.appendChild(rowElement);
-                lastMessageId = Math.max(lastMessageId, parseInt(msgId));
             }
         });
         chatWindow.scrollTop = chatWindow.scrollHeight;
         updateScrollButton();
     }
 
+    // Function to switch from welcome state to chat state
+    function activateChatInterface() {
+        const welcomeState = document.getElementById('chat-welcome-state');
+        const chatForm = document.getElementById('chat-form');
+        const noCompanyPrompt = document.getElementById('no-company-prompt');
+        const messagesContainer = document.getElementById('messages-container');
+        
+        // Hide welcome state
+        if (welcomeState) welcomeState.style.display = 'none';
+        
+        // Show chat form
+        if (chatForm) chatForm.style.display = '';
+        
+        // Hide no company prompt
+        if (noCompanyPrompt) noCompanyPrompt.style.display = 'none';
+        
+        // Show messages container
+        if (messagesContainer) messagesContainer.style.display = '';
+    }
+
     function loadConversation(companyId) {
-        chatWindow.innerHTML = '';
+        // First, activate the chat interface (switch from welcome to chat)
+        activateChatInterface();
+        
+        // Get messages container (or chat window if container doesn't exist)
+        var messagesContainer = document.getElementById('messages-container') || chatWindow;
+        messagesContainer.innerHTML = '';
+        
         // show skeleton while loading
         const skeleton = document.getElementById('chat-skeleton');
-        if (skeleton) { chatWindow.appendChild(skeleton); skeleton.style.display = 'flex'; }
+        if (skeleton) { 
+            chatWindow.insertBefore(skeleton, chatWindow.firstChild);
+            skeleton.style.display = 'flex'; 
+        }
         lastMessageId = 0;
         let url = `{% url 'chat' %}?history=1`;
         if (companyId) url += `&company_id=${companyId}`;
@@ -1374,10 +1482,20 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(data => {
                 if (data.messages_html) {
                     renderMessagesHtml(data.messages_html);
+                } else {
+                    // No messages - show empty state
+                    var emptyState = document.createElement('div');
+                    emptyState.className = 'chat-empty-state';
+                    emptyState.innerHTML = '<i class="bi bi-chat-heart"></i><p>No messages yet. Start the conversation!</p>';
+                    messagesContainer.appendChild(emptyState);
                 }
             })
             .catch(err => console.error('Error loading conversation:', err))
-            .finally(() => { const skeleton2 = document.getElementById('chat-skeleton'); if (skeleton2) skeleton2.style.display = 'none'; });
+            .finally(() => { 
+                const skeleton2 = document.getElementById('chat-skeleton'); 
+                if (skeleton2) skeleton2.style.display = 'none'; 
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            });
     }
 
     function pollNewMessages() {
@@ -1460,7 +1578,7 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Update header title
             headerTitle.textContent = companyName;
-            headerSubtitle.textContent = 'Company conversation';
+            headerSubtitle.textContent = 'Admin Support';
             
             // Update avatar
             headerAvatar.innerHTML = '';
@@ -1481,11 +1599,10 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         } else {
             // Reset to default (no company selected)
-            headerTitle.textContent = '{{ client.full_name }}';
-            headerSubtitle.textContent = 'Active now';
+            headerTitle.textContent = 'Admin Support';
+            headerSubtitle.textContent = 'Select a company to start chatting';
             
-            headerAvatar.innerHTML = '';
-            headerAvatar.textContent = '{{ client.full_name|first|upper }}';
+            headerAvatar.innerHTML = '<i class="bi bi-headset"></i>';
             
             if (document.getElementById('company-id-input')) {
                 document.getElementById('company-id-input').value = '';

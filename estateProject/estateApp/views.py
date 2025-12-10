@@ -535,6 +535,124 @@ def get_all_marketers_for_company(company_obj):
     ).order_by('full_name')
 
 
+def get_all_clients_for_company(company_obj):
+    """
+    Helper function to fetch all clients for a company.
+    Combines clients from both company_profile and ClientMarketerAssignment.
+    
+    IMPORTANT for CHAT: This returns ALL clients who should appear in chat for this company.
+    A client is associated with a company if:
+    1. Their company_profile points to this company (primary)
+    2. They have a ClientMarketerAssignment to a marketer in this company (affiliated)
+    
+    Returns a set of CustomUser IDs.
+    """
+    if not company_obj:
+        return set()
+    
+    # Get clients assigned directly to the company via company_profile
+    primary_client_ids = set(
+        CustomUser.objects.filter(
+            role='client',
+            company_profile=company_obj
+        ).values_list('id', flat=True)
+    )
+    
+    # Get clients affiliated via ClientMarketerAssignment
+    # Filter to only include users who are actually clients (role='client')
+    affiliated_user_ids = list(
+        ClientMarketerAssignment.objects.filter(
+            company=company_obj
+        ).values_list('client_id', flat=True).distinct()
+    )
+    affiliated_client_ids = set(
+        CustomUser.objects.filter(
+            id__in=affiliated_user_ids,
+            role='client'  # Ensure only clients are included
+        ).values_list('id', flat=True)
+    )
+    
+    # Combine both sets
+    return primary_client_ids | affiliated_client_ids
+
+
+def get_all_marketer_ids_for_company(company_obj):
+    """
+    Helper function to fetch all marketer IDs for a company.
+    Combines marketers from both company_profile and MarketerAffiliation.
+    
+    IMPORTANT for CHAT: This returns ALL marketer IDs who should appear in chat for this company.
+    A marketer is associated with a company if:
+    1. Their company_profile points to this company (primary)
+    2. They have a MarketerAffiliation with this company (active or pending_approval)
+    
+    Returns a set of CustomUser IDs.
+    """
+    if not company_obj:
+        return set()
+    
+    # Get marketers assigned directly to the company via company_profile
+    primary_marketer_ids = set(
+        CustomUser.objects.filter(
+            role='marketer',
+            company_profile=company_obj
+        ).values_list('id', flat=True)
+    )
+    
+    # Get marketers affiliated via MarketerAffiliation (active or pending_approval)
+    # Exclude only terminated/suspended affiliations
+    # Filter to only include users who are actually marketers (role='marketer')
+    affiliated_marketer_ids = set()
+    try:
+        affiliated_user_ids = list(
+            MarketerAffiliation.objects.filter(
+                company=company_obj,
+                status__in=['active', 'pending_approval']  # Include pending for chat access
+            ).values_list('marketer_id', flat=True).distinct()
+        )
+        affiliated_marketer_ids = set(
+            CustomUser.objects.filter(
+                id__in=affiliated_user_ids,
+                role='marketer'  # Ensure only marketers are included
+            ).values_list('id', flat=True)
+        )
+    except Exception:
+        pass
+    
+    # Combine both sets
+    return primary_marketer_ids | affiliated_marketer_ids
+
+
+def is_user_in_company(user_id, company_obj, user_role=None):
+    """
+    Check if a user belongs to a company (either via company_profile or affiliation).
+    
+    Args:
+        user_id: The CustomUser ID to check
+        company_obj: The Company object
+        user_role: Optional - 'client' or 'marketer' to narrow the check
+        
+    Returns: Boolean
+    """
+    if not company_obj or not user_id:
+        return False
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return False
+    
+    role = user_role or user.role
+    
+    if role == 'client':
+        return user_id in get_all_clients_for_company(company_obj)
+    elif role == 'marketer':
+        return user_id in get_all_marketer_ids_for_company(company_obj)
+    else:
+        # For other roles, check company_profile directly
+        return user.company_profile == company_obj
+
+
 @login_required
 def api_marketer_client_counts(request):
     """
@@ -2892,56 +3010,98 @@ def admin_chat_hub_view(request):
     Chat hub view that shows the chat interface without requiring a client_id.
     Users can browse and select clients/marketers from the sidebar.
     Also provides API endpoints for searching company users to initiate new chats.
+    SECURITY: Enforces strict company-based data isolation including affiliations.
     """
-    # Get clients and marketers for sidebar chat list
-    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    # SECURITY: Get company from request (set by middleware)
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
     
-    # Get clients who have conversations
-    sidebar_clients = CustomUser.objects.filter(
+    if not company:
+        # No company context - return empty chat interface
+        context = {
+            'clients': [],
+            'marketers': [],
+            'all_clients': [],
+            'all_marketers': [],
+            'is_hub': True,
+            'is_marketer': False,
+        }
+        return render(request, 'admin_side/chat_interface.html', context)
+    
+    # SECURITY: Get all user IDs for this company (including affiliations)
+    all_client_ids = get_all_clients_for_company(company)
+    all_marketer_ids = get_all_marketer_ids_for_company(company)
+    
+    # Get ALL clients for this company (not just those with conversations)
+    # SECURITY: Filter by user IDs that belong to this company
+    all_clients_qs = CustomUser.objects.filter(
+        id__in=all_client_ids,
         role='client',
-        sent_messages__isnull=False,
-        **company_filter
-    ).distinct().annotate(
-        last_message=Max('sent_messages__date_sent')
-    ).order_by('-last_message')[:30]
+    ).order_by('full_name')
     
-    for c in sidebar_clients:
+    # Add unread_count and last_message_text to each client
+    sidebar_clients = []
+    for c in all_clients_qs:
+        # Count unread messages from this client to company support
         c.unread_count = Message.objects.filter(
-            sender=c, recipient__role__in=SUPPORT_ROLES, is_read=False
+            sender=c,
+            recipient__company_profile=company,
+            recipient__role__in=SUPPORT_ROLES,
+            is_read=False
         ).count()
+        # Get last message in conversation
         last_msg = Message.objects.filter(
-            Q(sender=c, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+            Q(sender=c, recipient__role__in=SUPPORT_ROLES, recipient__company_profile=company) | 
+            Q(sender__role__in=SUPPORT_ROLES, sender__company_profile=company, recipient=c),
         ).order_by('-date_sent').first()
         c.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
-
-    # Get marketers who have conversations
-    sidebar_marketers = CustomUser.objects.filter(
-        role='marketer',
-        sent_messages__isnull=False,
-        **company_filter
-    ).distinct().annotate(
-        last_message=Max('sent_messages__date_sent')
-    ).order_by('-last_message')[:30]
+        c.last_message_time = last_msg.date_sent if last_msg else None
+        sidebar_clients.append(c)
     
-    for m in sidebar_marketers:
+    # Sort: unread first, then by last message time, then alphabetically
+    sidebar_clients.sort(key=lambda x: (
+        -x.unread_count,  # Higher unread count first
+        x.last_message_time is None,  # Those with messages before those without
+        -(x.last_message_time.timestamp() if x.last_message_time else 0),  # Recent messages first
+        x.full_name.lower()  # Alphabetical
+    ))
+
+    # Get ALL marketers for this company (not just those with conversations)
+    # SECURITY: Filter by user IDs that belong to this company (including affiliations)
+    all_marketers_qs = CustomUser.objects.filter(
+        id__in=all_marketer_ids,
+        role='marketer',
+    ).order_by('full_name')
+    
+    # Add unread_count and last_message_text to each marketer
+    sidebar_marketers = []
+    for m in all_marketers_qs:
+        # Count unread messages from this marketer to company support
         m.unread_count = Message.objects.filter(
-            sender=m, recipient__role__in=SUPPORT_ROLES, is_read=False
+            sender=m,
+            recipient__company_profile=company,
+            recipient__role__in=SUPPORT_ROLES,
+            is_read=False
         ).count()
+        # Get last message in conversation
         last_msg = Message.objects.filter(
-            Q(sender=m, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+            Q(sender=m, recipient__role__in=SUPPORT_ROLES, recipient__company_profile=company) | 
+            Q(sender__role__in=SUPPORT_ROLES, sender__company_profile=company, recipient=m),
         ).order_by('-date_sent').first()
         m.last_message_text = last_msg.content[:50] if last_msg and last_msg.content else ''
-
-    # Get ALL company clients/marketers for "new chat" search functionality
-    all_company_clients = CustomUser.objects.filter(
-        role='client',
-        **company_filter
-    ).order_by('full_name')[:100]
+        m.last_message_time = last_msg.date_sent if last_msg else None
+        sidebar_marketers.append(m)
     
-    all_company_marketers = CustomUser.objects.filter(
-        role='marketer',
-        **company_filter
-    ).order_by('full_name')[:100]
+    # Sort: unread first, then by last message time, then alphabetically
+    sidebar_marketers.sort(key=lambda x: (
+        -x.unread_count,  # Higher unread count first
+        x.last_message_time is None,  # Those with messages before those without
+        -(x.last_message_time.timestamp() if x.last_message_time else 0),  # Recent messages first
+        x.full_name.lower()  # Alphabetical
+    ))
+
+    # all_clients and all_marketers are same as sidebar lists now
+    all_company_clients = sidebar_clients
+    all_company_marketers = sidebar_marketers
 
     context = {
         'clients': sidebar_clients,
@@ -2959,31 +3119,39 @@ def chat_search_users_api(request):
     """
     API endpoint to search for company users (clients/marketers) to initiate a new chat.
     Returns ALL users matching the search query by name OR email.
-    Users are uniquely identified by their email, so we don't filter out duplicates by name.
+    SECURITY: Enforces strict company-based data isolation including affiliations.
     """
     query = request.GET.get('q', '').strip()
     user_type = request.GET.get('type', 'all')  # 'client', 'marketer', or 'all'
     
-    if len(query) < 2:
+    if len(query) < 1:
         return JsonResponse({'results': []})
     
-    company_filter = {'company_profile': request.company} if hasattr(request, 'company') and request.company else {}
+    # SECURITY: Get company from request
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    if not company:
+        return JsonResponse({'results': []})
+    
+    # SECURITY: Get all user IDs for this company (including affiliations)
+    all_client_ids = get_all_clients_for_company(company)
+    all_marketer_ids = get_all_marketer_ids_for_company(company)
     
     results = []
     
     if user_type in ['client', 'all']:
-        # Search by name OR email - show ALL matching users (email is unique identifier)
+        # Search by name OR email - only within this company (including affiliations)
         clients = CustomUser.objects.filter(
             Q(full_name__icontains=query) | Q(email__icontains=query),
+            id__in=all_client_ids,
             role='client',
-            **company_filter
-        ).order_by('full_name', 'email')[:50]  # Increased limit to show all matches
+        ).order_by('full_name', 'email')[:50]
         
         for c in clients:
-            # Check if there's an existing conversation
+            # SECURITY: Check conversations with company support
             has_conversation = Message.objects.filter(
-                Q(sender=c, recipient__role__in=SUPPORT_ROLES) |
-                Q(sender__role__in=SUPPORT_ROLES, recipient=c)
+                Q(sender=c, recipient__role__in=SUPPORT_ROLES, recipient__company_profile=company) |
+                Q(sender__role__in=SUPPORT_ROLES, sender__company_profile=company, recipient=c),
             ).exists()
             
             results.append({
@@ -2997,17 +3165,18 @@ def chat_search_users_api(request):
             })
     
     if user_type in ['marketer', 'all']:
-        # Search by name OR email - show ALL matching users (email is unique identifier)
+        # Search by name OR email - only within this company (including affiliations)
         marketers = CustomUser.objects.filter(
             Q(full_name__icontains=query) | Q(email__icontains=query),
+            id__in=all_marketer_ids,
             role='marketer',
-            **company_filter
-        ).order_by('full_name', 'email')[:50]  # Increased limit to show all matches
+        ).order_by('full_name', 'email')[:50]
         
         for m in marketers:
+            # SECURITY: Check conversations with company support
             has_conversation = Message.objects.filter(
-                Q(sender=m, recipient__role__in=SUPPORT_ROLES) |
-                Q(sender__role__in=SUPPORT_ROLES, recipient=m)
+                Q(sender=m, recipient__role__in=SUPPORT_ROLES, recipient__company_profile=company) |
+                Q(sender__role__in=SUPPORT_ROLES, sender__company_profile=company, recipient=m),
             ).exists()
             
             results.append({
@@ -3028,13 +3197,27 @@ def chat_load_conversation_api(request, user_id, user_type):
     """
     API endpoint to load a conversation asynchronously.
     Returns the chat messages HTML and user info without full page reload.
+    SECURITY: Enforces strict company-based data isolation including affiliations.
     """
     from django.urls import reverse
     
+    # SECURITY: Get company from request
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    if not company:
+        return JsonResponse({'success': False, 'error': 'No company context'}, status=403)
+    
+    # SECURITY: Verify user belongs to this company (including affiliations)
     if user_type == 'client':
+        all_client_ids = get_all_clients_for_company(company)
+        if int(user_id) not in all_client_ids:
+            return JsonResponse({'success': False, 'error': 'User not found in this company'}, status=404)
         chat_user = get_object_or_404(CustomUser, id=user_id, role='client')
         chat_url = reverse('admin_chat', args=[user_id])
     elif user_type == 'marketer':
+        all_marketer_ids = get_all_marketer_ids_for_company(company)
+        if int(user_id) not in all_marketer_ids:
+            return JsonResponse({'success': False, 'error': 'User not found in this company'}, status=404)
         chat_user = get_object_or_404(CustomUser, id=user_id, role='marketer')
         chat_url = reverse('admin_marketer_chat', args=[user_id])
     else:
@@ -3042,17 +3225,18 @@ def chat_load_conversation_api(request, user_id, user_type):
     
     admin_user = request.user
     
-    # Mark all unread messages from this user as read
+    # SECURITY: Mark only messages to this company's support as read
     Message.objects.filter(
-        sender=chat_user, 
+        sender=chat_user,
+        recipient__company_profile=company,
         recipient__role__in=SUPPORT_ROLES, 
         is_read=False
     ).update(is_read=True, status='read')
     
-    # Get conversation messages
+    # SECURITY: Get conversation messages for this company's support context
     conversation = Message.objects.filter(
-        Q(sender=chat_user, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=chat_user)
+        Q(sender=chat_user, recipient__role__in=SUPPORT_ROLES, recipient__company_profile=company) |
+        Q(sender__role__in=SUPPORT_ROLES, sender__company_profile=company, recipient=chat_user),
     ).order_by('date_sent')
     
     # Render messages HTML
@@ -3082,26 +3266,61 @@ def chat_load_conversation_api(request, user_id, user_type):
 # Admin Chat
 @login_required
 def admin_chat_view(request, client_id):
-    # try:
-    #     client = CustomUser.objects.get(id=client_id, role='client')
-    # except CustomUser.DoesNotExist:
-    #     messages.error(request, "The client you are trying to chat with does not exist.")
-    #     return redirect('admin_client_chat_list')
+    # SECURITY: Get company context and verify client belongs to company
+    admin_company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    if admin_company:
+        # Verify client belongs to this company (including affiliations)
+        all_client_ids = get_all_clients_for_company(admin_company)
+        if int(client_id) not in all_client_ids:
+            messages.error(request, "The client you are trying to chat with does not exist in your company.")
+            return redirect('admin_chat_hub')
         
     client = get_object_or_404(CustomUser, id=client_id, role='client')
     admin_user = request.user
     
     # Mark all unread messages from the client as read when ANY admin opens the chat.
     # This ensures unified dashboard - all admins see the same read/unread status
-    Message.objects.filter(sender=client, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
+    # SECURITY: Only mark messages to company support as read
+    if admin_company:
+        Message.objects.filter(
+            sender=client, 
+            recipient__role__in=SUPPORT_ROLES,
+            recipient__company_profile=admin_company,
+            is_read=False
+        ).update(is_read=True, status='read')
+    else:
+        Message.objects.filter(sender=client, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
     
-    # Build companies list for explorer: companies where client has allocations
-    client_company_ids = (
-        PlotAllocation.objects.filter(client_id=client.id)
-        .values_list('estate__company', flat=True)
-        .distinct()
-    )
-    companies_qs = Company.objects.filter(id__in=[c for c in client_company_ids if c is not None])
+    # SECURITY: Build companies list for explorer - intersection of:
+    # 1. Companies where client has affiliations
+    # 2. Admin's company (if set) - admins should only see their company's data
+    client_company_ids = set()
+    
+    # Get client's affiliated companies
+    if client.company_profile:
+        client_company_ids.add(client.company_profile.id)
+    
+    # Via ClientMarketerAssignment
+    assignment_company_ids = ClientMarketerAssignment.objects.filter(
+        client=client
+    ).values_list('company_id', flat=True).distinct()
+    client_company_ids.update([c for c in assignment_company_ids if c is not None])
+    
+    # Via PlotAllocation
+    allocation_company_ids = PlotAllocation.objects.filter(
+        client_id=client.id
+    ).values_list('estate__company', flat=True).distinct()
+    client_company_ids.update([c for c in allocation_company_ids if c is not None])
+    
+    # SECURITY: Admin should only see the intersection with their company
+    if admin_company:
+        # Admin can only interact with their own company
+        allowed_company_ids = client_company_ids.intersection({admin_company.id})
+    else:
+        allowed_company_ids = client_company_ids
+    
+    companies_qs = Company.objects.filter(id__in=allowed_company_ids)
     companies = []
     for comp in companies_qs:
         alloc_count = PlotAllocation.objects.filter(client_id=client.id, estate__company=comp).count()
@@ -3127,15 +3346,17 @@ def admin_chat_view(request, client_id):
         # SECURITY: Prevent access to unauthorized company - set to None for full conversation
         selected_company = None
 
+    # SECURITY: Always filter messages by allowed companies
     if selected_company:
         conversation = Message.objects.filter(
             (Q(sender=client, recipient__role__in=SUPPORT_ROLES) & Q(company=selected_company)) |
             (Q(sender__role__in=SUPPORT_ROLES, recipient=client) & Q(company=selected_company))
         ).order_by('date_sent')
     else:
+        # SECURITY: When no company selected, show messages from ALL allowed companies
         conversation = Message.objects.filter(
-            Q(sender=client, recipient__role__in=SUPPORT_ROLES) |
-            Q(sender__role__in=SUPPORT_ROLES, recipient=client)
+            (Q(sender=client, recipient__role__in=SUPPORT_ROLES) | Q(sender__role__in=SUPPORT_ROLES, recipient=client)),
+            company__id__in=allowed_company_ids  # SECURITY: Filter by allowed companies
         ).order_by('date_sent')
     
     # POLLING branch: if GET includes 'last_msg'
@@ -3258,62 +3479,125 @@ def admin_chat_view(request, client_id):
 
 @login_required
 def marketer_chat_view(request):
+    """
+    Marketer chat interface - SECURE: Only shows messages with companies the marketer is affiliated with.
+    """
     if getattr(request.user, 'role', None) != 'marketer':
         return redirect('login')
 
-    admin_user = CustomUser.objects.filter(role__in=SUPPORT_ROLES).first()
-    if not admin_user:
-        return JsonResponse({'success': False, 'error': 'No admin available to receive messages.'}, status=400)
-
-    initial_unread = Message.objects.filter(
-        sender__role__in=SUPPORT_ROLES,
-        recipient=request.user,
-        is_read=False
-    ).count()
-
-    admin_messages_qs = Message.objects.filter(
-        sender__role__in=SUPPORT_ROLES,
-        recipient=request.user,
-        is_read=False
-    )
-    admin_messages_qs.update(is_read=True, status='read')
-
-    # Build companies list for marketer explorer (companies where marketer has transactions)
     user = request.user
-    company_ids = (
-        Transaction.objects.filter(marketer=user)
-        .values_list('company', flat=True)
-        .distinct()
-    )
-    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
+    
+    # SECURITY: Get all companies this marketer is affiliated with
+    # 1. Via company_profile (primary company)
+    # 2. Via MarketerAffiliation (additional companies)
+    # 3. Via Transactions (has done business with)
+    affiliated_company_ids = set()
+    
+    # Primary company
+    if user.company_profile:
+        affiliated_company_ids.add(user.company_profile.id)
+    
+    # MarketerAffiliation (active or pending_approval)
+    affiliation_ids = MarketerAffiliation.objects.filter(
+        marketer=user,
+        status__in=['active', 'pending_approval']
+    ).values_list('company_id', flat=True)
+    affiliated_company_ids.update(affiliation_ids)
+    
+    # Transactions
+    txn_company_ids = Transaction.objects.filter(
+        marketer=user
+    ).values_list('company', flat=True).distinct()
+    affiliated_company_ids.update([c for c in txn_company_ids if c])
+    
+    # Get companies queryset
+    companies_qs = Company.objects.filter(id__in=affiliated_company_ids)
+    
+    # SECURITY: If marketer has no affiliations, disable chat
+    if not companies_qs.exists():
+        context = {
+            'messages': [],
+            'unread_chat_count': 0,
+            'global_message_count': 0,
+            'companies': [],
+            'selected_company': None,
+            'no_affiliations': True,
+        }
+        return render(request, 'marketer_side/chat_interface.html', context)
+    
     companies = []
     for comp in companies_qs:
         txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
         companies.append({'company': comp, 'transactions': txn_count})
 
     # Determine selected company for conversation
-    sel_company_id = None
-    if request.method == 'GET':
-        sel_company_id = request.GET.get('company_id')
-    else:
-        sel_company_id = request.POST.get('company_id')
-
-    if not sel_company_id and companies_qs.exists():
-        sel_company_id = companies_qs.first().id
-
+    sel_company_id = request.GET.get('company_id') or request.POST.get('company_id')
     selected_company = None
     if sel_company_id:
         try:
-            selected_company = Company.objects.get(id=int(sel_company_id))
-        except Exception:
+            # SECURITY: Verify company is in marketer's affiliated companies
+            selected_company = companies_qs.get(id=int(sel_company_id))
+        except (Company.DoesNotExist, ValueError):
             selected_company = None
 
-    # Always show ALL messages between marketer and admins (regardless of company)
-    # This ensures replies from admins are always visible
+    # SECURITY: Get the admin for the selected company (or first affiliated company)
+    target_company = selected_company or companies_qs.first()
+    admin_user = CustomUser.objects.filter(
+        role__in=SUPPORT_ROLES,
+        company_profile=target_company
+    ).first()
+    
+    if not admin_user:
+        # Fallback to any admin if company has none
+        admin_user = CustomUser.objects.filter(role__in=SUPPORT_ROLES).first()
+    
+    if not admin_user:
+        return JsonResponse({'success': False, 'error': 'No admin available to receive messages.'}, status=400)
+
+    # SECURITY: Only count/show messages from companies the marketer is affiliated with
+    initial_unread = Message.objects.filter(
+        sender__role__in=SUPPORT_ROLES,
+        sender__company_profile__in=companies_qs,
+        recipient=user,
+        is_read=False
+    ).count()
+
+    # Mark messages as read - SECURITY: Only from affiliated companies
+    Message.objects.filter(
+        sender__role__in=SUPPORT_ROLES,
+        sender__company_profile__in=companies_qs,
+        recipient=user,
+        is_read=False
+    ).update(is_read=True, status='read')
+
+    # SECURITY: Only show messages with affiliated companies
+    # Filter by company field OR by sender/recipient company_profile
     conversation = Message.objects.filter(
-        Q(sender=request.user, recipient__role__in=SUPPORT_ROLES) |
-        Q(sender__role__in=SUPPORT_ROLES, recipient=request.user)
-    ).order_by('date_sent')
+        Q(sender=user, company__in=companies_qs) |
+        Q(recipient=user, company__in=companies_qs) |
+        Q(sender=user, recipient__company_profile__in=companies_qs) |
+        Q(recipient=user, sender__company_profile__in=companies_qs)
+    ).distinct().order_by('date_sent')
+
+    # Handle AJAX request to load full conversation history
+    if request.method == "GET" and 'history' in request.GET:
+        messages_html = ""
+        messages_list = []
+        last_date = None
+        for msg in conversation:
+            # Add day divider if date changed
+            msg_date = msg.date_sent.date()
+            if last_date != msg_date:
+                messages_html += f'<div class="chat-day-divider"><span>{msg.date_sent.strftime("%a, %d %b %Y")}</span></div>'
+                last_date = msg_date
+            messages_html += render_to_string('marketer_side/chat_message.html', {'msg': msg, 'request': request})
+            messages_list.append({'id': msg.id})
+        
+        return JsonResponse({
+            'messages': messages_list,
+            'messages_html': messages_html,
+            'success': True,
+        })
 
     if request.method == "GET" and 'last_msg' in request.GET:
         try:
@@ -3335,18 +3619,6 @@ def marketer_chat_view(request):
             'messages_html': messages_html,
             'updated_statuses': updated_statuses,
         })
-    # Build companies list for marketer explorer (companies where marketer has transactions)
-    user = request.user
-    company_ids = (
-        Transaction.objects.filter(marketer=user)
-        .values_list('company', flat=True)
-        .distinct()
-    )
-    companies_qs = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
-    companies = []
-    for comp in companies_qs:
-        txn_count = Transaction.objects.filter(marketer=user, company=comp).count()
-        companies.append({'company': comp, 'transactions': txn_count})
 
     if request.method == "POST":
         message_content = request.POST.get('message_content', '').strip()
@@ -3379,9 +3651,18 @@ def marketer_chat_view(request):
         if not companies_qs.filter(id=company.id).exists():
             return JsonResponse({'success': False, 'error': 'You are not affiliated with this company'}, status=403)
 
+        # SECURITY: Get admin specifically from the target company
+        company_admin = CustomUser.objects.filter(
+            role__in=SUPPORT_ROLES,
+            company_profile=company
+        ).first()
+        
+        if not company_admin:
+            return JsonResponse({'success': False, 'error': 'No admin available for this company'}, status=400)
+
         new_message = Message.objects.create(
-            sender=request.user,
-            recipient=admin_user,
+            sender=user,
+            recipient=company_admin,
             message_type="enquiry",
             content=message_content,
             file=file_attachment,
@@ -3425,7 +3706,14 @@ def delete_message(request, message_id):
 
 @login_required
 def chat_unread_count(request):
+    """
+    API endpoint to get unread message counts for chat sidebar.
+    CRITICAL: Enforces strict company-based data isolation including affiliations.
+    """
     user = request.user
+    
+    # Get the current company from request (set by middleware)
+    company = getattr(request, 'company', None) or getattr(user, 'company_profile', None)
 
     data = {
         'total_unread': 0,
@@ -3435,9 +3723,20 @@ def chat_unread_count(request):
         'admin_unread_marketers': [],
         'marketer_count': 0,
     }
+    
+    # Security: Must have a valid company context
+    if not company:
+        return JsonResponse(data)
 
     if getattr(user, 'role', None) in SUPPORT_ROLES:
+        # SECURITY: Get all user IDs for this company (including affiliations)
+        all_client_ids = get_all_clients_for_company(company)
+        all_marketer_ids = get_all_marketer_ids_for_company(company)
+        
+        # SECURITY: Count unread messages only from users in this company
         total = Message.objects.filter(
+            sender_id__in=all_client_ids | all_marketer_ids,
+            recipient__company_profile=company,
             recipient__role__in=SUPPORT_ROLES,
             is_read=False
         ).count()
@@ -3445,28 +3744,38 @@ def chat_unread_count(request):
 
         from django.db.models import Max, Count, Subquery, OuterRef
 
+        # Subqueries filtered by company support recipients
         latest_content_sq = Subquery(
             Message.objects.filter(
                 sender=OuterRef('pk'),
+                recipient__company_profile=company,
                 recipient__role__in=SUPPORT_ROLES
             ).order_by('-date_sent').values('content')[:1]
         )
         latest_file_sq = Subquery(
             Message.objects.filter(
                 sender=OuterRef('pk'),
+                recipient__company_profile=company,
                 recipient__role__in=SUPPORT_ROLES
             ).order_by('-date_sent').values('file')[:1]
         )
 
+        # SECURITY: Get clients from THIS company (including affiliations) with unread messages
         unread_clients_qs = (CustomUser.objects
             .filter(
+                id__in=all_client_ids,  # CRITICAL: Company isolation including affiliations
                 role='client',
+                sent_messages__recipient__company_profile=company,
                 sent_messages__recipient__role__in=SUPPORT_ROLES,
                 sent_messages__is_read=False
             )
             .annotate(
                 last_message=Max('sent_messages__date_sent'),
-                unread_count=Count('sent_messages'),
+                unread_count=Count('sent_messages', filter=Q(
+                    sent_messages__recipient__company_profile=company,
+                    sent_messages__recipient__role__in=SUPPORT_ROLES,
+                    sent_messages__is_read=False
+                )),
                 last_content=latest_content_sq,
                 last_file=latest_file_sq,
             )
@@ -3483,8 +3792,13 @@ def chat_unread_count(request):
             except Exception:
                 profile_url = None
 
+            # SECURITY: Filter last message by company support
             last_msg = (Message.objects
-                        .filter(sender=c, recipient__role__in=SUPPORT_ROLES)
+                        .filter(
+                            sender=c,
+                            recipient__company_profile=company,
+                            recipient__role__in=SUPPORT_ROLES
+                        )
                         .order_by('-date_sent')
                         .first())
             last_iso = last_msg.date_sent.isoformat() if last_msg else None
@@ -3508,24 +3822,33 @@ def chat_unread_count(request):
         data['client_count'] = unread_clients_qs.count()
         data['admin_unread_clients'] = admin_unread_clients
 
+        # SECURITY: Get marketers from THIS company (including affiliations) with unread messages
         unread_marketers_qs = (CustomUser.objects
             .filter(
+                id__in=all_marketer_ids,  # CRITICAL: Company isolation including affiliations
                 role='marketer',
+                sent_messages__recipient__company_profile=company,
                 sent_messages__recipient__role__in=SUPPORT_ROLES,
                 sent_messages__is_read=False
             )
             .annotate(
                 last_message=Max('sent_messages__date_sent'),
-                unread_count=Count('sent_messages'),
+                unread_count=Count('sent_messages', filter=Q(
+                    sent_messages__recipient__company_profile=company,
+                    sent_messages__recipient__role__in=SUPPORT_ROLES,
+                    sent_messages__is_read=False
+                )),
                 last_content=Subquery(
                     Message.objects.filter(
                         sender=OuterRef('pk'),
+                        recipient__company_profile=company,
                         recipient__role__in=SUPPORT_ROLES
                     ).order_by('-date_sent').values('content')[:1]
                 ),
                 last_file=Subquery(
                     Message.objects.filter(
                         sender=OuterRef('pk'),
+                        recipient__company_profile=company,
                         recipient__role__in=SUPPORT_ROLES
                     ).order_by('-date_sent').values('file')[:1]
                 ),
@@ -3543,8 +3866,13 @@ def chat_unread_count(request):
             except Exception:
                 profile_url = None
 
+            # SECURITY: Filter last message by company support
             last_msg = (Message.objects
-                        .filter(sender=m, recipient__role__in=SUPPORT_ROLES)
+                        .filter(
+                            sender=m,
+                            recipient__company_profile=company,
+                            recipient__role__in=SUPPORT_ROLES
+                        )
                         .order_by('-date_sent')
                         .first())
             last_iso = last_msg.date_sent.isoformat() if last_msg else None
@@ -3568,7 +3896,9 @@ def chat_unread_count(request):
         data['marketer_count'] = unread_marketers_qs.count()
         data['admin_unread_marketers'] = admin_unread_marketers
     else:
+        # For non-admin users (clients/marketers), filter by their company
         data['global_message_count'] = Message.objects.filter(
+            sender__company_profile=company,
             sender__role__in=SUPPORT_ROLES,
             recipient=user,
             is_read=False
@@ -4872,11 +5202,30 @@ def admin_client_chat_list(request):
 
 @login_required
 def admin_marketer_chat_view(request, marketer_id):
+    # SECURITY: Get company context and verify marketer belongs to company
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    
+    if company:
+        # Verify marketer belongs to this company (including affiliations)
+        all_marketer_ids = get_all_marketer_ids_for_company(company)
+        if int(marketer_id) not in all_marketer_ids:
+            messages.error(request, "The marketer you are trying to chat with does not exist in your company.")
+            return redirect('admin_chat_hub')
+    
     marketer = get_object_or_404(CustomUser, id=marketer_id, role='marketer')
     admin_user = request.user
 
     # Mark all unread messages from this marketer to ANY admin as read
-    Message.objects.filter(sender=marketer, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
+    # SECURITY: Only mark messages to company support as read
+    if company:
+        Message.objects.filter(
+            sender=marketer, 
+            recipient__role__in=SUPPORT_ROLES,
+            recipient__company_profile=company,
+            is_read=False
+        ).update(is_read=True, status='read')
+    else:
+        Message.objects.filter(sender=marketer, recipient__role__in=SUPPORT_ROLES, is_read=False).update(is_read=True, status='read')
 
     # Full conversation between this marketer and ANY admin
     # Build companies list for explorer: companies where marketer has transactions
@@ -6918,7 +7267,10 @@ def client_new_property_request(request):
 
 @login_required
 def chat_view(request):
-    """Client chat interface with company selection"""
+    """
+    Client chat interface with company selection.
+    SECURITY: Only shows messages with companies the client is affiliated with.
+    """
     if not request.user.is_authenticated:
         return redirect('login')
     
@@ -6928,28 +7280,52 @@ def chat_view(request):
     
     client = request.user
     
-    # Get all companies where client has plot allocations
-    companies = Company.objects.filter(
-        estates__plotallocation__client=client
-    ).distinct().order_by('company_name')
+    # SECURITY: Get all companies this client is affiliated with
+    # 1. Via company_profile (primary company)
+    # 2. Via PlotAllocation (has property with company)
+    # 3. Via ClientMarketerAssignment (assigned to marketer in company)
+    affiliated_company_ids = set()
     
-    # If no allocations found, fall back to user's direct company
+    # Primary company
+    if client.company_profile:
+        affiliated_company_ids.add(client.company_profile.id)
+    
+    # PlotAllocations
+    alloc_company_ids = PlotAllocation.objects.filter(
+        client=client
+    ).values_list('estate__company', flat=True).distinct()
+    affiliated_company_ids.update([c for c in alloc_company_ids if c])
+    
+    # ClientMarketerAssignment
+    cma_company_ids = ClientMarketerAssignment.objects.filter(
+        client_id=client.id
+    ).values_list('company_id', flat=True).distinct()
+    affiliated_company_ids.update(cma_company_ids)
+    
+    # Get companies queryset
+    companies = Company.objects.filter(id__in=affiliated_company_ids).order_by('company_name')
+    
+    # SECURITY: If client has no affiliations, disable chat
     if not companies.exists():
-        if client.company_profile:
-            companies = Company.objects.filter(id=client.company_profile.id)
-        else:
-            companies = Company.objects.none()
+        context = {
+            'companies': [],
+            'selected_company': None,
+            'client': client,
+            'messages': [],
+            'no_affiliations': True,
+        }
+        return render(request, 'client_side/chat_interface.html', context)
     
-    # Get selected company from query params or default to first company
-    selected_company_id = request.GET.get('company_id')
+    # Get selected company from query params - do NOT auto-select
+    selected_company_id = request.GET.get('company_id') or request.POST.get('company_id')
+    selected_company = None
     if selected_company_id:
         try:
+            # SECURITY: Verify company is in client's affiliated companies
             selected_company = companies.get(id=selected_company_id)
         except Company.DoesNotExist:
-            messages.error(request, "Selected company not found.")
-            selected_company = companies.first() if companies.exists() else None
-    else:
-        selected_company = companies.first() if companies.exists() else None
+            messages.error(request, "Selected company not found or you are not affiliated with it.")
+            selected_company = None
     
     # Handle message sending (POST request)
     if request.method == 'POST':
@@ -7028,11 +7404,15 @@ def chat_view(request):
     
     # Handle GET request - check for history/polling
     
+    # SECURITY: Get list of company IDs client is affiliated with
+    affiliated_company_ids = list(companies.values_list('id', flat=True))
+    
     # HISTORY branch: Full conversation load (when switching companies)
     if request.method == "GET" and 'history' in request.GET:
-        # Always get ALL messages for this client (no company filter)
+        # SECURITY: Only get messages from affiliated companies
         all_messages = Message.objects.filter(
-            Q(sender=client) | Q(recipient=client)
+            Q(sender=client) | Q(recipient=client),
+            company__id__in=affiliated_company_ids  # SECURITY: Filter by affiliated companies
         ).select_related('sender', 'recipient', 'company').order_by('date_sent')
         
         # Generate HTML for all messages
@@ -7055,9 +7435,10 @@ def chat_view(request):
         except (ValueError, TypeError):
             last_msg_id = 0
         
-        # Always get ALL new messages for this client (no company filter)
+        # SECURITY: Only get new messages from affiliated companies
         new_messages = Message.objects.filter(
-            id__gt=last_msg_id
+            id__gt=last_msg_id,
+            company__id__in=affiliated_company_ids  # SECURITY: Filter by affiliated companies
         ).filter(
             Q(sender=client) | Q(recipient=client)
         ).select_related('sender', 'recipient', 'company').order_by('date_sent')
@@ -7081,10 +7462,10 @@ def chat_view(request):
         })
     
     # Regular GET request - display chat interface
-    # Always show ALL messages for this client (regardless of company)
-    # This ensures admin replies are always visible
+    # SECURITY: Only show messages from affiliated companies
     messages_list = Message.objects.filter(
-        Q(sender=client) | Q(recipient=client)
+        Q(sender=client) | Q(recipient=client),
+        company__id__in=affiliated_company_ids  # SECURITY: Filter by affiliated companies
     ).select_related('sender', 'recipient', 'company').order_by('date_sent')
     
     context = {
