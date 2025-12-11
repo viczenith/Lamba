@@ -99,12 +99,13 @@ class RequestAffiliationAPIView(APIView):
                 'error': f'You already have an affiliation with {company.company_name} (Status: {existing.get_status_display()})'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Create affiliation request
+        # Create affiliation (active immediately since companies add marketers directly)
         with transaction.atomic():
             affiliation = MarketerAffiliation.objects.create(
                 marketer=user,
                 company=company,
-                status='pending_approval',
+                status='active',
+                approval_date=timezone.now(),
                 commission_tier='bronze',  # Default tier
                 commission_rate=Decimal('2.0')  # Default 2%
             )
@@ -112,8 +113,8 @@ class RequestAffiliationAPIView(APIView):
             # Create notification for company admins
             notification = Notification.objects.create(
                 company=company,
-                title='New Marketer Affiliation Request',
-                message=f'{user.full_name} has requested to become an affiliate marketer for your company. Please review and approve/reject this request.',
+                title='New Marketer Added',
+                message=f'{user.full_name} has been added as an affiliate marketer for your company.',
                 notification_type=Notification.COMPANY_ANNOUNCEMENT,
                 priority='high'
             )

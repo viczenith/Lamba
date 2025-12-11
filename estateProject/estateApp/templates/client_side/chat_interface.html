@@ -1346,7 +1346,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // Poll for new messages every 1.5 seconds (faster for real-time feel)
     // Initialize lastMessageId using the last message in the conversation or 0.
     let lastMessageId = {{ messages.last.id|default:0 }};
-    let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
+    // Get selectedCompanyId - ensure it's null if empty, not empty string
+    let selectedCompanyIdRaw = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : '';
+    let selectedCompanyId = selectedCompanyIdRaw && selectedCompanyIdRaw.trim() ? selectedCompanyIdRaw.trim() : null;
     let audioContext = null;
     let notificationEnabled = true;
     
@@ -1510,7 +1512,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if(data.messages && data.messages.length > 0 && data.messages_html) {
                     // Check for incoming messages (not from current user)
                     data.messages.forEach(function(msg) {
-                        if (msg.sender__email !== currentUserEmail) {
+                        if (msg.sender_email && msg.sender_email !== currentUserEmail) {
                             newIncomingMessages = true;
                         }
                     });

@@ -39,6 +39,21 @@
       transform: translateY(-5px);
     }
     
+    /* Property Card Styles */
+    .property-item {
+      border: 1px solid #e9ecef !important;
+    }
+    
+    .property-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15) !important;
+      border-color: #10b981 !important;
+    }
+    
+    .hover-shadow {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
     .appreciation-details {
       background-color: #f8f9fa;
       border-radius: 10px;
@@ -259,11 +274,11 @@
         <!-- Marketer Details Card -->
         <div class="col-md-3">
           <div class="stat-card p-3 rounded shadow-sm h-100 bg-light-info">
-            <div class="small text-muted">Your Marketer is</div>
+            <div class="small text-muted">Your Marketer's Name is</div>
             {% if marketer %}
               <div class="h5 fw-bold mb-1">{{ marketer.full_name }}</div>
-              <div class="small text-muted">{{ marketer.email }}</div>
-              <div class="small">Phone: {% if marketer.phone %}<a href="tel:{{ marketer.phone }}">{{ marketer.phone }}</a>{% else %}-{% endif %}</div>
+              <!-- <div class="small text-muted">{{ marketer.email }}</div>
+              <div class="small">Phone: {% if marketer.phone %}<a href="tel:{{ marketer.phone }}">{{ marketer.phone }}</a>{% else %}-{% endif %}</div> -->
             {% else %}
               <div class="text-muted">No marketer assigned</div>
             {% endif %}
@@ -290,91 +305,84 @@
             <div class="tab-pane fade show active" id="properties-pane" role="tabpanel" aria-labelledby="properties-tab">
               <div class="card mb-3">
                 <div class="card-body">
-                  <h5 class="card-title">Your Properties</h5>
-              {% if transactions and transactions.count %}
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Estate</th>
-                        <th scope="col">Plot Size</th>
-                        <th scope="col">Plot Number</th>
-                        <th scope="col">Purchase Price</th>
-                        <th scope="col">Purchase Date</th>
-                        <th scope="col">Current Value</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">View Receipts</th>
-                        <th scope="col">Plot Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for transaction in transactions %}
-                        <tr data-id="{{ transaction.allocation.id }}">
-                          <td data-label="#">{{ forloop.counter }}</td>
-                          <td data-label="Estate Name" class="fw-bold">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-houses me-2 text-success"></i>Your Properties</h5>
+                    <span class="badge bg-success rounded-pill px-3 py-2">{{ transactions|length }} Propert{{ transactions|length|pluralize:"y,ies" }}</span>
+                  </div>
+              {% if transactions %}
+                <!-- Property Cards Grid -->
+                <div class="row g-3">
+                  {% for transaction in transactions %}
+                    <div class="col-12">
+                      <div class="property-item border rounded-3 p-3 hover-shadow" style="transition: all 0.3s ease; background: linear-gradient(135deg, #ffffff 0%, #f8fffe 100%);">
+                        <div class="row align-items-center">
+                          <!-- Property Info -->
+                          <div class="col-lg-5 col-md-6 mb-2 mb-md-0">
                             <div class="d-flex align-items-center">
-                              <i class="bi bi-building me-2 text-primary"></i>
-                              {{ transaction.allocation.estate.name }}
+                              <div class="property-icon me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-building text-white fs-5"></i>
+                              </div>
+                              <div>
+                                <h6 class="mb-1 fw-bold text-dark">{{ transaction.allocation.estate.name }}</h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                  <span class="badge bg-light text-dark border"><i class="bi bi-rulers me-1"></i>{{ transaction.allocation.plot_size.size }}</span>
+                                  {% if transaction.allocation.plot_number %}
+                                    <span class="badge bg-success"><i class="bi bi-geo-alt me-1"></i>Plot {{ transaction.allocation.plot_number.number }}</span>
+                                  {% else %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Reserved</span>
+                                  {% endif %}
+                                </div>
+                              </div>
                             </div>
-                          </td>
-                          <td data-label="Plot Size">{{ transaction.allocation.plot_size.size }}</td>
-                          <td data-label="Plot Number">
-                            {% if transaction.allocation.plot_number %}
-                              <span class="badge bg-success">
-                                {{ transaction.allocation.plot_number.number }}
+                          </div>
+                          
+                          <!-- Price & Value -->
+                          <div class="col-lg-4 col-md-6 mb-2 mb-md-0">
+                            <div class="row text-center">
+                              <div class="col-6">
+                                <small class="text-muted d-block">Purchase Price</small>
+                                <span class="fw-bold">₦{{ transaction.total_amount|floatformat:"2g" }}</span>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Current Value</small>
+                                <span class="fw-bold text-success">
+                                  {% if transaction.current_value %}₦{{ transaction.current_value|floatformat:"2g" }}{% else %}-{% endif %}
+                                </span>
+                              </div>
+                            </div>
+                            <div class="text-center mt-1">
+                              <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ transaction.transaction_date|date:"M d, Y" }}</small>
+                            </div>
+                          </div>
+                          
+                          <!-- Status & Actions -->
+                          <div class="col-lg-3 col-md-12">
+                            <div class="d-flex flex-column flex-md-row align-items-center justify-content-end gap-2">
+                              <span class="badge rounded-pill px-3 py-2 bg-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}success{% elif transaction.status == 'Overdue' %}danger{% else %}warning text-dark{% endif %}">
+                                <i class="bi bi-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}check-circle{% elif transaction.status == 'Overdue' %}exclamation-circle{% else %}clock-history{% endif %} me-1"></i>
+                                {{ transaction.status }}
                               </span>
-                            {% else %}
-                              <span class="badge bg-warning">Reserved</span>
-                            {% endif %}
-                          </td>
-                          <td class="fw-bold" data-label="Purchase Price">₦{{ transaction.total_amount|floatformat:"2g" }}</td>
-                          <td data-label="Date Purchased">{{ transaction.transaction_date|date:"M d, Y" }}</td>
-                          <td class="fw-bold text-success" data-label="Current Value">
-                            {% if transaction.current_value %}
-                              ₦{{ transaction.current_value|floatformat:"2g" }}
-                            {% else %}
-                              <span class="text-muted">-</span>
-                            {% endif %}
-                          </td>
-                          <td data-label="Payment Status">
-                            <span class="badge bg-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}success{% elif transaction.status == 'Overdue' %}danger{% else %}warning{% endif %}">
-                              {{ transaction.status }}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              class="btn btn-sm btn-outline-success"
-                              data-bs-toggle="modal"
-                              data-bs-target="#transactionDetailsModal"
-                              data-id="{{ transaction.id }}"
-                            >
-                              <i class="bi bi-receipt"></i> View Receipts
-                            </button>
-                          </td>
-                          <td class="text-end">
-                            {% if transaction.allocation and transaction.allocation.estate and transaction.allocation.plot_size %}
-                              <a
-                                href="{% url 'view-client-estate' transaction.allocation.estate.id transaction.allocation.plot_size.id %}"
-                                class="btn btn-sm btn-outline-primary"
-                              >
-                                <i class="bi bi-book"></i> View Plot Details
-                              </a>
-                            {% else %}
-                              <span class="text-muted">N/A</span>
-                            {% endif %}
-                          </td>
-                        </tr>
-                      {% empty %}
-                        <tr>
-                          <td colspan="10" class="text-center py-4">
-                            <i class="bi bi-house-exclamation display-6 text-muted"></i>
-                            <p class="mt-3">No properties found in this company</p>
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
+                              <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#transactionDetailsModal" data-id="{{ transaction.id }}" title="View Receipts">
+                                  <i class="bi bi-receipt"></i>
+                                </button>
+                                {% if transaction.allocation and transaction.allocation.estate and transaction.allocation.plot_size %}
+                                  <a href="{% url 'view-client-estate' transaction.allocation.estate.id transaction.allocation.plot_size.id %}" class="btn btn-sm btn-outline-primary" title="View Plot Details">
+                                    <i class="bi bi-eye"></i>
+                                  </a>
+                                {% endif %}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% empty %}
+                    <div class="col-12 text-center py-5">
+                      <i class="bi bi-house-exclamation display-4 text-muted"></i>
+                      <p class="mt-3 text-muted">No properties found in this company</p>
+                    </div>
+                  {% endfor %}
                 </div>
               {% else %}
                 <div class="text-center py-5">
@@ -528,24 +536,60 @@
             </ul>
           </div>
 
+          <!-- Recent Payments with Year Accordion -->
           <div class="card p-3">
-            <h6 class="mb-2">Recent Transactions</h6>
-            {% if transactions and transactions.count %}
-              <ul class="list-group list-group-flush">
-                {% for tx in transactions|slice:":5" %}
-                  <li class="list-group-item d-flex justify-content-between align-items-start">
-                    <div>
-                      <div class="fw-semibold">{{ tx.reference_code }}</div>
-                      <div class="small text-muted">{{ tx.transaction_date|date:"d M Y" }}</div>
+            <h6 class="mb-3"><i class="bi bi-credit-card me-2"></i>Recent Payments</h6>
+            {% if payments_by_year %}
+              <div class="accordion accordion-flush" id="paymentYearAccordion">
+                {% for year, payments in payments_by_year.items %}
+                  <div class="accordion-item border rounded mb-2">
+                    <h2 class="accordion-header" id="heading{{ year }}">
+                      <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} py-2 px-3" type="button" 
+                              data-bs-toggle="collapse" data-bs-target="#collapse{{ year }}" 
+                              aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                              aria-controls="collapse{{ year }}"
+                              style="background-color: {% if forloop.first %}#e8f5e9{% else %}#f8f9fa{% endif %};">
+                        <span class="d-flex align-items-center justify-content-between w-100 me-2">
+                          <span>
+                            <i class="bi bi-calendar3 me-2 text-success"></i>
+                            <strong>{{ year }}</strong>
+                          </span>
+                          <span class="badge bg-success rounded-pill">{{ payments|length }} payment{{ payments|length|pluralize }}</span>
+                        </span>
+                      </button>
+                    </h2>
+                    <div id="collapse{{ year }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                         aria-labelledby="heading{{ year }}" data-bs-parent="#paymentYearAccordion">
+                      <div class="accordion-body p-0">
+                        <ul class="list-group list-group-flush">
+                          {% for payment in payments %}
+                            <li class="list-group-item d-flex justify-content-between align-items-start py-2 px-3">
+                              <div>
+                                <div class="fw-semibold small">{{ payment.reference_code }}</div>
+                                <div class="small text-muted">{{ payment.date|date:"d M Y" }}</div>
+                                <span class="badge bg-{% if payment.payment_type == 'Full Payment' %}primary{% else %}info{% endif %} small mt-1">
+                                  {{ payment.payment_type }}
+                                </span>
+                              </div>
+                              <div class="text-end">
+                                <div class="fw-bold text-success">₦{{ payment.amount|intcomma }}</div>
+                                <span class="badge bg-{% if payment.status == 'Paid' or payment.status == 'Paid Complete' or payment.status == 'Fully Paid' %}success{% elif payment.status == 'Overdue' %}danger{% else %}warning{% endif %} small">
+                                  {{ payment.status }}
+                                </span>
+                              </div>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
                     </div>
-                    <div class="text-end">
-                      <div class="fw-bold">₦{{ tx.total_amount|intcomma }}</div>
-                    </div>
-                  </li>
+                  </div>
                 {% endfor %}
-              </ul>
+              </div>
             {% else %}
-              <p class="small text-muted mb-0">No recent transactions.</p>
+              <div class="text-center py-3">
+                <i class="bi bi-inbox text-muted" style="font-size: 1.5rem;"></i>
+                <p class="text-muted small mt-2 mb-0">No payments yet.</p>
+              </div>
             {% endif %}
           </div>
         </div>
@@ -621,7 +665,7 @@
 
 {% endblock %}
 
-{% block extra_scripts %}
+{% block extra_js %}
   <!-- jQuery must load first -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <!-- Chart.js (optional) -->
@@ -636,13 +680,11 @@
         });
       }
 
-      // Transaction Details Modal Handler
+      // Transaction Details Modal Handler (aligned with client_profile.html)
       $('#transactionDetailsModal').on('show.bs.modal', function(e) {
-        // Get the button that triggered the modal (handle both button and icon click)
-        var $button = $(e.relatedTarget);
-        var id = $button.data('id') || $button.closest('button').data('id');
+        const id = $(e.relatedTarget).data('id');
         
-        console.log('Modal triggered, transaction ID:', id);
+        console.log('Modal opening for transaction ID:', id);
         
         // Clear previous data
         $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
@@ -659,51 +701,49 @@
         $('#txn-modal-loading').show();
         $('#txn-modal-error').addClass('d-none');
         
+        const url = `/transaction/${id}/details/`;
+        console.log('Fetching from:', url);
+        
         // Fetch transaction details
-        $.ajax({
-          url: '/transaction/' + id + '/details/',
-          type: 'GET',
-          dataType: 'json',
-          success: function(d) {
-            console.log('Transaction details received:', d);
+        $.get(url)
+          .done(d => {
+            console.log('Transaction data received:', d);
             $('#txn-modal-loading').hide();
             
-            // Populate from allocation object
-            $('#td_estate').text(d.allocation && d.allocation.estate ? d.allocation.estate.name : 'N/A');
-            $('#td_plot_size').text(d.allocation ? d.allocation.plot_size : 'N/A');
-            $('#td_date').text(d.transaction_date || 'N/A');
-            $('#td_amount').text(formatCurrency(d.total_amount || 0));
+            // Basic info
+            $('#td_estate').text(d.allocation.estate.name);
+            $('#td_plot_size').text(d.allocation.plot_size);
+            $('#td_date').text(d.transaction_date);
+            $('#td_amount').text(formatCurrency(d.total_amount));
             
             // Payment Type badge
-            var paymentType = d.allocation ? d.allocation.payment_type : 'full';
-            var ptHtml = paymentType === 'part'
+            const ptHtml = d.allocation.payment_type === 'part'
               ? '<span class="badge bg-info text-dark">Part Payment</span>'
               : '<span class="badge bg-primary">Full Payment</span>';
             $('#td_payment_type').html(ptHtml);
             
             // Status badge
-            var statusHtml = '';
-            var status = d.status || 'Unknown';
-            switch(status) {
+            let statusHtml = '';
+            switch(d.status) {
               case 'Paid Complete':
               case 'Fully Paid':
-                statusHtml = '<span class="badge bg-success">' + status + '</span>';
+                statusHtml = '<span class="badge bg-success">' + d.status + '</span>';
                 break;
               case 'Part Payment':
-                statusHtml = '<span class="badge bg-warning text-dark">' + status + '</span>';
+                statusHtml = '<span class="badge bg-warning text-dark">' + d.status + '</span>';
                 break;
               case 'Overdue':
-                statusHtml = '<span class="badge bg-danger">' + status + '</span>';
+                statusHtml = '<span class="badge bg-danger">' + d.status + '</span>';
                 break;
               default:
-                statusHtml = '<span class="badge bg-secondary">' + status + '</span>';
+                statusHtml = '<span class="badge bg-secondary">' + d.status + '</span>';
             }
             $('#td_status').html(statusHtml);
             
-            // Part-payment details
-            if(paymentType === 'part') {
-              // Duration
-              var durText = '';
+            // If part-payment, show duration & installments
+            if(d.allocation.payment_type === 'part') {
+              // Payment Duration
+              let durText = '';
               if(d.payment_duration) {
                 durText = d.payment_duration + ' month' + (d.payment_duration > 1 ? 's' : '');
               } else if(d.custom_duration) {
@@ -716,9 +756,9 @@
               
               // Installment plan
               if(d.installment_plan) {
-                var planText = d.installment_plan === 'custom'
-                  ? (d.first_percent + '%, ' + d.second_percent + '%, ' + d.third_percent + '%')
-                  : d.installment_plan.replace(/-/g, '%, ') + '%';
+                const planText = d.installment_plan === 'custom'
+                  ? `${d.first_percent}%, ${d.second_percent}%, ${d.third_percent}%`
+                  : d.installment_plan.split('-').join('%, ') + '%';
                 $('#td_plan').text(planText);
                 $('#row_plan').show();
               }
@@ -737,78 +777,52 @@
                 $('#row_third').show();
               }
             }
-          },
-          error: function(xhr, status, error) {
-            console.error('Transaction fetch failed:', status, error, xhr.responseText);
+          })
+          .fail((xhr, status, error) => {
+            console.error('Transaction fetch failed:', status, error, 'Response:', xhr.responseText);
             $('#txn-modal-loading').hide();
-            $('#txn-modal-error').removeClass('d-none').text('Error loading transaction details: ' + error);
-          }
-        });
+            $('#txn-modal-error').removeClass('d-none').text('Error loading transaction details: ' + (xhr.status === 404 ? 'Transaction not found' : error));
+          });
         
         // Fetch payment history
-        $.ajax({
-          url: "{% url 'ajax_payment_history' %}",
-          type: 'GET',
-          data: { transaction_id: id },
-          dataType: 'json',
-          success: function(d) {
+        console.log('Fetching payment history for transaction:', id);
+        $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
+          .done(d => {
             console.log('Payment history received:', d);
-            var html = '';
+            let html = '';
             
-            if(d.payments && d.payments.length) {
-              d.payments.forEach(function(p) {
-                html += '<tr>' +
-                  '<td>' + (p.date || '') + '</td>' +
-                  '<td>' + formatCurrency(p.amount || 0) + '</td>' +
-                  '<td>' + (p.method || '') + '</td>' +
-                  '<td>' + (p.installment || '') + '</td>' +
-                  '<td>' + (p.reference || '') + '</td>' +
-                  '<td class="text-end">' +
-                    '<button class="btn btn-sm btn-outline-success view-receipt-btn" data-reference="' + (p.reference || '') + '">' +
-                      '<i class="bi bi-download"></i> Download' +
-                    '</button>' +
-                  '</td>' +
-                '</tr>';
+            if(d.payments?.length) {
+              d.payments.forEach(p => {
+                html += `<tr>
+                  <td>${p.date}</td>
+                  <td>${formatCurrency(p.amount)}</td>
+                  <td>${p.method}</td>
+                  <td>${p.installment}</td>
+                  <td>${p.reference || ''}</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-success view-receipt-btn" 
+                            data-reference="${p.reference}">
+                      <i class="bi bi-download"></i> Download
+                    </button>
+                  </td>
+                </tr>`;
               });
             } else {
               html = '<tr><td colspan="6" class="text-center">No payment history</td></tr>';
             }
             
             $('#payment_history_body').html(html);
-          },
-          error: function(xhr, status, error) {
-            console.error('Payment history fetch failed:', status, error, xhr.responseText);
+          })
+          .fail(() => {
             $('#payment_history_body').html('<tr><td colspan="6" class="text-center">Error loading payment history</td></tr>');
-          }
-        });
+          });
       });
 
       // Handle receipt download
       $(document).on('click', '.view-receipt-btn', function() {
-        var reference = $(this).attr('data-reference') || $(this).data('reference');
-        if(reference) window.open('/payment/receipt/' + reference + '/', '_blank');
+        const reference = $(this).data('reference');
+        if(reference) window.open(`/payment/receipt/${reference}/`, '_blank');
       });
-      
-      // Chart initialization (if canvas exists)
-      var ctx = document.getElementById('allocTrendChart');
-      if (ctx) {
-        try {
-          var labels = JSON.parse('{{ allocations|json_script:"allocLabels" }}');
-          var data = JSON.parse('{{ allocations|length|json_script:"allocData" }}');
-          var counts = {};
-          for(var i=0;i<labels.length;i++){ counts[labels[i]] = (counts[labels[i]]||0) + 1; }
-          var groupedLabels = Object.keys(counts);
-          var groupedData = groupedLabels.map(function(k){ return counts[k]; });
-          new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: groupedLabels,
-              datasets: [{ label: 'Allocations', data: groupedData, backgroundColor: 'rgba(108,92,231,0.9)' }]
-            },
-            options: { responsive:true, maintainAspectRatio:true, scales:{ y:{ beginAtZero:true } } }
-          });
-        } catch(e) { console.error(e); }
-      }
     });
   </script>
 {% endblock %}

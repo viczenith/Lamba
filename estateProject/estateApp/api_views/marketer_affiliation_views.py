@@ -95,11 +95,12 @@ class MarketerAffiliationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create pending affiliation
+        # Create affiliation (active immediately since companies add marketers directly)
         affiliation = MarketerAffiliation.objects.create(
             marketer=request.user,
             company=company,
-            status='pending_approval',
+            status='active',
+            approval_date=timezone.now(),
             commission_tier=request.data.get('commission_tier', 'bronze'),
             bank_name=request.data.get('bank_name'),
             account_number=request.data.get('account_number'),
@@ -118,7 +119,7 @@ class MarketerAffiliationViewSet(viewsets.ModelViewSet):
         return Response({
             'total_affiliations': affiliations.count(),
             'active': affiliations.filter(status='active').count(),
-            'pending': affiliations.filter(status='pending_approval').count(),
+            'suspended': affiliations.filter(status='suspended').count(),
             'affiliations': serializer.data
         })
     

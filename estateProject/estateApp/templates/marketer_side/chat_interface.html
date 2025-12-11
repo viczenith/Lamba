@@ -1331,9 +1331,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Reset textarea height
                     if (messageInput) messageInput.style.height = 'auto';
                 } else {
-                    // Don't show error for empty message - just ignore
-                    if (data.error && !data.error.includes('provide either a message')) {
-                        showErrorModal(data.error, 'Error');
+                    // Show validation error to user (e.g., empty message)
+                    if (data.error) {
+                        showErrorModal(data.error, 'Message');
                     }
                 }
             })
@@ -1347,7 +1347,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // Poll for new messages every 1.5 seconds (faster for real-time feel)
     // Initialize lastMessageId using the last message in the conversation or 0.
     let lastMessageId = {{ messages.last.id|default:0 }};
-    let selectedCompanyId = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : null;
+    // Get selectedCompanyId - ensure it's null if empty, not empty string
+    let selectedCompanyIdRaw = document.getElementById('company-id-input') ? document.getElementById('company-id-input').value : '';
+    let selectedCompanyId = selectedCompanyIdRaw && selectedCompanyIdRaw.trim() ? selectedCompanyIdRaw.trim() : null;
     let audioContext = null;
     let notificationEnabled = true;
     
@@ -1415,6 +1417,9 @@ document.addEventListener("DOMContentLoaded", function() {
         var tempDiv = document.createElement('div');
         tempDiv.innerHTML = messagesHtml;
         
+        // Get the messages container (not chatWindow parent)
+        var messagesContainer = document.getElementById('messages-container') || chatWindow;
+        
         // Get all child elements (message rows AND day dividers)
         var allElements = tempDiv.children;
         
@@ -1423,7 +1428,7 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Check if it's a day divider
             if (element.classList.contains('chat-day-divider')) {
-                chatWindow.appendChild(element);
+                messagesContainer.appendChild(element);
                 continue;
             }
             
@@ -1433,7 +1438,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 var msgId = bubble ? bubble.getAttribute('data-msg-id') : null;
                 
                 if (msgId && !document.querySelector('[data-msg-id="' + msgId + '"]')) {
-                    chatWindow.appendChild(element);
+                    messagesContainer.appendChild(element);
                     lastMessageId = Math.max(lastMessageId, parseInt(msgId));
                 }
             }
@@ -1513,7 +1518,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if(data.messages && data.messages.length > 0 && data.messages_html) {
                     // Check for incoming messages (not from current user)
                     data.messages.forEach(function(msg) {
-                        if (msg.sender__email !== currentUserEmail) {
+                        if (msg.sender_email && msg.sender_email !== currentUserEmail) {
                             newIncomingMessages = true;
                         }
                     });

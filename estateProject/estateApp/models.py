@@ -538,7 +538,6 @@ class MarketerAffiliation(models.Model):
         ('active', 'Active'),
         ('suspended', 'Suspended'),
         ('terminated', 'Terminated'),
-        ('pending_approval', 'Pending Approval'),
     ]
     
     # Core relationship
@@ -595,7 +594,7 @@ class MarketerAffiliation(models.Model):
     status = models.CharField(
         max_length=20,
         choices=AFFILIATION_STATUS,
-        default='pending_approval',
+        default='active',
         verbose_name="Status"
     )
     
@@ -622,6 +621,20 @@ class MarketerAffiliation(models.Model):
     
     def __str__(self):
         return f"{self.marketer.full_name} - {self.company.company_name} ({self.get_status_display()})"
+    
+    def clean(self):
+        """SECURITY: Validate that marketer has role='marketer' to prevent data leakage"""
+        from django.core.exceptions import ValidationError
+        
+        if self.marketer and getattr(self.marketer, 'role', None) != 'marketer':
+            raise ValidationError({
+                'marketer': f"User must have role='marketer'. Got role='{getattr(self.marketer, 'role', None)}'"
+            })
+    
+    def save(self, *args, **kwargs):
+        """Run validation before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def get_pending_commissions(self):
         """Get total commissions that haven't been paid yet"""
@@ -1310,6 +1323,27 @@ class ClientMarketerAssignment(models.Model):
 
     def __str__(self):
         return f"{self.client} → {self.marketer} @ {self.company}"
+
+    def clean(self):
+        """SECURITY: Validate role integrity to prevent data leakage"""
+        from django.core.exceptions import ValidationError
+        
+        # Ensure client has role='client'
+        if self.client and getattr(self.client, 'role', None) != 'client':
+            raise ValidationError({
+                'client': f"User must have role='client'. Got role='{getattr(self.client, 'role', None)}'"
+            })
+        
+        # Ensure marketer has role='marketer'
+        if self.marketer and getattr(self.marketer, 'role', None) != 'marketer':
+            raise ValidationError({
+                'marketer': f"User must have role='marketer'. Got role='{getattr(self.marketer, 'role', None)}'"
+            })
+    
+    def save(self, *args, **kwargs):
+        """Run validation before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def plot_count(self) -> int:
