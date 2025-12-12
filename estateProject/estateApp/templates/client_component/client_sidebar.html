@@ -1,4 +1,4 @@
-  {% load static %}
+{% load static %}
 <!-- ======= Modern Sidebar ======= -->
 <aside id="sidebar" class="sidebar">
   <!-- Navigation Menu -->
@@ -9,7 +9,7 @@
     </li>
     
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'client-dashboard' %}">
+      <a class="nav-link" href="{% url 'secure-client-dashboard' %}">
         <div class="nav-link-icon">
           <i class="fas fa-tachometer-alt"></i>
         </div>
@@ -19,7 +19,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'my-client-profile' %}">
+      <a class="nav-link" href="{% url 'secure-client-profile' %}">
         <div class="nav-link-icon">
           <i class="fas fa-user"></i>
         </div>
@@ -34,7 +34,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'my-companies' %}">
+      <a class="nav-link" href="{% url 'secure-my-companies' %}">
         <div class="nav-link-icon">
           <i class="fas fa-building"></i>
         </div>
@@ -62,7 +62,7 @@
     </li>
 
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'chat' %}">
+      <a class="nav-link" href="{% url 'secure-client-chat' %}">
         <div class="nav-link-icon">
           <i class="fas fa-comment-dots"></i>
         </div>

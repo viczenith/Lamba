@@ -13,8 +13,17 @@ from .tenant_views import (
 )
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 
+# Import secure URL patterns
+from .secure_urls import secure_urlpatterns
+
 
 urlpatterns = [
+    # ============================================
+    # SECURE URL PATTERNS (Priority - checked first)
+    # ============================================
+    # These provide enhanced security for client and marketer pages
+    *secure_urlpatterns,
+    
     # Authentication URLs - Unified Login System with Tenant-Aware Routing
     # Dynamic tenant-specific login route (must come before default login route)
     path('<slug:login_slug>/login/', CustomLoginView.as_view(), name='tenant-login'),

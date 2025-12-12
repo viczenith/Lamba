@@ -11,7 +11,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
 from django.contrib.auth.models import AnonymousUser
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.contrib import messages
 from .models import Company
@@ -556,3 +556,329 @@ def is_company_admin(request):
         hasattr(request.user, 'company_profile') and 
         request.user.company_profile is not None
     )
+
+
+# ===== ADVANCED SECURITY MIDDLEWARE =====
+
+from estateApp.security import (
+    RateLimiter,
+    SecurityValidator,
+    SecureTokenGenerator,
+    _log_security_event,
+    _track_user_activity
+)
+from django.contrib.auth import logout
+
+
+class AdvancedSecurityMiddleware(MiddlewareMixin):
+    """
+    Comprehensive security middleware for all requests.
+    
+    Provides:
+    - Request validation and sanitization
+    - Rate limiting per IP and user
+    - Session integrity checking
+    - Role-based URL protection
+    - Suspicious activity detection
+    """
+    
+    # URLs that don't require full security checks
+    EXEMPT_URLS = [
+        '/static/',
+        '/media/',
+        '/favicon.ico',
+        '/robots.txt',
+        '/api/health/',
+        '/chat_unread_count/',  # AJAX polling endpoint - high frequency
+    ]
+    
+    # URLs that require stricter rate limiting
+    SENSITIVE_URLS = [
+        '/login/',
+        '/register/',
+        '/password-reset/',
+        '/change-password/',
+        '/profile/update/',
+    ]
+    
+    # Client-side URLs (require client role)
+    CLIENT_URLS = [
+        '/client-dashboard',
+        '/my-client-profile',
+        '/my-companies/',
+        '/chat/',
+        '/property-list',
+        '/view-all-requests',
+        '/c/',  # Secure client prefix
+    ]
+    
+    # Marketer-side URLs (require marketer role)
+    MARKETER_URLS = [
+        '/marketer-dashboard',
+        '/marketer-profile',
+        '/marketer/my-companies/',
+        '/marketer/chat/',
+        '/client-records',
+        '/m/',  # Secure marketer prefix
+    ]
+    
+    # Admin-side URLs (require admin role)
+    ADMIN_URLS = [
+        '/chat-admin/',
+        '/admin-dashboard',
+        '/company-profile',
+        '/admin_home',
+    ]
+    
+    # Shared authenticated URLs (require login but any role)
+    AUTHENTICATED_URLS = [
+        '/notifications/',
+    ]
+    
+    def process_request(self, request):
+        """Process incoming request for security."""
+        path = request.path
+        
+        # Skip exempt URLs
+        if any(path.startswith(exempt) for exempt in self.EXEMPT_URLS):
+            return None
+        
+        # Record request start time for performance monitoring
+        request._security_start_time = time.time()
+        
+        # 1. Basic security validation
+        is_valid, error_msg = SecurityValidator.validate_request(request)
+        if not is_valid:
+            _log_security_event(request, 'blocked_request', error_msg)
+            logger.warning(f"Blocked request: {error_msg} | Path: {path}")
+            return HttpResponseForbidden("Request blocked for security reasons.")
+        
+        # 2. Rate limiting for sensitive URLs
+        if any(path.startswith(url) for url in self.SENSITIVE_URLS):
+            is_limited, wait_time = RateLimiter.is_rate_limited(request, 'sensitive')
+            if is_limited:
+                _log_security_event(request, 'rate_limited', f"Sensitive URL rate limited: {path}")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'error': 'rate_limited',
+                        'message': f'Too many requests. Please wait {wait_time} seconds.',
+                        'retry_after': wait_time
+                    }, status=429)
+                messages.error(request, f"Too many requests. Please wait {wait_time} seconds.")
+                return redirect('login')
+        
+        # 3. General rate limiting
+        is_limited, wait_time = RateLimiter.is_rate_limited(request, 'page')
+        if is_limited:
+            _log_security_event(request, 'rate_limited', f"Page rate limited: {path}")
+            return HttpResponseForbidden(f"Too many requests. Please wait {wait_time} seconds.")
+        
+        # 4. Session integrity check for authenticated users
+        if request.user.is_authenticated:
+            if not SecurityValidator.validate_session_integrity(request):
+                _log_security_event(request, 'session_hijack_attempt', 'User agent changed mid-session')
+                logout(request)
+                messages.error(request, "Security alert: Your session has been terminated for security reasons.")
+                return redirect('login')
+            
+            # Track user activity
+            _track_user_activity(request)
+            
+            # 5. Role-based URL protection
+            user_role = getattr(request.user, 'role', None)
+            
+            # Client URL protection
+            if any(path.startswith(url) for url in self.CLIENT_URLS):
+                if user_role != 'client':
+                    _log_security_event(request, 'unauthorized_access', f"Non-client accessing client URL: {path}")
+                    messages.error(request, "Access denied. This page is for clients only.")
+                    return redirect('login')
+            
+            # Marketer URL protection
+            if any(path.startswith(url) for url in self.MARKETER_URLS):
+                if user_role != 'marketer':
+                    _log_security_event(request, 'unauthorized_access', f"Non-marketer accessing marketer URL: {path}")
+                    messages.error(request, "Access denied. This page is for marketers only.")
+                    return redirect('login')
+            
+            # Admin URL protection
+            if any(path.startswith(url) for url in self.ADMIN_URLS):
+                if user_role != 'admin':
+                    _log_security_event(request, 'unauthorized_access', f"Non-admin accessing admin URL: {path}")
+                    messages.error(request, "Access denied. This page is for administrators only.")
+                    return redirect('login')
+        
+        # 6. Authenticated URL protection (any logged-in user)
+        else:
+            # For URLs that require authentication
+            if any(path.startswith(url) for url in self.AUTHENTICATED_URLS):
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing protected URL: {path}")
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
+        
+        return None
+    
+    def process_response(self, request, response):
+        """Add security headers and monitor performance."""
+        
+        # Add security headers
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        response['X-XSS-Protection'] = '1; mode=block'
+        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        
+        # Content Security Policy (adjust based on your needs)
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "img-src 'self' data: https: blob:",
+            "connect-src 'self'",
+            "frame-ancestors 'self'",
+        ]
+        response['Content-Security-Policy'] = '; '.join(csp_directives)
+        
+        # Performance monitoring
+        if hasattr(request, '_security_start_time'):
+            duration = time.time() - request._security_start_time
+            response['X-Response-Time'] = f"{duration:.3f}s"
+            
+            # Log slow requests
+            if duration > 2.0:
+                logger.warning(f"Slow request: {request.path} took {duration:.3f}s")
+        
+        return response
+
+
+class PageLoadOptimizationMiddleware(MiddlewareMixin):
+    """
+    Middleware to optimize page load times.
+    
+    Adds appropriate cache headers for different content types.
+    """
+    
+    def process_response(self, request, response):
+        """Add cache headers for optimization."""
+        path = request.path
+        
+        # Static files - long cache
+        if path.startswith('/static/'):
+            response['Cache-Control'] = 'public, max-age=86400, immutable'
+            return response
+        
+        # Media files - moderate cache
+        if path.startswith('/media/'):
+            response['Cache-Control'] = 'public, max-age=3600'
+            return response
+        
+        # API responses
+        if '/api/' in path:
+            response['Cache-Control'] = 'private, no-cache, must-revalidate'
+            return response
+        
+        # Dynamic pages - no cache for security
+        response['Cache-Control'] = 'private, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        
+        return response
+
+
+class SessionSecurityMiddleware(MiddlewareMixin):
+    """
+    Enhanced session security middleware.
+    
+    Features:
+    - 30-minute inactivity timeout
+    - 24-hour maximum session age
+    - IP change monitoring
+    - Security event logging
+    """
+    
+    # Session timeout in seconds (30 minutes of inactivity)
+    SESSION_TIMEOUT = 1800
+    
+    # Maximum session lifetime (24 hours)
+    MAX_SESSION_AGE = 86400
+    
+    def process_request(self, request):
+        """Check session security."""
+        if not request.user.is_authenticated:
+            return None
+        
+        now = time.time()
+        
+        # Check last activity
+        last_activity = request.session.get('_security_last_activity')
+        if last_activity:
+            if now - last_activity > self.SESSION_TIMEOUT:
+                _log_security_event(request, 'session_timeout', 'Session expired due to inactivity')
+                logout(request)
+                messages.info(request, "Your session has expired due to inactivity. Please login again.")
+                return redirect('login')
+        
+        # Check session creation time
+        session_created = request.session.get('_security_session_created')
+        if session_created:
+            if now - session_created > self.MAX_SESSION_AGE:
+                _log_security_event(request, 'session_expired', 'Session exceeded maximum age')
+                logout(request)
+                messages.info(request, "Your session has expired. Please login again.")
+                return redirect('login')
+        else:
+            # Set session creation time
+            request.session['_security_session_created'] = now
+        
+        # Update last activity
+        request.session['_security_last_activity'] = now
+        
+        # Store user IP for monitoring
+        ip = RateLimiter.get_client_ip(request)
+        session_ip = request.session.get('_security_ip')
+        if session_ip and session_ip != ip:
+            # IP changed - could be mobile network or VPN, or session hijacking
+            # Log but don't block immediately
+            _log_security_event(request, 'ip_change', f"IP changed from {session_ip} to {ip}")
+        request.session['_security_ip'] = ip
+        
+        return None
+
+
+class AntiCSRFEnhancementMiddleware(MiddlewareMixin):
+    """
+    Enhanced CSRF protection beyond Django's built-in protection.
+    
+    Features:
+    - Origin/Referer verification for AJAX requests
+    - Additional header checks
+    - Security event logging
+    """
+    
+    def process_request(self, request):
+        """Additional CSRF checks."""
+        if request.method in ['GET', 'HEAD', 'OPTIONS', 'TRACE']:
+            return None
+        
+        # Check Origin/Referer for AJAX requests
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            origin = request.META.get('HTTP_ORIGIN', '')
+            referer = request.META.get('HTTP_REFERER', '')
+            host = request.get_host()
+            
+            # Verify origin/referer matches host
+            if origin:
+                from urllib.parse import urlparse
+                origin_host = urlparse(origin).netloc
+                if origin_host and origin_host != host:
+                    _log_security_event(request, 'csrf_origin_mismatch', f"Origin: {origin}, Host: {host}")
+                    return HttpResponseForbidden("CSRF verification failed.")
+            elif referer:
+                from urllib.parse import urlparse
+                referer_host = urlparse(referer).netloc
+                if referer_host and referer_host != host:
+                    _log_security_event(request, 'csrf_referer_mismatch', f"Referer: {referer}, Host: {host}")
+                    return HttpResponseForbidden("CSRF verification failed.")
+        
+        return None

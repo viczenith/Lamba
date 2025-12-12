@@ -128,6 +128,11 @@ MIDDLEWARE = [
     # Session expiration middleware (must be after authentication)
     'estateApp.middleware.SessionExpirationMiddleware',
     
+    # ADVANCED SECURITY MIDDLEWARE (after authentication)
+    'estateApp.middleware.AdvancedSecurityMiddleware',     # Request validation & rate limiting
+    'estateApp.middleware.SessionSecurityMiddleware',      # Session hijacking protection
+    'estateApp.middleware.PageLoadOptimizationMiddleware', # Performance optimization
+    
     # ENHANCED Multi-Tenant Middleware (MUST be after authentication)
     # These layers provide automatic query interception + security enforcement
     'superAdmin.enhanced_middleware.EnhancedTenantIsolationMiddleware',  # Auto-detects tenant, sets context
@@ -303,6 +308,90 @@ MESSAGE_TAGS = {
     messages.ERROR: 'danger',
     messages.SUCCESS: 'success',
 }
+
+# ============================================
+# ADVANCED SECURITY SETTINGS
+# ============================================
+
+# Session Security
+SESSION_COOKIE_SECURE = not DEBUG  # HTTPS only in production
+SESSION_COOKIE_HTTPONLY = True     # Prevent JavaScript access
+SESSION_COOKIE_SAMESITE = 'Lax'    # CSRF protection
+SESSION_COOKIE_AGE = 86400         # 24 hours
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on each request
+
+# CSRF Security
+CSRF_COOKIE_SECURE = not DEBUG     # HTTPS only in production
+CSRF_COOKIE_HTTPONLY = True        # Prevent JavaScript access
+CSRF_COOKIE_SAMESITE = 'Lax'       # Additional CSRF protection
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    # Add your production domains here
+]
+
+# Security Headers (some handled by middleware)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# HTTPS Settings (enable in production)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Rate Limiting Configuration
+RATE_LIMIT_ENABLED = True
+RATE_LIMIT_LOGIN_ATTEMPTS = 5      # Max login attempts
+RATE_LIMIT_LOGIN_WINDOW = 300      # 5 minutes window
+RATE_LIMIT_API_REQUESTS = 100      # Max API requests per minute
+RATE_LIMIT_PAGE_REQUESTS = 60      # Max page loads per minute
+
+# Security Logging
+SECURITY_LOG_ENABLED = True
+SECURITY_LOG_FAILED_LOGINS = True
+SECURITY_LOG_SUSPICIOUS_REQUESTS = True
+
+# Logging Configuration for Security Events
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'security': {
+            'format': '[{asctime}] {levelname} {name} - {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'formatter': 'security',
+        },
+        'console': {
+            'level': 'WARNING',
+            'class': 'logging.StreamHandler',
+            'formatter': 'security',
+        },
+    },
+    'loggers': {
+        'security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
+
+# Create logs directory if it doesn't exist
+import os
+LOGS_DIR = BASE_DIR / 'logs'
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
 
 # Firebase / push notifications 
 FIREBASE_CREDENTIALS_PATH = os.environ.get('FIREBASE_CREDENTIALS_PATH')
