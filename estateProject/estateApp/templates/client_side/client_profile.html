@@ -1,6 +1,593 @@
 {% extends 'client_base.html' %}
 {% load static %}
 {% load humanize %}
+
+{% block extra_css %}
+<style>
+  /* Profile Avatar Section */
+  .profile-avatar-section {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .avatar-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  .profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #fff;
+    box-shadow: 0 8px 24px rgba(65,84,241,0.15);
+  }
+  .avatar-status {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #10b981, #34d399);
+    border: 3px solid #fff;
+    border-radius: 50%;
+  }
+  .profile-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #012970;
+  }
+  .profile-role {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+  }
+  
+  /* Profile Stats */
+  .profile-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px;
+    border: 1px solid #e8ecf4;
+    transition: all 0.3s ease;
+  }
+  .stat-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(65,84,241,0.1);
+  }
+  .stat-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .stat-icon-wrapper i {
+    color: #fff;
+    font-size: 18px;
+  }
+  .stat-icon-wrapper.invested {
+    background: linear-gradient(135deg, #10b981, #34d399);
+  }
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-number {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #012970;
+    line-height: 1.2;
+  }
+  .stat-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+  }
+  
+  /* About Section */
+  .about-section {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #f8f9ff, #f0f4ff);
+    border-radius: 10px;
+    border-left: 3px solid #4154f1;
+  }
+  .about-section p {
+    font-style: italic;
+    line-height: 1.6;
+  }
+  
+  /* Profile Details Table */
+  .profile-details-table {
+    background: #fff;
+  }
+  .profile-details-table .table {
+    margin-bottom: 0;
+  }
+  .profile-details-table tr {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .profile-details-table tr:last-child {
+    border-bottom: none;
+  }
+  .detail-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+    padding: 12px 0;
+    width: 40%;
+  }
+  .detail-label i {
+    color: #4154f1;
+    margin-right: 10px;
+    width: 18px;
+  }
+  .detail-value {
+    color: #012970;
+    font-weight: 500;
+    padding: 12px 0;
+  }
+  
+  /* Portfolio Stats */
+  .portfolio-stats {
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e8ecf4;
+  }
+  .stats-title {
+    color: #012970;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stats-title i {
+    color: #4154f1;
+  }
+  .mini-stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .mini-stat-card:hover {
+    box-shadow: 0 4px 16px rgba(65,84,241,0.12);
+    transform: translateY(-3px);
+  }
+  .mini-stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e8ecf4 0%, #f0f4ff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+  .mini-stat-icon i {
+    font-size: 16px;
+    color: #4154f1;
+  }
+  .mini-stat-card.growth .mini-stat-icon {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  }
+  .mini-stat-card.growth .mini-stat-icon i {
+    color: #2563eb;
+  }
+  .mini-stat-card.highest .mini-stat-icon {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  }
+  .mini-stat-card.highest .mini-stat-icon i {
+    color: #d97706;
+  }
+  .mini-stat-card.profit .mini-stat-icon {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  }
+  .mini-stat-card.profit .mini-stat-icon i {
+    color: #059669;
+  }
+  .mini-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #012970;
+    margin-bottom: 4px;
+  }
+  .mini-stat-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .mini-stat-card.profit {
+    background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+  }
+  .mini-stat-card.profit .mini-stat-value {
+    color: #059669;
+  }
+  
+  /* Portfolio Summary Section */
+  .portfolio-summary-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    border: 1px solid #e8ecf4;
+  }
+  .portfolio-summary-section .section-title {
+    color: #012970;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .portfolio-summary-section .section-title i {
+    color: #4154f1;
+  }
+  
+  /* Stat Tiles */
+  .stat-tile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, #f8faff 0%, #fff 100%);
+    border-radius: 12px;
+    padding: 16px 18px;
+    border: 1px solid #e8ecf4;
+    transition: all 0.3s ease;
+    height: 100%;
+  }
+  .stat-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(65,84,241,0.1);
+  }
+  .stat-icon-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #e8ecf4 0%, #f0f4ff 100%);
+  }
+  .stat-icon-wrap i {
+    font-size: 20px;
+    color: #4154f1;
+  }
+  .stat-icon-wrap.growth {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  }
+  .stat-icon-wrap.growth i { color: #2563eb; }
+  .stat-icon-wrap.value {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+  }
+  .stat-icon-wrap.value i { color: #db2777; }
+  .stat-icon-wrap.invested {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  }
+  .stat-icon-wrap.invested i { color: #4f46e5; }
+  .stat-icon-wrap.profit {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  }
+  .stat-icon-wrap.profit i { color: #059669; }
+  .stat-icon-wrap.loss {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  }
+  .stat-icon-wrap.loss i { color: #dc2626; }
+  .stat-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  .stat-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #012970;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  
+  /* Responsive: 2 columns on mobile for better readability */
+  @media (max-width: 767px) {
+    .stat-tile {
+      padding: 14px 16px;
+    }
+    .stat-value {
+      font-size: 0.95rem;
+    }
+    .stat-icon-wrap {
+      width: 40px;
+      height: 40px;
+    }
+    .stat-icon-wrap i {
+      font-size: 18px;
+    }
+  }
+  
+  /* Best Performing Estate Card */
+  .best-estate-card {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+    border-radius: 14px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #f59e0b;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+  }
+  .best-estate-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  .trophy-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .trophy-badge i {
+    font-size: 20px;
+    color: #fff;
+  }
+  .best-label {
+    display: flex;
+    flex-direction: column;
+  }
+  .best-label .badge-text {
+    color: rgba(255,255,255,0.9);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .best-label .growth-badge {
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .best-estate-body {
+    padding: 18px;
+  }
+  .estate-info {
+    margin-bottom: 12px;
+  }
+  .estate-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 8px;
+  }
+  .estate-name i {
+    color: #d97706;
+  }
+  .estate-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: #78350f;
+    font-size: 0.85rem;
+  }
+  .estate-details .detail-item i {
+    color: #b45309;
+    margin-right: 4px;
+  }
+  .estate-details .detail-divider {
+    color: #d97706;
+    opacity: 0.5;
+  }
+  .invest-hint {
+    background: rgba(146, 64, 14, 0.08);
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #92400e;
+    margin-top: 10px;
+  }
+  .invest-hint i {
+    color: #d97706;
+  }
+  .no-estate-card {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 20px;
+    color: #64748b;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .no-estate-card i {
+    color: #94a3b8;
+  }
+
+  /* Contact Info Card */
+  .contact-info-card {
+    border: none;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .contact-info-card .card-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #012970;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .contact-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  .contact-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .contact-item i {
+    width: 32px;
+    height: 32px;
+    background: #f0f4ff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4154f1;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .contact-item .contact-text {
+    color: #012970;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+  
+  /* Profile Photo Upload Section */
+  .photo-upload-section {
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px;
+    padding: 25px;
+    border: 2px dashed #e0e4f0;
+    text-align: center;
+  }
+  .photo-upload-section:hover {
+    border-color: #4154f1;
+  }
+  .profile-photo-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 20px rgba(65,84,241,0.2);
+    margin: 0 auto 15px;
+  }
+  .profile-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .upload-btn {
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    border: none;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 25px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  .upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(65,84,241,0.3);
+    color: #fff;
+  }
+  
+  /* Edit Section Icons */
+  .section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-icon i {
+    color: white;
+    font-size: 16px;
+  }
+  
+  /* Profile Photo Preview in Edit */
+  .profile-photo-preview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #4154f1;
+  }
+  .profile-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  /* Floating Labels Enhancement */
+  .form-floating > label {
+    color: #6c757d;
+  }
+  .form-floating > .form-control:focus ~ label {
+    color: #4154f1;
+  }
+  
+  /* Password Requirements Box */
+  .password-requirements {
+    background: #f0f4ff;
+    border-left: 3px solid #4154f1;
+  }
+  .password-requirements ul {
+    padding-left: 20px;
+  }
+  .password-requirements li {
+    margin-bottom: 5px;
+  }
+  
+  /* Edit Section Styling */
+  .edit-section {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .edit-section:last-of-type {
+    border-bottom: none;
+  }
+  
+  /* Tab styling */
+  .nav-tabs .nav-link {
+    border: none;
+    color: #6c757d;
+    padding: 12px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  .nav-tabs .nav-link:hover {
+    color: #4154f1;
+    border: none;
+  }
+  .nav-tabs .nav-link.active {
+    color: #4154f1;
+    border: none;
+    border-bottom: 2px solid #4154f1;
+    background: transparent;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <main id="main" class="main">
@@ -21,59 +608,43 @@
       <!-- LEFT COLUMN -->
       <div class="col-12 col-md-4">
         <div class="card profile-card">
-          <div class="card-body pt-4 text-center">
-            {% if client.profile_image %}
-              <img src="{{ client.profile_image.url }}"
-                   alt="{{ client.full_name }} Profile"
-                   class="rounded-circle mb-3 img-fluid"
-                   style="max-width: 150px; height: auto; object-fit: cover;">
-            {% else %}
-              <img src="{% static 'assets/img/profile_avatar.jpeg' %}"
-                   alt="Avatar"
-                   class="rounded-circle mb-3 img-fluid"
-                   style="max-width: 150px;">
-            {% endif %}
-
-            <!-- Client Rank Badge -->
-            <div class="rank-badge mt-2">
-              <div class="d-flex align-items-center justify-content-center p-2 rounded rank-badge-inner">
-                <i class="bi bi-trophy-fill me-2 rank-trophy"></i>
-                <div class="text-start">
-                  <div class="small text-muted">Rank</div>
-                  {% with tag=client.rank_tag %}
-                  <div class="mb-1">
-                    <span class="badge badge-rank 
-                      {% if tag == 'Royal Elite' %}rank-royal{% elif tag == 'Estate Ambassador' %}rank-ambassador{% elif tag == 'Prime Investor' %}rank-prime{% elif tag == 'Smart Owner' %}rank-smart{% else %}rank-first{% endif %}">
-                      {{ tag }}
-                    </span>
-                  </div>
-                  {% endwith %}
-                  <!-- <small class="text-muted">₦{{ client.total_value|floatformat:0|intcomma }} • {{ client.plot_count }} plots</small> -->
-                </div>
+          <div class="card-body pt-4">
+            <!-- Profile Avatar Section -->
+            <div class="profile-avatar-section text-center">
+              <div class="avatar-wrapper">
+                {% if client.profile_image %}
+                  <img src="{{ client.profile_image.url }}"
+                       alt="{{ client.full_name }}"
+                       class="profile-avatar">
+                {% else %}
+                  <img src="{% static 'assets/img/profile_avatar.jpeg' %}"
+                       alt="Avatar"
+                       class="profile-avatar">
+                {% endif %}
+                <div class="avatar-status"></div>
               </div>
+              <h5 class="profile-name mt-3 mb-1">{{ client.full_name }}</h5>
+              <p class="profile-role mb-0">Real Estate Investor</p>
             </div>
             
-            {% if client.assigned_marketer %}
-            <div class="marketer-badge mt-3">
-              <div class="d-flex align-items-center bg-light p-2 rounded justify-content-center">
-                <i class="bi bi-person-badge-fill text-primary me-2"></i>
-                <div class="text-start">
-                  <div class="small text-muted">Assigned Marketer</div>
-                  <strong>{{ client.assigned_marketer.full_name }}</strong>
+            <!-- Stats Section -->
+            <div class="profile-stats mt-4">
+              <div class="stat-item">
+                <div class="stat-icon-wrapper">
+                  <i class="bi bi-houses"></i>
+                </div>
+                <div class="stat-info">
+                  <span class="stat-number">{{ properties_count }}</span>
+                  <span class="stat-text">Total Properties</span>
                 </div>
               </div>
-            </div>
-            {% endif %}
-            
-            <div class="stats-container mt-4">
-              <div class="row text-center">
-                <div class="col-6 border-end">
-                  <div class="stat-value" style="font-size: 16px;">{{ client.plot_count }}</div>
-                  <div class="stat-label">Properties</div>
+              <div class="stat-item">
+                <div class="stat-icon-wrapper invested">
+                  <i class="bi bi-wallet2"></i>
                 </div>
-                <div class="col-6">
-                  <div class="stat-value" style="font-size: 16px;">₦{{ client.total_value|floatformat:"2g" }}</div>
-                  <div class="stat-label">Total Value</div>
+                <div class="stat-info">
+                  <span class="stat-number">₦{{ total_investment|floatformat:"0"|intcomma }}</span>
+                  <span class="stat-text">Total Invested</span>
                 </div>
               </div>
             </div>
@@ -81,24 +652,24 @@
         </div>
 
         <!-- Contact Info Card -->
-        <div class="card mt-3">
+        <div class="card mt-3 contact-info-card">
           <div class="card-body">
-            <h5 class="card-title">Contact Information</h5>
-            <div class="contact-item d-flex align-items-start mb-3">
-              <i class="bi bi-envelope me-2"></i>
-              <div>{{ user.email }}</div>
+            <h5 class="card-title"><i class="bi bi-person-lines-fill me-2"></i>Contact</h5>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-envelope"></i>
+              <span class="contact-text">{{ user.email|default:"—" }}</span>
             </div>
-            <div class="contact-item d-flex align-items-start mb-3">
-              <i class="bi bi-telephone me-2"></i>
-              <div>{{ user.phone }}</div>
-            </div>
-            <div class="contact-item d-flex align-items-start mb-3">
-              <i class="bi bi-geo-alt me-2"></i>
-              <div>{{ user.address }}</div>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-telephone"></i>
+              <span class="contact-text">{{ user.phone|default:"—" }}</span>
             </div>
             <div class="contact-item d-flex align-items-start">
               <i class="bi bi-building me-2"></i>
-              <div>{{ user.company|default:"Not specified" }}</div>
+              <div>{{ user.company|default:"—" }}</div>
+            </div>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-geo-alt"></i>
+              <span class="contact-text">{{ user.address|default:"—" }}</span>
             </div>
           </div>
         </div>
@@ -113,12 +684,6 @@
                 <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#profile-overview" type="button" role="tab">Overview</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="properties-tab" data-bs-toggle="tab" data-bs-target="#profile-properties" type="button" role="tab">Properties</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="appreciation-tab" data-bs-toggle="tab" data-bs-target="#profile-appreciation" type="button" role="tab">Value Appreciation</button>
-              </li>
-              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="edit-tab" data-bs-toggle="tab" data-bs-target="#profile-edit" type="button" role="tab">Edit Profile</button>
               </li>
               <li class="nav-item" role="presentation">
@@ -129,444 +694,334 @@
             <div class="tab-content pt-3">
               <!-- Overview Tab -->
               <div class="tab-pane fade show active" id="profile-overview" role="tabpanel" aria-labelledby="overview-tab">
-                <div class="row">
-                  <div class="col-lg-8 col-12">
-                    {% if messages %}
-                      <div class="col-12">
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                          {{ message|safe }}
-                          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                    <h5 class="card-title">About</h5>
-                    <p class="fst-italic">{{ user.about|default:"No information provided" }}</p>
-
-                    <h5 class="card-title">Profile Details</h5>
-                    <div class="info-grid">
-                      <div class="info-item">
-                        <span class="info-label">Full Name</span>
-                        <span class="info-value">{{ user.full_name }}</span>
-                      </div>
-                      <div class="info-item">
-                        <span class="info-label">Country</span>
-                        <span class="info-value">{{ user.country|default:"Not specified" }}</span>
-                      </div>
-                      <!-- <div class="info-item">
-                        <span class="info-label">Assigned Marketer</span>
-                        <span class="info-value">
-                          {% if user.assigned_marketer %}
-                            {{ user.assigned_marketer.full_name }}
-                          {% else %}
-                            Not assigned
-                          {% endif %}
-                        </span>
-                      </div> -->
-
-                      <div class="info-item p-3 bg-light rounded">
-                        <span class="info-label">Assigned Marketer</span>
-                        <span class="info-value">
-                          {% if client.assigned_marketer %}{{ client.assigned_marketer.full_name }}{% else %}Not assigned{% endif %}
-                        </span>
-                      </div>
-                      <div class="info-item">
-                        <span class="info-label">Date Registered</span>
-                        <span class="info-value">{{ user.date_registered|date:"M d, Y" }}</span>
-                      </div>
+                {% if messages %}
+                  <div class="mb-3">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                      {{ message|safe }}
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
-                  </div>
-                  <div class="col-lg-4 col-12 mt-4 mt-lg-0">
-                    <div class="card summary-card h-100">
-                      <div class="card-body d-flex flex-column justify-content-center p-3">
-                        <h5 class="card-title text-center text-lg-start mb-3">Portfolio Summary</h5>
-
-                        <ul class="list-unstyled mb-0">
-                          <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
-                            <span class="text-truncate me-2" style="max-width: 70%;">Total Properties:</span>
-                            <strong class="flex-shrink-0">{{ client.plot_count }}</strong>
-                          </li>
-                          <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
-                            <span class="text-truncate me-2" style="max-width: 70%;">Total Investment:</span>
-                            <strong class="flex-shrink-0">₦{{ client.total_value|floatformat:"2g" }}</strong>
-                          </li>
-                          <li class="d-flex justify-content-between align-items-center py-2 border-bottom flex-wrap">
-                            <span class="text-truncate me-2" style="max-width: 70%;">Current Value:</span>
-                            <strong class="flex-shrink-0">₦{{ current_value|floatformat:"2g" }}</strong>
-                          </li>
-                          <li class="d-flex justify-content-between align-items-center py-2 flex-wrap">
-                            <span class="text-truncate me-2" style="max-width: 70%;">Total Appreciation:</span>
-                            <strong class="flex-shrink-0 text-success">+₦{{ appreciation_total|floatformat:"2g" }}</strong>
-                          </li>
-                        </ul>
-                      </div>
-                    
-                    </div>
-                  </div>
-                </div>
-              </div><!-- End Overview Tab -->
-
-              <!-- Properties Tab -->
-              <div class="tab-pane fade" id="profile-properties" role="tabpanel" aria-labelledby="properties-tab">
-                <h5 class="card-title">Property Portfolio</h5>
-                <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                  <thead class="table-light">
-                    <tr>
-                      <th scope="col">#</th>
-                      <th scope="col">Estate</th>
-                      <th scope="col">Plot Size</th>
-                      <th scope="col">Plot Number</th>
-                      <th scope="col">Purchase Price</th>
-                      <th scope="col">Purchase Date</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">View Receipts</th>
-                      <th scope="col">Plot Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for transaction in transactions %}
-                      <tr data-id="{{ transaction.allocation.id }}">
-                        <td data-label="#">{{ forloop.counter }}</td>
-                        <td data-label="Estate Name" class="fw-bold">
-                          <div class="d-flex align-items-center">
-                            <i class="bi bi-building me-2 text-primary"></i>
-                            {{ transaction.allocation.estate.name }}
-                          </div>
-                        </td>
-                        <td data-label="Plot Size">{{ transaction.allocation.plot_size.size }}</td>
-                        <td data-label="Plot Number">
-                          {% if transaction.allocation.plot_number %}
-                            <span class="badge bg-success">
-                              {{ transaction.allocation.plot_number.number }}
-                            </span>
-                          {% else %}
-                            <span class="badge bg-warning">Reserved</span>
-                          {% endif %}
-                        </td>
-                        <td class="fw-bold" data-label="Total Amount">₦{{ transaction.total_amount|floatformat:"2g" }}</td>
-                        <td data-label="Date Purchased">{{ transaction.transaction_date|date:"M d, Y" }}</td>
-                        <td data-label="Payment Status">
-                          <span class="badge bg-{% if transaction.status == 'Paid Complete' or transaction.status == 'Fully Paid' %}success{% elif transaction.status == 'Overdue' %}danger{% else %}warning{% endif %}">
-                            {{ transaction.status }}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            class="btn btn-sm btn-outline-success"
-                            data-bs-toggle="modal"
-                            data-bs-target="#transactionDetailsModal"
-                            data-id="{{ transaction.id }}"
-                          >
-                            <i class="bi bi-receipt"></i> View Receipts
-                          </button>
-                        </td>
-                        <td class="text-end">
-                          {% if transaction.allocation and transaction.allocation.estate and transaction.allocation.plot_size %}
-                            <a
-                              href="{% url 'view-client-estate' transaction.allocation.estate.id transaction.allocation.plot_size.id %}"
-                              class="btn btn-sm btn-outline-primary"
-                            >
-                              <i class="bi bi-book"></i> View Plot Details
-                            </a>
-                          {% else %}
-                            <span class="text-muted">N/A</span>
-                          {% endif %}
-                        </td>
-                      </tr>
-                    {% empty %}
-                      <tr>
-                        <td colspan="9" class="text-center py-4">
-                          <i class="bi bi-house-exclamation display-6 text-muted"></i>
-                          <p class="mt-3">No properties found</p>
-                        </td>
-                      </tr>
                     {% endfor %}
-                  </tbody>
-                </table>
+                  </div>
+                {% endif %}
 
+                <!-- About Section -->
+                {% if user.about %}
+                <div class="about-section mb-4">
+                  <p class="text-muted mb-0"><i class="bi bi-quote me-2"></i>{{ user.about|default:"Your about information goes here." }}</p>
                 </div>
-              </div>
+                {% endif %}
 
-              <!-- Transaction Details Modal -->
-              <div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                  <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
-                      <h5 class="modal-title">Transaction Details</h5>
-                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                      <div class="row">
-                        <div class="col-md-6">
-                          <table class="table table-sm">
-                            <tr><th>Estate</th><td id="td_estate"></td></tr>
-                            <tr><th>Plot Size</th><td id="td_plot_size"></td></tr>
-                            <tr><th>Date</th><td id="td_date"></td></tr>
-                            <tr><th>Amount</th><td id="td_amount"></td></tr>
-                            <tr><th>Type</th><td id="td_payment_type"></td></tr>
-                          </table>
-                        </div>
-                        <div class="col-md-6">
-                          <table class="table table-sm">
-                            <tr><th>Status</th><td id="td_status"></td></tr>
-                            <tr id="row_duration" style="display:none;"><th>Duration</th><td id="td_duration"></td></tr>
-                            <tr id="row_plan" style="display:none;"><th>Plan</th><td id="td_plan"></td></tr>
-                            <tr id="row_first" style="display:none;"><th>1st</th><td id="td_first"></td></tr>
-                            <tr id="row_second" style="display:none;"><th>2nd</th><td id="td_second"></td></tr>
-                            <tr id="row_third" style="display:none;"><th>3rd</th><td id="td_third"></td></tr>
-                          </table>
-                        </div>
-                      </div>
-                      <div id="td_payment_history" class="mt-3">
-                        <h6>Payment Receipts</h6>
-                        <div class="table-responsive">
-                          <table class="table table-sm table-hover align-middle">
-                            <thead>
-                              <tr>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Method</th>
-                                <th>Installment</th>
-                                <th>Reference</th>
-                                <th class="text-end">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody id="payment_history_body">
-                              <!-- Payment records will be loaded here -->
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="modal-footer">
-                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                  </div>
+                <!-- Profile Details - Clean Table Layout -->
+                <div class="profile-details-table mb-4">
+                  <table class="table table-borderless mb-0">
+                    <tbody>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-person"></i> Full Name</td>
+                        <td class="detail-value">{{ user.full_name }}</td>
+                      </tr>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-building"></i> Company</td>
+                        <td class="detail-value">{{ user.company|default:"—" }}</td>
+                      </tr>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-briefcase"></i> Job Title</td>
+                        <td class="detail-value">{{ user.job|default:"—" }}</td>
+                      </tr>
+                      {% if user.country %}
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-globe"></i> Country</td>
+                        <td class="detail-value">{{ user.country }}</td>
+                      </tr>
+                      {% endif %}
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-calendar3"></i> Member Since</td>
+                        <td class="detail-value">{{ user.date_registered|date:"F d, Y" }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              </div>
 
-              <!-- Value Appreciation Tab -->
-              <div class="tab-pane fade" id="profile-appreciation" role="tabpanel" aria-labelledby="appreciation-tab">
-                <h5 class="card-title">Property Value Appreciation</h5>
-                <p class="text-muted">Detailed view of property value growth over time</p>
-                
-                <div class="row row-cols-1 row-cols-md-2 g-4">
-                  {% for transaction in transactions %}
-                  <div class="col">
-                    <div class="card appreciation-card h-100">
-                      <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                          <h6 class="card-title mb-0">
-                            <i class="bi bi-building me-1 text-primary"></i>
-                            {{ transaction.allocation.estate.name }}
-                          </h6>
-                          <span class="badge bg-light text-dark">{{ transaction.allocation.plot_size.size }}</span>
+                <!-- Portfolio Summary Section -->
+                <div class="portfolio-summary-section">
+                  <h6 class="section-title mb-4">
+                    <i class="bi bi-pie-chart-fill me-2"></i>Portfolio Summary
+                  </h6>
+                  
+                  <!-- Main Stats Row - 2x2 Grid -->
+                  <div class="row g-3 mb-4">
+                    <div class="col-6">
+                      <div class="stat-tile">
+                        <div class="stat-icon-wrap value"><i class="bi bi-wallet2"></i></div>
+                        <div class="stat-content">
+                          <span class="stat-value">₦{{ current_value|floatformat:"0"|intcomma }}</span>
+                          <span class="stat-label">Current Value</span>
                         </div>
-                        
-                        <div class="appreciation-details mb-3">
-                          <div class="appreciation-item d-flex justify-content-between">
-                            <span>Purchase Price:</span>
-                            <strong>₦{{ transaction.total_amount|floatformat:"2g" }}</strong>
-                          </div>
-                          <div class="appreciation-item d-flex justify-content-between">
-                            <span>Current Value:</span>
-                            <strong>₦{{ transaction.current_value|floatformat:"2g" }}</strong>
-                          </div>
-                          <div class="appreciation-item d-flex justify-content-between">
-                            <span>Value Increase:</span>
-                            <strong class="{% if transaction.appreciation >= 0 %}text-success{% else %}text-danger{% endif %}">
-                              {% if transaction.appreciation >= 0 %}+{% else %}-{% endif %}₦{{ transaction.abs_appreciation|floatformat:"2g" }}
-                            </strong>
-                          </div>
-                          <div class="appreciation-item d-flex justify-content-between">
-                            <span>Growth Rate:</span>
-                            <strong class="{% if transaction.growth_rate >= 0 %}text-success{% else %}text-danger{% endif %}">
-                              {% if transaction.growth_rate >= 0 %}+{% endif %}{{ transaction.growth_rate|floatformat:"2" }}%
-                            </strong>
-                          </div>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="stat-tile">
+                        <div class="stat-icon-wrap growth"><i class="bi bi-graph-up-arrow"></i></div>
+                        <div class="stat-content">
+                          <span class="stat-value {% if average_growth >= 0 %}text-success{% else %}text-danger{% endif %}">{% if average_growth >= 0 %}+{% endif %}{{ average_growth|floatformat:"1" }}%</span>
+                          <span class="stat-label">Portfolio Growth</span>
                         </div>
-                        
-                        <div class="progress mb-1" style="height: 8px;">
-                          <div class="progress-bar {% if transaction.growth_rate >= 0 %}bg-success{% else %}bg-danger{% endif %}" 
-                               role="progressbar" 
-                               style="width: {{ transaction.abs_growth_rate|default:0 }}%;" 
-                               aria-valuenow="{{ transaction.abs_growth_rate|default:0 }}" 
-                               aria-valuemin="0" 
-                               aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between small text-muted mb-3">
-                          <span>Purchase</span>
-                          <span>Current</span>
-                        </div>
-                        
-                        <div class="timeline">
-                          <div class="timeline-item mb-3">
-                            <div class="timeline-point bg-success"></div>
-                            <div class="timeline-content">
-                              <span class="timeline-date">{{ transaction.transaction_date|date:"M Y" }}</span>
-                              <div class="timeline-value">₦{{ transaction.total_amount|floatformat:"2g" }}</div>
-                            </div>
-                          </div>
-                          <div class="timeline-item">
-                            <div class="timeline-point bg-primary"></div>
-                            <div class="timeline-content">
-                              <span class="timeline-date">Now</span>
-                              <div class="timeline-value">₦{{ transaction.current_value|floatformat:"2g" }}</div>
-                            </div>
-                          </div>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="stat-tile">
+                        <div class="stat-icon-wrap {% if appreciation_total >= 0 %}profit{% else %}loss{% endif %}"><i class="bi bi-arrow-{% if appreciation_total >= 0 %}up{% else %}down{% endif %}-right"></i></div>
+                        <div class="stat-content">
+                          <span class="stat-value {% if appreciation_total >= 0 %}text-success{% else %}text-danger{% endif %}">{% if appreciation_total >= 0 %}+{% endif %}₦{{ appreciation_total|floatformat:"0"|intcomma }}</span>
+                          <span class="stat-label">Total Appreciation</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  {% empty %}
-                  <div class="col-12">
-                    <div class="text-center py-5 text-muted">
-                      <i class="bi bi-graph-up display-6"></i>
-                      <p class="mt-3">No appreciation data available</p>
+                  
+                  <!-- Best Performing Estate Card -->
+                  {% if highest_growth_estate %}
+                  <div class="best-estate-card">
+                    <div class="best-estate-header">
+                      <div class="trophy-badge"><i class="bi bi-trophy-fill"></i></div>
+                      <div class="best-label">
+                        <span class="badge-text">Best Performing Estate</span>
+                        <span class="growth-badge">{% if highest_growth_rate >= 0 %}+{% endif %}{{ highest_growth_rate|floatformat:"1" }}% Growth</span>
+                      </div>
+                    </div>
+                    <div class="best-estate-body">
+                      <div class="estate-info">
+                        <h5 class="estate-name"><i class="bi bi-building me-2"></i>{{ highest_growth_estate }}</h5>
+                        <div class="estate-details">
+                          <span class="detail-item"><i class="bi bi-geo-alt"></i> {{ highest_growth_location|default:"Location N/A" }}</span>
+                          <span class="detail-divider">•</span>
+                          <span class="detail-item"><i class="bi bi-briefcase"></i> {{ highest_growth_company }}</span>
+                        </div>
+                      </div>
+                      <div class="invest-hint">
+                        <small><i class="bi bi-lightbulb me-1"></i>Consider this location for future investments</small>
+                      </div>
                     </div>
                   </div>
-                  {% endfor %}
+                  {% else %}
+                  <div class="no-estate-card">
+                    <i class="bi bi-info-circle me-2"></i>Invest in properties to see your best performing estate here.
+                  </div>
+                  {% endif %}
                 </div>
-                
-                <div class="card mt-4">
-                  <div class="card-body">
-                    <h5 class="card-title text-center">Portfolio Summary</h5>
-                    <div class="row row-cols-1 row-cols-md-3 g-3 text-center">
-                      <div class="col">
-                        <div class="summary-box bg-light-success d-flex align-items-center justify-content-center p-3 rounded h-100">
-                          <div>
-                            <i class="bi bi-arrow-up-right-circle fs-3 text-success mb-1"></i>
-                            <div>Total Appreciation</div>
-                            <strong class="text-success">+₦{{ appreciation_total|floatformat:"2g" }}</strong>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="summary-box bg-light-primary d-flex align-items-center justify-content-center p-3 rounded h-100">
-                          <div>
-                            <i class="bi bi-percent fs-3 text-primary mb-1"></i>
-                            <div>Average Growth</div>
-                            <strong class="text-success">+{{ average_growth|floatformat:"2" }}%</strong>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="col">
-                        <div class="summary-box bg-light-info d-flex align-items-center justify-content-center p-3 rounded h-100">
-                          <div>
-                            <i class="bi bi-building fs-3 text-info mb-1"></i>
-                            <div>Highest Growth</div>
-                            <strong>{{ highest_growth_property }} <strong class="text-success">(+{{ highest_growth_rate|floatformat:"2" }}%)</strong></strong>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div><!-- End Value Appreciation Tab -->
+
+              </div><!-- End Overview Tab -->
 
               <!-- Edit Profile Tab -->
               <div class="tab-pane fade" id="profile-edit" role="tabpanel" aria-labelledby="edit-tab">
-                <form id="profileForm" method="POST" enctype="multipart/form-data" class="row g-3">
+                <form id="profileForm" method="POST" enctype="multipart/form-data">
                   {% csrf_token %}
-                  <!-- {% if messages %}
-                    <div class="col-12">
-                      {% for message in messages %}
-                      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      </div>
-                      {% endfor %}
-                    </div>
-                  {% endif %} -->
                   <input type="hidden" name="action" value="update_profile">
                   
-                  <div class="col-12 text-center">
-                    {% if user.profile_image %}
-                      <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }} Profile" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;" id="profilePreview">
-                    {% else %}
-                      <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" class="rounded-circle mb-3" style="width: 150px; height: 150px;" id="profilePreview">
-                    {% endif %}
-                    <div class="mb-4">
-                      <input type="file" name="profile_image" class="form-control d-none" id="profileImageInput" onchange="showFileName()">
-                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('profileImageInput').click();">
-                        <i class="bi bi-upload me-1"></i> Change Photo
+                  <!-- Profile Photo Section -->
+                  <div class="edit-section mb-4">
+                    <div class="photo-upload-section">
+                      <div class="profile-photo-preview">
+                        {% if user.profile_image %}
+                          <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }}" id="profilePreview">
+                        {% else %}
+                          <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" id="profilePreview">
+                        {% endif %}
+                      </div>
+                      <input type="file" name="profile_image" class="form-control d-none" id="profileImageInput">
+                      <button type="button" class="btn upload-btn" onclick="document.getElementById('profileImageInput').click();">
+                        <i class="bi bi-camera me-2"></i>Change Photo
                       </button>
-                      <div class="mt-2 small" id="fileNameDisplay"></div>
+                      <div class="mt-2 small text-muted" id="fileNameDisplay">JPG, PNG or GIF • Max 2MB</div>
                     </div>
                   </div>
 
-                  <div class="col-md-6">
-                    <label for="fullName" class="form-label">Full Name</label>
-                    <input name="fullName" type="text" class="form-control" id="fullName" value="{{ user.full_name }}">
+                  <!-- Personal Details Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-person-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Personal Details</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-3">
+                        <div class="form-floating">
+                          <select name="title" class="form-select" id="title">
+                            <option value="">Select Title</option>
+                            <option value="Mr" {% if user.title == 'Mr' %}selected{% endif %}>Mr</option>
+                            <option value="Mrs" {% if user.title == 'Mrs' %}selected{% endif %}>Mrs</option>
+                            <option value="Ms" {% if user.title == 'Ms' %}selected{% endif %}>Ms</option>
+                            <option value="Miss" {% if user.title == 'Miss' %}selected{% endif %}>Miss</option>
+                            <option value="Dr" {% if user.title == 'Dr' %}selected{% endif %}>Dr</option>
+                            <option value="Prof" {% if user.title == 'Prof' %}selected{% endif %}>Prof</option>
+                            <option value="Engr" {% if user.title == 'Engr' %}selected{% endif %}>Engr</option>
+                            <option value="Barr" {% if user.title == 'Barr' %}selected{% endif %}>Barr</option>
+                            <option value="Chief" {% if user.title == 'Chief' %}selected{% endif %}>Chief</option>
+                            <option value="Hon" {% if user.title == 'Hon' %}selected{% endif %}>Hon</option>
+                            <option value="Alhaji" {% if user.title == 'Alhaji' %}selected{% endif %}>Alhaji</option>
+                            <option value="Alhaja" {% if user.title == 'Alhaja' %}selected{% endif %}>Alhaja</option>
+                            <option value="Pastor" {% if user.title == 'Pastor' %}selected{% endif %}>Pastor</option>
+                            <option value="Rev" {% if user.title == 'Rev' %}selected{% endif %}>Rev</option>
+                            <option value="Bishop" {% if user.title == 'Bishop' %}selected{% endif %}>Bishop</option>
+                            <option value="Imam" {% if user.title == 'Imam' %}selected{% endif %}>Imam</option>
+                            <option value="Sir" {% if user.title == 'Sir' %}selected{% endif %}>Sir</option>
+                            <option value="Dame" {% if user.title == 'Dame' %}selected{% endif %}>Dame</option>
+                            <option value="Prince" {% if user.title == 'Prince' %}selected{% endif %}>Prince</option>
+                            <option value="Princess" {% if user.title == 'Princess' %}selected{% endif %}>Princess</option>
+                            <option value="Otunba" {% if user.title == 'Otunba' %}selected{% endif %}>Otunba</option>
+                            <option value="Oloye" {% if user.title == 'Oloye' %}selected{% endif %}>Oloye</option>
+                            <option value="High Chief" {% if user.title == 'High Chief' %}selected{% endif %}>High Chief</option>
+                          </select>
+                          <label for="title"><i class="bi bi-person-badge me-2"></i>Title</label>
+                        </div>
+                      </div>
+                      <div class="col-md-9">
+                        <div class="form-floating">
+                          <input name="fullName" type="text" class="form-control" id="fullName" value="{{ user.full_name }}" placeholder="Full Name">
+                          <label for="fullName"><i class="bi bi-person me-2"></i>Full Name</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="email" type="email" class="form-control" id="email" value="{{ user.email }}" placeholder="Email" readonly style="background-color: #f8f9fa;">
+                          <label for="email"><i class="bi bi-envelope me-2"></i>Email Address</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="dateOfBirth" type="date" class="form-control" id="dateOfBirth" value="{{ user.date_of_birth|date:'Y-m-d' }}" placeholder="Date of Birth">
+                          <label for="dateOfBirth"><i class="bi bi-calendar-event me-2"></i>Date of Birth</label>
+                        </div>
+                      </div>
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <textarea name="about" class="form-control" id="about" placeholder="About" style="height: 100px;">{{ user.about }}</textarea>
+                          <label for="about"><i class="bi bi-chat-quote me-2"></i>About Me</label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-md-6">
-                    <label for="email" class="form-label">Email</label>
-                    <input name="email" type="email" class="form-control" id="email" value="{{ user.email }}" readonly>
+
+                  <!-- Contact Information Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-telephone-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Contact Information</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="phone" type="text" class="form-control" id="phone" value="{{ user.phone|default:'' }}" placeholder="Phone">
+                          <label for="phone"><i class="bi bi-telephone me-2"></i>Phone Number</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="country" type="text" class="form-control" id="country" value="{{ user.country|default:'' }}" placeholder="Country">
+                          <label for="country"><i class="bi bi-globe me-2"></i>Country</label>
+                        </div>
+                      </div>
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <input name="address" type="text" class="form-control" id="address" value="{{ user.address|default:'' }}" placeholder="Address">
+                          <label for="address"><i class="bi bi-geo-alt me-2"></i>Address</label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-12">
-                    <label for="about" class="form-label">About</label>
-                    <textarea name="about" class="form-control" id="about" rows="3">{{ user.about }}</textarea>
+
+                  <!-- Work Information Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-briefcase-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Work Information</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="company" type="text" class="form-control" id="company" value="{{ user.company|default:'' }}" placeholder="Company">
+                          <label for="company"><i class="bi bi-building me-2"></i>Company</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="job" type="text" class="form-control" id="job" value="{{ user.job|default:'' }}" placeholder="Job Title">
+                          <label for="job"><i class="bi bi-person-workspace me-2"></i>Job Title</label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-md-6">
-                    <label for="company" class="form-label">Company</label>
-                    <input name="company" type="text" class="form-control" id="company" value="{{ user.company|default:'' }}">
-                  </div>
-                  <div class="col-md-6">
-                    <label for="job" class="form-label">Job</label>
-                    <input name="job" type="text" class="form-control" id="job" value="{{ user.job|default:'' }}">
-                  </div>
-                  <div class="col-md-6">
-                    <label for="country" class="form-label">Country</label>
-                    <input name="country" type="text" class="form-control" id="country" value="{{ user.country|default:'' }}">
-                  </div>
-                  <div class="col-md-6">
-                    <label for="address" class="form-label">Address</label>
-                    <input name="address" type="text" class="form-control" id="address" value="{{ user.address|default:'' }}">
-                  </div>
-                  <div class="col-md-6">
-                    <label for="phone" class="form-label">Phone</label>
-                    <input name="phone" type="text" class="form-control" id="phone" value="{{ user.phone|default:'' }}">
-                  </div>
-                  <div class="col-12 text-center mt-4">
-                    <button type="submit" class="btn btn-primary px-4">Save Changes</button>
-                    <button type="reset" class="btn btn-outline-secondary ms-2">Reset</button>
+
+                  <!-- Action Buttons -->
+                  <div class="d-flex justify-content-end pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4">
+                      <i class="bi bi-check-circle me-1"></i> Save Changes
+                    </button>
                   </div>
                 </form>
               </div><!-- End Edit Profile Tab -->
 
               <!-- Change Password Tab -->
               <div class="tab-pane fade" id="profile-change-password" role="tabpanel" aria-labelledby="password-tab">
-                <form id="passwordForm" method="POST" class="row g-3">
+                <form id="passwordForm" method="POST">
                   {% csrf_token %}
-                  <!-- {% if messages %}
-                    <div class="col-12">
-                      {% for message in messages %}
-                      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      </div>
-                      {% endfor %}
-                    </div>
-                  {% endif %} -->
-                  
                   <input type="hidden" name="action" value="change_password">
                   
-                  <div class="col-12">
-                    <label for="currentPassword" class="form-label">Current Password</label>
-                    <input name="currentPassword" type="password" class="form-control" id="currentPassword" required>
+                  <!-- Password Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-shield-lock-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Change Your Password</h5>
+                    </div>
+                    <p class="text-muted ps-5 mb-4">Ensure your account is using a strong password to stay secure.</p>
+                    
+                    <div class="row g-3 ps-5">
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <input name="currentPassword" type="password" class="form-control" id="currentPassword" placeholder="Current Password" required>
+                          <label for="currentPassword"><i class="bi bi-key me-2"></i>Current Password</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="newPassword" type="password" class="form-control" id="newPassword" placeholder="New Password" required>
+                          <label for="newPassword"><i class="bi bi-lock me-2"></i>New Password</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="renewPassword" type="password" class="form-control" id="renewPassword" placeholder="Confirm Password" required>
+                          <label for="renewPassword"><i class="bi bi-lock-fill me-2"></i>Confirm New Password</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Password Requirements -->
+                    <div class="ps-5 mt-4">
+                      <div class="password-requirements p-3 rounded">
+                        <h6 class="mb-2"><i class="bi bi-info-circle me-2"></i>Password Requirements</h6>
+                        <ul class="mb-0 small text-muted">
+                          <li>Minimum 8 characters long</li>
+                          <li>At least one uppercase letter</li>
+                          <li>At least one number</li>
+                          <li>Avoid using common passwords</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-md-6">
-                    <label for="newPassword" class="form-label">New Password</label>
-                    <input name="newPassword" type="password" class="form-control" id="newPassword" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="renewPassword" class="form-label">Confirm New Password</label>
-                    <input name="renewPassword" type="password" class="form-control" id="renewPassword" required>
-                  </div>
-                  <div class="col-12 text-center mt-4">
-                    <button type="submit" class="btn btn-primary px-4">Change Password</button>
+
+                  <!-- Action Buttons -->
+                  <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4">
+                      <i class="bi bi-shield-check me-1"></i> Update Password
+                    </button>
                   </div>
                 </form>
               </div><!-- End Change Password Tab -->

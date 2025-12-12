@@ -243,6 +243,22 @@
                 </a>
               </li>
               <li><hr class="dropdown-divider"></li>
+            {% elif user.role == 'client' %}
+              <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'my-client-profile' %}">
+                  <i class="bi bi-person"></i>
+                  <span>My Profile</span>
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+            {% elif user.role == 'marketer' %}
+              <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'marketer-profile' %}">
+                  <i class="bi bi-person"></i>
+                  <span>My Profile</span>
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
             {% endif %}
             <li>
               <form action="{% url 'logout' %}" method="POST">

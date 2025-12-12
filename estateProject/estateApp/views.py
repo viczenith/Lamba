@@ -7361,13 +7361,91 @@ def my_client_profile(request):
 
     # Use client_id so queries work regardless of ClientUser subclass presence
     client_id = getattr(client, 'id', client)
-    transactions = Transaction.objects.filter(client_id=client_id).select_related(
+    
+    # IMPORTANT: Use all_objects to bypass CompanyAwareManager and get ALL transactions across ALL companies
+    transactions = Transaction.all_objects.filter(client_id=client_id).select_related(
         'allocation__estate',
-        'allocation__plot_size'
+        'allocation__plot_size',
+        'company'
     )
 
-    metrics = calculate_portfolio_metrics(transactions)
-    context = {'client': client, **metrics}
+    # Calculate portfolio metrics across ALL companies
+    total_properties = transactions.count()
+    total_investment = Decimal(0)
+    current_value_total = Decimal(0)
+    
+    # Track individual property growth rates to find the BEST performing estate
+    highest_growth_rate = Decimal(0)
+    highest_growth_estate = ""
+    highest_growth_company = ""
+    highest_growth_location = ""
+    
+    for txn in transactions:
+        txn_amount = txn.total_amount or Decimal(0)
+        total_investment += txn_amount
+        
+        # Get current property value from PropertyPrice
+        try:
+            property_price = PropertyPrice.objects.filter(
+                estate=txn.allocation.estate,
+                plot_unit__plot_size=txn.allocation.plot_size,
+                company=txn.company
+            ).order_by('-effective').first()
+            
+            if property_price:
+                current_value = property_price.current
+            else:
+                # Fallback to any matching price
+                property_price_alt = PropertyPrice.objects.filter(
+                    estate=txn.allocation.estate,
+                    plot_unit__plot_size=txn.allocation.plot_size
+                ).order_by('-effective').first()
+                current_value = property_price_alt.current if property_price_alt else txn.total_amount
+        except Exception:
+            current_value = txn.total_amount
+        
+        current_value_total += current_value or Decimal(0)
+        txn.current_value = current_value
+        
+        # Calculate individual property growth rate to find best performer
+        if txn_amount and txn_amount > 0:
+            property_growth = ((current_value - txn_amount) / txn_amount) * 100
+        else:
+            property_growth = Decimal(0)
+        txn.growth_rate = property_growth
+        
+        # Track the HIGHEST GROWTH estate (best performer across all companies)
+        if property_growth > highest_growth_rate:
+            highest_growth_rate = property_growth
+            highest_growth_estate = getattr(txn.allocation.estate, 'name', 'Property')
+            highest_growth_company = getattr(txn.company, 'company_name', '')
+            highest_growth_location = getattr(txn.allocation.estate, 'location', '')
+    
+    # Calculate total appreciation (Current Value - Total Investment)
+    appreciation_total = current_value_total - total_investment
+    
+    # AVERAGE GROWTH = Overall Portfolio Growth Percentage
+    # Formula: ((Total Current Value - Total Investment) / Total Investment) × 100
+    # This shows how much the client's ENTIRE portfolio has grown as a single percentage
+    if total_investment and total_investment > 0:
+        average_growth = ((current_value_total - total_investment) / total_investment) * 100
+    else:
+        average_growth = Decimal(0)
+    
+    context = {
+        'client': client,
+        'transactions': transactions,
+        'properties_count': total_properties,
+        'total_investment': total_investment,
+        'current_value': current_value_total,
+        'appreciation_total': appreciation_total,
+        'average_growth': average_growth,  # Overall portfolio growth %
+        'highest_growth_rate': highest_growth_rate,  # Best performing estate growth %
+        'highest_growth_estate': highest_growth_estate,  # Name of best performing estate
+        'highest_growth_company': highest_growth_company,  # Company of best performing estate
+        'highest_growth_location': highest_growth_location,  # Location of best performing estate
+        'total_value': total_investment,  # Kept for backwards compatibility
+    }
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -7771,6 +7849,20 @@ def my_companies(request):
 
     companies = Company.objects.filter(id__in=[c for c in company_ids if c is not None])
 
+    # Rank calculation helper
+    def get_rank_tag(total_val, plot_cnt):
+        """Rank tag derived from total_value and plot_count thresholds."""
+        tv_num = Decimal(total_val) if total_val else Decimal('0')
+        if tv_num >= Decimal('150000000') and plot_cnt >= 5:
+            return 'Royal Elite'
+        if tv_num >= Decimal('100000000') or plot_cnt >= 4:
+            return 'Estate Ambassador'
+        if tv_num >= Decimal('50000000') or plot_cnt >= 3:
+            return 'Prime Investor'
+        if tv_num >= Decimal('20000000') or plot_cnt >= 2:
+            return 'Smart Owner'
+        return 'First-Time Investor'
+
     # Build simple metrics per company
     company_list = []
     for comp in companies:
@@ -7779,13 +7871,17 @@ def my_companies(request):
             Transaction.objects.filter(client_id=client_id, company=comp)
             .aggregate(total=Coalesce(Sum('total_amount'), Value(0, output_field=DecimalField())))['total']
         )
+        # Calculate rank for this company
+        rank_tag = get_rank_tag(total_invested, alloc_count)
+        
         # Attach metrics directly onto the Company instance so templates can use company.id, company.slug, etc.
         try:
             setattr(comp, 'allocations', alloc_count)
             setattr(comp, 'total_invested', total_invested)
+            setattr(comp, 'rank_tag', rank_tag)
         except Exception:
             # Fallback to dict structure if attribute assignment fails
-            company_list.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested})
+            company_list.append({'company': comp, 'allocations': alloc_count, 'total_invested': total_invested, 'rank_tag': rank_tag})
             continue
 
         company_list.append(comp)
@@ -7939,6 +8035,9 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
     # Sort by date descending
     recent_payments.sort(key=lambda x: x['date'], reverse=True)
     
+    # Total payments count for Quick Facts
+    total_payments_count = len(recent_payments)
+    
     # Group payments by year for accordion display
     from collections import OrderedDict
     payments_by_year = OrderedDict()
@@ -7957,6 +8056,7 @@ def my_company_portfolio(request, company_id=None, company_slug=None):
         'transactions': transactions,
         'recent_payments': recent_payments_limited,
         'payments_by_year': payments_by_year,
+        'total_payments_count': total_payments_count,
         'total_invested': total_invested,
         'total_current_value': total_current_value,
         'total_value_increased': total_value_increased,
@@ -9507,22 +9607,36 @@ def change_password(request):
 def update_profile_data(user, request):
     if request.method == 'POST':
         # Get the posted form data
+        title = request.POST.get('title')
+        full_name = request.POST.get('fullName')
         about = request.POST.get('about')
         company = request.POST.get('company')
         job = request.POST.get('job')
         country = request.POST.get('country')
+        phone = request.POST.get('phone')
+        address = request.POST.get('address')
+        date_of_birth = request.POST.get('dateOfBirth')
         profile_image = request.FILES.get('profile_image')
 
-        # Validate the input fields if necessary
-        # if not about or not company or not job or not country:
-        #     messages.error(request, "Please fill out all fields.")
-        #     return False
-
         # Update the user fields
+        if title is not None:
+            user.title = title
+        if full_name:
+            user.full_name = full_name
         user.about = about
         user.company = company
         user.job = job
         user.country = country
+        if phone:
+            user.phone = phone
+        if address:
+            user.address = address
+        if date_of_birth:
+            try:
+                from datetime import datetime
+                user.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                pass  # Invalid date format, skip
 
         # If a new profile image was uploaded, update it
         if profile_image:

@@ -965,8 +965,36 @@ class CustomUser(AbstractUser):
         ('company', 'Company Administrator'),  # Company-level admin
         ('none', 'No Admin Access'),  # Regular user
     ]
+    
+    TITLE_CHOICES = [
+        ('', 'Select Title'),
+        ('Mr', 'Mr'),
+        ('Mrs', 'Mrs'),
+        ('Ms', 'Ms'),
+        ('Miss', 'Miss'),
+        ('Dr', 'Dr'),
+        ('Prof', 'Prof'),
+        ('Engr', 'Engr'),
+        ('Barr', 'Barr'),
+        ('Chief', 'Chief'),
+        ('Hon', 'Hon'),
+        ('Alhaji', 'Alhaji'),
+        ('Alhaja', 'Alhaja'),
+        ('Pastor', 'Pastor'),
+        ('Rev', 'Rev'),
+        ('Bishop', 'Bishop'),
+        ('Imam', 'Imam'),
+        ('Sir', 'Sir'),
+        ('Dame', 'Dame'),
+        ('Prince', 'Prince'),
+        ('Princess', 'Princess'),
+        ('Otunba', 'Otunba'),
+        ('Oloye', 'Oloye'),
+        ('High Chief', 'High Chief'),
+    ]
 
     username = None 
+    title = models.CharField(max_length=20, choices=TITLE_CHOICES, blank=True, null=True, verbose_name="Title")
     full_name = models.CharField(max_length=255, verbose_name="Full Name")
     address = models.TextField(blank=True, null=True, verbose_name="Residential Address")
     phone = models.CharField(max_length=20, verbose_name="Phone Number")

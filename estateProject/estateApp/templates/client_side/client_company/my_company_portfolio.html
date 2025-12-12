@@ -527,14 +527,14 @@
             </div>
           </div>
 
-          <div class="card mb-3 p-3">
+          <!-- <div class="card mb-3 p-3">
             <h6 class="mb-2">Quick Facts</h6>
             <ul class="list-unstyled small text-muted mb-0">
-              <li><strong>{{ allocations|length }}</strong> properties</li>
-              <li><strong>{{ transactions|length }}</strong> transactions</li>
-              <li>Last transaction: {% if transactions|length %}{{ transactions.0.transaction_date|date:"d M Y" }}{% else %}-{% endif %}</li>
+              <li><strong>{{ transactions|length }}</strong> propert{{ transactions|length|pluralize:"y,ies" }}</li>
+              <li><strong>{{ total_payments_count }}</strong> payment{{ total_payments_count|pluralize }}</li>
+              <li>Last payment: {% if recent_payments %}{{ recent_payments.0.date|date:"d M Y" }}{% else %}-{% endif %}</li>
             </ul>
-          </div>
+          </div> -->
 
           <!-- Recent Payments with Year Accordion -->
           <div class="card p-3">
