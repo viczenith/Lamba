@@ -602,37 +602,82 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
     ]
     
     # Client-side URLs (require client role)
+    # Uses startswith() so /my-companies/8/ is covered by /my-companies/
     CLIENT_URLS = [
         '/client-dashboard',
         '/my-client-profile',
-        '/my-companies/',
-        '/chat/',
+        '/my-companies/',          # Covers /my-companies/8/, /my-companies/slug/
+        '/chat/',                  # Covers /chat/, /chat/delete/1/, /chat/dashboard/
         '/property-list',
         '/view-all-requests',
-        '/c/',  # Secure client prefix
+        '/view-client-estate/',    # Covers /view-client-estate/6/28/
+        '/client-new-property-request',
+        '/client-dashboard-cross-company',
+        '/c/',                     # Secure client prefix
     ]
     
     # Marketer-side URLs (require marketer role)
     MARKETER_URLS = [
         '/marketer-dashboard',
         '/marketer-profile',
-        '/marketer/my-companies/',
-        '/marketer/chat/',
+        '/marketer/my-companies/', # Covers /marketer/my-companies/8/
+        '/marketer/chat/',         # Covers /marketer/chat/
         '/client-records',
-        '/m/',  # Secure marketer prefix
+        '/m/',                     # Secure marketer prefix
     ]
     
     # Admin-side URLs (require admin role)
     ADMIN_URLS = [
-        '/chat-admin/',
+        '/chat-admin/',            # Covers /chat-admin/chat/1/, /chat-admin/marketer-chat/1/
         '/admin-dashboard',
-        '/company-profile',
+        '/admin_dashboard',
         '/admin_home',
+        '/company-profile',        # Covers all company profile operations
+        '/marketer-list',
+        '/client/',                # Admin client management (not client self-service)
+        '/admin-marketer/',        # Admin marketer profile view
+        '/add-estate',
+        '/add-plotsize',
+        '/add-plotnumber',
+        '/delete-plotsize/',
+        '/delete-plotnumber/',
+        '/plot-allocation',
+        '/view-estate',
+        '/allocated-plot/',
+        '/allocate-units/',
+        '/estate-plots/',
+        '/delete-estate/',
+        '/edit-estate/',
+        '/add-floor-plan',
+        '/add-prototypes/',
+        '/add-estate-layout/',
+        '/add-estate-map/',
+        '/add-progress-status/',
+        '/user-registration',
+        '/send-announcement',
+        '/marketer-performance/',
+        '/sales-volume-metrics/',
+        '/management-dashboard',
+        '/download-allocations/',
+        '/download-estate-pdf/',
+    ]
+    
+    # Tenant-scoped admin URLs (dynamic company slug)
+    # Pattern: /<company_slug>/dashboard/, /<company_slug>/management/
+    TENANT_ADMIN_PATTERNS = [
+        '/dashboard/',
+        '/management/',
+        '/users/',
+        '/settings/',
     ]
     
     # Shared authenticated URLs (require login but any role)
     AUTHENTICATED_URLS = [
-        '/notifications/',
+        '/notifications/',         # Covers /notifications/, /notifications/46/, /notifications/46/mark-read/
+        '/message/',               # Message detail
+        '/receipt/',               # Receipt access
+        '/payment-history/',
+        '/transaction/',           # Transaction details
     ]
     
     def process_request(self, request):
@@ -707,14 +752,52 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                     _log_security_event(request, 'unauthorized_access', f"Non-admin accessing admin URL: {path}")
                     messages.error(request, "Access denied. This page is for administrators only.")
                     return redirect('login')
+            
+            # Tenant-scoped admin URL protection (/<company_slug>/dashboard/, etc.)
+            # Check if path matches pattern like /company-slug/dashboard/
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) >= 2:
+                potential_page = '/' + path_parts[1] + '/'
+                if potential_page in self.TENANT_ADMIN_PATTERNS:
+                    if user_role != 'admin':
+                        _log_security_event(request, 'unauthorized_access', f"Non-admin accessing tenant admin URL: {path}")
+                        messages.error(request, "Access denied. This page is for administrators only.")
+                        return redirect('login')
         
         # 6. Authenticated URL protection (any logged-in user)
         else:
-            # For URLs that require authentication
+            # For URLs that require authentication (any role)
             if any(path.startswith(url) for url in self.AUTHENTICATED_URLS):
                 _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing protected URL: {path}")
                 messages.error(request, "Please login to access this page.")
                 return redirect('login')
+            
+            # Block unauthenticated access to client URLs
+            if any(path.startswith(url) for url in self.CLIENT_URLS):
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing client URL: {path}")
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
+            
+            # Block unauthenticated access to marketer URLs
+            if any(path.startswith(url) for url in self.MARKETER_URLS):
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing marketer URL: {path}")
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
+            
+            # Block unauthenticated access to admin URLs
+            if any(path.startswith(url) for url in self.ADMIN_URLS):
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing admin URL: {path}")
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
+            
+            # Block unauthenticated access to tenant-scoped admin URLs
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) >= 2:
+                potential_page = '/' + path_parts[1] + '/'
+                if potential_page in self.TENANT_ADMIN_PATTERNS:
+                    _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing tenant admin URL: {path}")
+                    messages.error(request, "Please login to access this page.")
+                    return redirect('login')
         
         return None
     
