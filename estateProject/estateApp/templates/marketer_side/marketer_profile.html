@@ -4,892 +4,950 @@
 
 <main id="main" class="main">
   <div class="pagetitle">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1>Profile</h1>
-        <nav>
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
-            <li class="breadcrumb-item active">Profile</li>
-          </ol>
-        </nav>
-      </div>
-      <div class="d-flex">
-        <div class="search-bar me-3">
-          <input type="text" class="form-control" placeholder="Search...">
-          <button class="btn btn-search"><i class="bi bi-search"></i></button>
-        </div>
-      </div>
-    </div>
+    <h1>Profile</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
+        <li class="breadcrumb-item active">Profile</li>
+      </ol>
+    </nav>
   </div>
 
   <section class="section profile">
-    <div class="row">
-      <div class="col-xl-4">
+    <div class="row gy-4">
+      <!-- LEFT COLUMN -->
+      <div class="col-12 col-md-4">
         <div class="card profile-card">
-          <div class="card-body d-flex flex-column align-items-center">
-            {% comment %}
-            <img src="{{ user.profile_image.url }}" alt="Profile" class="rounded-circle">
-            <h2 class="mt-3">{{ user.full_name }}</h2>
-            <h4 class="text-muted">{{ user.job | default:"Marketer" }}</h4>
-            {% endcomment %}
-            <div class="text-center mb-4">
-              {% if user.profile_image %}
-                <img src="{{ user.profile_image.url }}" alt="Profile" class="profile-avatar">
-              {% else %}
-                <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" class="profile-avatar">
-              {% endif %}
-              <h2 class="mt-3">{{ user.full_name }}</h2>
-              <h4 class="text-muted">{{ user.job | default:"Marketer" }}</h4>
+          <div class="card-body pt-4">
+            <!-- Profile Avatar Section -->
+            <div class="profile-avatar-section text-center">
+              <div class="avatar-wrapper">
+                {% if user.profile_image %}
+                  <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }}" class="profile-avatar">
+                {% else %}
+                  <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Avatar" class="profile-avatar">
+                {% endif %}
+                <div class="avatar-status"></div>
+              </div>
+              <h5 class="profile-name mt-3 mb-1">{{ user.full_name }}</h5>
+              <p class="profile-role mb-0">{{ user.job|default:"Real Estate Marketer" }}</p>
             </div>
             
-            <!-- Performance Summary -->
-            <div class="performance-summary mt-4 justify-content-between">
-              <div class="row text-center">
-                <div class="col-4">
-                  <div class="stat-value">{{ performance.commission_rate|floatformat:1 }}%
-
-                  </div>
-                  <div class="stat-label">Commission</div>
+            <!-- Stats Section -->
+            <div class="profile-stats mt-4">
+              <div class="stat-item">
+                <div class="stat-icon-wrapper deals">
+                  <i class="bi bi-handshake"></i>
                 </div>
-                <div class="col-4">
-                  <div class="stat-value" style="font-size: 16px;">
-                    {% if user_entry.has_target %}
-                      {% if user_entry.category == 'Above Target' %}
-                        <span class="badge bg-success">{{ user_entry.diff_pct|floatformat:0 }}% Above Target</span>
-                      {% elif user_entry.category == 'On Target' %}
-                        <span class="badge bg-primary">On Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
-                      {% elif user_entry.category == 'Below Target' %}
-                        <span class="badge bg-warning text-dark">Below Target ({{ user_entry.target_pct|floatformat:0 }}%)</span>
-                      {% endif %}
-                    {% else %}
-                      <span><em>{{ current_year }} Target is yet to be set</em></span>
-                    {% endif %}
-                  </div>
-                  <div class="stat-label">{{ current_year }} Target</div>
-                </div>
-                <div class="col-4">
-                  <div class="stat-value">{{ performance.closed_deals }}</div>
-                  <div class="stat-label">Deals</div>
+                <div class="stat-info">
+                  <span class="stat-number">{{ performance.closed_deals }}</span>
+                  <span class="stat-text">Closed Deals (All Companies)</span>
                 </div>
               </div>
             </div>
             
             <!-- Badges -->
-            <div class="badges mt-4">
+            <div class="badges-section mt-4 text-center">
               <span class="badge bg-gold">Gold</span>
               <span class="badge bg-silver">Elite Marketer</span>
-              <span class="badge bg-bronze">Consistent Performer</span>
+              <span class="badge bg-bronze">Consistent</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="col-xl-8">
+        <!-- Contact Info Card -->
+        <div class="card mt-3 contact-info-card">
+          <div class="card-body">
+            <h5 class="card-title"><i class="bi bi-person-lines-fill me-2"></i>Contact</h5>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-envelope"></i>
+              <span class="contact-text">{{ user.email|default:"—" }}</span>
+            </div>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-telephone"></i>
+              <span class="contact-text">{{ user.phone|default:"—" }}</span>
+            </div>
+            <div class="contact-item d-flex align-items-center gap-3">
+              <i class="bi bi-geo-alt"></i>
+              <span class="contact-text">{{ user.address|default:"—" }}</span>
+            </div>
+          </div>
+        </div>
+      </div><!-- End LEFT COLUMN -->
+
+      <!-- RIGHT COLUMN -->
+      <div class="col-12 col-md-8 mt-4 mt-md-0">
         <div class="card">
           <div class="card-body pt-3">
-            <!-- Bordered Tabs -->
-            <ul class="nav nav-tabs nav-tabs-bordered">
-              <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile-overview">Details</button>
+            <ul class="nav nav-tabs nav-tabs-bordered" id="profileTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="details-tab" data-bs-toggle="tab" data-bs-target="#profile-overview" type="button" role="tab">Details</button>
               </li>
-              <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-edit">Edit Profile</button>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="edit-tab" data-bs-toggle="tab" data-bs-target="#profile-edit" type="button" role="tab">Edit Profile</button>
               </li>
-              <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-change-password">Password</button>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="password-tab" data-bs-toggle="tab" data-bs-target="#profile-change-password" type="button" role="tab">Password</button>
               </li>
             </ul>
             
-            <div class="tab-content pt-4">
+            <div class="tab-content pt-3">
               <!-- Details Tab -->
-              <div class="tab-pane fade show active" id="profile-overview">
-                <div class="profile-container">
-                  {% if success %}
-                    <div class="alert alert-success alert-container">{{ success }}</div>
-                  {% elif error %}
-                    <div class="alert alert-danger alert-container">{{ error }}</div>
-                  {% endif %}
-
-                  {% if messages %}
-                    <div class="alert-container">
-                      {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} mb-3">{{ message|safe }}</div>
-                      {% endfor %}
+              <div class="tab-pane fade show active" id="profile-overview" role="tabpanel" aria-labelledby="details-tab">
+                {% if messages %}
+                  <div class="mb-3">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                      {{ message|safe }}
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
-                  {% endif %}
-                  
-                  {% comment %}
-                  <div class="text-center mb-4">
-                    {% if user.profile_image %}
-                      <img src="{{ user.profile_image.url }}" alt="Profile" class="profile-avatar">
-                    {% else %}
-                      <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" class="profile-avatar">
-                    {% endif %}
-                    <h3 class="mt-3">{{ user.full_name }}</h3>
-                    <p class="text-muted">{{ user.job | default:"Marketer" }}</p>
+                    {% endfor %}
                   </div>
-                  {% endcomment %}
-                  
-                  <div class="profile-about">
-                    <h5 class="card-title mb-3">About You</h5>
-                    <p class="mb-0">{{ user.about|default:"Share something about yourself..." }}</p>
-                  </div>
+                {% endif %}
 
-                  <h5 class="card-title mb-4">Profile Details</h5>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-person"></i> Full Name
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.full_name }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-building"></i> Company
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.company|default:"-" }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-briefcase"></i> Job
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.job|default:"-" }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-globe"></i> Country
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.country|default:"-" }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-geo-alt"></i> Address
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.address|default:"-" }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-telephone"></i> Phone
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.phone|default:"-" }}</div>
-                  </div>
-
-                  <div class="row profile-detail-row">
-                    <div class="col-lg-3 col-md-4 detail-label">
-                      <i class="bi bi-envelope"></i> Email
-                    </div>
-                    <div class="col-lg-9 col-md-8 detail-value">{{ user.email }}</div>
-                  </div>
+                <!-- About Section -->
+                {% if user.about %}
+                <div class="about-section mb-4">
+                  <p class="text-muted mb-0"><i class="bi bi-quote me-2"></i>{{ user.about }}</p>
                 </div>
-              </div>
+                {% endif %}
+
+                <!-- Profile Details - Clean Table Layout -->
+                <div class="profile-details-table mb-4">
+                  <table class="table table-borderless mb-0">
+                    <tbody>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-person"></i> Full Name</td>
+                        <td class="detail-value">{{ user.full_name }}</td>
+                      </tr>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-building"></i> Company</td>
+                        <td class="detail-value">{{ user.company|default:"—" }}</td>
+                      </tr>
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-briefcase"></i> Job Title</td>
+                        <td class="detail-value">{{ user.job|default:"—" }}</td>
+                      </tr>
+                      {% if user.country %}
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-globe"></i> Country</td>
+                        <td class="detail-value">{{ user.country }}</td>
+                      </tr>
+                      {% endif %}
+                      <tr>
+                        <td class="detail-label"><i class="bi bi-calendar3"></i> Member Since</td>
+                        <td class="detail-value">{{ user.date_registered|date:"F d, Y" }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+              </div><!-- End Details Tab -->
 
               <!-- Edit Profile Tab -->
-              <div class="tab-pane fade" id="profile-edit">
-                <div class="form-container">
-                  <form method="POST" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <input type="hidden" name="update_profile" value="1">
-<!--                     
-                    {% if messages %}
-                      <div class="mb-4">
-                        {% for message in messages %}
-                          <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-                        {% endfor %}
+              <div class="tab-pane fade" id="profile-edit" role="tabpanel" aria-labelledby="edit-tab">
+                <form id="profileForm" method="POST" enctype="multipart/form-data">
+                  {% csrf_token %}
+                  <input type="hidden" name="update_profile" value="1">
+                  
+                  <!-- Profile Photo Section -->
+                  <div class="edit-section mb-4">
+                    <div class="photo-upload-section">
+                      <div class="profile-photo-preview">
+                        {% if user.profile_image %}
+                          <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }}" id="profilePreview">
+                        {% else %}
+                          <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" id="profilePreview">
+                        {% endif %}
                       </div>
-                    {% endif %} -->
-                    
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="profileImage" class="form-label">Profile Image</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="d-flex flex-column align-items-center">
-                          {% if user.profile_image %}
-                            <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }} Profile Image" class="profile-avatar mb-3">
-                          {% else %}
-                            <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile Image" class="profile-avatar mb-3">
-                          {% endif %}
-                          <div class="d-flex">
-                            <input type="file" name="profile_image" class="form-control d-none" id="profileImageInput">
-                            <button type="button" class="btn btn-primary" onclick="document.getElementById('profileImageInput').click();">
-                              <i class="bi bi-upload me-1"></i> Change Photo
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary ms-2">
-                              <i class="bi bi-trash me-1"></i> Remove
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="fullName" class="form-label">Full Name</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-person"></i></span>
-                          <input name="fullName" disabled type="text" class="form-control" id="fullName" value="{{ user.full_name }}">
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="about" class="form-label">About You</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-pencil"></i></span>
-                          <textarea name="about" class="form-control" id="about" rows="4" placeholder="Write about yourself">{{ user.about }}</textarea>
-                        </div>
-                      </div>
-                    </div>
-                
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="company" class="form-label">Company</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-building"></i></span>
-                          <input name="company" type="text" class="form-control" id="company" value="{{ user.company }}">
-                        </div>
-                      </div>
-                    </div>
-                
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="job" class="form-label">Job</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
-                          <input name="job" type="text" class="form-control" id="job" value="{{ user.job }}">
-                        </div>
-                      </div>
-                    </div>
-                
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="country" class="form-label">Country</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-globe"></i></span>
-                          <input name="country" type="text" class="form-control" id="country" value="{{ user.country }}">
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="Address" class="form-label">Address</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                          <input name="address" disabled type="text" class="form-control" id="Address" value="{{ user.address }}">
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="Phone" class="form-label">Phone</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                          <input name="phone" disabled type="text" class="form-control" id="Phone" value="{{ user.phone }}">
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="row mb-4">
-                      <div class="col-md-4 col-lg-3 col-form-label">
-                        <label for="Email" class="form-label">Email</label>
-                      </div>
-                      <div class="col-md-8 col-lg-9">
-                        <div class="input-group">
-                          <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                          <input name="email" disabled type="email" class="form-control" id="Email" value="{{ user.email }}">
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="text-center mt-4">
-                      <button type="submit" class="btn btn-primary btn-lg px-5">
-                        <i class="bi bi-save me-2"></i>Save Changes
+                      <input type="file" name="profile_image" class="form-control d-none" id="profileImageInput">
+                      <button type="button" class="btn upload-btn" onclick="document.getElementById('profileImageInput').click();">
+                        <i class="bi bi-camera me-2"></i>Change Photo
                       </button>
-                      <button type="reset" class="btn btn-outline-secondary btn-lg ms-3 px-5">Cancel</button>
+                      <div class="mt-2 small text-muted" id="fileNameDisplay">JPG, PNG or GIF • Max 2MB</div>
                     </div>
-                  </form>
-                </div>
-              </div> 
+                  </div>
+
+                  <!-- Personal Details Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-person-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Personal Details</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-3">
+                        <div class="form-floating">
+                          <select name="title" class="form-select" id="title">
+                            <option value="">Select Title</option>
+                            <option value="Mr" {% if user.title == 'Mr' %}selected{% endif %}>Mr</option>
+                            <option value="Mrs" {% if user.title == 'Mrs' %}selected{% endif %}>Mrs</option>
+                            <option value="Ms" {% if user.title == 'Ms' %}selected{% endif %}>Ms</option>
+                            <option value="Miss" {% if user.title == 'Miss' %}selected{% endif %}>Miss</option>
+                            <option value="Dr" {% if user.title == 'Dr' %}selected{% endif %}>Dr</option>
+                            <option value="Prof" {% if user.title == 'Prof' %}selected{% endif %}>Prof</option>
+                            <option value="Engr" {% if user.title == 'Engr' %}selected{% endif %}>Engr</option>
+                            <option value="Barr" {% if user.title == 'Barr' %}selected{% endif %}>Barr</option>
+                            <option value="Chief" {% if user.title == 'Chief' %}selected{% endif %}>Chief</option>
+                            <option value="Hon" {% if user.title == 'Hon' %}selected{% endif %}>Hon</option>
+                            <option value="Alhaji" {% if user.title == 'Alhaji' %}selected{% endif %}>Alhaji</option>
+                            <option value="Alhaja" {% if user.title == 'Alhaja' %}selected{% endif %}>Alhaja</option>
+                            <option value="Pastor" {% if user.title == 'Pastor' %}selected{% endif %}>Pastor</option>
+                            <option value="Rev" {% if user.title == 'Rev' %}selected{% endif %}>Rev</option>
+                            <option value="Bishop" {% if user.title == 'Bishop' %}selected{% endif %}>Bishop</option>
+                            <option value="Imam" {% if user.title == 'Imam' %}selected{% endif %}>Imam</option>
+                            <option value="Sir" {% if user.title == 'Sir' %}selected{% endif %}>Sir</option>
+                            <option value="Dame" {% if user.title == 'Dame' %}selected{% endif %}>Dame</option>
+                            <option value="Prince" {% if user.title == 'Prince' %}selected{% endif %}>Prince</option>
+                            <option value="Princess" {% if user.title == 'Princess' %}selected{% endif %}>Princess</option>
+                            <option value="Otunba" {% if user.title == 'Otunba' %}selected{% endif %}>Otunba</option>
+                            <option value="Oloye" {% if user.title == 'Oloye' %}selected{% endif %}>Oloye</option>
+                            <option value="High Chief" {% if user.title == 'High Chief' %}selected{% endif %}>High Chief</option>
+                          </select>
+                          <label for="title"><i class="bi bi-person-badge me-2"></i>Title</label>
+                        </div>
+                      </div>
+                      <div class="col-md-9">
+                        <div class="form-floating">
+                          <input name="fullName" type="text" class="form-control" id="fullName" value="{{ user.full_name }}" placeholder="Full Name" readonly style="background-color: #f8f9fa;">
+                          <label for="fullName"><i class="bi bi-person me-2"></i>Full Name</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="email" type="email" class="form-control" id="email" value="{{ user.email }}" placeholder="Email" readonly style="background-color: #f8f9fa;">
+                          <label for="email"><i class="bi bi-envelope me-2"></i>Email Address</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="dateOfBirth" type="date" class="form-control" id="dateOfBirth" value="{{ user.date_of_birth|date:'Y-m-d' }}" placeholder="Date of Birth">
+                          <label for="dateOfBirth"><i class="bi bi-calendar-event me-2"></i>Date of Birth</label>
+                        </div>
+                      </div>
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <textarea name="about" class="form-control" id="about" placeholder="About" style="height: 100px;">{{ user.about }}</textarea>
+                          <label for="about"><i class="bi bi-chat-quote me-2"></i>About Me</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Contact Information Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-telephone-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Contact Information</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="phone" type="text" class="form-control" id="phone" value="{{ user.phone|default:'' }}" placeholder="Phone" readonly style="background-color: #f8f9fa;">
+                          <label for="phone"><i class="bi bi-telephone me-2"></i>Phone Number</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="country" type="text" class="form-control" id="country" value="{{ user.country|default:'' }}" placeholder="Country">
+                          <label for="country"><i class="bi bi-globe me-2"></i>Country</label>
+                        </div>
+                      </div>
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <input name="address" type="text" class="form-control" id="address" value="{{ user.address|default:'' }}" placeholder="Address" readonly style="background-color: #f8f9fa;">
+                          <label for="address"><i class="bi bi-geo-alt me-2"></i>Address</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Work Information Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-briefcase-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Work Information</h5>
+                    </div>
+                    <div class="row g-3 ps-5">
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="company" type="text" class="form-control" id="company" value="{{ user.company|default:'' }}" placeholder="Company">
+                          <label for="company"><i class="bi bi-building me-2"></i>Company</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="job" type="text" class="form-control" id="job" value="{{ user.job|default:'' }}" placeholder="Job Title">
+                          <label for="job"><i class="bi bi-person-workspace me-2"></i>Job Title</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="d-flex justify-content-end pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4">
+                      <i class="bi bi-check-circle me-1"></i> Save Changes
+                    </button>
+                  </div>
+                </form>
+              </div><!-- End Edit Profile Tab -->
 
               <!-- Change Password Tab -->
-              <div class="tab-pane fade" id="profile-change-password">
-                <div class="password-form-card">
-                  <div class="password-form-header text-center">
-                    <h4 class="text-white mb-0"><i class="bi bi-shield-lock me-2"></i>Change Password</h4>
-                    <p class="text-white-50 mb-0">Secure your account with a new password</p>
-                  </div>
+              <div class="tab-pane fade" id="profile-change-password" role="tabpanel" aria-labelledby="password-tab">
+                <form id="passwordForm" method="POST">
+                  {% csrf_token %}
+                  <input type="hidden" name="change_password" value="1">
                   
-                  <div class="card-body">
-                    <form method="post">
-                      {% csrf_token %}
-                      <input type="hidden" name="change_password" value="1">
-
-                      {% if success %}
-                        <div class="alert alert-success alert-container">{{ success }}</div>
-                      {% elif error %}
-                        <div class="alert alert-danger alert-container">{{ error }}</div>
-                      {% endif %}
-                      
-                      <div class="mb-4">
-                        <label for="currentPassword" class="form-label">Current Password</label>
-                        <div class="password-input-group">
-                          <i class="bi bi-lock"></i>
-                          <input name="currentPassword" type="password" class="form-control form-control-lg" id="currentPassword" placeholder="Enter your current password" required>
-                          <span class="password-toggle" onclick="togglePassword('currentPassword')">
-                            <i class="bi bi-eye"></i>
-                          </span>
+                  <!-- Password Section -->
+                  <div class="edit-section mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="section-icon me-3">
+                        <i class="bi bi-shield-lock-fill"></i>
+                      </div>
+                      <h5 class="mb-0">Change Your Password</h5>
+                    </div>
+                    <p class="text-muted ps-5 mb-4">Ensure your account is using a strong password to stay secure.</p>
+                    
+                    <div class="row g-3 ps-5">
+                      <div class="col-12">
+                        <div class="form-floating">
+                          <input name="currentPassword" type="password" class="form-control" id="currentPassword" placeholder="Current Password" required>
+                          <label for="currentPassword"><i class="bi bi-key me-2"></i>Current Password</label>
                         </div>
                       </div>
-
-                      <div class="mb-4">
-                        <label for="newPassword" class="form-label">New Password</label>
-                        <div class="password-input-group">
-                          <i class="bi bi-key"></i>
-                          <input name="newPassword" type="password" class="form-control form-control-lg" id="newPassword" placeholder="Create a new password" required>
-                          <span class="password-toggle" onclick="togglePassword('newPassword')">
-                            <i class="bi bi-eye"></i>
-                          </span>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="newPassword" type="password" class="form-control" id="newPassword" placeholder="New Password" required>
+                          <label for="newPassword"><i class="bi bi-lock me-2"></i>New Password</label>
                         </div>
-                        <div class="password-strength mt-2">
-                          <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input name="renewPassword" type="password" class="form-control" id="renewPassword" placeholder="Confirm Password" required>
+                          <label for="renewPassword"><i class="bi bi-lock-fill me-2"></i>Confirm New Password</label>
                         </div>
-                        <div class="form-text">Use 8+ characters with a mix of letters, numbers & symbols</div>
                       </div>
+                    </div>
 
-                      <div class="mb-4">
-                        <label for="renewPassword" class="form-label">Confirm New Password</label>
-                        <div class="password-input-group">
-                          <i class="bi bi-key-fill"></i>
-                          <input name="renewPassword" type="password" class="form-control form-control-lg" id="renewPassword" placeholder="Re-enter your new password" required>
-                          <span class="password-toggle" onclick="togglePassword('renewPassword')">
-                            <i class="bi bi-eye"></i>
-                          </span>
-                        </div>
-                        <div class="form-text" id="passwordMatchText"></div>
+                    <!-- Password Requirements -->
+                    <div class="ps-5 mt-4">
+                      <div class="password-requirements p-3 rounded">
+                        <h6 class="mb-2"><i class="bi bi-info-circle me-2"></i>Password Requirements</h6>
+                        <ul class="mb-0 small text-muted">
+                          <li>Minimum 8 characters long</li>
+                          <li>At least one uppercase letter</li>
+                          <li>At least one number</li>
+                          <li>Avoid using common passwords</li>
+                        </ul>
                       </div>
-
-                      <div class="text-center mt-5">
-                        <button type="submit" class="btn btn-primary btn-lg px-5">
-                          <i class="bi bi-check-circle me-2"></i>Update Password
-                        </button>
-                      </div>
-                    </form>
+                    </div>
                   </div>
-                </div>
-              </div>
-            
+
+                  <!-- Action Buttons -->
+                  <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4">
+                      <i class="bi bi-shield-check me-1"></i> Update Password
+                    </button>
+                  </div>
+                </form>
+              </div><!-- End Change Password Tab -->
+
+            </div><!-- End Tab Content -->
           </div>
         </div>
-      </div>
-    </div>
+      </div><!-- End RIGHT COLUMN -->
+    </div><!-- End ROW -->
   </section>
 </main>
 
 <style>
-  .profile-container {
-    background: #f8f9fa;
-    border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-    padding: 25px;
+  /* Profile Avatar Section */
+  .profile-avatar-section {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
   }
-  
-  .profile-detail-row {
-    padding: 15px 0;
-    border-bottom: 1px solid #e9ecef;
-    transition: background 0.3s;
+  .avatar-wrapper {
+    position: relative;
+    display: inline-block;
   }
-  
-  .profile-detail-row:hover {
-    background-color: rgba(37, 117, 252, 0.03);
-  }
-  
-  .detail-label {
-    font-weight: 600;
-    color: #495057;
-    display: flex;
-    align-items: center;
-  }
-  
-  .detail-label i {
-    margin-right: 10px;
-    color: #2575fc;
-    font-size: 1.1rem;
-    width: 24px;
-    text-align: center;
-  }
-  
-  .detail-value {
-    color: #343a40;
-    font-weight: 500;
-  }
-  
-  .form-container {
-    background: white;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  }
-  
   .profile-avatar {
     width: 120px;
     height: 120px;
     border-radius: 50%;
     object-fit: cover;
-    border: 4px solid white;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 4px solid #fff;
+    box-shadow: 0 8px 24px rgba(65,84,241,0.15);
   }
-  
-  .password-form-card {
-    border-radius: 12px;
-    overflow: hidden;
-    border: none;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-  }
-  
-  .password-form-header {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-    color: white;
-    padding: 20px;
-  }
-  
-  .password-input-group {
-    position: relative;
-  }
-  
-  .password-input-group i {
+  .avatar-status {
     position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6c757d;
+    bottom: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #10b981, #34d399);
+    border: 3px solid #fff;
+    border-radius: 50%;
   }
-  
-  .password-input-group input {
-    padding-left: 45px;
-  }
-  
-  .password-strength {
-    height: 4px;
-    border-radius: 2px;
-    margin-top: 5px;
-    background: #e9ecef;
-    overflow: hidden;
-  }
-  
-  .password-strength-bar {
-    height: 100%;
-    width: 0%;
-    transition: width 0.5s;
-  }
-  
-  .password-toggle {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #6c757d;
-  }
-  
-  .profile-about {
-    background: rgba(37, 117, 252, 0.05);
-    border-radius: 10px;
-    padding: 20px;
-    border-left: 4px solid #2575fc;
-    margin-bottom: 25px;
-  }
-  
-  .alert-container {
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .profile-card {
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    border: none;
-  }
-  
-  .profile-card img {
-    width: 150px;
-    height: 150px;
-    object-fit: cover;
-    border: 5px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  }
-  
-  .performance-summary {
-    background: rgba(37, 117, 252, 0.05);
-    border-radius: 12px;
-    padding: 15px;
-    width: 100%;
-  }
-  
-  .stat-value {
-    font-size: 1.4rem;
+  .profile-name {
+    font-size: 1.15rem;
     font-weight: 700;
-    color: #2575fc;
+    color: #012970;
   }
-  
-  .stat-label {
+  .profile-role {
     font-size: 0.85rem;
     color: #6c757d;
+    font-weight: 500;
   }
   
-  .badges .badge {
+  /* Profile Stats */
+  .profile-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px;
+    border: 1px solid #e8ecf4;
+    transition: all 0.3s ease;
+  }
+  .stat-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(65,84,241,0.1);
+  }
+  .stat-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .stat-icon-wrapper i {
+    color: #fff;
+    font-size: 18px;
+  }
+  .stat-icon-wrapper.deals {
+    background: linear-gradient(135deg, #10b981, #34d399);
+  }
+  .stat-icon-wrapper.target {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  }
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-number {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #012970;
+    line-height: 1.2;
+  }
+  .stat-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+  }
+  
+  /* Badges Section */
+  .badges-section .badge {
     margin: 0 3px;
     font-weight: 500;
     border-radius: 20px;
     padding: 0.5em 0.8em;
+    font-size: 0.75rem;
   }
-  
   .bg-gold {
     background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
     color: #000;
   }
-  
   .bg-silver {
     background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%);
     color: #000;
   }
-  
   .bg-bronze {
     background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
     color: #fff;
   }
   
-  .stat-card {
-    border-radius: 12px;
-    overflow: hidden;
-    transition: transform 0.3s ease;
-    border: none;
-  }
-  
-  .stat-card:hover {
-    transform: translateY(-5px);
-  }
-  
-  .leaderboard {
+  /* About Section */
+  .about-section {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #f8f9ff, #f0f4ff);
     border-radius: 10px;
-    overflow: hidden;
+    border-left: 3px solid #4154f1;
+  }
+  .about-section p {
+    font-style: italic;
+    line-height: 1.6;
   }
   
-  .leaderboard-item {
-    display: flex;
-    align-items: center;
-    padding: 15px;
-    border-bottom: 1px solid #e9ecef;
-    transition: all 0.3s;
+  /* Profile Details Table */
+  .profile-details-table {
+    background: #fff;
   }
-  
-  .leaderboard-item:last-child {
+  .profile-details-table .table {
+    margin-bottom: 0;
+  }
+  .profile-details-table tr {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .profile-details-table tr:last-child {
     border-bottom: none;
   }
-  
-  .leaderboard-item:hover {
-    background-color: #f8f9fa;
+  .detail-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+    padding: 12px 0;
+    width: 40%;
+  }
+  .detail-label i {
+    color: #4154f1;
+    margin-right: 10px;
+    width: 18px;
+  }
+  .detail-value {
+    color: #012970;
+    font-weight: 500;
+    padding: 12px 0;
   }
   
-  .leaderboard-item.gold {
-    background: rgba(255, 215, 0, 0.05);
-    border-left: 4px solid #FFD700;
+  /* Portfolio/Performance Summary Section */
+  .portfolio-summary-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    border: 1px solid #e8ecf4;
+  }
+  .portfolio-summary-section .section-title {
+    color: #012970;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .portfolio-summary-section .section-title i {
+    color: #4154f1;
   }
   
-  .leaderboard-item.silver {
-    background: rgba(192, 192, 192, 0.05);
-    border-left: 4px solid #C0C0C0;
+  /* Stat Tiles */
+  .stat-tile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, #f8faff 0%, #fff 100%);
+    border-radius: 12px;
+    padding: 16px 18px;
+    border: 1px solid #e8ecf4;
+    transition: all 0.3s ease;
+    height: 100%;
   }
-  
-  .leaderboard-item.bronze {
-    background: rgba(205, 127, 50, 0.05);
-    border-left: 4px solid #CD7F32;
+  .stat-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(65,84,241,0.1);
   }
-  
-  .leaderboard-item.current-user {
-    background: rgba(37, 117, 252, 0.08);
-    border-left: 4px solid #2575fc;
+  .stat-icon-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #e8ecf4 0%, #f0f4ff 100%);
   }
-  
-  .leaderboard-item .rank {
-    font-size: 1.5rem;
+  .stat-icon-wrap i {
+    font-size: 20px;
+    color: #4154f1;
+  }
+  .stat-icon-wrap.growth {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  }
+  .stat-icon-wrap.growth i { color: #2563eb; }
+  .stat-icon-wrap.value {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+  }
+  .stat-icon-wrap.value i { color: #db2777; }
+  .stat-icon-wrap.invested {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  }
+  .stat-icon-wrap.invested i { color: #4f46e5; }
+  .stat-icon-wrap.profit {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  }
+  .stat-icon-wrap.profit i { color: #059669; }
+  .stat-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  .stat-value {
+    font-size: 1.05rem;
     font-weight: 700;
+    color: #012970;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  
+  /* Best Performing / Target Card */
+  .best-estate-card {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+    border-radius: 14px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #f59e0b;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+  }
+  .best-estate-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  .trophy-badge {
     width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .trophy-badge i {
+    font-size: 20px;
+    color: #fff;
+  }
+  .best-label {
+    display: flex;
+    flex-direction: column;
+  }
+  .best-label .badge-text {
+    color: rgba(255,255,255,0.9);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .best-label .growth-badge {
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .best-estate-body {
+    padding: 18px;
+  }
+  .estate-info {
+    margin-bottom: 12px;
+  }
+  .estate-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 8px;
+  }
+  .estate-name i {
+    color: #d97706;
+  }
+  .estate-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: #78350f;
+    font-size: 0.85rem;
+  }
+  .estate-details .detail-item i {
+    color: #b45309;
+    margin-right: 4px;
+  }
+  .invest-hint {
+    background: rgba(146, 64, 14, 0.08);
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #92400e;
+    margin-top: 10px;
+  }
+  .invest-hint i {
+    color: #d97706;
+  }
+  .no-estate-card {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 20px;
+    color: #64748b;
     text-align: center;
-    color: #495057;
+    font-size: 0.9rem;
+  }
+  .no-estate-card i {
+    color: #94a3b8;
   }
   
-  .leaderboard-item .avatar {
-    position: relative;
-    width: 50px;
-    height: 50px;
-    margin: 0 15px;
+  /* Contact Info Card */
+  .contact-info-card {
+    border: none;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border-radius: 16px;
+  }
+  .contact-info-card .card-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #012970;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .contact-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  .contact-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .contact-item i {
+    width: 32px;
+    height: 32px;
+    background: #f0f4ff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4154f1;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .contact-item .contact-text {
+    color: #012970;
+    font-weight: 500;
+    font-size: 0.9rem;
   }
   
-  .leaderboard-item .avatar img {
+  /* Profile Photo Upload Section */
+  .photo-upload-section {
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px;
+    padding: 25px;
+    border: 2px dashed #e0e4f0;
+    text-align: center;
+  }
+  .photo-upload-section:hover {
+    border-color: #4154f1;
+  }
+  .profile-photo-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 20px rgba(65,84,241,0.2);
+    margin: 0 auto 15px;
+  }
+  .profile-photo-preview img {
     width: 100%;
     height: 100%;
-    border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #fff;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  }
+  .upload-btn {
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    border: none;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 25px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  .upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(65,84,241,0.3);
+    color: #fff;
   }
   
-  .leaderboard-item .avatar .badge {
-    position: absolute;
-    bottom: -5px;
-    right: -5px;
-    font-size: 0.6rem;
-    padding: 0.25em 0.6em;
+  /* Edit Section Icons */
+  .section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4154f1, #6c8cf5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-icon i {
+    color: white;
+    font-size: 16px;
   }
   
-  .leaderboard-item .info {
-    flex: 1;
+  /* Floating Labels Enhancement */
+  .form-floating > label {
+    color: #6c757d;
+  }
+  .form-floating > .form-control:focus ~ label {
+    color: #4154f1;
   }
   
-  .leaderboard-item .name {
-    font-weight: 600;
+  /* Password Requirements Box */
+  .password-requirements {
+    background: #f0f4ff;
+    border-left: 3px solid #4154f1;
+  }
+  .password-requirements ul {
+    padding-left: 20px;
+  }
+  .password-requirements li {
     margin-bottom: 5px;
   }
   
-  .leaderboard-item .stats {
-    display: flex;
-    font-size: 0.8rem;
-    color: #6c757d;
+  /* Edit Section Styling */
+  .edit-section {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .edit-section:last-of-type {
+    border-bottom: none;
   }
   
-  .leaderboard-item .stats span {
-    margin-right: 15px;
-  }
-  
-  .leaderboard-item .percentage {
-    font-weight: 600;
-    color: #2575fc;
-    min-width: 70px;
-    text-align: right;
-  }
-  
-  .metric {
-    margin-bottom: 1.5rem;
-  }
-  
-  .search-bar {
-    position: relative;
-    width: 250px;
-  }
-  
-  .search-bar .form-control {
-    border-radius: 30px;
-    padding-left: 45px;
-    height: 45px;
-  }
-  
-  .btn-search {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
+  /* Tab styling */
+  .nav-tabs .nav-link {
     border: none;
     color: #6c757d;
+    padding: 12px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  .nav-tabs .nav-link:hover {
+    color: #4154f1;
+    border: none;
+  }
+  .nav-tabs .nav-link.active {
+    color: #4154f1;
+    border: none;
+    border-bottom: 2px solid #4154f1;
+    background: transparent;
+  }
+  
+  /* Profile Card */
+  .profile-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: none;
+  }
+  
+  /* Card general */
+  .card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    border: none;
+  }
+  
+  /* Responsive */
+  @media (max-width: 767px) {
+    .stat-tile {
+      padding: 14px 16px;
+    }
+    .stat-value {
+      font-size: 0.95rem;
+    }
+    .stat-icon-wrap {
+      width: 40px;
+      height: 40px;
+    }
+    .stat-icon-wrap i {
+      font-size: 18px;
+    }
   }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // Target Progress Chart
-    const targetCtx = document.getElementById('targetChart').getContext('2d');
-    const targetChart = new Chart(targetCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Achieved', 'Remaining'],
-        datasets: [{
-          data: [87, 13],
-          backgroundColor: [
-            '#28a745',
-            '#e9ecef'
-          ],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        cutout: '70%',
-        plugins: {
-          legend: {
-            position: 'bottom'
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.label}: ${context.parsed}%`;
-              }
-            }
-          }
-        }
-      }
-    });
-    
-    // Performance Distribution Chart
-    // const distCtx = document.getElementById('distributionChart').getContext('2d');
-    // const distChart = new Chart(distCtx, {
-    //   type: 'bar',
-    //   data: {
-    //     labels: ['Top 10%', '11-25%', '26-50%', '51-75%', 'Bottom 25%'],
-    //     datasets: [{
-    //       label: 'Marketers',
-    //       data: [3, 7, 15, 20, 5],
-    //       backgroundColor: [
-    //         '#FFD700',
-    //         '#C0C0C0',
-    //         '#CD7F32',
-    //         '#2575fc',
-    //         '#6c757d'
-    //       ]
-    //     }]
-    //   },
-    //   options: {
-    //     responsive: true,
-    //     plugins: {
-    //       legend: {
-    //         display: false
-    //       }
-    //     },
-    //     scales: {
-    //       y: {
-    //         beginAtZero: true,
-    //         title: {
-    //           display: true,
-    //           text: 'Number of Marketers'
-    //         }
-    //       }
-    //     }
-    //   }
-    // });
-    
-    // Leaderboard animation
-    const leaderboardItems = document.querySelectorAll('.leaderboard-item');
-    leaderboardItems.forEach((item, index) => {
-      setTimeout(() => {
-        item.style.opacity = 0;
-        item.style.transform = 'translateY(20px)';
-        item.style.display = 'flex';
-        
-        setTimeout(() => {
-          item.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-          item.style.opacity = 1;
-          item.style.transform = 'translateY(0)';
-        }, 10);
-      }, index * 150);
-    });
-  });
-
-
-  // Password visibility toggle
-  function togglePassword(inputId) {
-    const input = document.getElementById(inputId);
-    const icon = input.parentElement.querySelector('.password-toggle i');
-    
-    if (input.type === 'password') {
-      input.type = 'text';
-      icon.classList.remove('bi-eye');
-      icon.classList.add('bi-eye-slash');
-    } else {
-      input.type = 'password';
-      icon.classList.remove('bi-eye-slash');
-      icon.classList.add('bi-eye');
-    }
-  }
-  
-  // Password strength indicator
-  document.getElementById('newPassword').addEventListener('input', function() {
-    const password = this.value;
-    const strengthBar = document.getElementById('passwordStrengthBar');
-    let strength = 0;
-    
-    // Check password length
-    if (password.length >= 8) strength += 25;
-    if (password.length >= 12) strength += 15;
-    
-    // Check for lowercase letters
-    if (/[a-z]/.test(password)) strength += 15;
-    
-    // Check for uppercase letters
-    if (/[A-Z]/.test(password)) strength += 15;
-    
-    // Check for numbers
-    if (/\d/.test(password)) strength += 15;
-    
-    // Check for special characters
-    if (/[^A-Za-z0-9]/.test(password)) strength += 15;
-    
-    // Update strength bar
-    strengthBar.style.width = strength + '%';
-    
-    // Update color based on strength
-    if (strength < 50) {
-      strengthBar.style.backgroundColor = '#dc3545';
-    } else if (strength < 80) {
-      strengthBar.style.backgroundColor = '#ffc107';
-    } else {
-      strengthBar.style.backgroundColor = '#28a745';
-    }
-  });
-  
-  // Password confirmation check
-  document.getElementById('renewPassword').addEventListener('input', function() {
-    const password = document.getElementById('newPassword').value;
-    const confirmPassword = this.value;
-    const matchText = document.getElementById('passwordMatchText');
-    
-    if (confirmPassword === '') {
-      matchText.textContent = '';
-      matchText.style.color = '';
-    } else if (password === confirmPassword) {
-      matchText.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i> Passwords match';
-      matchText.style.color = '#28a745';
-    } else {
-      matchText.innerHTML = '<i class="bi bi-x-circle-fill text-danger me-1"></i> Passwords do not match';
-      matchText.style.color = '#dc3545';
-    }
-  });
-  
   // Profile image preview
   document.getElementById('profileImageInput').addEventListener('change', function(e) {
-    if (this.files && this.files[0]) {
+    const file = e.target.files[0];
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    
+    if (file) {
       const reader = new FileReader();
-      const avatar = document.querySelector('.profile-avatar');
-      
-      reader.onload = function(e) {
-        avatar.src = e.target.result;
+      reader.onload = function(event) {
+        document.getElementById('profilePreview').src = event.target.result;
       }
+      reader.readAsDataURL(file);
       
-      reader.readAsDataURL(this.files[0]);
+      // Show file name
+      fileNameDisplay.textContent = file.name;
+      fileNameDisplay.classList.add('text-success');
+    } else {
+      fileNameDisplay.textContent = "JPG, PNG or GIF • Max 2MB";
+      fileNameDisplay.classList.remove('text-success');
     }
+  });
+
+  // Form validation
+  (function () {
+    'use strict'
+    
+    const profileForm = document.getElementById('profileForm');
+    const passwordForm = document.getElementById('passwordForm');
+    
+    if (profileForm) {
+      profileForm.addEventListener('submit', function (event) {
+        if (!profileForm.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        profileForm.classList.add('was-validated');
+      }, false);
+    }
+    
+    if (passwordForm) {
+      passwordForm.addEventListener('submit', function (event) {
+        if (!passwordForm.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        passwordForm.classList.add('was-validated');
+      }, false);
+    }
+  })();
+  
+  // Tab switching animation
+  const triggerTabList = [].slice.call(document.querySelectorAll('#profileTabs button'));
+  triggerTabList.forEach(function (triggerEl) {
+    triggerEl.addEventListener('click', function () {
+      const tabContent = document.querySelector(this.getAttribute('data-bs-target'));
+      if (tabContent) {
+        tabContent.style.opacity = 0;
+        setTimeout(() => {
+          tabContent.style.opacity = 1;
+        }, 10);
+      }
+    });
   });
 </script>
 

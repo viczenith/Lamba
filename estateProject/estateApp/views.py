@@ -7028,13 +7028,91 @@ def price_update_json(request, pk):
 
 @login_required
 def client_dashboard(request):
-    allocations = PlotAllocation.objects.filter(client=request.user)
+    """
+    Client dashboard showing properties across ALL companies the client is connected to.
+    
+    Calculations:
+    - My Properties Purchased: Total properties from all connected companies
+    - Properties Fully Paid & Allocated: Properties with full payment AND plot_number assigned
+    - Properties Not Fully Paid: Part payments not yet completed
+    - Paid Complete but Not Allocated: Fully paid properties but no plot_number yet
+    """
+    from estateApp.models import CompanyClientProfile
+    
+    user = request.user
+    
+    # Get all companies this client is connected to
+    client_company_ids = set()
+    
+    # 1. Primary company
+    if hasattr(user, 'company_profile') and user.company_profile:
+        client_company_ids.add(user.company_profile.id)
+    
+    # 2. Affiliations via CompanyClientProfile
+    affiliated_ids = CompanyClientProfile.objects.filter(
+        client=user
+    ).values_list('company_id', flat=True)
+    client_company_ids.update(affiliated_ids)
+    
+    # 3. Companies from allocations/transactions
+    allocation_company_ids = PlotAllocation.objects.filter(
+        client=user
+    ).exclude(estate__company__isnull=True).values_list('estate__company_id', flat=True).distinct()
+    client_company_ids.update(allocation_company_ids)
+    
+    client_company_ids = {cid for cid in client_company_ids if cid is not None}
+    
+    # Get ALL allocations across all connected companies
+    allocations = PlotAllocation.objects.filter(
+        client=user,
+        estate__company_id__in=client_company_ids
+    ).select_related('estate', 'estate__company', 'plot_number').prefetch_related(
+        Prefetch('transactions', queryset=Transaction.all_objects.filter(client=user))
+    )
+    
+    # Total properties purchased
     total_properties = allocations.count()
-    # Fully paid/allocated = has plot_number assigned (includes completed part payments)
-    fully_paid_allocations = allocations.filter(plot_number__isnull=False).count()
-    not_fully_paid_allocations = allocations.filter(plot_number__isnull=True).count()
-
-    client_estates = Estate.objects.filter(plotallocation__client=request.user).distinct()
+    
+    # Calculate payment status for each allocation
+    fully_paid_and_allocated = 0
+    not_fully_paid = 0
+    paid_complete_not_allocated = 0
+    
+    for alloc in allocations:
+        has_plot_number = alloc.plot_number is not None
+        
+        # Check if fully paid
+        is_fully_paid = False
+        if alloc.payment_type == 'full':
+            # Full payment type is always fully paid
+            is_fully_paid = True
+        else:
+            # Part payment - check if all installments are paid
+            transactions = alloc.transactions.all()
+            if transactions:
+                txn = transactions[0]  # Get the main transaction
+                total_paid = PaymentRecord.all_objects.filter(
+                    transaction=txn
+                ).aggregate(
+                    total=Coalesce(Sum('amount_paid'), Decimal('0'), output_field=DecimalField())
+                ).get('total', Decimal('0'))
+                
+                # Check if paid complete (total paid >= total amount)
+                if total_paid >= txn.total_amount:
+                    is_fully_paid = True
+        
+        # Categorize based on payment status and allocation status
+        if is_fully_paid and has_plot_number:
+            fully_paid_and_allocated += 1
+        elif is_fully_paid and not has_plot_number:
+            paid_complete_not_allocated += 1
+        else:
+            not_fully_paid += 1
+    
+    client_estates = Estate.objects.filter(
+        plotallocation__client=user,
+        company_id__in=client_company_ids
+    ).distinct()
 
     today_local = timezone.localdate()
 
@@ -7329,8 +7407,9 @@ def client_dashboard(request):
 
     context = {
         'total_properties': total_properties,
-        'fully_paid_allocations': fully_paid_allocations,
-        'not_fully_paid_allocations': not_fully_paid_allocations,
+        'fully_paid_and_allocated': fully_paid_and_allocated,
+        'not_fully_paid': not_fully_paid,
+        'paid_complete_not_allocated': paid_complete_not_allocated,
         'latest_value_updates': recent_value_updates_ph_objects,
         'recent_value_updates': recent_value_updates,
         'active_promotions': active_promotions,
@@ -8112,9 +8191,80 @@ def marketer_my_companies(request):
     all_company_ids = [c for c in all_company_ids if c is not None]
 
     companies = Company.objects.filter(id__in=all_company_ids)
+    
+    current_year = datetime.now().year
+
+    # Pre-calculate yearly ranks for all companies the marketer is affiliated with
+    # This calculates the marketer's rank within each company based on yearly sales
+    company_ranks = {}
+    for comp_id in all_company_ids:
+        # Get all marketers affiliated with this company
+        affiliated_marketer_ids = set(
+            MarketerAffiliation.objects.filter(company_id=comp_id)
+            .values_list('marketer_id', flat=True)
+        )
+        # Also include marketers with transactions in this company
+        transaction_marketer_ids = set(
+            Transaction.objects.filter(company_id=comp_id)
+            .values_list('marketer_id', flat=True)
+            .distinct()
+        )
+        all_marketer_ids = affiliated_marketer_ids | transaction_marketer_ids
+        all_marketer_ids = [m for m in all_marketer_ids if m is not None]
+        
+        if not all_marketer_ids:
+            company_ranks[comp_id] = {'position': None, 'total': 0, 'label': ''}
+            continue
+        
+        # Calculate yearly sales for all marketers in this company
+        marketer_sales = {}
+        for mid in all_marketer_ids:
+            yearly_sales = Transaction.objects.filter(
+                marketer_id=mid,
+                company_id=comp_id,
+                transaction_date__year=current_year
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            marketer_sales[mid] = float(yearly_sales)
+        
+        # Sort marketers by sales (descending), then by ID for consistency
+        sorted_marketers = sorted(
+            all_marketer_ids,
+            key=lambda mid: (-marketer_sales.get(mid, 0), mid)
+        )
+        
+        # Find current user's position
+        total_marketers = len(sorted_marketers)
+        position = None
+        for idx, mid in enumerate(sorted_marketers):
+            if mid == user.id:
+                position = idx + 1  # 1-indexed
+                break
+        
+        # Generate rank label
+        rank_label = ''
+        if position:
+            if position == 1:
+                rank_label = '🥇 #1'
+            elif position == 2:
+                rank_label = '🥈 #2'
+            elif position == 3:
+                rank_label = '🥉 #3'
+            elif position <= 5:
+                rank_label = f'Top 5 (#{position})'
+            elif position <= 10:
+                rank_label = f'Top 10 (#{position})'
+            elif position <= 20:
+                rank_label = f'Top 20 (#{position})'
+            else:
+                rank_label = f'#{position}'
+        
+        company_ranks[comp_id] = {
+            'position': position,
+            'total': total_marketers,
+            'label': rank_label
+        }
 
     company_list = []
-    current_year = datetime.now().year
     year_str = str(current_year)
     
     for comp in companies:
@@ -8262,6 +8412,9 @@ def marketer_my_companies(request):
         # Check if marketer has any transactions with this company
         has_transactions = closed_deals > 0
         
+        # Get rank info for this company
+        rank_info = company_ranks.get(comp.id, {'position': None, 'total': 0, 'label': ''})
+        
         company_list.append({
             'company': comp, 
             'closed_deals': closed_deals, 
@@ -8279,6 +8432,9 @@ def marketer_my_companies(request):
             'current_quarter': current_quarter,
             'client_count': client_count,
             'has_transactions': has_transactions,
+            'rank_position': rank_info['position'],
+            'rank_total': rank_info['total'],
+            'rank_label': rank_info['label'],
         })
 
     return render(request, 'marketer_side/my_companies.html', {
@@ -8517,22 +8673,74 @@ def view_client_estate(request, estate_id, plot_size_id):
 @login_required
 def marketer_dashboard(request):
     user = request.user
-
-    # 1) Totals
-    total_transactions = Transaction.objects.filter(marketer=user, company=user.company_profile).count()
-    # Estates sold = allocations with plot_number assigned (includes completed part payments)
-    total_estates_sold = Transaction.objects.filter(marketer=user, allocation__plot_number__isnull=False, company=user.company_profile).count()
     
-    # Count clients assigned to this marketer - include both direct assignments and ClientMarketerAssignment records
-    direct_clients = ClientUser.objects.filter(assigned_marketer=user, company_profile=user.company_profile).count()
-    assigned_clients = ClientMarketerAssignment.objects.filter(marketer=user, company=user.company_profile).values_list('client_id', flat=True).distinct().count()
-    number_clients = direct_clients + (assigned_clients if assigned_clients > 0 else 0)
+    # Get all companies the marketer is affiliated with
+    affiliated_company_ids = list(
+        MarketerAffiliation.objects.filter(marketer=user)
+        .values_list('company_id', flat=True)
+    )
+    # Include the marketer's primary company if not already in affiliations
+    own_company_id = user.company_profile_id if hasattr(user, 'company_profile_id') and user.company_profile_id else None
+    if own_company_id and own_company_id not in affiliated_company_ids:
+        affiliated_company_ids.append(own_company_id)
+    
+    # Also include companies where marketer has transactions
+    transaction_company_ids = list(
+        Transaction.objects.filter(marketer=user)
+        .values_list('company_id', flat=True)
+        .distinct()
+    )
+    for cid in transaction_company_ids:
+        if cid and cid not in affiliated_company_ids:
+            affiliated_company_ids.append(cid)
+    
+    # Total Companies = number of companies marketer is connected to
+    total_companies = len(affiliated_company_ids)
 
-    # Helper to build a list of (label, transaction_count, estate_count, new_client_count)
+    # 1) Total Transactions = sum of closed deals from ALL affiliated companies
+    total_transactions = Transaction.all_objects.filter(
+        marketer=user,
+        company_id__in=affiliated_company_ids
+    ).count()
+    
+    # 2) Number of Clients = sum of ALL clients assigned to marketer across ALL companies
+    # Direct assignments
+    direct_client_ids = set(
+        ClientUser.objects.filter(
+            assigned_marketer=user,
+            company_profile_id__in=affiliated_company_ids
+        ).values_list('id', flat=True)
+    )
+    # ClientMarketerAssignment records
+    assigned_client_ids = set(
+        ClientMarketerAssignment.objects.filter(
+            marketer=user,
+            company_id__in=affiliated_company_ids
+        ).values_list('client_id', flat=True)
+    )
+    # Combine unique clients
+    all_client_ids = direct_client_ids | assigned_client_ids
+    number_clients = len([c for c in all_client_ids if c is not None])
+
+    # Get list of company names for the chart
+    companies = Company.objects.filter(id__in=affiliated_company_ids)
+    company_names = [c.company_name for c in companies]
+    
+    # Build transaction data per company for the chart
+    company_transactions = []
+    for comp in companies:
+        tx_count = Transaction.all_objects.filter(
+            marketer=user,
+            company=comp
+        ).count()
+        company_transactions.append(tx_count)
+
+    # Helper to build a list of (label, transaction_count, company_count, new_client_count)
+    # Now aggregating across ALL affiliated companies
     def build_series(start, step, buckets, date_field='transaction_date'):
         labels = []
         tx_counts = []
-        est_counts = []
+        company_counts = []  # Active companies per period
         cli_counts = []
 
         current = start
@@ -8544,78 +8752,89 @@ def marketer_dashboard(request):
             window_start = current
             window_end = current + step['delta']
 
-            # transactions in window
-            tx_qs = Transaction.objects.filter(
+            # transactions in window across ALL affiliated companies
+            tx_qs = Transaction.all_objects.filter(
                 marketer=user,
-                company=user.company_profile,
+                company_id__in=affiliated_company_ids,
                 **{f"{date_field}__gte": window_start},
                 **{f"{date_field}__lt": window_end}
             )
             tx_counts.append(tx_qs.count())
 
-            # completed estates (allocated plots)
-            est_qs = tx_qs.filter(allocation__plot_number__isnull=False)
-            est_counts.append(est_qs.count())
+            # Active companies = companies with transactions in this period
+            active_companies = tx_qs.values('company_id').distinct().count()
+            company_counts.append(active_companies)
 
-            # new clients assigned in this window
-            cli_qs = ClientUser.objects.filter(
+            # new clients assigned in this window across all companies
+            direct_new = ClientUser.objects.filter(
                 assigned_marketer=user,
-                company_profile=user.company_profile,
+                company_profile_id__in=affiliated_company_ids,
                 date_registered__gte=window_start,
                 date_registered__lt=window_end
-            )
-            cli_counts.append(cli_qs.count())
+            ).count()
+            assignment_new = ClientMarketerAssignment.objects.filter(
+                marketer=user,
+                company_id__in=affiliated_company_ids,
+                assigned_date__gte=window_start,
+                assigned_date__lt=window_end
+            ).count() if hasattr(ClientMarketerAssignment, 'assigned_date') else 0
+            cli_counts.append(direct_new + assignment_new)
 
             current = window_end
 
-        return labels, tx_counts, est_counts, cli_counts
+        return labels, tx_counts, company_counts, cli_counts
 
     today = date.today()
 
     # Weekly: last 7 days
     weekly_start = today - relativedelta(days=6)
     weekly_step = { 'delta': relativedelta(days=1), 'fmt': '%d %b' }
-    weekly_labels, weekly_tx, weekly_est, weekly_cli = build_series(weekly_start, weekly_step, 7)
+    weekly_labels, weekly_tx, weekly_comp, weekly_cli = build_series(weekly_start, weekly_step, 7)
 
     # Monthly: last 6 months
     monthly_start = (today - relativedelta(months=5)).replace(day=1)
     monthly_step = { 'delta': relativedelta(months=1), 'fmt': '%b %Y' }
-    monthly_labels, monthly_tx, monthly_est, monthly_cli = build_series(monthly_start, monthly_step, 6)
+    monthly_labels, monthly_tx, monthly_comp, monthly_cli = build_series(monthly_start, monthly_step, 6)
 
     # Yearly: last 5 years
     yearly_start = today.replace(month=1, day=1) - relativedelta(years=4)
     yearly_step = { 'delta': relativedelta(years=1), 'fmt': '%Y' }
-    yearly_labels, yearly_tx, yearly_est, yearly_cli = build_series(yearly_start, yearly_step, 5)
+    yearly_labels, yearly_tx, yearly_comp, yearly_cli = build_series(yearly_start, yearly_step, 5)
 
     # All-Time: monthly buckets from first transaction month until now
-    first_tx = Transaction.objects.filter(marketer=user, company=user.company_profile).order_by('transaction_date').first()
+    first_tx = Transaction.all_objects.filter(
+        marketer=user, 
+        company_id__in=affiliated_company_ids
+    ).order_by('transaction_date').first()
     if first_tx:
         first_month = first_tx.transaction_date.replace(day=1)
     else:
         first_month = today.replace(day=1)
     months = (today.year - first_month.year) * 12 + (today.month - first_month.month) + 1
     all_step = { 'delta': relativedelta(months=1), 'fmt': '%b %Y' }
-    all_labels, all_tx, all_est, all_cli = build_series(first_month, all_step, months)
+    all_labels, all_tx, all_comp, all_cli = build_series(first_month, all_step, months)
 
     return render(request, 'marketer_side/marketer_side.html', {
         'total_transactions': total_transactions,
-        'total_estates_sold': total_estates_sold,
+        'total_companies': total_companies,
         'number_clients': number_clients,
+        'company_names': company_names,
+        'company_transactions': company_transactions,
         'weekly': {
             'labels': weekly_labels, 'tx': weekly_tx,
-            'est': weekly_est, 'cli': weekly_cli
+            'comp': weekly_comp, 'cli': weekly_cli
         },
         'monthly': {
             'labels': monthly_labels, 'tx': monthly_tx,
-            'est': monthly_est, 'cli': monthly_cli
+            'comp': monthly_comp, 'cli': monthly_cli
         },
         'yearly': {
             'labels': yearly_labels, 'tx': yearly_tx,
-            'est': yearly_est, 'cli': yearly_cli
+            'comp': yearly_comp, 'cli': yearly_cli
         },
         'alltime': {
             'labels': all_labels, 'tx': all_tx,
-            'est': all_est, 'cli': all_cli
+            'comp': all_comp, 'cli': all_cli
         }
     })
 
@@ -8630,10 +8849,19 @@ def marketer_profile(request):
     current_month = now.strftime("%Y-%m")
     password_response = None
 
+    # Get all companies the marketer is affiliated with
+    affiliated_company_ids = list(
+        MarketerAffiliation.objects.filter(marketer=marketer)
+        .values_list('company_id', flat=True)
+    )
+    # Include the marketer's primary company if not already in affiliations
+    if company and company.id not in affiliated_company_ids:
+        affiliated_company_ids.append(company.id)
 
-    lifetime_closed_deals = Transaction.objects.filter(
+    # Calculate closed deals across ALL affiliated companies
+    lifetime_closed_deals = Transaction.all_objects.filter(
         marketer=marketer,
-        company=marketer.company_profile
+        company_id__in=affiliated_company_ids
     ).count()
 
     lifetime_commission = MarketerPerformanceRecord.objects.filter(

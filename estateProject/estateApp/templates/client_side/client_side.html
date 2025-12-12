@@ -9,10 +9,252 @@
 {% endblock %}
 
 {% block content %}
+
+<style>
+  /* Modern Color Palette & Variables */
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --warning-gradient: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+    --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    --card-shadow-hover: 0 30px 80px rgba(0, 0, 0, 0.12);
+    --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Smooth Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+
+  /* Page Title */
+  .pagetitle {
+    animation: fadeInUp 0.6s ease-out;
+    margin-bottom: 30px;
+  }
+
+  .pagetitle h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+
+  /* Stats Cards */
+  .stats-card {
+    background: var(--card-bg, #fff);
+    border: none;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+    margin-bottom: 24px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    position: relative;
+  }
+
+  .stats-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .stats-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .stats-card .card-body {
+    padding: 25px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .stats-card .card-title {
+    color: var(--text-color, #444);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    opacity: 0.7;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .stats-card h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0;
+    color: var(--text-color, #012970);
+  }
+
+  .stats-card .card-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    transition: var(--transition);
+    position: relative;
+    z-index: 1;
+  }
+
+  .stats-card .card-icon i {
+    font-size: 28px;
+  }
+
+  .stats-card .card-icon:hover {
+    transform: scale(1.1) rotate(5deg);
+  }
+
+  /* Promo Section */
+  .promo-section {
+    animation: fadeInUp 0.6s ease-out;
+    animation-delay: 400ms;
+    animation-fill-mode: both;
+  }
+
+  .promo-card {
+    background: var(--card-bg, #fff);
+    border: none;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+  }
+
+  .promo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .promo-badge {
+    background: var(--danger-gradient);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .promo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .promo-item {
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    transition: var(--transition);
+  }
+
+  .promo-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.15);
+  }
+
+  .promo-company-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  .promo-company-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .estate-tag {
+    display: inline-block;
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 2px;
+  }
+
+  /* Progress Bars */
+  .progress {
+    height: 6px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 1s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .pagetitle h1 {
+      font-size: 22px;
+    }
+
+    .stats-card h2 {
+      font-size: 1.8rem;
+    }
+
+    .promo-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Client Dashboard{% endif %}</h1>
+    <h1><i class="bi bi-speedometer2 me-2"></i>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Client Dashboard{% endif %}</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
@@ -24,17 +266,21 @@
     <div class="row">
       <div class="col-lg-12">
         <div class="row">
+
           <!-- My Properties Purchased -->
-          <div class="col-xxl-4 col-md-6">
-            <div class="card info-card sales-card">
+          <div class="col-xxl-3 col-md-6">
+            <div class="card stats-card" style="animation: fadeInUp 0.6s ease-out; animation-fill-mode: both;">
               <div class="card-body">
-                <h5 class="card-title"><span>My Properties Purchased</span></h5>
-                <div class="d-flex align-items-center">
-                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                    <i class="bi bi-cart"></i>
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">My Properties</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ total_properties|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Total properties purchased</small>
                   </div>
-                  <div class="ps-3">
-                    <h6>{{ total_properties }}</h6>
+                  <div class="card-icon rounded-xl bg-primary bg-opacity-10 p-3 text-primary">
+                    <i class="bi bi-cart-check"></i>
                   </div>
                 </div>
               </div>
@@ -42,16 +288,19 @@
           </div>
 
           <!-- Properties Fully Paid & Allocated -->
-          <div class="col-xxl-4 col-md-6">
-            <div class="card info-card revenue-card">
+          <div class="col-xxl-3 col-md-6">
+            <div class="card stats-card" style="animation: fadeInUp 0.6s ease-out; animation-delay: 100ms; animation-fill-mode: both;">
               <div class="card-body">
-                <h5 class="card-title"><span>Properties Fully Paid & Allocated</span></h5>
-                <div class="d-flex align-items-center">
-                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                    <i class="bi bi-currency-dollar"></i>
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Fully Paid & Allocated</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ fully_paid_and_allocated|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Completed with plot number</small>
                   </div>
-                  <div class="ps-3">
-                    <h6>{{ fully_paid_allocations }}</h6>
+                  <div class="card-icon rounded-xl bg-success bg-opacity-10 p-3 text-success">
+                    <i class="bi bi-patch-check-fill"></i>
                   </div>
                 </div>
               </div>
@@ -59,16 +308,39 @@
           </div>
 
           <!-- Properties Not Fully Paid -->
-          <div class="col-xxl-4 col-md-6">
-            <div class="card info-card revenue-card">
+          <div class="col-xxl-3 col-md-6">
+            <div class="card stats-card" style="animation: fadeInUp 0.6s ease-out; animation-delay: 200ms; animation-fill-mode: both;">
               <div class="card-body">
-                <h5 class="card-title"><span>Properties Not Fully Paid</span></h5>
-                <div class="d-flex align-items-center">
-                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                    <i class="bi bi-currency-dollar"></i>
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Not Fully Paid</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ not_fully_paid|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Part payments in progress</small>
                   </div>
-                  <div class="ps-3">
-                    <h6>{{ not_fully_paid_allocations }}</h6>
+                  <div class="card-icon rounded-xl bg-warning bg-opacity-10 p-3 text-warning">
+                    <i class="bi bi-hourglass-split"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paid Complete but Not Allocated -->
+          <div class="col-xxl-3 col-md-6">
+            <div class="card stats-card" style="animation: fadeInUp 0.6s ease-out; animation-delay: 300ms; animation-fill-mode: both;">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Paid, Not Allocated</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ paid_complete_not_allocated|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Awaiting plot assignment</small>
+                  </div>
+                  <div class="card-icon rounded-xl bg-info bg-opacity-10 p-3 text-info">
+                    <i class="bi bi-clock-history"></i>
                   </div>
                 </div>
               </div>
@@ -80,209 +352,89 @@
     </div>
   </section>
 
-  <!-- Active Promotional Offers -->
+  <!-- Active Promotional Offers - Simplified Design -->
   {% now "Y-m-d" as today_local %}
-  <section class="mb-5" aria-labelledby="active-promos-heading">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div>
-        <h4 id="active-promos-heading" class="mb-0">Active Promotional Offers</h4>
-        <small class="text-muted">Running promotions — limited time</small>
-      </div>
-
-      <div class="d-flex align-items-center gap-2">
-        <a href="{% url 'promotions-list' %}" class="btn btn-sm btn-outline-primary" role="button">View All</a>
-      </div>
-    </div>
-
-    {% if active_promotions and active_promotions|length > 0 %}
-      <div id="promoCarousel"
-           class="carousel slide"
-           data-bs-ride="carousel"
-           data-bs-interval="2000"
-           role="region"
-           aria-roledescription="carousel"
-           aria-label="Active promotional offers">
-
-        {% if active_promotions|length > 1 %}
-          <div class="carousel-indicators">
-            {% for promo in active_promotions %}
-              <button type="button"
-                      data-bs-target="#promoCarousel"
-                      data-bs-slide-to="{{ forloop.counter0 }}"
-                      class="{% if forloop.first %}active{% endif %}"
-                      aria-current="{% if forloop.first %}true{% endif %}"
-                      aria-label="Slide {{ forloop.counter }}"></button>
-            {% endfor %}
+  <section class="promo-section mb-5">
+    <div class="card promo-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h5 class="card-title mb-1" style="text-transform: none; font-size: 18px; opacity: 1;">
+              <i class="bi bi-megaphone me-2 text-primary"></i>Active Promotional Offers
+            </h5>
+            <small class="text-muted">Limited time offers across your companies</small>
           </div>
-        {% endif %}
+          <a href="{% url 'promotions-list' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-grid me-1"></i>View All
+          </a>
+        </div>
 
-        <div class="carousel-inner">
-          {% for promo in active_promotions %}
-            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-              <div class="card shadow-sm rounded-3 p-3 promo-card-wrapper">
+        {% if active_promotions and active_promotions|length > 0 %}
+          <div class="promo-grid">
+            {% for promo in active_promotions %}
+              <div class="promo-item">
                 <!-- Company Header -->
                 {% with first_estate=promo.estates.first %}
-                {% if first_estate and first_estate.company %}
-                <div class="promo-company-header d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-                  {% if first_estate.company.logo %}
-                  <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="promo-company-logo">
-                  {% else %}
-                  <div class="promo-company-logo-placeholder d-flex align-items-center justify-content-center">
-                    <i class="bi bi-building"></i>
-                  </div>
-                  {% endif %}
-                  <div>
-                    <span class="promo-company-name">{{ first_estate.company.company_name }}</span>
-                    <span class="badge bg-success-subtle text-success ms-2">Active Promo</span>
-                  </div>
-                </div>
-                {% endif %}
-                {% endwith %}
-                
-                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center">
-                  <div class="promo-icon d-flex align-items-center justify-content-center me-3 mb-3 mb-md-0" style="min-width:84px;">
-                    <i class="bi bi-tag display-4 text-secondary" aria-hidden="true"></i>
-                  </div>
-
-                  <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-start">
-                      <div>
-                        <h5 class="mb-1">{{ promo.name|default:"Promotion" }} <span class="badge bg-danger ms-2">–{{ promo.discount }}%</span></h5>
-                        <p class="mb-1 text-muted small">{{ promo.description|default:"No additional description provided." }}</p>
-                        <p class="mb-0 small text-muted">Valid: <strong>{{ promo.start|date:"M d, Y" }}</strong> → <strong>{{ promo.end|date:"M d, Y" }}</strong></p>
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  {% if first_estate and first_estate.company %}
+                    {% if first_estate.company.logo %}
+                      <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="promo-company-logo">
+                    {% else %}
+                      <div class="promo-company-placeholder">
+                        <i class="bi bi-building"></i>
                       </div>
-
-                      <div class="text-end ms-3">
-                        <p class="mb-1 small text-muted">Ends</p>
-                        <p class="mb-0 fw-semibold">
-                          {% if promo.end %}
-                            {{ promo.end|timeuntil }}
-                          {% else %}
-                            —
-                          {% endif %}
-                        </p>
-                      </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ first_estate.company.company_name }}</div>
+                      <small class="text-muted">{{ promo.end|timeuntil }} left</small>
                     </div>
+                  {% endif %}
+                  <span class="promo-badge">-{{ promo.discount }}%</span>
+                </div>
+                {% endwith %}
 
-                    <div class="mt-3">
-                      {% with estates=promo.estates.all %}
-                        {% if estates %}
-                          <p class="mb-1 small text-muted">Applies to:</p>
-                          <ul class="list-inline mb-0">
-                            {% for estate in estates|slice:":3" %}
-                              <li class="list-inline-item badge bg-light text-dark border me-1 py-1 px-2">{{ estate.name }}</li>
-                            {% endfor %}
-                            {% if estates|length > 3 %}
-                              <li class="list-inline-item small text-muted align-middle">+{{ estates|length|add:"-3" }} more</li>
-                            {% endif %}
-                          </ul>
-                        {% else %}
-                          <p class="mb-0 small text-muted">Applies to all estates.</p>
+                <!-- Promo Details -->
+                <h6 class="mb-2">{{ promo.name|default:"Special Offer" }}</h6>
+                <p class="text-muted small mb-3">{{ promo.description|default:"Save on selected estates"|truncatewords:15 }}</p>
+
+                <!-- Estates -->
+                {% with estates=promo.estates.all %}
+                  {% if estates %}
+                    <div class="mb-3">
+                      {% for estate in estates|slice:":2" %}
+                        <span class="estate-tag">{{ estate.name }}</span>
+                      {% endfor %}
+                      {% if estates|length > 2 %}
+                        <span class="estate-tag">+{{ estates|length|add:"-2" }} more</span>
                       {% endif %}
-                    {% endwith %}
-                  </div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
 
-                  <div class="mt-3">
-                    <button type="button" class="btn btn-sm btn-outline-primary me-2 view-promo-btn" data-promo-id="{{ promo.id }}">
-                      <i class="bi bi-info-circle me-1"></i>Details
-                    </button>
-                    <a href="{% url 'promotion-detail' promo.id %}" class="btn btn-sm btn-primary view-estates-link" role="button">
-                      <i class="bi bi-building me-1"></i>View Estates
-                    </a>
-                  </div>
+                <!-- Action -->
+                <div class="d-flex gap-2">
+                  <a href="{% url 'promotion-detail' promo.id %}" class="btn btn-sm btn-primary flex-grow-1">
+                    <i class="bi bi-eye me-1"></i>View Details
+                  </a>
                 </div>
               </div>
-              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <div class="mb-3">
+              <i class="bi bi-tag display-3 text-muted"></i>
             </div>
-
-            {% with first_estate=promo.estates.first %}
-            <script type="application/json" id="promo-data-{{ promo.id }}">
-              {
-                "id": {{ promo.id }},
-                "name": "{{ promo.name|escapejs }}",
-                "discount": {{ promo.discount }},
-                "start": "{{ promo.start|date:'Y-m-d' }}",
-                "end": "{{ promo.end|date:'Y-m-d' }}",
-                "company_name": "{% if first_estate and first_estate.company %}{{ first_estate.company.company_name|escapejs }}{% else %}{% endif %}",
-                "company_logo": "{% if first_estate and first_estate.company and first_estate.company.logo %}{{ first_estate.company.logo.url }}{% else %}{% endif %}",
-                "estates": [
-                  {% for estate in promo.estates.all %}
-                    {
-                      "id": {{ estate.id }},
-                      "name": "{{ estate.name|escapejs }}",
-                      "sizes": [
-                        {% for pp in estate.property_prices.all %}
-                          {
-                            "plot_unit_id": {{ pp.plot_unit.id }},
-                            "size": "{{ pp.plot_unit.plot_size.size|escapejs }}",
-                            "current": {% if pp.current is not None %}{{ pp.current|floatformat:2 }}{% else %}null{% endif %}
-                          }{% if not forloop.last %},{% endif %}
-                        {% endfor %}
-                      ]
-                    }{% if not forloop.last %},{% endif %}
-                  {% endfor %}
-                ]
-              }
-            </script>
-            {% endwith %}
-          {% endfor %}
-        </div>
-
-        {% if active_promotions|length > 1 %}
-          <button class="carousel-control-prev" type="button" data-bs-target="#promoCarousel" data-bs-slide="prev" aria-label="Previous slide">
-            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-          </button>
-          <button class="carousel-control-next" type="button" data-bs-target="#promoCarousel" data-bs-slide="next" aria-label="Next slide">
-            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-          </button>
+            <h6 class="mb-2">No Active Promotions</h6>
+            <p class="text-muted small mb-3">Check back later for special offers on estates.</p>
+            <a href="{% url 'estates-list' %}" class="btn btn-sm btn-primary">
+              <i class="bi bi-building me-1"></i>Browse Estates
+            </a>
+          </div>
         {% endif %}
       </div>
-
-    {% else %}
-      <div class="card shadow-sm rounded-3 p-4 text-center">
-        <i class="bi bi-tag display-3 text-muted mb-3"></i>
-        <h5 class="mb-1">No active promotions right now</h5>
-        <p class="text-muted mb-3">We don't have any running promotions at the moment. Check back later or explore all estates.</p>
-        <a href="{% url 'estates-list' %}" class="btn btn-primary btn-sm">Browse estates</a>
-        <a href="{% url 'promotions-list' %}" class="btn btn-outline-secondary btn-sm ms-2">See past/promos</a>
-      </div>
-    {% endif %}
-  </section>
-
-  <!-- Promo Modal -->
-  <div class="modal fade" id="promoModal" tabindex="-1" aria-labelledby="promoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="promoModalLabel">Promotion details</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div id="promoModalSpinner" class="text-center py-4 d-none">
-            <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-          </div>
-
-          <div id="promoModalContent" class="d-none">
-            <div class="mb-3">
-              <h5 id="promoName" class="mb-1"></h5>
-              <div class="small text-muted" id="promoDates"></div>
-            </div>
-
-            <div id="promoEstatesContainer"></div>
-          </div>
-
-          <div id="promoModalEmpty" class="text-center py-4 d-none">
-            <p class="text-muted">No promo details available.</p>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-          <a id="promoViewAllLink" href="{% url 'promotions-list' %}" class="btn btn-primary btn-sm">View all promotions</a>
-        </div>
-      </div>
     </div>
-  </div>
+  </section>
 
   <!-- Latest Price Increments -->
   <section class="mt-5">

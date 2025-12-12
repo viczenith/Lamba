@@ -14,6 +14,83 @@
       --bg: #fafbfc;
     }
 
+    /* Rank Badge Styles */
+    .rank-badge-container {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+    }
+
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      transition: all 0.2s ease;
+    }
+
+    .rank-badge:hover {
+      transform: scale(1.05);
+    }
+
+    .rank-badge.rank-1 {
+      background: linear-gradient(135deg, #ffd700 0%, #ffb800 100%);
+      color: #7c5f00;
+      border: 1px solid rgba(255, 215, 0, 0.5);
+    }
+
+    .rank-badge.rank-2 {
+      background: linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%);
+      color: #4a4a4a;
+      border: 1px solid rgba(192, 192, 192, 0.5);
+    }
+
+    .rank-badge.rank-3 {
+      background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%);
+      color: #fff;
+      border: 1px solid rgba(205, 127, 50, 0.5);
+    }
+
+    .rank-badge.rank-top5 {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: 1px solid rgba(102, 126, 234, 0.5);
+    }
+
+    .rank-badge.rank-top10 {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: #fff;
+      border: 1px solid rgba(17, 153, 142, 0.5);
+    }
+
+    .rank-badge.rank-top20 {
+      background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+      color: #fff;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+    }
+
+    .rank-badge.rank-other {
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    .rank-badge .rank-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .rank-badge .rank-text {
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
     body {
       background: var(--bg);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -431,12 +508,27 @@
       .companies-card .card-body {
         grid-template-columns: 1fr;
       }
+      
+      .rank-badge-container {
+        top: 8px;
+        right: 8px;
+      }
+      
+      .rank-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.688rem;
+      }
+      
+      .rank-badge .rank-icon {
+        font-size: 0.875rem;
+      }
     }
 
     @media (max-width: 576px) {
       .stats-grid {
         grid-template-columns: 1fr;
       }
+      
     }
   </style>
 
@@ -488,6 +580,48 @@
           {% for item in companies %}
             {% with c=item.company %}
             <div class="company-item {% if not item.has_transactions %}no-transactions{% endif %}">
+              <!-- Yearly Rank Badge -->
+              {% if item.rank_position %}
+              <div class="rank-badge-container">
+                {% if item.rank_position == 1 %}
+                <div class="rank-badge rank-1" title="You are #1 out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon">🥇</span>
+                  <span class="rank-text">Top #1 of {{ current_year }}</span>
+                </div>
+                {% elif item.rank_position == 2 %}
+                <div class="rank-badge rank-2" title="You are #2 out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon">🥈</span>
+                  <span class="rank-text">Top #2 of {{ current_year }}</span>
+                </div>
+                {% elif item.rank_position == 3 %}
+                <div class="rank-badge rank-3" title="You are #3 out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon">🥉</span>
+                  <span class="rank-text">Top #3 of {{ current_year }}</span>
+                </div>
+                {% elif item.rank_position <= 5 %}
+                <div class="rank-badge rank-top5" title="You are #{{ item.rank_position }} out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon"><i class="bi bi-star-fill"></i></span>
+                  <span class="rank-text">Top #{{ item.rank_position }} of {{ current_year }}</span>
+                </div>
+                {% elif item.rank_position <= 10 %}
+                <div class="rank-badge rank-top10" title="You are #{{ item.rank_position }} out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon"><i class="bi bi-award-fill"></i></span>
+                  <span class="rank-text">Top #{{ item.rank_position }} of {{ current_year }}</span>
+                </div>
+                {% elif item.rank_position <= 20 %}
+                <div class="rank-badge rank-top20" title="You are #{{ item.rank_position }} out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon"><i class="bi bi-trophy"></i></span>
+                  <span class="rank-text">Top #{{ item.rank_position }} of {{ current_year }}</span>
+                </div>
+                {% else %}
+                <div class="rank-badge rank-other" title="You are ranked #{{ item.rank_position }} out of {{ item.rank_total }} marketers in this company for {{ current_year }}">
+                  <span class="rank-icon"><i class="bi bi-hash"></i></span>
+                  <span class="rank-text">#{{ item.rank_position }} of {{ current_year }}</span>
+                </div>
+                {% endif %}
+              </div>
+              {% endif %}
+              
               {% if not item.has_transactions %}
               <div class="no-transactions-overlay">
                 <div class="overlay-content">

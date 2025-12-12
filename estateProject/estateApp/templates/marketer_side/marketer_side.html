@@ -2,10 +2,224 @@
 {% load static %}
 {% block content %}
 
+<style>
+  /* Modern Color Palette & Variables */
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --warning-gradient: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+    --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    --card-shadow-hover: 0 30px 80px rgba(0, 0, 0, 0.12);
+    --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Smooth Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+
+  /* Page Title */
+  .pagetitle {
+    animation: fadeInUp 0.6s ease-out;
+    margin-bottom: 30px;
+  }
+
+  .pagetitle h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card-bg, #fff);
+    border: none;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+    margin-bottom: 24px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+  }
+
+  .card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .card-body {
+    padding: 25px;
+  }
+
+  /* Stats Cards */
+  .stats-card {
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .stats-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .card-title {
+    color: var(--text-color, #444);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    opacity: 0.7;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .card-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    transition: var(--transition);
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-icon i {
+    font-size: 28px;
+  }
+
+  .card-icon:hover {
+    transform: scale(1.1) rotate(5deg);
+  }
+
+  .stats-card h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0;
+    color: var(--text-color, #012970);
+  }
+
+  /* Buttons */
+  .btn-group .btn {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 10px 20px;
+    font-size: 14px;
+    transition: var(--transition);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    background: transparent;
+    color: var(--text-color, #444);
+    margin-right: 8px;
+  }
+
+  .btn-group .btn:hover,
+  .btn-group .btn.active {
+    background: var(--primary-gradient);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+  }
+
+  /* Chart Container */
+  #reportsChart {
+    min-height: 350px;
+  }
+
+  #companyChart {
+    min-height: 300px;
+  }
+
+  /* Progress Bars */
+  .progress {
+    height: 6px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 1s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .pagetitle h1 {
+      font-size: 22px;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .stats-card {
+      margin-bottom: 15px;
+    }
+
+    .stats-card h2 {
+      font-size: 1.8rem;
+    }
+
+    .btn-group .btn {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+  }
+
+  /* Utility Classes */
+  .text-gradient {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+</style>
+
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Marketer Dashboard{% endif %}</h1>
+    <h1><i class="bi bi-speedometer2 me-2"></i>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Marketer Dashboard{% endif %}</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ dashboard_url }}">Home</a></li>
@@ -16,66 +230,97 @@
   <section class="section dashboard">
     <div class="row">
 
-      <!-- Total Transactions Card -->
-      <div class="col-xxl-4 col-md-6 mb-3">
-        <div class="card info-card sales-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center me-3">
-              <i class="bi bi-receipt"></i>
-            </div>
-            <div>
-              <h5 class="card-title">Total Transactions</h5>
-              <h6>{{ total_transactions }}</h6>
+      <!-- Stats Cards Row -->
+      <div class="col-lg-12">
+        <div class="row">
+
+          <!-- Total Transactions Card -->
+          <div class="col-xxl-4 col-md-6">
+            <div class="card stats-card" style="animation-delay: 0ms">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Total Transactions</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ total_transactions|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Closed deals across all companies</small>
+                  </div>
+                  <div class="card-icon rounded-xl bg-primary bg-opacity-10 p-3 text-primary">
+                    <i class="bi bi-receipt text-2xl"></i>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- Total Companies Card -->
+          <div class="col-xxl-4 col-md-6">
+            <div class="card stats-card" style="animation-delay: 100ms">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Total Companies</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ total_companies|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Companies you're connected to</small>
+                  </div>
+                  <div class="card-icon rounded-xl bg-success bg-opacity-10 p-3 text-success">
+                    <i class="bi bi-building text-2xl"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Number of Clients Card -->
+          <div class="col-xxl-4 col-md-6">
+            <div class="card stats-card" style="animation-delay: 200ms">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h5 class="card-title">Number of Clients</h5>
+                    <div class="d-flex align-items-center">
+                      <h2 class="mb-0">{{ number_clients|default:"0" }}</h2>
+                    </div>
+                    <small class="text-muted">Clients assigned across all companies</small>
+                  </div>
+                  <div class="card-icon rounded-xl bg-info bg-opacity-10 p-3 text-info">
+                    <i class="bi bi-people text-2xl"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <!-- Total Estates Sold Card -->
-      <div class="col-xxl-4 col-md-6 mb-3">
-        <div class="card info-card revenue-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center me-3">
-              <i class="bi bi-building"></i>
-            </div>
-            <div>
-              <h5 class="card-title">Total Estates Sold</h5>
-              <h6>{{ total_estates_sold }}</h6>
-            </div>
+      <!-- Company Transactions Chart -->
+      <div class="col-12 col-lg-6">
+        <div class="card" style="animation-delay: 300ms">
+          <div class="card-body">
+            <h5 class="card-title"><i class="bi bi-bar-chart-fill me-2"></i>Transactions by Company</h5>
+            <div id="companyChart"></div>
           </div>
-        </div>
-      </div>
-
-      <!-- Number of Clients Card -->
-      <div class="col-xxl-4 col-md-6 mb-3">
-        <div class="card info-card customers-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center me-3">
-              <i class="bi bi-people"></i>
-            </div>
-            <div>
-              <h5 class="card-title">Number of Clients</h5>
-              <h6>{{ number_clients }}</h6>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Toggle Buttons -->
-      <div class="col-12 mb-3">
-        <div class="btn-group">
-          <button class="btn btn-outline-warning active" data-range="weekly">Week</button>
-          <button class="btn btn-outline-warning" data-range="monthly">Month</button>
-          <button class="btn btn-outline-warning" data-range="yearly">Year</button>
-          <button class="btn btn-outline-warning" data-range="alltime">All-Time</button>
         </div>
       </div>
 
       <!-- Performance Chart -->
-      <div class="col-12">
-        <div class="card">
+      <div class="col-12 col-lg-6">
+        <div class="card" style="animation-delay: 400ms">
           <div class="card-body">
-            <h5 class="card-title">Performance</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Performance Overview</h5>
+            </div>
+            <!-- Toggle Buttons -->
+            <div class="btn-group mb-3">
+              <button class="btn active" data-range="weekly">Week</button>
+              <button class="btn" data-range="monthly">Month</button>
+              <button class="btn" data-range="yearly">Year</button>
+              <button class="btn" data-range="alltime">All-Time</button>
+            </div>
             <div id="reportsChart"></div>
           </div>
         </div>
@@ -90,6 +335,58 @@
 <script src="{% static 'assets/vendor/apexcharts/apexcharts.min.js' %}"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
+    // Company Transactions Chart (Bar Chart)
+    const companyNames = {{ company_names|safe }};
+    const companyTransactions = {{ company_transactions|safe }};
+
+    const companyChart = new ApexCharts(document.querySelector("#companyChart"), {
+      series: [{
+        name: 'Transactions',
+        data: companyTransactions
+      }],
+      chart: {
+        type: 'bar',
+        height: 300,
+        toolbar: { show: false },
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 800
+        }
+      },
+      plotOptions: {
+        bar: {
+          borderRadius: 8,
+          horizontal: false,
+          columnWidth: '60%',
+          distributed: true
+        }
+      },
+      colors: ['#667eea', '#764ba2', '#11998e', '#38ef7d', '#4facfe', '#f2994a', '#eb3349'],
+      dataLabels: { enabled: false },
+      xaxis: {
+        categories: companyNames,
+        labels: {
+          style: { fontSize: '12px' },
+          rotate: -45,
+          rotateAlways: companyNames.length > 3
+        }
+      },
+      yaxis: {
+        labels: {
+          formatter: function(val) { return Math.round(val); }
+        }
+      },
+      tooltip: {
+        y: {
+          formatter: function(val) { return val + " transactions"; }
+        }
+      },
+      legend: { show: false }
+    });
+    companyChart.render();
+
+    // Performance Chart (Area Chart)
     const dataSets = {
       weekly:  {{ weekly|safe }},
       monthly: {{ monthly|safe }},
@@ -97,28 +394,45 @@
       alltime: {{ alltime|safe }}
     };
 
-    const chart = new ApexCharts(document.querySelector("#reportsChart"), {
+    const performanceChart = new ApexCharts(document.querySelector("#reportsChart"), {
       series: [],
-      chart: { height: 350, type: 'area', toolbar: { show: false } },
+      chart: { 
+        height: 280, 
+        type: 'area', 
+        toolbar: { show: false },
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 800
+        }
+      },
+      colors: ['#667eea', '#11998e', '#f2994a'],
       markers: { size: 4 },
       fill: {
         type: "gradient",
-        gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.4, stops: [0,90,100] }
+        gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.1, stops: [0, 90, 100] }
       },
       dataLabels: { enabled: false },
       stroke: { curve: 'smooth', width: 2 },
       xaxis: { categories: [], type: 'category' },
-      tooltip: { x: { format: 'dd MMM yyyy' } }
+      tooltip: { 
+        shared: true,
+        intersect: false
+      },
+      legend: {
+        position: 'top',
+        horizontalAlign: 'right'
+      }
     });
 
-    chart.render();
+    performanceChart.render();
 
     function updateRange(range) {
       const block = dataSets[range];
-      chart.updateOptions({
+      performanceChart.updateOptions({
         series: [
           { name: 'Transactions', data: block.tx },
-          { name: 'Estates Sold', data: block.est },
+          { name: 'Active Companies', data: block.comp },
           { name: 'New Clients', data: block.cli }
         ],
         xaxis: { categories: block.labels }
@@ -133,13 +447,9 @@
       });
     });
 
-    // initialize
+    // Initialize with weekly data
     updateRange('weekly');
   });
 </script>
-
-<style>
-  .info-card .card-icon { font-size: 1.5rem; }
-</style>
 
 {% endblock %}
