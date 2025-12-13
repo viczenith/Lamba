@@ -175,6 +175,38 @@
         font-style: italic;
     }
 
+    /* Plot Size Display in Table */
+    .plot-size-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
+    .plot-size-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #333;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .plot-size-unit-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 3px 8px;
+        background: rgba(102, 126, 234, 0.15);
+        border-radius: 4px;
+    }
+
     .modal-content {
         border-radius: 15px;
         border: none;
@@ -205,6 +237,347 @@
         font-size: 24px;
         margin-right: 10px;
     }
+
+    /* Plot Size Input Group - Inline Design */
+    .plot-size-input-group {
+        display: grid;
+        grid-template-columns: 1fr 180px;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .plot-size-number {
+        border-radius: 10px 10px 10px 10px !important;
+        border: 2px solid #e0e0e0;
+        padding: 12px 15px;
+        font-size: 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .plot-size-number:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 15px rgba(102, 126, 234, 0.25);
+        outline: none;
+    }
+
+    .plot-size-number::-webkit-inner-spin-button,
+    .plot-size-number::-webkit-outer-spin-button {
+        opacity: 1;
+        height: 38px;
+    }
+
+    .plot-size-unit {
+        border-radius: 10px !important;
+        border: 2px solid #667eea;
+        padding: 12px 15px;
+        font-size: 14px;
+        font-weight: 600;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+        color: #333;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 35px;
+    }
+
+    .plot-size-unit:focus {
+        border-color: #764ba2;
+        box-shadow: 0 0 15px rgba(118, 75, 162, 0.25);
+        outline: none;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    }
+
+    .plot-size-unit option {
+        padding: 12px;
+        font-weight: 500;
+        background: #fff;
+        color: #333;
+    }
+
+    @media (max-width: 576px) {
+        .plot-size-input-group {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .plot-size-unit {
+            width: 100%;
+        }
+    }
+
+    /* Search Box Styles */
+    .search-container {
+        margin-bottom: 20px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        color: #667eea;
+        font-size: 16px;
+        z-index: 1;
+    }
+
+    .search-input {
+        padding: 12px 45px 12px 45px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+    }
+
+    .search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+
+    .search-input::placeholder {
+        color: #aaa;
+    }
+
+    .search-clear-btn {
+        position: absolute;
+        right: 15px;
+        background: none;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .search-clear-btn:hover {
+        color: #667eea;
+        transform: scale(1.1);
+    }
+
+    .search-results-info {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #667eea;
+        font-weight: 500;
+        padding-left: 15px;
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 0 10px;
+        border-top: 1px solid rgba(102, 126, 234, 0.1);
+        margin-top: 15px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .pagination-info {
+        font-size: 13px;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .pagination-info span {
+        color: #667eea;
+        font-weight: 700;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pagination-btn {
+        width: 36px;
+        height: 36px;
+        border: 2px solid #e0e0e0;
+        background: #fff;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #667eea;
+        transition: all 0.3s ease;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .pagination-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .pagination-pages {
+        display: flex;
+        gap: 6px;
+    }
+
+    .page-number {
+        width: 36px;
+        height: 36px;
+        border: 2px solid #e0e0e0;
+        background: #fff;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+        color: #666;
+        transition: all 0.3s ease;
+    }
+
+    .page-number:hover {
+        border-color: #667eea;
+        color: #667eea;
+    }
+
+    .page-number.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .page-ellipsis {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        font-weight: 600;
+    }
+
+    .pagination-size {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .pagination-size label {
+        font-size: 13px;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .page-size-select {
+        padding: 8px 30px 8px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        appearance: none;
+        -webkit-appearance: none;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    }
+
+    .page-size-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+
+    /* No Results State */
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+
+    .no-results i {
+        font-size: 50px;
+        margin-bottom: 15px;
+        color: #ddd;
+    }
+
+    .no-results h5 {
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    /* Current Size Display in Modal */
+    .current-size-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 20px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+        border: 2px solid rgba(102, 126, 234, 0.2);
+        border-radius: 12px;
+    }
+
+    .current-size-value {
+        font-size: 28px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .current-size-unit {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 6px 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Highlight search match */
+    .search-highlight {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+        .pagination-container {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .pagination-info {
+            order: 2;
+        }
+        
+        .pagination-controls {
+            order: 1;
+        }
+        
+        .pagination-size {
+            order: 3;
+        }
+    }
 </style>
 
 <main id="main" class="main">
@@ -233,9 +606,17 @@
                         <div class="mb-4">
                             <label for="size" class="form-label fw-bold">Plot Size <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="size" name="size"
-                                placeholder="e.g., 300sqm, 500sqm, 600sqm" required>
-                            <small class="text-muted">Enter the plot size (e.g., 300sqm, 500sqm)</small>
+                            <div class="plot-size-input-group">
+                                <input type="number" class="form-control plot-size-number" id="size" name="size"
+                                    placeholder="e.g., 300, 500, 600" min="0" step="0.01" required>
+                                <select class="form-control plot-size-unit" id="size_unit" name="size_unit" required>
+                                    <option value=" sqm">Square Meters (sqm)</option>
+                                    <option value=" sq ft">Square Feet (sq ft)</option>
+                                    <option value=" hectares">Hectares (ha)</option>
+                                    <option value=" acres">Acres</option>
+                                </select>
+                            </div>
+                            <small class="text-muted">Enter the numeric value and select the unit of measurement</small>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-plus-circle me-2"></i>Add Plot Size
@@ -250,7 +631,23 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4><i class="fas fa-list me-2"></i>Existing Plot Sizes</h4>
                     <span class="badge bg-primary" style="font-size: 14px;">Total: <span id="totalCount">{{ plot_sizes|length }}</span></span>
-                </div>                    {% if plot_sizes %}
+                </div>
+                
+                <!-- Search Box -->
+                <div class="search-container mb-3">
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="form-control search-input" id="searchInput" placeholder="Search plot sizes...">
+                        <button class="search-clear-btn" id="clearSearch" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="search-results-info" id="searchResultsInfo" style="display: none;">
+                        <span id="searchResultsCount">0</span> results found
+                    </div>
+                </div>
+
+                {% if plot_sizes %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
@@ -266,7 +663,18 @@
                                 {% for plot_size in plot_sizes %}
                                 <tr id="row-{{ plot_size.id }}">
                                     <td>{{ forloop.counter }}</td>
-                                    <td><strong>{{ plot_size.size }}</strong></td>
+                                    <td>
+                                        <div class="plot-size-display">
+                                            <span class="plot-size-value">{{ plot_size.size|cut:" sqm"|cut:" sq ft"|cut:" hectares"|cut:" acres" }}</span>
+                                            <span class="plot-size-unit-label">
+                                                {% if " sqm" in plot_size.size %}sqm
+                                                {% elif " sq ft" in plot_size.size %}sq ft
+                                                {% elif " hectares" in plot_size.size %}ha
+                                                {% elif " acres" in plot_size.size %}acres
+                                                {% else %}{{ plot_size.size }}{% endif %}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>
                                         {% if plot_size.is_assigned %}
                                             <span class="status-badge status-assigned">
@@ -304,6 +712,33 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                    
+                    <!-- Pagination Controls -->
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            Showing <span id="showingStart">1</span>-<span id="showingEnd">5</span> of <span id="totalItems">{{ plot_sizes|length }}</span>
+                        </div>
+                        <div class="pagination-controls">
+                            <button class="pagination-btn" id="prevPage" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <div class="pagination-pages" id="paginationPages">
+                                <!-- Page numbers will be generated by JS -->
+                            </div>
+                            <button class="pagination-btn" id="nextPage">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="pagination-size">
+                            <label>Per page:</label>
+                            <select id="pageSize" class="page-size-select">
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
                     </div>
                     {% else %}
                     <div class="empty-state">
@@ -355,15 +790,30 @@
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Current Plot Size:</label>
-                    <input type="text" class="form-control" id="current-plot-size" readonly>
+                    <div class="current-size-display">
+                        <span class="current-size-value" id="current-plot-size-value"></span>
+                        <span class="current-size-unit" id="current-plot-size-unit"></span>
+                    </div>
+                    <input type="hidden" id="current-plot-size">
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">New Plot Size: <span class="text-danger">*</span></label>
-                    <input type="text" 
-                           class="form-control" 
-                           id="new-plot-size" 
-                           placeholder="Enter new plot size (e.g., 400sqm, 550sqm)">
+                    <div class="plot-size-input-group">
+                        <input type="number" 
+                               class="form-control plot-size-number" 
+                               id="new-plot-size" 
+                               placeholder="Enter new size"
+                               min="0"
+                               step="0.01">
+                        <select class="form-control plot-size-unit" id="new-plot-size-unit">
+                            <option value=" sqm">Square Meters (sqm)</option>
+                            <option value=" sq ft">Square Feet (sq ft)</option>
+                            <option value=" hectares">Hectares (ha)</option>
+                            <option value=" acres">Acres</option>
+                        </select>
+                    </div>
+                    <small class="text-muted mt-1 d-block">Enter the numeric value and select the unit</small>
                 </div>
 
                 <input type="hidden" id="edit-plot-size-id">
@@ -388,8 +838,15 @@
     document.getElementById('plotSizeForm').addEventListener('submit', function (e) {
         e.preventDefault();
 
+        const sizeValue = document.getElementById('size').value;
+        const unitValue = document.getElementById('size_unit').value;
+        
+        // Combine size and unit for storage (e.g., "300sqm", "500 sq ft")
+        const combinedSize = sizeValue + unitValue;
+        
         const formData = new FormData(this);
-        const size = formData.get('size');
+        // Override the size with combined value
+        formData.set('size', combinedSize);
 
         fetch(window.location.href, {
             method: 'POST',
@@ -490,7 +947,35 @@
     function openEditModal(id, currentSize, estateCount, estateNames) {
         document.getElementById('edit-plot-size-id').value = id;
         document.getElementById('current-plot-size').value = currentSize;
-        document.getElementById('new-plot-size').value = '';
+        
+        // Parse current size to extract number and unit
+        const sizeMatch = currentSize.match(/^([\d.]+)\s*(.*)$/);
+        if (sizeMatch) {
+            const numValue = sizeMatch[1];
+            const unitValue = sizeMatch[2].toLowerCase().trim();
+            
+            // Display current size beautifully
+            document.getElementById('current-plot-size-value').textContent = numValue;
+            document.getElementById('current-plot-size-unit').textContent = unitValue || 'sqm';
+            
+            // Pre-fill new size fields with current values
+            document.getElementById('new-plot-size').value = numValue;
+            
+            // Set the unit dropdown
+            const unitSelect = document.getElementById('new-plot-size-unit');
+            const unitMap = {
+                'sqm': ' sqm',
+                'sq ft': ' sq ft',
+                'hectares': ' hectares',
+                'ha': ' hectares',
+                'acres': ' acres'
+            };
+            unitSelect.value = unitMap[unitValue] || ' sqm';
+        } else {
+            document.getElementById('current-plot-size-value').textContent = currentSize;
+            document.getElementById('current-plot-size-unit').textContent = '';
+            document.getElementById('new-plot-size').value = '';
+        }
         
         const estateCountText = estateCount === 1 ? '1 estate' : `${estateCount} estates`;
         document.getElementById('modal-estate-count').textContent = estateCountText;
@@ -505,9 +990,12 @@
     function confirmUpdatePlotSize() {
         const plotSizeId = document.getElementById('edit-plot-size-id').value;
         const currentSize = document.getElementById('current-plot-size').value;
-        const newSize = document.getElementById('new-plot-size').value.trim();
-
-        if (!newSize) {
+        
+        // Get new size from number input and unit dropdown
+        const newSizeValue = document.getElementById('new-plot-size').value.trim();
+        const newSizeUnit = document.getElementById('new-plot-size-unit').value;
+        
+        if (!newSizeValue) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error!',
@@ -515,6 +1003,9 @@
             });
             return;
         }
+
+        // Combine to create new size string
+        const newSize = newSizeValue + newSizeUnit;
 
         if (newSize.toLowerCase() === currentSize.toLowerCase()) {
             Swal.fire({
@@ -533,10 +1024,17 @@
                     <p><strong>Are you absolutely sure?</strong></p>
                     <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">
                         <p class="mb-2">You are about to change:</p>
-                        <ul class="mb-0">
-                            <li><strong>From:</strong> ${currentSize}</li>
-                            <li><strong>To:</strong> ${newSize}</li>
-                        </ul>
+                        <div style="display: flex; align-items: center; gap: 15px; margin: 10px 0;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">FROM</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #d33;">${currentSize}</div>
+                            </div>
+                            <i class="fas fa-arrow-right" style="color: #666;"></i>
+                            <div style="text-align: center;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">TO</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #28a745;">${newSize}</div>
+                            </div>
+                        </div>
                     </div>
                     <p style="color: #d33;"><strong>⚠️ This will affect all estates and client allocations using this plot size!</strong></p>
                 </div>
@@ -601,6 +1099,224 @@
             });
         });
     }
+</script>
+
+<script>
+    // ========== PAGINATION & SEARCH FUNCTIONALITY ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('plotSizeTable');
+        if (!table) return;
+
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        const searchResultsInfo = document.getElementById('searchResultsInfo');
+        const searchResultsCount = document.getElementById('searchResultsCount');
+        const pageSizeSelect = document.getElementById('pageSize');
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const paginationPages = document.getElementById('paginationPages');
+        const showingStart = document.getElementById('showingStart');
+        const showingEnd = document.getElementById('showingEnd');
+        const totalItems = document.getElementById('totalItems');
+
+        let currentPage = 1;
+        let pageSize = parseInt(pageSizeSelect.value);
+        let filteredRows = [...rows];
+
+        // Initialize
+        updatePagination();
+
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            
+            // Show/hide clear button
+            clearSearchBtn.style.display = searchTerm ? 'block' : 'none';
+            
+            // Filter rows
+            filteredRows = rows.filter(row => {
+                const text = row.textContent.toLowerCase();
+                return text.includes(searchTerm);
+            });
+            
+            // Show search results info
+            if (searchTerm) {
+                searchResultsInfo.style.display = 'block';
+                searchResultsCount.textContent = filteredRows.length;
+            } else {
+                searchResultsInfo.style.display = 'none';
+            }
+            
+            currentPage = 1;
+            updatePagination();
+        });
+
+        // Clear search
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            clearSearchBtn.style.display = 'none';
+            searchResultsInfo.style.display = 'none';
+            filteredRows = [...rows];
+            currentPage = 1;
+            updatePagination();
+            searchInput.focus();
+        });
+
+        // Page size change
+        pageSizeSelect.addEventListener('change', function() {
+            pageSize = parseInt(this.value);
+            currentPage = 1;
+            updatePagination();
+        });
+
+        // Previous page
+        prevPageBtn.addEventListener('click', function() {
+            if (currentPage > 1) {
+                currentPage--;
+                updatePagination();
+            }
+        });
+
+        // Next page
+        nextPageBtn.addEventListener('click', function() {
+            const totalPages = Math.ceil(filteredRows.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                updatePagination();
+            }
+        });
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredRows.length / pageSize);
+            const start = (currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, filteredRows.length);
+
+            // Hide all rows first
+            rows.forEach(row => row.style.display = 'none');
+
+            // Show filtered rows for current page
+            filteredRows.slice(start, end).forEach((row, index) => {
+                row.style.display = '';
+                // Update row numbers
+                const numberCell = row.querySelector('td:first-child');
+                if (numberCell) {
+                    numberCell.textContent = start + index + 1;
+                }
+            });
+
+            // Update info text
+            if (filteredRows.length === 0) {
+                showingStart.textContent = '0';
+                showingEnd.textContent = '0';
+            } else {
+                showingStart.textContent = start + 1;
+                showingEnd.textContent = end;
+            }
+            totalItems.textContent = filteredRows.length;
+
+            // Update navigation buttons
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = currentPage >= totalPages || totalPages === 0;
+
+            // Generate page numbers
+            generatePageNumbers(totalPages);
+
+            // Show no results message if needed
+            showNoResultsMessage(filteredRows.length === 0 && searchInput.value.trim() !== '');
+        }
+
+        function generatePageNumbers(totalPages) {
+            paginationPages.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            // First page
+            if (startPage > 1) {
+                paginationPages.appendChild(createPageButton(1));
+                if (startPage > 2) {
+                    paginationPages.appendChild(createEllipsis());
+                }
+            }
+
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                paginationPages.appendChild(createPageButton(i));
+            }
+
+            // Last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationPages.appendChild(createEllipsis());
+                }
+                paginationPages.appendChild(createPageButton(totalPages));
+            }
+        }
+
+        function createPageButton(pageNum) {
+            const btn = document.createElement('button');
+            btn.className = 'page-number' + (pageNum === currentPage ? ' active' : '');
+            btn.textContent = pageNum;
+            btn.addEventListener('click', function() {
+                currentPage = pageNum;
+                updatePagination();
+            });
+            return btn;
+        }
+
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.className = 'page-ellipsis';
+            span.textContent = '...';
+            return span;
+        }
+
+        function showNoResultsMessage(show) {
+            let noResultsDiv = document.querySelector('.no-results-row');
+            
+            if (show) {
+                if (!noResultsDiv) {
+                    const tbody = table;
+                    const tr = document.createElement('tr');
+                    tr.className = 'no-results-row';
+                    tr.innerHTML = `
+                        <td colspan="5">
+                            <div class="no-results">
+                                <i class="fas fa-search"></i>
+                                <h5>No Results Found</h5>
+                                <p>Try adjusting your search term</p>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } else {
+                if (noResultsDiv) {
+                    noResultsDiv.remove();
+                }
+            }
+        }
+
+        // Keyboard shortcut for search (Ctrl+F or Cmd+F focuses search)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                // Only if on this page section
+                if (document.activeElement.closest('.table-container')) {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+        });
+    });
 </script>
 
 {% endblock %}

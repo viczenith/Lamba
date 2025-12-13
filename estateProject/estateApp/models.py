@@ -2136,10 +2136,19 @@ class Estate(models.Model):
         ('RofO', 'RofO'),
         ('Gazette', 'Gazette'),
     ]
+    
+    SIZE_UNIT_CHOICES = [
+        ('Square Meters', 'Square Meters (m²)'),
+        ('Square Feet', 'Square Feet (sq ft)'),
+        ('Hectares', 'Hectares (ha)'),
+        ('Acres', 'Acres'),
+        ('Square Kilometers', 'Square Kilometers (km²)'),
+    ]
 
     name = models.CharField(max_length=255, verbose_name="Estate Name")
     location = models.CharField(max_length=255, verbose_name="Location")
-    estate_size = models.CharField(max_length=255, verbose_name="Estate Size")
+    estate_size = models.DecimalField(max_digits=15, decimal_places=2, verbose_name="Estate Size", null=True, blank=True)
+    estate_size_unit = models.CharField(max_length=50, choices=SIZE_UNIT_CHOICES, default='Hectares', verbose_name="Estate Size Unit")
     title_deed = models.CharField(max_length=255, choices=TITLE_DEED_CHOICES, verbose_name="Title Deed")
     date_added = models.DateTimeField(default=timezone.now, verbose_name="Date Added")
     # SECURITY: Link each estate to a company for multi-tenant isolation.

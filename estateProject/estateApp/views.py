@@ -1303,6 +1303,7 @@ def add_estate(request):
         estate_name = request.POST.get('name')
         estate_location = request.POST.get('location')
         estate_size = request.POST.get('estate_size')
+        estate_size_unit = request.POST.get('estate_size_unit', 'Hectares')
         estate_title_deed = request.POST.get('title_deed')
         
         # Create the Estate instance and save it
@@ -1311,6 +1312,7 @@ def add_estate(request):
             name=estate_name,
             location=estate_location,
             estate_size=estate_size,
+            estate_size_unit=estate_size_unit,
             title_deed=estate_title_deed
         )
 
