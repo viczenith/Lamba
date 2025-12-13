@@ -222,7 +222,8 @@
     <h1><i class="bi bi-speedometer2 me-2"></i>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Marketer Dashboard{% endif %}</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ dashboard_url }}">Home</a></li>
+        <!-- <li class="breadcrumb-item"><a href="{{ dashboard_url }}">Home</a></li> -->
+        <li class="breadcrumb-item"><a href="{% url 'secure-marketer-dashboard' %}">Home</a></li>
       </ol>
     </nav>
   </div><!-- End Page Title -->

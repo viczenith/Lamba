@@ -1,5 +1,6 @@
 {% extends 'client_base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <main id="main" class="main">
@@ -140,7 +141,7 @@
   </style>
 
   <div class="notification-detail-page">
-    <a href="{% url 'notifications_all' %}" class="back-link">
+    <a href="{% url 'secure-notifications-all' %}" class="back-link">
       <i class="bi bi-arrow-left"></i>
       Back to notifications
     </a>
@@ -150,7 +151,7 @@
         <div class="sender-row">
           <div class="company-avatar">
             {% if notification.company and notification.company.logo %}
-              <img src="{{ notification.company.logo.url }}" alt="">
+              <img src="{% url 'secure-company-logo' company_id=notification.company.id %}" alt="">
             {% elif notification.company %}
               {{ notification.company.company_name|slice:":1"|upper }}
             {% else %}

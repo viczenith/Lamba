@@ -24,6 +24,11 @@ urlpatterns = [
     # These provide enhanced security for client and marketer pages
     *secure_urlpatterns,
     
+    # ============================================
+    # SECURITY VERIFICATION (Post-Login Checkpoint)
+    # ============================================
+    path('security-verification/', SecurityVerificationView.as_view(), name='security-verification'),
+    
     # Authentication URLs - Unified Login System with Tenant-Aware Routing
     # Dynamic tenant-specific login route (must come before default login route)
     path('<slug:login_slug>/login/', CustomLoginView.as_view(), name='tenant-login'),

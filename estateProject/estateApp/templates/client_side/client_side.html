@@ -257,7 +257,7 @@
     <h1><i class="bi bi-speedometer2 me-2"></i>{% if request.user.is_authenticated and request.user.full_name %}{{ request.user.full_name }}'s Dashboard{% else %}Client Dashboard{% endif %}</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-client-dashboard' %}">Home</a></li>
       </ol>
     </nav>
   </div>
@@ -377,8 +377,8 @@
                 {% with first_estate=promo.estates.first %}
                 <div class="d-flex align-items-center gap-3 mb-3">
                   {% if first_estate and first_estate.company %}
-                    {% if first_estate.company.logo %}
-                      <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="promo-company-logo">
+                    {% if first_estate.company.logo and first_estate.company.logo.name %}
+                      <img src="{% url 'secure-company-logo' company_id=first_estate.company.id %}" alt="{{ first_estate.company.company_name }}" class="promo-company-logo">
                     {% else %}
                       <div class="promo-company-placeholder">
                         <i class="bi bi-building"></i>
@@ -477,13 +477,15 @@
                     aria-controls="collapse-{{ forloop.counter }}">
               <div class="d-flex align-items-center justify-content-between w-100 me-3">
                 <div class="d-flex align-items-center gap-2">
-                  {% if company_group.company_logo %}
-                  <img src="{{ company_group.company_logo }}" alt="{{ company_group.company_name }}" class="accordion-company-logo">
+                  {% with company_id=company_group.updates.0.price.estate.company.id %}
+                  {% if company_group.company_logo and company_id %}
+                  <img src="{% url 'secure-company-logo' company_id=company_id %}" alt="{{ company_group.company_name }}" class="accordion-company-logo">
                   {% else %}
                   <div class="accordion-company-logo-placeholder d-flex align-items-center justify-content-center">
                     <i class="bi bi-building"></i>
                   </div>
                   {% endif %}
+                  {% endwith %}
                   <span class="company-name fw-semibold">{{ company_group.company_name }}</span>
                   {% if company_group.has_new %}
                   <span class="badge new-badge pulse-badge">NEW</span>

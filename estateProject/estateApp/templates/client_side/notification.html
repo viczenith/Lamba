@@ -253,7 +253,7 @@
       <a href="{% url 'notification_detail' un.id %}" class="notification-item unread">
         <div class="company-avatar">
           {% if un.notification.company and un.notification.company.logo %}
-            <img src="{{ un.notification.company.logo.url }}" alt="">
+            <img src="{% url 'secure-company-logo' company_id=un.notification.company.id %}" alt="">
           {% elif un.notification.company %}
             {{ un.notification.company.company_name|slice:":1"|upper }}
           {% else %}
@@ -287,7 +287,7 @@
       <a href="{% url 'notification_detail' un.id %}" class="notification-item">
         <div class="company-avatar">
           {% if un.notification.company and un.notification.company.logo %}
-            <img src="{{ un.notification.company.logo.url }}" alt="">
+            <img src="{% url 'secure-company-logo' company_id=un.notification.company.id %}" alt="">
           {% elif un.notification.company %}
             {{ un.notification.company.company_name|slice:":1"|upper }}
           {% else %}

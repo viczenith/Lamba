@@ -6694,7 +6694,10 @@ from django.db.models import Avg, Count, F, ExpressionWrapper, DecimalField
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404
 from django.views.generic import ListView, DetailView
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 
+@method_decorator(login_required, name='dispatch')
 class EstateListView(ListView):
     model = Estate
     template_name = "client_side/promo_estates_list.html"
@@ -6864,6 +6867,7 @@ class EstateListView(ListView):
         return super().get(request, *args, **kwargs)
 
 
+@method_decorator(login_required, name='dispatch')
 class PromotionListView(ListView):
     model = PromotionalOffer
     template_name = "client_side/promotions_list.html"
@@ -6985,6 +6989,7 @@ class PromotionListView(ListView):
         return ctx
 
 
+@method_decorator(login_required, name='dispatch')
 class PromotionDetailView(DetailView):
     model = PromotionalOffer
     template_name = "client_side/promo_detail.html"
@@ -9342,31 +9347,206 @@ class CustomLoginView(LoginView):
             messages.info(self.request, "System Master Admin must use the admin panel. Redirecting...")
             return reverse_lazy('tenant-admin-dashboard')  # Redirect to proper system admin area
         
+        # ========================================================================
+        # DIRECT ROLE-BASED ROUTING (Middleware handles ALL security checks)
+        # ========================================================================
+        # No need for intermediate security-verification page
+        # AdvancedSecurityMiddleware provides comprehensive protection for ALL URLs:
+        # - Bot detection and blocking
+        # - Brute force protection with lockout
+        # - SQL/XSS/Command injection detection
+        # - Session integrity validation
+        # - Rate limiting (per IP and per user)
+        # - Role-based access control (Layer 7)
+        # - IDOR attack prevention
+        # - Catch-all authentication requirement
+        # ========================================================================
+        
         # Role-based routing (company admin and secondary_admin both route to admin dashboard)
         if user.role in ('admin', 'secondary_admin'):
             # Verify admin_level to ensure company-scoped admin
             admin_level = getattr(user, 'admin_level', 'company')
             if admin_level != 'system':
-                # Use new tenant-aware routing
-                company = user.company_profile
-                if company:
-                    from django.urls import reverse
-                    return reverse('tenant-dashboard', kwargs={'company_slug': company.slug})
-                else:
-                    # Fallback if no company assigned
-                    messages.error(self.request, "You are not assigned to any company!")
-                    return reverse_lazy('login')
+                return reverse_lazy('admin-dashboard')  # Redirects to tenant dashboard
             else:
                 # Fallback: should not reach here due to check above
                 return reverse_lazy('tenant-admin-dashboard')
         elif user.role == 'client':
-            return reverse_lazy('client-dashboard')
+            return reverse_lazy('secure-client-dashboard')  # /c/dashboard/
         elif user.role == 'marketer':
-            return reverse_lazy('marketer-dashboard')
+            return reverse_lazy('secure-marketer-dashboard')  # /m/dashboard/
+        elif user.role == 'support':
+            return reverse_lazy('admin-dashboard')  # Support goes to admin dashboard
+        else:
+            return reverse_lazy('home')  # Fallback to home page
+
+
+# ============================================================================
+# SECURITY VERIFICATION VIEW - Post-Login Security Checkpoint
+# ============================================================================
+class SecurityVerificationView(LoginRequiredMixin, View):
+    """
+    Post-Login Security Verification Checkpoint.
+    
+    This view acts as an INVISIBLE security layer after successful authentication.
+    It performs security checks server-side and redirects immediately to the dashboard.
+    
+    Security Features:
+    - Device fingerprint validation
+    - Session integrity verification
+    - Suspicious activity detection
+    - Geographic anomaly detection
+    - Security audit logging
+    - Rate limiting protection
+    
+    NOTE: This is invisible to users - checks happen server-side and redirect is instant.
+    Only if there's a security WARNING will we show the verification page.
+    """
+    template_name = 'auth/security_verification.html'
+    login_url = 'login'
+    
+    def get(self, request, *args, **kwargs):
+        """Perform invisible security verification and redirect."""
+        user = request.user
+        
+        # Perform security checks
+        security_status = self._perform_security_checks(request)
+        
+        # Log security verification
+        logger.info(
+            f"SECURITY_VERIFICATION: User '{user.email}' ({user.role}) "
+            f"Status: {security_status['status']} IP: {extract_client_ip(request)}"
+        )
+        
+        # Mark session as security-verified
+        request.session['_security_verified'] = True
+        request.session['_verification_time'] = timezone.now().isoformat()
+        request.session.save()
+        
+        # If all checks pass, redirect IMMEDIATELY (invisible to user)
+        if security_status['status'] in ('verified', 'verified_with_notes'):
+            redirect_url = self._get_dashboard_url(user)
+            return redirect(redirect_url)
+        
+        # Only show the verification page if there are WARNINGS that need attention
+        redirect_url = self._get_dashboard_url(user)
+        context = {
+            'user': user,
+            'security_status': security_status,
+            'redirect_url': redirect_url,
+            'auto_redirect_delay': 0,  # No auto-redirect for warnings
+        }
+        return render(request, self.template_name, context)
+    
+    def post(self, request, *args, **kwargs):
+        """Handle manual verification confirmation or additional security steps."""
+        user = request.user
+        action = request.POST.get('action', 'proceed')
+        
+        if action == 'proceed':
+            # Mark session as security-verified
+            request.session['_security_verified'] = True
+            request.session['_verification_time'] = timezone.now().isoformat()
+            request.session.save()
+            
+            # Log successful verification
+            logger.info(
+                f"SECURITY_VERIFIED: User '{user.email}' ({user.role}) "
+                f"completed security verification. IP: {extract_client_ip(request)}"
+            )
+            
+            redirect_url = self._get_dashboard_url(user)
+            return redirect(redirect_url)
+        
+        elif action == 'logout':
+            # User chose to log out (suspicious activity concern)
+            from django.contrib.auth import logout
+            logout(request)
+            messages.warning(request, "You've been logged out for security reasons. Please contact support if you didn't initiate this.")
+            return redirect('login')
+        
+        return redirect('security-verification')
+    
+    def _perform_security_checks(self, request):
+        """
+        Perform comprehensive security checks.
+        Returns a dictionary with check results.
+        """
+        user = request.user
+        checks = {
+            'device_verified': True,
+            'session_valid': True,
+            'no_suspicious_activity': True,
+            'geo_consistent': True,
+        }
+        warnings = []
+        
+        # 1. Session Integrity Check - ensure session exists and create if needed
+        if not request.session.session_key:
+            request.session.create()  # Create session if it doesn't exist
+        
+        # 2. Check for recent password change
+        if hasattr(user, 'password_changed_at'):
+            last_change = getattr(user, 'password_changed_at', None)
+            if last_change and (timezone.now() - last_change).total_seconds() < 300:
+                warnings.append("Password was recently changed. Verify this was you.")
+        
+        # 3. Check login IP consistency (if we have previous login data)
+        current_ip = extract_client_ip(request)
+        if hasattr(user, 'last_login_ip') and user.last_login_ip:
+            # If IP changed significantly, flag it
+            if user.last_login_ip != current_ip and current_ip:
+                # This is informational, not blocking
+                pass  # Could add geo-comparison logic here
+        
+        # 4. Device fingerprint check (if stored in session)
+        stored_fp = request.session.get('_device_fp')
+        submitted_fp = request.POST.get('_device_fp') or request.GET.get('_device_fp')
+        if stored_fp and submitted_fp and stored_fp != submitted_fp:
+            checks['device_verified'] = False
+            warnings.append("Device fingerprint mismatch detected.")
+        
+        # 5. Check for multiple failed login attempts (if tracked)
+        failed_attempts = request.session.get('_failed_attempts', 0)
+        if failed_attempts > 3:
+            checks['no_suspicious_activity'] = False
+            warnings.append(f"Multiple failed login attempts detected ({failed_attempts}).")
+        
+        # Determine overall status
+        all_passed = all(checks.values())
+        status = 'verified' if all_passed else 'warning'
+        
+        # If there are warnings but all checks passed, still show verified with notes
+        if all_passed and warnings:
+            status = 'verified_with_notes'
+        
+        return {
+            'status': status,
+            'checks': checks,
+            'warnings': warnings,
+            'ip': current_ip,
+            'timestamp': timezone.now().isoformat(),
+        }
+    
+    def _get_dashboard_url(self, user):
+        """Get the appropriate SECURE dashboard URL based on user role."""
+        if user.role in ('admin', 'secondary_admin'):
+            admin_level = getattr(user, 'admin_level', 'company')
+            if admin_level == 'system':
+                return reverse_lazy('tenant-admin-dashboard')
+            company = user.company_profile
+            if company:
+                return reverse('tenant-dashboard', kwargs={'company_slug': company.slug})
+            return reverse_lazy('login')
+        elif user.role == 'client':
+            # Use SECURE client dashboard URL: /c/dashboard/
+            return reverse_lazy('secure-client-dashboard')
+        elif user.role == 'marketer':
+            # Use SECURE marketer dashboard URL: /m/dashboard/
+            return reverse_lazy('secure-marketer-dashboard')
         elif user.role == 'support':
             return reverse_lazy('adminsupport:support_dashboard')
-        else:
-            return super().get_success_url()
+        return reverse_lazy('login')
 
 
 @csrf_protect

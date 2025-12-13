@@ -915,7 +915,7 @@
         </h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'marketer-dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'secure-marketer-dashboard' %}">Home</a></li>
                 <li class="breadcrumb-item active">Chat</li>
             </ol>
         </nav>
@@ -1022,7 +1022,7 @@
             </div>
 
             <!-- Chat Input Area -->
-            {% if companies %}
+            {% if companies %} 
             <!-- Chat Form (always present, shown/hidden via JS) -->
             <form id="chat-form" method="post" enctype="multipart/form-data" action="{% url 'marketer-chat' %}" style="{% if not selected_company %}display: none;{% endif %}">
                 {% csrf_token %}

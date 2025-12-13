@@ -118,10 +118,10 @@ class RateLimiter:
     
     # Configuration
     RATE_LIMITS = {
-        'login': {'max_requests': 5, 'window_seconds': 300},      # 5 attempts per 5 min
-        'api': {'max_requests': 100, 'window_seconds': 60},       # 100 req/min
-        'page': {'max_requests': 60, 'window_seconds': 60},       # 60 pages/min
-        'sensitive': {'max_requests': 10, 'window_seconds': 60},  # 10 sensitive actions/min
+        'login': {'max_requests': 5, 'window_seconds': 300},        # 5 attempts per 5 min
+        'api': {'max_requests': 300, 'window_seconds': 60},         # 300 req/min (5 per second)
+        'page': {'max_requests': 300, 'window_seconds': 60},        # 300 pages/min (5 per second)
+        'sensitive': {'max_requests': 60, 'window_seconds': 60},    # 60 sensitive actions/min (1 per second)
     }
     
     @classmethod
@@ -296,6 +296,48 @@ def secure_client_required(view_func):
         is_valid, error_msg = SecurityValidator.validate_request(request)
         if not is_valid:
             # Log the attempt
+            _log_security_event(request, 'blocked_request', error_msg)
+            return HttpResponseForbidden("Request blocked for security reasons.")
+        
+        # Session integrity
+        if not SecurityValidator.validate_session_integrity(request):
+            logout(request)
+            messages.error(request, "Session security violation detected. Please login again.")
+            return redirect('login')
+        
+        # Track activity
+        _track_user_activity(request)
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+def secure_authenticated_required(view_func):
+    """
+    Decorator for views accessible to ANY authenticated user (client, marketer, admin).
+    Used for features like notifications that all user types need.
+    
+    Does NOT check role - only requires authentication.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Check authentication only (no role check)
+        if not request.user.is_authenticated:
+            messages.warning(request, "Please login to continue.")
+            return redirect('login')
+        
+        # Rate limiting
+        is_limited, wait_time = RateLimiter.is_rate_limited(request, 'page')
+        if is_limited:
+            messages.error(request, f"Too many requests. Please wait {wait_time} seconds.")
+            return HttpResponseForbidden(
+                f"Rate limited. Please wait {wait_time} seconds."
+            )
+        
+        # Security validation
+        is_valid, error_msg = SecurityValidator.validate_request(request)
+        if not is_valid:
             _log_security_event(request, 'blocked_request', error_msg)
             return HttpResponseForbidden("Request blocked for security reasons.")
         

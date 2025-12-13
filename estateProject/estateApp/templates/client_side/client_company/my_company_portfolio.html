@@ -210,7 +210,7 @@
     <h1>My Portfolio</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-client-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item"><a href="{% url 'my-companies' %}">My Companies</a></li>
         <li class="breadcrumb-item active">{{ company.company_name }}</li>
       </ol>
@@ -226,7 +226,7 @@
             <div class="d-flex align-items-center">
               <div class="me-3">
                 {% if company.logo %}
-                  <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="portfolio-logo">
+                  <img src="{% url 'secure-company-logo' company_id=company.id %}" alt="{{ company.company_name }}" class="portfolio-logo">
                 {% else %}
                   <div class="portfolio-initials">{{ company.company_name|default:"?"|slice:":1"|upper }}</div>
                 {% endif %}
@@ -504,7 +504,7 @@
                         <div>
                           <i class="bi bi-building fs-3 text-info mb-1"></i>
                           <div>Highest Growth</div>
-                          <strong>{{ highest_growth_property }} <strong class="text-success">(+{{ highest_growth_rate|floatformat:"2" }}%)</strong></strong>
+                          <strong>{{ highest_growth_property|escape }} <strong class="text-success">(+{{ highest_growth_rate|floatformat:"2" }}%)</strong></strong>
                         </div>
                       </div>
                     </div>
@@ -574,7 +574,7 @@
                               <div class="text-end">
                                 <div class="fw-bold text-success">₦{{ payment.amount|intcomma }}</div>
                                 <span class="badge bg-{% if payment.status == 'Paid' or payment.status == 'Paid Complete' or payment.status == 'Fully Paid' %}success{% elif payment.status == 'Overdue' %}danger{% else %}warning{% endif %} small">
-                                  {{ payment.status }}
+                                  {{ payment.status|escape }}
                                 </span>
                               </div>
                             </li>
@@ -684,15 +684,12 @@
       $('#transactionDetailsModal').on('show.bs.modal', function(e) {
         const id = $(e.relatedTarget).data('id');
         
-        console.log('Modal opening for transaction ID:', id);
-        
         // Clear previous data
         $('#td_estate, #td_plot_size, #td_date, #td_amount, #td_payment_type, #td_status').text('');
         $('#payment_history_body').empty();
         $('[id^="row_"]').hide();
         
         if(!id) {
-          console.error('No transaction ID provided');
           $('#txn-modal-error').removeClass('d-none').text('No transaction ID provided');
           return;
         }
@@ -701,13 +698,11 @@
         $('#txn-modal-loading').show();
         $('#txn-modal-error').addClass('d-none');
         
-        const url = `/transaction/${id}/details/`;
-        console.log('Fetching from:', url);
+        const url = "/transaction/" + id + "/details/";
         
         // Fetch transaction details
         $.get(url)
           .done(d => {
-            console.log('Transaction data received:', d);
             $('#txn-modal-loading').hide();
             
             // Basic info
@@ -779,29 +774,27 @@
             }
           })
           .fail((xhr, status, error) => {
-            console.error('Transaction fetch failed:', status, error, 'Response:', xhr.responseText);
             $('#txn-modal-loading').hide();
-            $('#txn-modal-error').removeClass('d-none').text('Error loading transaction details: ' + (xhr.status === 404 ? 'Transaction not found' : error));
+            $('#txn-modal-error').removeClass('d-none').text('Error loading transaction details: ' + (xhr.status === 404 ? 'Transaction not found' : 'Please try again'));
           });
         
         // Fetch payment history
-        console.log('Fetching payment history for transaction:', id);
         $.get("{% url 'ajax_payment_history' %}", { transaction_id: id })
           .done(d => {
-            console.log('Payment history received:', d);
             let html = '';
-            
             if(d.payments?.length) {
               d.payments.forEach(p => {
+                const escapedRef = (p.reference || '').replace(/\"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const displayRef = (p.reference || '').substring(0, 15);
                 html += `<tr>
                   <td>${p.date}</td>
                   <td>${formatCurrency(p.amount)}</td>
                   <td>${p.method}</td>
                   <td>${p.installment}</td>
-                  <td>${p.reference || ''}</td>
+                  <td title="${escapedRef}">${displayRef}</td>
                   <td class="text-end">
                     <button class="btn btn-sm btn-outline-success view-receipt-btn" 
-                            data-reference="${p.reference}">
+                            data-reference="${escapedRef}" title="Download receipt">
                       <i class="bi bi-download"></i> Download
                     </button>
                   </td>
@@ -819,9 +812,14 @@
       });
 
       // Handle receipt download
-      $(document).on('click', '.view-receipt-btn', function() {
+      $(document).on('click', '.view-receipt-btn', function(e) {
+        e.preventDefault();
         const reference = $(this).data('reference');
-        if(reference) window.open(`/payment/receipt/${reference}/`, '_blank');
+        if(reference && /^[A-Z0-9\-]+$/.test(reference)) {
+          window.location.href = "{% url 'payment_receipt' reference_code='REF' %}".replace('REF', encodeURIComponent(reference));
+        } else {
+          alert('Invalid receipt reference format');
+        }
       });
     });
   </script>

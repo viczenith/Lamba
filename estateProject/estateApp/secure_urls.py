@@ -29,6 +29,7 @@ from django.views.decorators.vary import vary_on_cookie
 from estateApp.security import (
     secure_client_required,
     secure_marketer_required,
+    secure_authenticated_required,
     rate_limit,
     sensitive_action,
 )
@@ -45,6 +46,8 @@ from estateApp.views import (
     view_all_requests,
     property_list,
     view_client_estate,
+    notification_detail,
+    notifications_all,
     
     # Marketer Views
     marketer_dashboard,
@@ -53,6 +56,15 @@ from estateApp.views import (
     marketer_company_portfolio,
     marketer_chat_view,
     client_records,
+)
+
+# Import secure media views
+from estateApp.media_views import (
+    serve_company_logo,
+    serve_profile_image,
+    serve_prototype_image,
+    serve_estate_layout,
+    serve_floor_plan,
 )
 
 
@@ -185,8 +197,76 @@ secure_marketer_patterns = [
 
 
 # ============================================
+# SECURE NOTIFICATION PATTERNS
+# ============================================
+
+secure_notification_patterns = [
+    # Notification list - all notifications for user (accessible to ANY authenticated user)
+    path(
+        'notifications/',
+        secure_authenticated_required(notifications_all),
+        name='secure-notifications-all'
+    ),
+    
+    # Notification detail - accessible to ANY authenticated user
+    path(
+        'notifications/<int:un_id>/',
+        secure_authenticated_required(notification_detail),
+        name='secure-notification-detail'
+    ),
+]
+
+
+# ============================================
+# SECURE MEDIA PATTERNS
+# ============================================
+
+secure_media_patterns = [
+    # Company logos - accessible to authenticated users affiliated with company
+    path(
+        'media/company/<int:company_id>/logo/',
+        serve_company_logo,
+        name='secure-company-logo'
+    ),
+    
+    # Profile images - accessible to authenticated users
+    path(
+        'media/user/<int:user_id>/profile/',
+        serve_profile_image,
+        name='secure-profile-image'
+    ),
+    
+    # Estate prototype images - accessible to authenticated users
+    path(
+        'media/prototype/<int:prototype_id>/',
+        serve_prototype_image,
+        name='secure-prototype-image'
+    ),
+    
+    # Estate layout images - accessible to authenticated users
+    path(
+        'media/layout/<int:layout_id>/',
+        serve_estate_layout,
+        name='secure-estate-layout'
+    ),
+    
+    # Floor plan images - accessible to authenticated users
+    path(
+        'media/plan/<int:plan_id>/',
+        serve_floor_plan,
+        name='secure-floor-plan'
+    ),
+]
+
+
+# ============================================
 # COMBINED SECURE URL PATTERNS
 # ============================================
 
 # Export all secure patterns
-secure_urlpatterns = secure_client_patterns + secure_marketer_patterns
+secure_urlpatterns = (
+    secure_client_patterns + 
+    secure_marketer_patterns + 
+    secure_notification_patterns +
+    secure_media_patterns
+)

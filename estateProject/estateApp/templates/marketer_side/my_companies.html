@@ -537,7 +537,7 @@
     <h1>My Companies</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'marketer-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-marketer-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item active">My Companies</li>
       </ol>
     </nav>
@@ -633,7 +633,7 @@
               <!-- Company Header -->
               <div class="company-header">
                 {% if c.logo %}
-                  <img src="{{ c.logo.url }}" alt="{{ c.company_name }}" class="company-logo">
+                  <img src="{% url 'secure-company-logo' company_id=c.id %}" alt="{{ c.company_name }}" class="company-logo">
                 {% else %}
                   <div class="company-initials">{{ c.company_name|default:'?'|slice:":1"|upper }}</div>
                 {% endif %}
@@ -765,7 +765,7 @@
 
               <!-- Action Button -->
               <div class="company-footer">
-                <a href="{% url 'marketer-company-portfolio' company_id=c.id %}" class="btn-view-portfolio">
+                <a href="{% url 'secure-marketer-company-portfolio' company_id=c.id %}" class="btn-view-portfolio">
                   View Portfolio
                   <i class="bi bi-arrow-right"></i>
                 </a>
@@ -785,7 +785,7 @@
         <div class="empty-text">
           You haven't been affiliated with any companies yet.
         </div>
-        <a href="{% url 'marketer-dashboard' %}" class="btn-dashboard">
+        <a href="{% url 'secure-marketer-dashboard' %}" class="btn-dashboard">
           <i class="bi bi-house"></i>
           Go to Dashboard
         </a>

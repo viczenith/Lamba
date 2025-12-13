@@ -1,12 +1,13 @@
 {% extends 'marketer_base.html' %}
 {% load static humanize %}
+{% load custom_filters %}
 {% block content %}
 
 <main id="main" class="main">
   <!-- Header -->
   <div class="portfolio-header">
     <div class="header-content">
-      <a href="{% url 'marketer-my-companies' %}" class="back-link">
+      <a href="{% url 'secure-marketer-companies' %}" class="back-link">
         <i class="bi bi-arrow-left"></i>
       </a>
       <div>
@@ -53,7 +54,7 @@
                   <div class="rank">#{{ item.rank }}</div>
                   <div class="avatar">
                     {% if item.marketer.profile_image %}
-                      <img src="{{ item.marketer.profile_image.url }}" alt="{{ item.marketer.full_name }}">
+                      <img src="{% url 'secure-profile-image' user_id=item.marketer.id %}" alt="{{ item.marketer.full_name }}">
                     {% else %}
                       <span class="avatar-letter">{{ item.marketer.full_name|slice:":1"|upper }}</span>
                     {% endif %}
@@ -82,7 +83,7 @@
                   <div class="rank">#{{ user_entry.rank }}</div>
                   <div class="avatar">
                     {% if user_entry.marketer.profile_image %}
-                      <img src="{{ user_entry.marketer.profile_image.url }}" alt="{{ user_entry.marketer.full_name }}">
+                      <img src="{% url 'secure-profile-image' user_id=user_entry.marketer.id %}" alt="{{ user_entry.marketer.full_name }}">
                     {% else %}
                       <span class="avatar-letter">{{ user_entry.marketer.full_name|slice:":1"|upper }}</span>
                     {% endif %}
@@ -120,7 +121,7 @@
             <div class="client-info">
               <div class="avatar">
                 {% if client.profile_image and client.profile_image.name %}
-                  <img src="{{ client.profile_image.url }}" alt="{{ client.full_name }}">
+                  <img src="{% url 'secure-profile-image' user_id=client.id %}" alt="{{ client.full_name }}">
                 {% else %}
                   <span>{{ client.full_name|slice:":1"|upper }}</span>
                 {% endif %}
@@ -207,7 +208,7 @@
         </div>
         <h3>No Clients Yet</h3>
         <p>You haven't handled any clients for {{ company.company_name }}.</p>
-        <a href="{% url 'marketer-my-companies' %}" class="back-btn">
+        <a href="{% url 'secure-marketer-companies' %}" class="back-btn">
           <i class="bi bi-arrow-left"></i> Back to Companies
         </a>
       </div>

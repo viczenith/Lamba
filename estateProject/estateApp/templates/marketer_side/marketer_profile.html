@@ -7,7 +7,7 @@
     <h1>Profile</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-marketer-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item active">Profile</li>
       </ol>
     </nav>
@@ -22,8 +22,8 @@
             <!-- Profile Avatar Section -->
             <div class="profile-avatar-section text-center">
               <div class="avatar-wrapper">
-                {% if user.profile_image %}
-                  <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }}" class="profile-avatar">
+                {% if user.profile_image and user.profile_image.name %}
+                  <img src="{% url 'secure-profile-image' user_id=user.id %}" alt="{{ user.full_name }}" class="profile-avatar">
                 {% else %}
                   <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Avatar" class="profile-avatar">
                 {% endif %}
@@ -154,8 +154,8 @@
                   <div class="edit-section mb-4">
                     <div class="photo-upload-section">
                       <div class="profile-photo-preview">
-                        {% if user.profile_image %}
-                          <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }}" id="profilePreview">
+                        {% if user.profile_image and user.profile_image.name %}
+                          <img src="{% url 'secure-profile-image' user_id=user.id %}" alt="{{ user.full_name }}" id="profilePreview">
                         {% else %}
                           <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Profile" id="profilePreview">
                         {% endif %}

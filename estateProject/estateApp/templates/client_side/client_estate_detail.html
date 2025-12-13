@@ -3,333 +3,251 @@
 {% block content %}
 
 <main id="main" class="main">
-
-  <div class="pagetitle">
-    <h1>Plot Allocation</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ home_url }}">Home</a></li>
-        <li class="breadcrumb-item">Estate Details</li>
-      </ol>
-    </nav>
-  </div><!-- End Page Title -->
-    <div class="container py-5">
-      <!-- Estate Header -->
-      <div class="card estate-header p-4 shadow-lg">
-        <h1 class="fw-bold">{{ estate.name }}</h1>
-        <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ estate.location }}</p>
-        <p><strong>Estate Size:</strong> {{ estate.estate_size }}</p>
-        <p><strong>Title Deed:</strong> {{ estate.title_deed }}</p>
-        <p><strong>Plot Size:</strong> <span class="badge text-bg-success">{{ plot_size.size }}</span></p>
-          
-        </p>
-      </div>
+  <!-- Clean Header -->
+  <div style="background: white; border-bottom: 1px solid #e5e7eb; padding: 3rem 0;">
+    <div class="container">
+      <nav style="font-size: 0.9rem; margin-bottom: 1.5rem; color: #6b7280;">
+        <a href="{% url 'secure-client-dashboard' %}" style="color: #667eea; text-decoration: none;">Dashboard</a>
+        <span style="margin: 0 0.75rem;">→</span>
+        <a href="{% url 'my-company-portfolio' company_id=estate.company.id %}" style="color: #667eea; text-decoration: none;">{{ estate.company.company_name }}</a>
+        <span style="margin: 0 0.75rem;">→</span>
+        <span>{{ estate.name }}</span>
+      </nav>
       
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem;">{{ estate.name }}</h1>
+      <p style="color: #6b7280; font-size: 1rem; margin-bottom: 2rem;">{{ estate.location }}</p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2rem;">
+        <div>
+          <p style="color: #9ca3af; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Estate Size</p>
+          <p style="color: #111827; font-weight: 700; font-size: 1.125rem; margin: 0;">{{ estate.estate_size }}</p>
+        </div>
+        <div>
+          <p style="color: #9ca3af; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Plot Size</p>
+          <p style="color: #111827; font-weight: 700; font-size: 1.125rem; margin: 0;">{{ plot_size.size }}</p>
+        </div>
+        <div>
+          <p style="color: #9ca3af; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Title Deed</p>
+          <p style="color: #111827; font-weight: 700; font-size: 1.125rem; margin: 0;">{{ estate.title_deed }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      <!-- Estate Updates Section -->
-      <div class="row mt-4">
-
-      <!-- Estate Progress Status -->
-      <div class="col-lg-6">
-        <div class="card shadow p-3">
-          <h4 class="fw-bold">Progress Status</h4>
-          <ul class="list-group list-group-flush">
+  <!-- Main Content -->
+  <div class="container" style="padding: 3rem 0;">
+    
+    <!-- Info Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 4rem;">
+      <!-- Progress -->
+      <div style="background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">
+        <p style="font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #111827; margin-bottom: 1.5rem;">Progress Updates</p>
+        <div style="max-height: 250px; overflow-y: auto;">
+          {% if estate.progress_status.all %}
             {% for status in estate.progress_status.all %}
-              <li class="list-group-item">
-                <i class="bi bi-check-circle-fill text-success"></i>
-                <strong>{{ status.timestamp|date:"d M, Y H:i" }}</strong>: {{ status.progress_status }}
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No progress updates available.</li>
+              <div style="padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #f3f4f6; display: flex; gap: 1rem;">
+                <div style="color: #667eea; flex-shrink: 0;"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                  <p style="color: #6b7280; font-size: 0.875rem; margin: 0 0 0.25rem;">{{ status.timestamp|date:"M d, Y" }}</p>
+                  <p style="color: #111827; margin: 0; font-weight: 500;">{{ status.progress_status }}</p>
+                </div>
+              </div>
             {% endfor %}
-          </ul>
+          {% else %}
+            <p style="color: #9ca3af; text-align: center; margin: 1rem 0;">No updates yet</p>
+          {% endif %}
         </div>
       </div>
 
-      <!-- Estate Amenities Section -->
-      <div class="col-lg-6">
-        <div class="card p-4 shadow mb-4">
-          <h3 class="fw-bold mb-3">Estate Amenities</h3>
+      <!-- Amenities -->
+      <div style="background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">
+        <p style="font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #111827; margin-bottom: 1.5rem;">Amenities</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           {% if estate.estate_amenity.all %}
             {% for amenity_record in estate.estate_amenity.all %}
               {% with amenities_list=amenity_record.get_amenity_display %}
                 {% if amenities_list %}
-                  <ul class="list-group list-group-flush">
-                    {% for display_name, icon_class in amenities_list %}
-                      <li class="list-group-item">
-                        <i class="{{ icon_class }}"></i> {{ display_name }}
-                      </li>
-                    {% endfor %}
-                  </ul>
-                {% else %}
-                  <p class="text-muted">No amenities selected.</p>
+                  {% for display_name, icon_class in amenities_list %}
+                    <div style="display: flex; align-items: center; gap: 0.75rem; color: #374151; font-size: 0.9rem;">
+                      <i class="{{ icon_class }}" style="color: #667eea; font-size: 1.25rem;"></i>
+                      <span>{{ display_name }}</span>
+                    </div>
+                  {% endfor %}
                 {% endif %}
               {% endwith %}
             {% endfor %}
           {% else %}
-            <p class="text-muted">No amenities available for this estate.</p>
+            <p style="color: #9ca3af; margin: 0;">No amenities listed</p>
           {% endif %}
-
         </div>
       </div>
+    </div>
 
-
-      <!-- Estate Prototypes Section -->
-      <div class="card p-4 shadow mb-4">
-        <h3 class="fw-bold mb-3">{{ plot_size.size }} Prototype</h3>
-        {% if estate.prototypes.all %}
-          <div class="row">
-            {% for prototype in estate.prototypes.all %}
-              {% if prototype.plot_size.id == plot_size.id %}
-                <div class="col-md-4 mb-4">
-                  <div class="card">
-                    <div class="zoom-wrapper">
-                      <div class="zoom-container">
-                        <img src="{{ prototype.prototype_image.url }}" 
-                            alt="Prototype Image" 
-                            class="zoomable-img card-img-top img-fluid rounded shadow">
-                      </div>
-                      <div class="zoom-controls">
-                        <button class="zoom-in btn btn-primary">+</button>
-                        <button class="zoom-out btn btn-primary">–</button>
-                      </div>
-                    </div>
-                    <div class="card-body">
-                      <h5 class="card-title">{{ prototype.Title }}</h5>
-                      <p class="card-text">{{ prototype.Description }}</p>
-                      <p class="card-text">
-                        <small class="text-muted">{{ prototype.date_uploaded|date:"d M, Y" }}</small>
-                      </p>
-                     
-                    </div>
-                  </div>
-                </div>
-              {% endif %}
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="text-muted">No prototypes available for {{ plot_size.size }} SQM plots in this estate.</p>
-        {% endif %}
-      </div>
-
-
-      <!-- Zoomable Estate Layout -->
-      <div class="row mb-4 mt-4">
-        <div class="col-lg-12">
-          <div class="card p-4 shadow">
-            <h4 class="fw-bold mb-3">Estate Layout</h4>
-            {% if estate.estate_layout.all %}
-              {% for layout in estate.estate_layout.all %}
-                <div class="zoom-wrapper">
-                  <div class="zoom-container">
-                    <img src="{{ layout.layout_image.url }}" alt="Estate Layout" class="zoomable-img img-fluid rounded shadow">
-                  </div>
-                  <div class="zoom-controls">
-                    <button class="zoom-in btn btn-primary">+</button>
-                    <button class="zoom-out btn btn-primary">–</button>
-                  </div>
-                </div>
-              {% endfor %}
-            {% else %}
-              <p>No estate layouts available.</p>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <!-- Estate Floor Plans Section -->
-      <div class="card p-4 shadow mb-4">
-        <h4 class="fw-bold mb-3">{{ plot_size.size }} Building Plans</h4>
-        <div class="row">
-          {% if floor_plans %}
-            {% for plan in floor_plans %}
-              <div class="col-lg-12 mb-4">
-                <div class="card p-4 shadow">
-                  <div class="zoom-wrapper">
-                    <div class="zoom-container">
-                      <img src="{{ plan.floor_plan_image.url }}" 
-                          alt="Floor Plan" 
-                          class="zoomable-img img-fluid rounded shadow">
-                    </div>
-                    <div class="zoom-controls">
-                      <button class="zoom-in btn btn-primary">+</button>
-                      <button class="zoom-out btn btn-primary">–</button>
-                    </div>
-                  </div>
-                  <h5 class="mt-2">
-                    <small>{{ forloop.counter }}: {{ plan.plan_title }}</small>
-                  </h5>
-                </div>
+    <!-- Prototypes -->
+    {% if estate.prototypes.all %}
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 2rem; margin-top: 3rem;">{{ plot_size.size }} Prototypes</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 4rem;">
+        {% for prototype in estate.prototypes.all %}
+          {% if prototype.plot_size.id == plot_size.id %}
+            <div style="background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.3s; display: flex; flex-direction: column; height: 100%;">
+              <div style="height: 250px; background: #f3f4f6; overflow: hidden; position: relative;">
+                <img src="{% url 'secure-prototype-image' prototype_id=prototype.id %}" alt="{{ prototype.Title }}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;">
               </div>
-            {% endfor %}
-          {% else %}
-            <div class="col-12">
-              <div class="alert alert-info">
-                No floor plans available for {{ plot_size.size }} SQM plots in this estate
+              <div style="padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column;">
+                <h4 style="font-size: 1rem; font-weight: 600; color: #111827; margin-bottom: 0.5rem;">{{ prototype.Title }}</h4>
+                <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem; flex-grow: 1;">{{ prototype.Description }}</p>
+                <p style="color: #9ca3af; font-size: 0.8rem; margin: 0;">{{ prototype.date_uploaded|date:"M d, Y" }}</p>
               </div>
             </div>
           {% endif %}
-        </div>
+        {% endfor %}
       </div>
+    {% endif %}
 
-      <!-- Google Map Integration -->
-      <!-- <div class="card mt-4 p-4 shadow">
-        <h4 class="fw-bold">Estate Location</h4>
-        <div id="google-map" class="rounded shadow" style="height: 350px;"></div>
-      </div> -->
-
-          <!-- Estate Location Section -->
-    <div class="card p-4 shadow mb-4">
-      <h4 class="fw-bold">Estate Location</h4>
-      <div id="map-container" class="map-container" style="height: 350px;">
-        {% if estate.map.all %}
-          {% with map_obj=estate.map.first %}
-            {% if map_obj.generate_google_map_link %}
-              <!-- Embedded Map -->
-              <iframe 
-                src="{{ map_obj.generate_google_map_link }}"
-                width="100%" 
-                height="350" 
-                style="border:0;" 
-                allowfullscreen="" 
-                loading="lazy">
-              </iframe>
-              <!-- Centered clickable button overlay -->
-              <a href="{{ map_obj.generate_google_map_link|cut:'&output=embed' }}" target="_blank" class="map-link-button">
-                View on Google Maps
-              </a>
-            {% else %}
-              <p>No map available.</p>
-            {% endif %}
-          {% endwith %}
-        {% else %}
-          <p>No map available.</p>
-        {% endif %}
+    <!-- Estate Layout -->
+    {% if estate.estate_layout.all %}
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 2rem; margin-top: 3rem;">Estate Layout</h2>
+      <div style="background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; margin-bottom: 4rem;">
+        {% for layout in estate.estate_layout.all %}
+          <div style="position: relative; background: #f9fafb;">
+            <div class="zoom-viewer" style="overflow: hidden; max-height: 500px;">
+              <img src="{% url 'secure-estate-layout' layout_id=layout.id %}" alt="Estate Layout" class="zoomable-image" style="width: 100%; height: auto; display: block; object-fit: contain; cursor: grab; transition: transform 0.3s;">
+            </div>
+            <div class="zoom-controls" style="position: absolute; top: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; opacity: 0; transition: opacity 0.2s;">
+              <button class="zoom-in" style="width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid #e5e7eb; color: #667eea; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">+</button>
+              <button class="zoom-out" style="width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid #e5e7eb; color: #667eea; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">−</button>
+            </div>
+          </div>
+        {% endfor %}
       </div>
+    {% endif %}
+
+    <!-- Floor Plans -->
+    {% if floor_plans %}
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 2rem; margin-top: 3rem;">{{ plot_size.size }} Floor Plans</h2>
+      <div style="display: flex; flex-direction: column; gap: 2rem; margin-bottom: 4rem;">
+        {% for plan in floor_plans %}
+          <div style="background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; display: grid; grid-template-columns: 1fr 280px; min-height: 320px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div class="zoom-viewer" style="background: #f9fafb; position: relative; overflow: hidden;">
+              <img src="{% url 'secure-floor-plan' plan_id=plan.id %}" alt="Floor Plan {{ forloop.counter }}" class="zoomable-image" style="width: 100%; height: 100%; object-fit: cover; cursor: grab; transition: transform 0.3s;">
+              <div class="zoom-controls" style="position: absolute; top: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; opacity: 0; transition: opacity 0.2s;">
+                <button class="zoom-in" style="width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid #e5e7eb; color: #667eea; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">+</button>
+                <button class="zoom-out" style="width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid #e5e7eb; color: #667eea; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">−</button>
+              </div>
+            </div>
+            <div style="padding: 2rem; background: #f9fafb; border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; justify-content: center;">
+              <p style="color: #9ca3af; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 0.5rem;">Plan {{ forloop.counter }}</p>
+              <h3 style="color: #111827; font-weight: 700; margin: 0; font-size: 1.1rem;">{{ plan.plan_title }}</h3>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Map -->
+    {% if estate.map.all %}
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 2rem; margin-top: 3rem;">Location</h2>
+      <div style="background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 4rem; height: 400px;">
+        {% with map_obj=estate.map.first %}
+          {% if map_obj.generate_google_map_link %}
+            <iframe src="{{ map_obj.generate_google_map_link }}" width="100%" height="100%" style="border: none;"></iframe>
+          {% endif %}
+        {% endwith %}
+      </div>
+    {% endif %}
+
+    <!-- Back Button -->
+    <div style="text-align: center;">
+      <a href="{% url 'my-company-portfolio' company_id=estate.company.id %}#properties-pane" style="display: inline-block; padding: 0.75rem 2rem; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; transition: all 0.2s; cursor: pointer; border: none;">
+        ← Back to Portfolio
+      </a>
     </div>
+  </div>
 
-    <style>
-      .map-container {
-        position: relative;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  <style>
+    [style*="background: white"]:hover:not(:has(input)):not(:has(button)) {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+    }
+
+    .zoom-viewer:hover .zoom-controls {
+      opacity: 1;
+    }
+
+    .zoom-controls button:hover {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+      transform: scale(1.1);
+    }
+
+    div[style*="overflow-y: auto"]::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+      background: #f3f4f6;
+    }
+
+    div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 3px;
+    }
+
+    div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+
+    @media (max-width: 768px) {
+      [style*="grid-template-columns: 1fr 280px"] {
+        grid-template-columns: 1fr !important;
       }
-      .map-container iframe {
-        display: block;
-      }
-      .map-link-button {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.7);
-        color: #fff;
-        padding: 10px 20px;
-        border-radius: 5px;
-        text-decoration: none;
-        font-weight: bold;
-        opacity: 0.9;
-      }
-      .map-link-button:hover {
-        background: rgba(0,0,0,0.9);
-      }
-    </style>
-
-
-      <!-- Back Button -->
-      <div class="mt-4 text-center">
-        <a href="{% url 'my-client-profile' %}" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-left"></i> Back to Property List
-        </a>
-      </div>
-    </div>
-
-  
-    
-    <!-- Google Maps API -->
-    <script>
-      function initMap() {
-        var estateLocation = { lat: {{ estate.latitude }}, lng: {{ estate.longitude }} };
-        var map = new google.maps.Map(document.getElementById("google-map"), {
-          zoom: 15,
-          center: estateLocation,
-        });
-        new google.maps.Marker({
-          position: estateLocation,
-          map: map,
-          title: "{{ estate.name }}"
-        });
-      }
-    </script>
-
-
-<style>
-  .zoom-wrapper {
-    position: relative;
-    display: inline-block;
-  }
-  .zoom-container {
-    overflow: auto;
-    border-radius: 12px;
-  }
-  .zoom-container img {
-    transition: transform 0.3s ease;
-    width: 100%;
-  }
-  .zoom-controls {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    z-index: 10;
-  }
-  .zoom-controls button {
-    width: 40px;
-    height: 40px;
-    font-size: 24px;
-    line-height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: #fff;
-    cursor: pointer;
-  }
-  .zoom-controls button:hover {
-    background: rgba(0, 0, 0, 0.7);
-  }
-</style>
-
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll('.zoom-wrapper').forEach(function(wrapper) {
-      let scale = 1;
-      const zoomInBtn = wrapper.querySelector('.zoom-in');
-      const zoomOutBtn = wrapper.querySelector('.zoom-out');
-      const img = wrapper.querySelector('.zoomable-img');
       
-      // Make sure all elements exist before adding event listeners
-      if (zoomInBtn && zoomOutBtn && img) {
-        zoomInBtn.addEventListener("click", function() {
+      [style*="grid-template-columns: repeat(auto-fit"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+
+  <script>
+    document.querySelectorAll('.zoom-viewer').forEach(function(viewer) {
+      const zoomInBtn = viewer.querySelector('.zoom-in');
+      const zoomOutBtn = viewer.querySelector('.zoom-out');
+      const img = viewer.querySelector('.zoomable-image');
+      
+      if (!zoomInBtn || !zoomOutBtn || !img) return;
+      
+      let scale = 1;
+      
+      zoomInBtn.addEventListener('click', () => {
+        if (scale < 3) {
           scale += 0.2;
           img.style.transform = `scale(${scale})`;
-        });
-
-        zoomOutBtn.addEventListener("click", function() {
-          if (scale > 0.4) {
-            scale -= 0.2;
-            img.style.transform = `scale(${scale})`;
-          }
-        });
-      }
+          viewer.style.overflow = 'auto';
+        }
+      });
+      
+      zoomOutBtn.addEventListener('click', () => {
+        if (scale > 0.4) {
+          scale -= 0.2;
+          img.style.transform = `scale(${scale})`;
+          if (scale === 1) viewer.style.overflow = 'hidden';
+        }
+      });
+      
+      img.addEventListener('dblclick', () => {
+        scale = 1;
+        img.style.transform = `scale(1)`;
+        viewer.style.overflow = 'hidden';
+      });
+      
+      viewer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        scale += e.deltaY < 0 ? 0.1 : -0.1;
+        scale = Math.max(0.4, Math.min(3, scale));
+        img.style.transform = `scale(${scale})`;
+      });
     });
-  });
-</script>
-
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
-
+  </script>
 </main>
+
 {% endblock %}

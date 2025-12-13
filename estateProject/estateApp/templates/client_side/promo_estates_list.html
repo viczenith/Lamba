@@ -9,7 +9,7 @@
     <h1>Estate Promotions</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-client-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item active">Estates with Promos</li>
       </ol>
     </nav>
@@ -53,7 +53,7 @@
           <div class="d-flex align-items-center">
             {% if company %}
               {% if company.logo %}
-                <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="company-logo-estates">
+                <img src="{% url 'secure-company-logo' company_id=company.id %}" alt="{{ company.company_name }}" class="company-logo-estates">
               {% else %}
                 <div class="company-avatar-estates">{{ company.company_name|slice:":2"|upper }}</div>
               {% endif %}

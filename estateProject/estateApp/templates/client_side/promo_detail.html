@@ -7,7 +7,7 @@
     <h1>Promotion Details</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-client-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item"><a href="{% url 'promotions-list' %}">Promotions</a></li>
         <li class="breadcrumb-item active">{{ promo.name|truncatechars:30 }}</li>
       </ol>
@@ -23,7 +23,7 @@
     <div class="promo-company-banner">
       {% if first_estate and first_estate.company %}
         {% if first_estate.company.logo %}
-          <img src="{{ first_estate.company.logo.url }}" alt="{{ first_estate.company.company_name }}" class="company-logo-lg">
+          <img src="{% url 'secure-company-logo' company_id=first_estate.company.id %}" alt="{{ first_estate.company.company_name }}" class="company-logo-lg">
         {% else %}
           <div class="company-avatar-lg">{{ first_estate.company.company_name|slice:":2"|upper }}</div>
         {% endif %}
@@ -152,7 +152,7 @@
                   {% if estate.company %}
                   <div class="estate-company-badge">
                     {% if estate.company.logo %}
-                      <img src="{{ estate.company.logo.url }}" alt="" class="estate-company-logo">
+                      <img src="{% url 'secure-company-logo' company_id=estate.company.id %}" alt="" class="estate-company-logo">
                     {% endif %}
                     <span>{{ estate.company.company_name }}</span>
                   </div>

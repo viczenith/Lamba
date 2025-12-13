@@ -1,5 +1,6 @@
 {% extends 'marketer_base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <main id="main" class="main">
@@ -250,10 +251,10 @@
     <div class="section-label">New</div>
     <div class="notification-list">
       {% for un in unread_list %}
-      <a href="{% url 'notification_detail' un.id %}" class="notification-item unread">
+      <a href="{% url 'secure-notification-detail' un.id %}" class="notification-item unread">
         <div class="company-avatar">
           {% if un.notification.company and un.notification.company.logo %}
-            <img src="{{ un.notification.company.logo.url }}" alt="">
+            <img src="{% url 'secure-company-logo' company_id=un.notification.company.id %}" alt="">
           {% elif un.notification.company %}
             {{ un.notification.company.company_name|slice:":1"|upper }}
           {% else %}
@@ -284,10 +285,10 @@
     <div class="section-label">Earlier</div>
     <div class="notification-list">
       {% for un in read_list %}
-      <a href="{% url 'notification_detail' un.id %}" class="notification-item">
+      <a href="{% url 'secure-notification-detail' un.id %}" class="notification-item">
         <div class="company-avatar">
           {% if un.notification.company and un.notification.company.logo %}
-            <img src="{{ un.notification.company.logo.url }}" alt="">
+            <img src="{% url 'secure-company-logo' company_id=un.notification.company.id %}" alt="">
           {% elif un.notification.company %}
             {{ un.notification.company.company_name|slice:":1"|upper }}
           {% else %}

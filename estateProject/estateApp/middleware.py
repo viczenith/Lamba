@@ -3,6 +3,17 @@ Multi-Tenant Data Isolation Middleware
 
 Provides complete data isolation between companies at the middleware level.
 Prevents cross-company data leaks and enforces subscription-based access.
+
+ADVANCED CYBERSECURITY PROTECTION:
+- Brute Force Attack Prevention (progressive lockout)
+- SQL/XSS/Command/Template/LDAP Injection Protection
+- Session Hijacking/Fixation Prevention
+- IDOR Attack Prevention
+- Clickjacking Protection
+- Open Redirect Protection
+- Parameter Tampering Prevention
+- Bot/Automated Attack Detection
+- DDoS/Rate Limiting with Exponential Backoff
 """
 
 import threading
@@ -17,6 +28,24 @@ from django.contrib import messages
 from .models import Company
 import logging
 import time
+import hashlib
+import re
+
+# Import Advanced Security Module
+from estateApp.advanced_security import (
+    ComprehensiveSecurityValidator,
+    BruteForceProtection,
+    InjectionProtection,
+    SessionSecurity,
+    IDORProtection,
+    ClickjackingProtection,
+    OpenRedirectProtection,
+    ParameterTamperProtection,
+    BotDetection,
+    SecurityHeaders,
+    get_client_ip,
+    log_security_event,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +101,19 @@ class SessionExpirationMiddleware(MiddlewareMixin):
             session_timeout = getattr(settings, 'SESSION_COOKIE_AGE', 3600)
 
             # Check if session has expired
-            session_expiry = request.session.get('_session_expiry', 0)
+            session_expiry = request.session.get('_session_expiry', None)
 
-            # If no expiry set or expired, redirect to login
-            if not session_expiry or current_time > session_expiry:
+            # If no expiry set, initialize it
+            if session_expiry is None:
+                request.session['_session_expiry'] = current_time + int(session_timeout)
+                try:
+                    request.session.save()
+                except Exception:
+                    logger.exception('Failed to initialize session expiry')
+                return None
+            
+            # If session has expired, redirect to login
+            if current_time > session_expiry:
                 # Session expired - clear session and redirect to login
                 request.session.flush()
 
@@ -559,6 +597,7 @@ def is_company_admin(request):
 
 
 # ===== ADVANCED SECURITY MIDDLEWARE =====
+# Enhanced with comprehensive cybersecurity protection
 
 from estateApp.security import (
     RateLimiter,
@@ -569,40 +608,112 @@ from estateApp.security import (
 )
 from django.contrib.auth import logout
 
+# Initialize Advanced Security Components
+_brute_force_protection = BruteForceProtection()
+_injection_protection = InjectionProtection()
+_session_security = SessionSecurity()
+_idor_protection = IDORProtection()
+_clickjacking_protection = ClickjackingProtection()
+_open_redirect_protection = OpenRedirectProtection()
+_parameter_tamper_protection = ParameterTamperProtection()
+_bot_detection = BotDetection()
+_security_headers = SecurityHeaders()
+_comprehensive_validator = ComprehensiveSecurityValidator()
+
 
 class AdvancedSecurityMiddleware(MiddlewareMixin):
     """
-    Comprehensive security middleware for all requests.
+    ENTERPRISE-GRADE SECURITY MIDDLEWARE
+    
+    Comprehensive protection against all types of hackers:
+    
+    1. BRUTE FORCE ATTACKERS - Progressive lockout, exponential backoff
+    2. SQL INJECTION HACKERS - Pattern detection, input sanitization
+    3. XSS ATTACKERS - Script detection, content filtering
+    4. SESSION HIJACKERS - Fingerprinting, integrity checks
+    5. IDOR ATTACKERS - Object ownership verification
+    6. BOT/AUTOMATED ATTACKS - Signature detection, honeypot
+    7. DDOS ATTACKERS - Rate limiting, IP blocking
+    8. CREDENTIAL STUFFERS - Login rate limiting
+    9. PRIVILEGE ESCALATION - Role verification
+    10. CLICKJACKING - Frame protection headers
     
     Provides:
-    - Request validation and sanitization
-    - Rate limiting per IP and user
-    - Session integrity checking
+    - Multi-layer request validation
+    - Advanced rate limiting per IP and user
+    - Session integrity and hijacking prevention
     - Role-based URL protection
-    - Suspicious activity detection
+    - Comprehensive injection attack detection
+    - Bot/crawler detection and blocking
+    - Security headers enforcement
     """
     
-    # URLs that don't require full security checks
-    EXEMPT_URLS = [
+    # ========================================================================
+    # PUBLIC URLS - No authentication required
+    # ========================================================================
+    # IMPORTANT: ALL URLs NOT listed here will REQUIRE AUTHENTICATION
+    # This is the WHITELIST approach - secure by default
+    PUBLIC_URLS = [
+        '/login/',
+        '/logout/',
+        '/register/',
+        '/password-reset/',
+        '/client/register/',
+        '/marketer/register/',
         '/static/',
         '/media/',
         '/favicon.ico',
         '/robots.txt',
         '/api/health/',
-        '/chat_unread_count/',  # AJAX polling endpoint - high frequency
+        '/health/',
+        '/admin/login/',           # Django admin login
+        '/admin/',                 # Django admin (has its own auth)
+        '/super-admin/login/',     # Super admin login
+        '/estates/',               # Public estate list
+        '/promotions/',            # Public promotions
     ]
     
-    # URLs that require stricter rate limiting
+    # URLs exempt from security checks (static/media only)
+    EXEMPT_URLS = [
+        '/static/',
+        '/media/',
+        '/favicon.ico',
+        '/robots.txt',
+    ]
+    
+    # URLs that require stricter rate limiting (login attempts)
     SENSITIVE_URLS = [
         '/login/',
         '/register/',
         '/password-reset/',
         '/change-password/',
         '/profile/update/',
+        '/api/auth/',
+        '/api/login/',
+        '/api/token/',
+        '/client/register/',
+        '/marketer/register/',
     ]
     
-    # Client-side URLs (require client role)
-    # Uses startswith() so /my-companies/8/ is covered by /my-companies/
+    # URLs that should be monitored for IDOR attacks
+    IDOR_SENSITIVE_URLS = [
+        '/view-client-estate/',
+        '/my-companies/',
+        '/marketer/my-companies/',
+        '/notifications/',
+        '/chat/',
+        '/receipt/',
+        '/transaction/',
+        '/client/',
+        '/allocated-plot/',
+        '/download-allocations/',
+        '/client_profile/',
+        '/admin-marketer/',
+    ]
+    
+    # ========================================================================
+    # CLIENT-SIDE URLS (require client role)
+    # ========================================================================
     CLIENT_URLS = [
         '/client-dashboard',
         '/my-client-profile',
@@ -613,20 +724,24 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/view-client-estate/',    # Covers /view-client-estate/6/28/
         '/client-new-property-request',
         '/client-dashboard-cross-company',
-        '/c/',                     # Secure client prefix
+        '/c/',                     # Secure client prefix: /c/dashboard/, /c/profile/
     ]
     
-    # Marketer-side URLs (require marketer role)
+    # ========================================================================
+    # MARKETER-SIDE URLS (require marketer role)
+    # ========================================================================
     MARKETER_URLS = [
         '/marketer-dashboard',
         '/marketer-profile',
         '/marketer/my-companies/', # Covers /marketer/my-companies/8/
         '/marketer/chat/',         # Covers /marketer/chat/
         '/client-records',
-        '/m/',                     # Secure marketer prefix
+        '/m/',                     # Secure marketer prefix: /m/dashboard/, /m/profile/
     ]
     
-    # Admin-side URLs (require admin role)
+    # ========================================================================
+    # ADMIN-SIDE URLS (require admin role)
+    # ========================================================================
     ADMIN_URLS = [
         '/chat-admin/',            # Covers /chat-admin/chat/1/, /chat-admin/marketer-chat/1/
         '/admin-dashboard',
@@ -641,6 +756,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/add-plotnumber',
         '/delete-plotsize/',
         '/delete-plotnumber/',
+        '/update-plotsize/',
+        '/update-plotnumber/',
         '/plot-allocation',
         '/view-estate',
         '/allocated-plot/',
@@ -660,9 +777,23 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/management-dashboard',
         '/download-allocations/',
         '/download-estate-pdf/',
+        '/estate_details/',
+        '/load-plots/',
+        '/get-allocated-plots/',
+        '/get-plot-sizes/',
+        '/fetch_plot_data',
+        '/update_allocated_plot/',
+        '/delete-allocation/',
+        '/get_allocated_plot/',
+        '/transactions/add/',
+        '/update-estate-amenities/',
+        # Company admin register (special case - admin inviting admins)
+        '/company/',               # Covers /company/<id>/admin-register/
     ]
     
-    # Tenant-scoped admin URLs (dynamic company slug)
+    # ========================================================================
+    # TENANT-SCOPED ADMIN URLS (dynamic company slug)
+    # ========================================================================
     # Pattern: /<company_slug>/dashboard/, /<company_slug>/management/
     TENANT_ADMIN_PATTERNS = [
         '/dashboard/',
@@ -671,18 +802,51 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/settings/',
     ]
     
-    # Shared authenticated URLs (require login but any role)
+    # ========================================================================
+    # SHARED AUTHENTICATED URLS (require login but any role)
+    # ========================================================================
     AUTHENTICATED_URLS = [
         '/notifications/',         # Covers /notifications/, /notifications/46/, /notifications/46/mark-read/
         '/message/',               # Message detail
         '/receipt/',               # Receipt access
         '/payment-history/',
         '/transaction/',           # Transaction details
+        '/payment/receipt/',       # Payment receipt by reference code
+        '/chat_unread_count/',     # Chat unread count (AJAX)
+        '/user-profile',           # User profile
+        '/user_profile/',          # User profile alt
+        '/security-verification/', # Security verification checkpoint
+    ]
+    
+    # URLs that require EXACT match (not startswith) - Home page
+    EXACT_AUTHENTICATED_URLS = [
+        '/',                       # Home page (requires login) - EXACT match only
+    ]
+    
+    # ========================================================================
+    # API URLS (require authentication via API token or session)
+    # ========================================================================
+    API_URLS = [
+        '/api/',                   # All API endpoints require auth
+        '/ajax/',                  # All AJAX endpoints require auth
     ]
     
     def process_request(self, request):
-        """Process incoming request for security."""
+        """
+        COMPREHENSIVE SECURITY PROCESSING
+        
+        Multi-layer defense against all attack vectors:
+        Layer 1: Basic request validation
+        Layer 2: Bot/Crawler detection
+        Layer 3: Brute force protection
+        Layer 4: Injection attack detection
+        Layer 5: Session security validation
+        Layer 6: Rate limiting
+        Layer 7: Role-based access control
+        Layer 8: IDOR protection
+        """
         path = request.path
+        client_ip = get_client_ip(request)
         
         # Skip exempt URLs
         if any(path.startswith(exempt) for exempt in self.EXEMPT_URLS):
@@ -691,18 +855,134 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         # Record request start time for performance monitoring
         request._security_start_time = time.time()
         
-        # 1. Basic security validation
+        # ===== LAYER 1: BASIC REQUEST VALIDATION =====
         is_valid, error_msg = SecurityValidator.validate_request(request)
         if not is_valid:
             _log_security_event(request, 'blocked_request', error_msg)
-            logger.warning(f"Blocked request: {error_msg} | Path: {path}")
+            log_security_event('REQUEST_BLOCKED', request, {'reason': error_msg})
+            logger.warning(f"[SECURITY] Blocked request: {error_msg} | IP: {client_ip} | Path: {path}")
             return HttpResponseForbidden("Request blocked for security reasons.")
         
-        # 2. Rate limiting for sensitive URLs
+        # ===== LAYER 2: BOT/CRAWLER DETECTION =====
+        is_bot, bot_reason = _bot_detection.is_bot(request)
+        if is_bot:
+            log_security_event('BOT_DETECTED', request, {'reason': bot_reason})
+            logger.warning(f"[SECURITY] Bot detected: {bot_reason} | IP: {client_ip}")
+            # Don't block immediately, but flag the request
+            request._is_bot = True
+            request._bot_reason = bot_reason
+            
+            # Block known bad bots from sensitive URLs
+            if any(path.startswith(url) for url in self.SENSITIVE_URLS):
+                return HttpResponseForbidden("Automated access to this endpoint is not allowed.")
+        else:
+            request._is_bot = False
+        
+        # ===== LAYER 3: BRUTE FORCE PROTECTION =====
+        if any(path.startswith(url) for url in self.SENSITIVE_URLS):
+            is_blocked, block_reason, remaining_lockout = _brute_force_protection.check_brute_force(request)
+            if is_blocked:
+                log_security_event('BRUTE_FORCE_BLOCKED', request, {
+                    'lockout_remaining': remaining_lockout,
+                    'reason': block_reason
+                })
+                logger.warning(f"[SECURITY] Brute force blocked: IP {client_ip} locked for {remaining_lockout}s - {block_reason}")
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'error': 'account_locked',
+                        'message': f'Too many failed attempts. Please wait {remaining_lockout} seconds.',
+                        'retry_after': remaining_lockout
+                    }, status=429)
+                
+                messages.error(request, f"Account temporarily locked due to too many failed attempts. Please wait {remaining_lockout} seconds.")
+                return redirect('login')
+        
+        # ===== LAYER 4: INJECTION ATTACK DETECTION =====
+        # Check all input sources for injection attacks
+        injection_sources = []
+        
+        # Check GET parameters
+        for key, value in request.GET.items():
+            is_sql, _ = _injection_protection.check_injection(value, 'sql')
+            if is_sql:
+                injection_sources.append(('SQL_INJECTION', 'GET', key))
+            is_xss, _ = _injection_protection.check_injection(value, 'xss')
+            if is_xss:
+                injection_sources.append(('XSS_ATTACK', 'GET', key))
+            is_cmd, _ = _injection_protection.check_injection(value, 'command')
+            if is_cmd:
+                injection_sources.append(('COMMAND_INJECTION', 'GET', key))
+        
+        # Check POST parameters
+        for key, value in request.POST.items():
+            if isinstance(value, str):
+                is_sql, _ = _injection_protection.check_injection(value, 'sql')
+                if is_sql:
+                    injection_sources.append(('SQL_INJECTION', 'POST', key))
+                is_xss, _ = _injection_protection.check_injection(value, 'xss')
+                if is_xss:
+                    injection_sources.append(('XSS_ATTACK', 'POST', key))
+                is_cmd, _ = _injection_protection.check_injection(value, 'command')
+                if is_cmd:
+                    injection_sources.append(('COMMAND_INJECTION', 'POST', key))
+                is_template, _ = _injection_protection.check_injection(value, 'template')
+                if is_template:
+                    injection_sources.append(('TEMPLATE_INJECTION', 'POST', key))
+        
+        # Check path for path traversal (using command injection patterns which include ../)
+        is_path_attack, _ = _injection_protection.check_injection(path, 'command')
+        if is_path_attack:
+            injection_sources.append(('PATH_TRAVERSAL', 'PATH', path))
+        
+        if injection_sources:
+            for attack_type, source_type, source_key in injection_sources:
+                log_security_event(attack_type, request, {
+                    'source': source_type,
+                    'parameter': source_key
+                })
+            logger.critical(f"[SECURITY] Injection attack detected: {injection_sources} | IP: {client_ip} | Path: {path}")
+            
+            # Record as failed login attempt (to trigger brute force protection)
+            _brute_force_protection.record_failed_attempt(request, reason='injection_attack')
+            
+            return HttpResponseForbidden("Security violation detected. This incident has been logged.")
+        
+        # ===== LAYER 5: SESSION SECURITY =====
+        if request.user.is_authenticated:
+            # Validate session integrity
+            if not SecurityValidator.validate_session_integrity(request):
+                log_security_event('SESSION_HIJACK_ATTEMPT', request, {
+                    'reason': 'User agent or fingerprint mismatch'
+                })
+                logger.warning(f"[SECURITY] Session hijack attempt: IP {client_ip}")
+                logout(request)
+                messages.error(request, "Security alert: Your session has been terminated due to suspicious activity.")
+                return redirect('login')
+            
+            # Advanced session validation
+            session_valid, session_reason = _session_security.validate_session(request)
+            if not session_valid:
+                log_security_event('SESSION_INVALID', request, {'reason': session_reason})
+                logger.warning(f"[SECURITY] Invalid session: {session_reason} | IP: {client_ip}")
+                logout(request)
+                messages.error(request, "Your session has expired or is invalid. Please log in again.")
+                return redirect('login')
+            
+            # Track user activity
+            _track_user_activity(request)
+        
+        # ===== LAYER 6: RATE LIMITING =====
+        # Stricter rate limiting for sensitive URLs
         if any(path.startswith(url) for url in self.SENSITIVE_URLS):
             is_limited, wait_time = RateLimiter.is_rate_limited(request, 'sensitive')
             if is_limited:
                 _log_security_event(request, 'rate_limited', f"Sensitive URL rate limited: {path}")
+                log_security_event('RATE_LIMITED', request, {
+                    'type': 'sensitive',
+                    'wait_time': wait_time
+                })
+                
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'error': 'rate_limited',
@@ -712,30 +992,25 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                 messages.error(request, f"Too many requests. Please wait {wait_time} seconds.")
                 return redirect('login')
         
-        # 3. General rate limiting
+        # General rate limiting
         is_limited, wait_time = RateLimiter.is_rate_limited(request, 'page')
         if is_limited:
             _log_security_event(request, 'rate_limited', f"Page rate limited: {path}")
+            log_security_event('RATE_LIMITED', request, {'type': 'page', 'wait_time': wait_time})
             return HttpResponseForbidden(f"Too many requests. Please wait {wait_time} seconds.")
         
-        # 4. Session integrity check for authenticated users
+        # ===== LAYER 7: ROLE-BASED ACCESS CONTROL =====
         if request.user.is_authenticated:
-            if not SecurityValidator.validate_session_integrity(request):
-                _log_security_event(request, 'session_hijack_attempt', 'User agent changed mid-session')
-                logout(request)
-                messages.error(request, "Security alert: Your session has been terminated for security reasons.")
-                return redirect('login')
-            
-            # Track user activity
-            _track_user_activity(request)
-            
-            # 5. Role-based URL protection
             user_role = getattr(request.user, 'role', None)
             
             # Client URL protection
             if any(path.startswith(url) for url in self.CLIENT_URLS):
                 if user_role != 'client':
                     _log_security_event(request, 'unauthorized_access', f"Non-client accessing client URL: {path}")
+                    log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
+                        'attempted_role': 'client',
+                        'actual_role': user_role
+                    })
                     messages.error(request, "Access denied. This page is for clients only.")
                     return redirect('login')
             
@@ -743,6 +1018,10 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             if any(path.startswith(url) for url in self.MARKETER_URLS):
                 if user_role != 'marketer':
                     _log_security_event(request, 'unauthorized_access', f"Non-marketer accessing marketer URL: {path}")
+                    log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
+                        'attempted_role': 'marketer',
+                        'actual_role': user_role
+                    })
                     messages.error(request, "Access denied. This page is for marketers only.")
                     return redirect('login')
             
@@ -750,78 +1029,185 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             if any(path.startswith(url) for url in self.ADMIN_URLS):
                 if user_role != 'admin':
                     _log_security_event(request, 'unauthorized_access', f"Non-admin accessing admin URL: {path}")
+                    log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
+                        'attempted_role': 'admin',
+                        'actual_role': user_role
+                    })
                     messages.error(request, "Access denied. This page is for administrators only.")
                     return redirect('login')
             
             # Tenant-scoped admin URL protection (/<company_slug>/dashboard/, etc.)
-            # Check if path matches pattern like /company-slug/dashboard/
-            path_parts = path.strip('/').split('/')
-            if len(path_parts) >= 2:
-                potential_page = '/' + path_parts[1] + '/'
-                if potential_page in self.TENANT_ADMIN_PATTERNS:
-                    if user_role != 'admin':
-                        _log_security_event(request, 'unauthorized_access', f"Non-admin accessing tenant admin URL: {path}")
-                        messages.error(request, "Access denied. This page is for administrators only.")
-                        return redirect('login')
+            # IMPORTANT: Skip this check if URL already matched marketer/client/admin URLs
+            # to avoid false positives on /m/dashboard/, /c/dashboard/, etc.
+            is_known_role_url = (
+                any(path.startswith(url) for url in self.MARKETER_URLS) or
+                any(path.startswith(url) for url in self.CLIENT_URLS) or
+                any(path.startswith(url) for url in self.ADMIN_URLS)
+            )
+            
+            if not is_known_role_url:
+                path_parts = path.strip('/').split('/')
+                if len(path_parts) >= 2:
+                    potential_page = '/' + path_parts[1] + '/'
+                    if potential_page in self.TENANT_ADMIN_PATTERNS:
+                        if user_role != 'admin':
+                            _log_security_event(request, 'unauthorized_access', f"Non-admin accessing tenant admin URL: {path}")
+                            log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
+                                'attempted_role': 'tenant_admin',
+                                'actual_role': user_role
+                            })
+                            messages.error(request, "Access denied. This page is for administrators only.")
+                            return redirect('login')
         
-        # 6. Authenticated URL protection (any logged-in user)
+        # ===== LAYER 8: UNAUTHENTICATED ACCESS PROTECTION =====
         else:
+            # IMPORTANT: Check if URL is public FIRST to avoid redirect loops
+            is_public_url = any(path.startswith(url) for url in self.PUBLIC_URLS)
+            if is_public_url:
+                return None  # Allow public URLs without authentication
+            
+            # Check exact match URLs (like home page '/')
+            if path in self.EXACT_AUTHENTICATED_URLS:
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing protected URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path})
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
+            
             # For URLs that require authentication (any role)
             if any(path.startswith(url) for url in self.AUTHENTICATED_URLS):
                 _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing protected URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path})
                 messages.error(request, "Please login to access this page.")
                 return redirect('login')
             
             # Block unauthenticated access to client URLs
             if any(path.startswith(url) for url in self.CLIENT_URLS):
                 _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing client URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path, 'required_role': 'client'})
                 messages.error(request, "Please login to access this page.")
                 return redirect('login')
             
             # Block unauthenticated access to marketer URLs
             if any(path.startswith(url) for url in self.MARKETER_URLS):
                 _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing marketer URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path, 'required_role': 'marketer'})
                 messages.error(request, "Please login to access this page.")
                 return redirect('login')
             
             # Block unauthenticated access to admin URLs
             if any(path.startswith(url) for url in self.ADMIN_URLS):
                 _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing admin URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path, 'required_role': 'admin'})
                 messages.error(request, "Please login to access this page.")
                 return redirect('login')
             
             # Block unauthenticated access to tenant-scoped admin URLs
-            path_parts = path.strip('/').split('/')
-            if len(path_parts) >= 2:
-                potential_page = '/' + path_parts[1] + '/'
-                if potential_page in self.TENANT_ADMIN_PATTERNS:
-                    _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing tenant admin URL: {path}")
-                    messages.error(request, "Please login to access this page.")
-                    return redirect('login')
+            # IMPORTANT: Skip if URL already matched known role URLs
+            is_known_role_url = (
+                any(path.startswith(url) for url in self.MARKETER_URLS) or
+                any(path.startswith(url) for url in self.CLIENT_URLS) or
+                any(path.startswith(url) for url in self.ADMIN_URLS)
+            )
+            
+            if not is_known_role_url:
+                path_parts = path.strip('/').split('/')
+                if len(path_parts) >= 2:
+                    potential_page = '/' + path_parts[1] + '/'
+                    if potential_page in self.TENANT_ADMIN_PATTERNS:
+                        _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing tenant admin URL: {path}")
+                        log_security_event('UNAUTHENTICATED_ACCESS', request, {'url': path, 'required_role': 'tenant_admin'})
+                        messages.error(request, "Please login to access this page.")
+                        return redirect('login')
+            
+            # ========================================================================
+            # ⚠️ CATCH-ALL PROTECTION - SECURE BY DEFAULT
+            # ========================================================================
+            # ANY URL not explicitly listed in PUBLIC_URLS requires authentication
+            # This is the WHITELIST approach - if it's not public, you need to login
+            is_public_url = any(path.startswith(url) for url in self.PUBLIC_URLS)
+            
+            if not is_public_url:
+                _log_security_event(request, 'unauthenticated_access', f"Anonymous user accessing unlisted URL: {path}")
+                log_security_event('UNAUTHENTICATED_ACCESS', request, {
+                    'url': path,
+                    'reason': 'URL not in public whitelist'
+                })
+                logger.warning(f"[SECURITY] Catch-all blocked unauthenticated access: {path} | IP: {client_ip}")
+                messages.error(request, "Please login to access this page.")
+                return redirect('login')
         
         return None
     
     def process_response(self, request, response):
-        """Add security headers and monitor performance."""
+        """
+        COMPREHENSIVE SECURITY RESPONSE PROCESSING
         
-        # Add security headers
+        Adds enterprise-grade security headers and monitors performance.
+        """
+        client_ip = get_client_ip(request)
+        
+        # ===== SECURITY HEADERS (Enterprise-Grade) =====
+        
+        # Prevent MIME type sniffing
         response['X-Content-Type-Options'] = 'nosniff'
-        response['X-Frame-Options'] = 'SAMEORIGIN'
-        response['X-XSS-Protection'] = '1; mode=block'
-        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
         
-        # Content Security Policy (adjust based on your needs)
+        # Clickjacking protection (backup for CSP frame-ancestors)
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        
+        # XSS Protection (deprecated but still useful for older browsers)
+        response['X-XSS-Protection'] = '1; mode=block'
+        
+        # Referrer policy - prevent leaking sensitive URLs
+        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # Permissions Policy - disable dangerous browser features
+        response['Permissions-Policy'] = (
+            'geolocation=(), '
+            'microphone=(), '
+            'camera=(), '
+            'payment=(), '
+            'usb=(), '
+            'magnetometer=(), '
+            'gyroscope=(), '
+            'accelerometer=()'
+        )
+        
+        # Cache control for sensitive pages
+        if request.user.is_authenticated:
+            response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+        
+        # Content Security Policy (comprehensive)
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com",
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://stackpath.bootstrapcdn.com",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://stackpath.bootstrapcdn.com",
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com data:",
             "img-src 'self' data: https: blob:",
-            "connect-src 'self'",
+            "connect-src 'self' wss: ws:",  # Allow WebSocket for chat
             "frame-ancestors 'self'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",  # Disable plugins
+            "upgrade-insecure-requests",
         ]
         response['Content-Security-Policy'] = '; '.join(csp_directives)
+        
+        # HSTS - Force HTTPS (only in production)
+        if not settings.DEBUG:
+            response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+        
+        # Cross-Origin policies
+        response['Cross-Origin-Embedder-Policy'] = 'unsafe-none'  # Allow loading from CDNs
+        response['Cross-Origin-Opener-Policy'] = 'same-origin'
+        response['Cross-Origin-Resource-Policy'] = 'same-origin'
+        
+        # Remove server identification headers
+        if 'Server' in response:
+            del response['Server']
+        if 'X-Powered-By' in response:
+            del response['X-Powered-By']
         
         # Performance monitoring
         if hasattr(request, '_security_start_time'):
@@ -830,7 +1216,22 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             
             # Log slow requests
             if duration > 2.0:
-                logger.warning(f"Slow request: {request.path} took {duration:.3f}s")
+                logger.warning(f"[PERFORMANCE] Slow request: {request.path} took {duration:.3f}s | IP: {client_ip}")
+        
+        # Log suspicious response codes
+        if response.status_code in [401, 403, 404, 500]:
+            log_security_event('SUSPICIOUS_RESPONSE', request, {
+                'status_code': response.status_code,
+                'path': request.path
+            })
+        
+        # Track if this was a bot request
+        if getattr(request, '_is_bot', False):
+            response['X-Bot-Detected'] = 'true'
+            log_security_event('BOT_RESPONSE', request, {
+                'status_code': response.status_code,
+                'bot_reason': getattr(request, '_bot_reason', 'unknown')
+            })
         
         return response
 

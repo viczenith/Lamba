@@ -422,7 +422,7 @@
     <h1>My Investment Companies</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'client-dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'secure-client-dashboard' %}">Home</a></li>
         <li class="breadcrumb-item active">My Companies</li>
       </ol>
     </nav>
@@ -451,7 +451,7 @@
             <div class="glass-card company-card" data-company-id="{{ c.id }}" data-invested="{{ total }}" data-allocations="{{ alloc }}">
               <div class="card-header">
                 {% if c.logo %}
-                  <img src="{{ c.logo.url }}" alt="{{ c.company_name }}" class="company-logo">
+                  <img src="{% url 'secure-company-logo' company_id=c.id %}" alt="{{ c.company_name }}" class="company-logo">
                 {% else %}
                   <div class="company-initials">{{ c.company_name|default:'?'|slice:":1"|upper }}</div>
                 {% endif %}

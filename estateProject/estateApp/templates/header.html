@@ -223,7 +223,8 @@
               {% if user.profile_image %}
                 <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }} Profile Image" class="rounded-circle">
               {% else %}
-                <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Avatar Image" width="100" height="100">
+                <!-- <img src="{% static 'assets/img/profile_avatar.jpeg' %}" alt="Avatar Image" width="100" height="100"> -->
+                <div><i class="fas fa-user-tie" width="100" height="100"></i></div>
               {% endif %}
             {% endif %}
             <span class="d-none d-md-block dropdown-toggle ps-2">{{ user.full_name }}</span>
@@ -245,7 +246,8 @@
               <li><hr class="dropdown-divider"></li>
             {% elif user.role == 'client' %}
               <li>
-                <a class="dropdown-item d-flex align-items-center" href="{% url 'my-client-profile' %}">
+                <!-- <a class="dropdown-item d-flex align-items-center" href="{% url 'my-client-profile' %}"> -->
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'secure-client-profile' %}">
                   <i class="bi bi-person"></i>
                   <span>My Profile</span>
                 </a>
@@ -253,7 +255,8 @@
               <li><hr class="dropdown-divider"></li>
             {% elif user.role == 'marketer' %}
               <li>
-                <a class="dropdown-item d-flex align-items-center" href="{% url 'marketer-profile' %}">
+                <!-- <a class="dropdown-item d-flex align-items-center" href="{% url 'marketer-profile' %}"> -->
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'secure-marketer-profile' %}">
                   <i class="bi bi-person"></i>
                   <span>My Profile</span>
                 </a>

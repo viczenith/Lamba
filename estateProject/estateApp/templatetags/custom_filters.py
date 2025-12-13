@@ -6,6 +6,8 @@ register = template.Library()
 from django.conf import settings
 from django.templatetags.static import static
 from django.contrib.staticfiles import finders
+from django.urls import reverse
+from django.templatetags.static import static as django_static
 
 @register.filter
 def get_item(dictionary, key):
@@ -48,6 +50,73 @@ def within_minutes(value, minutes=30):
     except Exception:
         return False
     return timezone.now() - dt <= timedelta(minutes=minutes)
+
+
+# ============================================
+# SECURE MEDIA URL FILTERS
+# ============================================
+
+@register.filter
+def secure_company_logo(company):
+    """
+    Convert company logo to secure URL
+    
+    Usage: {{ company|secure_company_logo }}
+    
+    Returns secured logo URL or empty string
+    
+    Note: Use in template with {% if company.logo %} check
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Validate company object
+        if not company:
+            return ''
+        
+        # Validate company has logo field and it's not empty
+        if not hasattr(company, 'logo'):
+            logger.warning(f"Company {getattr(company, 'id', '?')} missing logo field")
+            return ''
+        
+        if not company.logo:
+            return ''
+        
+        # Validate company has id
+        if not hasattr(company, 'id') or not company.id:
+            logger.warning(f"Company missing id field")
+            return ''
+        
+        # Generate secure URL
+        url = reverse('secure-company-logo', kwargs={'company_id': company.id})
+        logger.debug(f"Generated secure logo URL for company {company.id}: {url}")
+        return url
+        
+    except Exception as e:
+        logger.error(f"Error in secure_company_logo filter: {e}", exc_info=True)
+        return ''
+
+
+@register.filter
+def secure_profile_image(user):
+    """
+    Convert user profile image to secure URL
+    
+    Usage: {{ user|secure_profile_image }}
+    
+    Returns secured profile image URL or fallback placeholder
+    """
+    # Check if user has a profile image
+    if user and hasattr(user, 'profile_image') and user.profile_image:
+        try:
+            return reverse('secure-profile-image', kwargs={'user_id': user.id})
+        except Exception:
+            pass
+    
+    # Fallback to static placeholder if no image or error
+    return django_static('assets/img/profile_avatar.jpeg')
+
 
 
 @register.filter
