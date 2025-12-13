@@ -1,0 +1,819 @@
+<!-- ======= Modern Customer Relations Sidebar - Comprehensive ======= -->
+<aside id="cr-sidebar" class="cr-sidebar">
+  <!-- Navigation Menu -->
+  <ul class="cr-sidebar-nav" id="cr-sidebar-nav">
+    
+    <!-- Overview Section -->
+    <li class="cr-nav-section-title"><span>Overview</span></li>
+    
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}" href="{% url 'adminSupport:support_dashboard' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-tachometer-alt"></i>
+        </div>
+        <span class="cr-nav-link-text">Dashboard</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Communication Section -->
+    <li class="cr-nav-section-title"><span>Communication</span></li>
+    
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'chat' or 'chat_' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'adminSupport:chat' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-comments"></i>
+        </div>
+        <span class="cr-nav-link-text">Chat Support</span>
+        <span id="cr-chat-badge" class="cr-chat-badge"{% if unread_count|default:0 %} data-initial="{{ unread_count }}"{% endif %} style="display: none;"></span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Directory Section -->
+    <li class="cr-nav-section-title"><span>Directory</span></li>
+    
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'clients_directory' %}active{% endif %}" href="{% url 'adminSupport:clients_directory' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-users"></i>
+        </div>
+        <span class="cr-nav-link-text">Clients Directory</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'marketers_directory' %}active{% endif %}" href="{% url 'adminSupport:marketers_directory' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-user-friends"></i>
+        </div>
+        <span class="cr-nav-link-text">Marketers Directory</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'staff_directory' %}active{% endif %}" href="{% url 'adminSupport:staff_directory' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-id-card-alt"></i>
+        </div>
+        <span class="cr-nav-link-text">Staff Directory</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Automation Section -->
+    <li class="cr-nav-section-title"><span>Automation</span></li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'templates' %}active{% endif %}" href="{% url 'adminSupport:templates' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-birthday-cake"></i>
+        </div>
+        <span class="cr-nav-link-text">Auto Birthday</span>
+        <span id="autoBirthdayBadge" class="cr-nav-badge" style="display: none;"></span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if 'auto_special_day' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'adminSupport:auto_special_day_template' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-calendar-star"></i>
+        </div>
+        <span class="cr-nav-link-text">Auto Special Days</span>
+        <span id="autoSpecialBadge" class="cr-nav-badge" style="display: none;"></span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'special_days_manager' %}active{% endif %}" href="{% url 'adminSupport:special_days_manager' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-calendar-plus"></i>
+        </div>
+        <span class="cr-nav-link-text">Special Days Manager</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Content Section -->
+    <li class="cr-nav-section-title"><span>Content</span></li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'app_content_management' or request.resolver_match.url_name == 'manage_app_content' %}active{% endif %}" href="{% url 'adminSupport:app_content_management' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-file-alt"></i>
+        </div>
+        <span class="cr-nav-link-text">Content Management</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- CRM Tools Section -->
+    <li class="cr-nav-section-title"><span>CRM Tools</span></li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'campaign_builder' %}active{% endif %}" href="{% url 'adminSupport:campaign_builder' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-bullhorn"></i>
+        </div>
+        <span class="cr-nav-link-text">Campaign Builder</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'audience_segments' %}active{% endif %}" href="{% url 'adminSupport:audience_segments' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-filter"></i>
+        </div>
+        <span class="cr-nav-link-text">Audience Segments</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'crm_analytics' %}active{% endif %}" href="{% url 'adminSupport:crm_analytics' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <span class="cr-nav-link-text">Analytics</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'crm_enterprise_dashboard' %}active{% endif %}" href="{% url 'adminSupport:crm_enterprise_dashboard' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-rocket"></i>
+        </div>
+        <span class="cr-nav-link-text">CRM Enterprise</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Configuration Section -->
+    <li class="cr-nav-section-title"><span>Configuration</span></li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'automation_settings' %}active{% endif %}" href="{% url 'adminSupport:automation_settings' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-robot"></i>
+        </div>
+        <span class="cr-nav-link-text">Automation Settings</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="cr-nav-item">
+      <a class="cr-nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'adminSupport:settings' %}">
+        <div class="cr-nav-link-icon">
+          <i class="fas fa-cog"></i>
+        </div>
+        <span class="cr-nav-link-text">Settings</span>
+        <div class="cr-nav-link-glow"></div>
+      </a>
+    </li>
+
+  </ul>
+
+  <!-- Sidebar Footer -->
+  <div class="cr-sidebar-footer">
+    <div class="cr-user-profile">
+      <div class="cr-user-avatar">
+        <i class="fas fa-user"></i>
+      </div>
+      <div class="cr-user-info">
+        <h5>{{ user.get_full_name|default:user.username }}</h5>
+        <span>{{ user.company_profile.company_name|default:"Support Agent"|truncatewords:2 }}</span>
+      </div>
+    </div>
+  </div>
+</aside><!-- End Customer Relations Sidebar -->
+
+<!-- ============================================ -->
+<!-- SIDEBAR SCRIPTS -->
+<!-- ============================================ -->
+
+<!-- Active Link Highlighter -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const currentPath = window.location.pathname;
+    const links = document.querySelectorAll('.cr-nav-link');
+    
+    links.forEach(link => {
+      if (link.getAttribute('href') === currentPath) {
+        link.classList.add('active');
+      }
+    });
+  });
+</script>
+
+<!-- Sidebar Toggle - Handled by adminsupport_header.html toggle button -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.querySelector('.cr-sidebar');
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth <= 992 && sidebar) {
+        const toggleBtn = document.getElementById('adminsupport-sidebar-toggle');
+        if (!sidebar.contains(e.target) && toggleBtn && !toggleBtn.contains(e.target)) {
+          document.body.classList.add('toggle-sidebar');
+        }
+      }
+    });
+  });
+</script>
+
+<!-- Chat Badge Real-time Polling Script -->
+<script>
+  (function () {
+    if (window.__crSidebarChatBadgeInitialized) {
+      return;
+    }
+    window.__crSidebarChatBadgeInitialized = true;
+
+    const chatListPollUrl = '{% url "adminSupport:chat_list_partial" %}';
+
+    function setChatBadge(badgeEl, count) {
+      if (!badgeEl) return;
+      if (count > 0) {
+        badgeEl.textContent = String(count);
+        badgeEl.style.display = 'flex';
+        badgeEl.classList.add('pulse');
+      } else {
+        badgeEl.style.display = 'none';
+        badgeEl.classList.remove('pulse');
+        badgeEl.textContent = '';
+      }
+    }
+
+    async function refreshChatBadge(badgeEl) {
+      if (!badgeEl) return;
+      try {
+        const response = await fetch(chatListPollUrl, {
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+        });
+        if (!response.ok) throw new Error('network');
+        const data = await response.json();
+        const totals = data?.totals || {};
+        const totalThreads = Number(totals.client_threads || 0) + Number(totals.marketer_threads || 0);
+        setChatBadge(badgeEl, totalThreads);
+      } catch (error) {
+        console.error('Unable to refresh chat badge:', error);
+      }
+    }
+
+    function initChatBadge() {
+      const badgeEl = document.getElementById('cr-chat-badge');
+      if (!badgeEl) return;
+
+      const initialCount = parseInt(badgeEl.dataset.initial || '0', 10);
+      if (!Number.isNaN(initialCount) && initialCount > 0) {
+        setChatBadge(badgeEl, initialCount);
+      }
+
+      refreshChatBadge(badgeEl);
+      setInterval(() => refreshChatBadge(badgeEl), 10000);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initChatBadge);
+    } else {
+      initChatBadge();
+    }
+  })();
+</script>
+
+<!-- Dynamic Badge Scripts for Auto Features -->
+<script>
+  // Dynamic monthly count for Auto Special Days badge
+  (function(){
+    const badge = document.getElementById('autoSpecialBadge');
+    if(!badge) return;
+    const specialDaysUrl = '{% url "adminSupport:api_special_days" %}';
+    
+    async function fetchMonthCount(date){
+      const y = date.getFullYear();
+      const m = date.getMonth()+1;
+      try{
+        const resp = await fetch(`${specialDaysUrl}?year=${y}&month=${m}`);
+        if(!resp.ok) throw new Error('backend');
+        const data = await resp.json();
+        const events = data.events || [];
+        return Array.isArray(events) ? events.length : 0;
+      }catch(e){
+        try{
+          const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${y}/NG`);
+          if(!r.ok) throw new Error('nager');
+          const list = await r.json();
+          const mm = String(m).padStart(2,'0');
+          return (list||[]).filter(h => (h.date||'').startsWith(`${y}-${mm}-`)).length;
+        }catch{ return 0; }
+      }
+    }
+    
+    async function updateBadge(dateOverride){
+      const now = dateOverride instanceof Date ? dateOverride : new Date();
+      const count = await fetchMonthCount(now);
+      if(count > 0){ 
+        badge.textContent = String(count); 
+        badge.style.display = 'flex';
+        badge.classList.add('pulse');
+      } else { 
+        badge.style.display = 'none'; 
+      }
+    }
+    
+    window.addEventListener('autoSpecialMonthChanged', (ev) => {
+      try{
+        const { year, month, count } = ev.detail || {};
+        if(!year || !month) return;
+        const now = new Date();
+        if(year !== now.getFullYear() || month !== now.getMonth()+1) return;
+        if(typeof count === 'number'){
+          if(count > 0){ 
+            badge.textContent = String(count); 
+            badge.style.display = 'flex'; 
+          } else { 
+            badge.style.display = 'none'; 
+          }
+        }
+      }catch{}
+    });
+    
+    updateBadge();
+  })();
+
+  // Dynamic monthly count for Auto Birthday badge
+  (function(){
+    const badge = document.getElementById('autoBirthdayBadge');
+    if(!badge) return;
+    
+    function setBadge(n){ 
+      if(n>0){ 
+        badge.textContent = String(n); 
+        badge.style.display = 'flex';
+        badge.classList.add('pulse');
+      } else { 
+        badge.style.display = 'none'; 
+      } 
+    }
+    
+    const birthdaysUrl = '{% url "adminSupport:api_birthdays" %}';
+    
+    function fetchMonthCount(){
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth()+1;
+      const mm = String(m).padStart(2,'0');
+      const normalize = (data)=>{
+        const list = Array.isArray(data) ? data : (data && Array.isArray(data.birthdays) ? data.birthdays : []);
+        return (list||[]).filter(it => ((it.date||'').slice(0,10) || '').startsWith(`${y}-${mm}-`)).length;
+      };
+      return new Promise((resolve)=>{
+        fetch(`${birthdaysUrl}?period=this_month`).then(r=>r.ok?r.json():Promise.reject()).then(d=>resolve(normalize(d))).catch(()=>{
+          fetch(birthdaysUrl).then(r=>r.ok?r.json():Promise.reject()).then(d=>resolve(normalize(d))).catch(()=>resolve(0));
+        });
+      });
+    }
+    
+    window.addEventListener('autoBirthdayMonthChanged', (ev) => {
+      try{
+        const { year, month, count } = ev.detail || {};
+        if(!year || !month) return;
+        const now = new Date();
+        if(year !== now.getFullYear() || month !== now.getMonth()+1) return;
+        if(typeof count === 'number') setBadge(count);
+      }catch{}
+    });
+    
+    fetchMonthCount().then(setBadge).catch(()=>{});
+  })();
+</script>
+
+<!-- ============================================ -->
+<!-- COMPREHENSIVE MODERN CR SIDEBAR STYLES -->
+<!-- ============================================ -->
+<style>
+  /* ========== CSS VARIABLES ========== */
+  :root {
+    /* Customer Relations Primary Colors - Teal/Cyan theme */
+    --cr-primary-gradient: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+    --cr-primary-color: #0891b2;
+    --cr-primary-dark: #0e7490;
+    --cr-primary-light: #22d3ee;
+    
+    /* Accent Colors */
+    --cr-accent-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --cr-accent-color: #f093fb;
+    
+    /* Neutral Colors - Off White Theme */
+    --cr-sidebar-bg: #f8f9fa;
+    --cr-sidebar-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+    --cr-text-primary: #1e293b;
+    --cr-text-secondary: #475569;
+    --cr-text-muted: #94a3b8;
+    
+    /* Interactive States */
+    --cr-hover-bg: rgba(8, 145, 178, 0.08);
+    --cr-active-bg: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+    --cr-active-shadow: 0 8px 24px rgba(8, 145, 178, 0.35);
+    
+    /* Spacing */
+    --cr-sidebar-width: 280px;
+    --cr-nav-item-spacing: 2px;
+    --cr-border-radius: 12px;
+    
+    /* Transitions */
+    --cr-transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --cr-transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* ========== CR SIDEBAR CONTAINER ========== */
+  .cr-sidebar {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    width: var(--cr-sidebar-width);
+    height: calc(100vh - 60px);
+    background: var(--cr-sidebar-bg);
+    box-shadow: var(--cr-sidebar-shadow);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    z-index: 999;
+    transition: var(--cr-transition-smooth);
+    border-right: 1px solid #e2e8f0;
+  }
+
+  /* ========== NAVIGATION MENU ========== */
+  .cr-sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 12px;
+    list-style: none;
+    margin: 0;
+  }
+
+  /* Custom Scrollbar - Hidden */
+  .cr-sidebar-nav::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+
+  .cr-sidebar-nav {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  /* ========== SECTION TITLES ========== */
+  .cr-nav-section-title {
+    padding: 18px 12px 8px 12px;
+    margin-top: 4px;
+    list-style: none;
+  }
+
+  .cr-nav-section-title:first-child {
+    margin-top: 0;
+    padding-top: 8px;
+  }
+
+  .cr-nav-section-title span {
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--cr-text-muted);
+    position: relative;
+    padding-left: 12px;
+  }
+
+  .cr-nav-section-title span::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 3px;
+    height: 10px;
+    background: var(--cr-primary-gradient);
+    border-radius: 10px;
+  }
+
+  /* ========== NAV ITEMS ========== */
+  .cr-nav-item {
+    margin-bottom: var(--cr-nav-item-spacing);
+    list-style: none;
+    position: relative;
+  }
+
+  .cr-nav-link {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: var(--cr-border-radius);
+    text-decoration: none;
+    color: var(--cr-text-secondary);
+    background: transparent;
+    transition: var(--cr-transition-smooth);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  /* Hover Effect */
+  .cr-nav-link:hover {
+    background: var(--cr-hover-bg);
+    color: var(--cr-text-primary);
+    transform: translateX(4px);
+  }
+
+  .cr-nav-link:hover .cr-nav-link-icon {
+    transform: scale(1.1);
+  }
+
+  .cr-nav-link:hover .cr-nav-link-icon i {
+    color: var(--cr-primary-light);
+  }
+
+  .cr-nav-link:hover .cr-nav-link-glow {
+    opacity: 1;
+  }
+
+  /* Active State */
+  .cr-nav-link.active {
+    background: var(--cr-active-bg);
+    color: white !important;
+    box-shadow: var(--cr-active-shadow);
+    transform: translateX(6px);
+  }
+
+  .cr-nav-link.active .cr-nav-link-icon {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .cr-nav-link.active .cr-nav-link-icon i {
+    color: white;
+  }
+
+  .cr-nav-link.active .cr-nav-link-text {
+    font-weight: 600;
+    color: white !important;
+  }
+
+  .cr-nav-link.active .cr-chat-badge,
+  .cr-nav-link.active .cr-nav-badge {
+    background: white !important;
+    color: var(--cr-primary-color) !important;
+  }
+
+  /* Icon Container */
+  .cr-nav-link-icon {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 145, 178, 0.1);
+    border-radius: 10px;
+    margin-right: 12px;
+    transition: var(--cr-transition-bounce);
+    flex-shrink: 0;
+  }
+
+  .cr-nav-link-icon i {
+    font-size: 16px;
+    color: var(--cr-primary-color);
+    transition: var(--cr-transition-smooth);
+  }
+
+  /* Link Text */
+  .cr-nav-link-text {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    transition: var(--cr-transition-smooth);
+  }
+
+  /* Glow Effect */
+  .cr-nav-link-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(8, 145, 178, 0.2), transparent 70%);
+    opacity: 0;
+    transition: var(--cr-transition-smooth);
+    pointer-events: none;
+  }
+
+  /* ========== BADGE STYLES ========== */
+  .cr-chat-badge,
+  .cr-nav-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 8px;
+    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%) !important;
+    color: #fff !important;
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    transition: var(--cr-transition-smooth);
+  }
+
+  .cr-chat-badge.pulse,
+  .cr-nav-badge.pulse {
+    animation: crBadgePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes crBadgePulse {
+    0%, 100% { 
+      transform: scale(1); 
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+    50% { 
+      transform: scale(1.1); 
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+    }
+  }
+
+  /* ========== SIDEBAR FOOTER ========== */
+  .cr-sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e2e8f0;
+    margin-top: auto;
+    background: #ffffff;
+  }
+
+  .cr-user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f1f5f9;
+    border-radius: var(--cr-border-radius);
+    transition: var(--cr-transition-smooth);
+    cursor: pointer;
+  }
+
+  .cr-user-profile:hover {
+    background: #e2e8f0;
+  }
+
+  .cr-user-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--cr-primary-gradient);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+    flex-shrink: 0;
+  }
+
+  .cr-user-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cr-user-info h5 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cr-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cr-user-info span {
+    display: block;
+    font-size: 11px;
+    color: var(--cr-text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ========== MOBILE TOGGLE BUTTON ========== */
+  .toggle-cr-sidebar-btn {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    width: 44px;
+    height: 44px;
+    background: var(--cr-primary-gradient);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 1100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(8, 145, 178, 0.4);
+    transition: var(--cr-transition-smooth);
+  }
+
+  .toggle-cr-sidebar-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(8, 145, 178, 0.5);
+  }
+
+  /* ========== RESPONSIVE DESIGN ========== */
+  @media (max-width: 1200px) {
+    .cr-sidebar {
+      width: 260px;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .cr-sidebar {
+      width: 100%;
+      max-width: 300px;
+      transform: translateX(-100%);
+      z-index: 1050;
+      top: 60px;
+      height: calc(100vh - 60px);
+    }
+
+    .cr-sidebar.show {
+      transform: translateX(0);
+    }
+
+    .toggle-cr-sidebar-btn {
+      display: none;
+    }
+
+    .cr-nav-link-text {
+      font-size: 13px;
+    }
+  }
+
+  /* ========== ANIMATIONS ========== */
+  @keyframes crSlideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .cr-nav-item {
+    animation: crSlideInLeft 0.4s ease-out backwards;
+  }
+
+  .cr-nav-item:nth-child(1) { animation-delay: 0.05s; }
+  .cr-nav-item:nth-child(2) { animation-delay: 0.08s; }
+  .cr-nav-item:nth-child(3) { animation-delay: 0.11s; }
+  .cr-nav-item:nth-child(4) { animation-delay: 0.14s; }
+  .cr-nav-item:nth-child(5) { animation-delay: 0.17s; }
+  .cr-nav-item:nth-child(6) { animation-delay: 0.20s; }
+  .cr-nav-item:nth-child(7) { animation-delay: 0.23s; }
+  .cr-nav-item:nth-child(8) { animation-delay: 0.26s; }
+  .cr-nav-item:nth-child(9) { animation-delay: 0.29s; }
+  .cr-nav-item:nth-child(10) { animation-delay: 0.32s; }
+  .cr-nav-item:nth-child(11) { animation-delay: 0.35s; }
+  .cr-nav-item:nth-child(12) { animation-delay: 0.38s; }
+  .cr-nav-item:nth-child(13) { animation-delay: 0.41s; }
+  .cr-nav-item:nth-child(14) { animation-delay: 0.44s; }
+  .cr-nav-item:nth-child(15) { animation-delay: 0.47s; }
+  .cr-nav-item:nth-child(16) { animation-delay: 0.50s; }
+  .cr-nav-item:nth-child(n+17) { animation-delay: 0.53s; }
+
+  /* ========== UTILITY CLASSES ========== */
+  .cr-sidebar * {
+    box-sizing: border-box;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .cr-nav-link, .cr-user-profile {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+</style>

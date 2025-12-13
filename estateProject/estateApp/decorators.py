@@ -24,6 +24,171 @@ from .middleware import get_current_company
 logger = logging.getLogger(__name__)
 
 
+# ===== ROLE-BASED ACCESS CONTROL DECORATORS =====
+
+# Allowed admin roles for admin panel access (NOT support - they have their own dashboard)
+ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+
+# Support roles for admin support dashboard
+SUPPORT_ROLES = ('support',)
+
+
+def admin_required(view_func):
+    """
+    🔐 SECURITY DECORATOR: Ensures only admin-level users can access admin views.
+    
+    This decorator provides role-based access control for admin panel pages,
+    preventing clients, marketers, AND support users from accessing admin functions.
+    Support users have their own AdminSupport dashboard at /adminsupport/.
+    
+    Enforces:
+    ✅ User must be authenticated
+    ✅ User role must be admin, secondary_admin, or company_admin
+    ✅ Blocks client, marketer, AND support roles
+    ✅ Logs unauthorized access attempts for security monitoring
+    
+    Usage:
+        @login_required
+        @admin_required
+        def add_estate(request):
+            # Only admin users can access
+            pass
+    
+    Security:
+        - Works with @login_required for authentication
+        - Complements TenantIsolationMiddleware for company isolation
+        - Provides defense-in-depth against privilege escalation
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Check if user is authenticated (should already be handled by @login_required)
+        if not request.user.is_authenticated:
+            messages.error(request, 'Please login to continue.')
+            return redirect('login')
+        
+        # Get user role
+        user_role = getattr(request.user, 'role', None)
+        
+        # Allow superadmin bypass (System Master Admin)
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        # Check if user has admin role
+        if user_role not in ADMIN_ROLES:
+            # Log security event
+            logger.warning(
+                f"🚫 SECURITY: Unauthorized admin access attempt by user {request.user.id} "
+                f"(email: {request.user.email}, role: {user_role}) to {request.path}"
+            )
+            
+            # Show user-friendly error
+            messages.error(
+                request, 
+                '⛔ Access Denied: You do not have permission to access this admin page.'
+            )
+            
+            # Redirect based on user role
+            if user_role == 'client':
+                return redirect('client-dashboard')
+            elif user_role == 'marketer':
+                return redirect('marketer_dashboard')
+            elif user_role == 'support':
+                # Support users have their own dashboard at /adminsupport/
+                return redirect('adminsupport:support_dashboard')
+            else:
+                return redirect('login')
+        
+        # User is authorized - proceed to view
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+def support_required(view_func):
+    """
+    🔐 SECURITY DECORATOR: Ensures only support staff can access AdminSupport views.
+    
+    This decorator provides role-based access control for AdminSupport pages.
+    
+    Enforces:
+    ✅ User must be authenticated
+    ✅ User role must be 'support'
+    ✅ Blocks admin, client, and marketer roles
+    
+    Usage:
+        @login_required
+        @support_required
+        def support_ticket_view(request):
+            # Only support users can access
+            pass
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.error(request, 'Please login to continue.')
+            return redirect('login')
+        
+        user_role = getattr(request.user, 'role', None)
+        
+        # Allow superadmin bypass
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        if user_role not in SUPPORT_ROLES:
+            logger.warning(
+                f"🚫 SECURITY: Unauthorized support access attempt by user {request.user.id} "
+                f"(email: {request.user.email}, role: {user_role}) to {request.path}"
+            )
+            messages.error(request, '⛔ Access Denied: This page is for support staff only.')
+            
+            if user_role in ADMIN_ROLES:
+                return redirect('admin-dashboard')
+            elif user_role == 'client':
+                return redirect('client-dashboard')
+            elif user_role == 'marketer':
+                return redirect('marketer_dashboard')
+            return redirect('login')
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+def admin_or_support_required(view_func):
+    """
+    🔐 SECURITY DECORATOR: Allows only admin or support staff access.
+    
+    Similar to admin_required but explicitly for admin/support only (no secondary_admin).
+    
+    Usage:
+        @login_required
+        @admin_or_support_required
+        def sensitive_admin_function(request):
+            pass
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        
+        user_role = getattr(request.user, 'role', None)
+        
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        if user_role not in ('admin', 'support'):
+            logger.warning(
+                f"🚫 SECURITY: Unauthorized access attempt by {request.user.email} "
+                f"(role: {user_role}) to {request.path}"
+            )
+            messages.error(request, '⛔ Access Denied: Admin or support access required.')
+            return redirect('login')
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
 # ===== PRIMARY DECORATORS FOR VIEWS =====
 
 def company_required(view_func):

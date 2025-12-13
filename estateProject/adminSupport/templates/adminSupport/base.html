@@ -24,7 +24,8 @@
             --info-color: #0891b2;
             --light-color: #f8fafc;
             --dark-color: #1e293b;
-            --sidebar-width: 260px;
+            --sidebar-width: 280px;
+            --cr-sidebar-width: 280px;
         }
 
         * {
@@ -302,8 +303,8 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Main Sidebar -->
-    {% include 'adminSupport/includes/main_sidebar.html' %}
+    <!-- Customer Relations Sidebar -->
+    {% include 'adminSupport/includes/customer_relations_sidebar.html' %}
 
     <!-- Main Content -->
     <div class="main-content">

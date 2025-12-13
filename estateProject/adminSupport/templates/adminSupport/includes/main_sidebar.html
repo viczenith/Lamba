@@ -1,97 +1,257 @@
+<!-- ======= Modern AdminSupport Main Sidebar ======= -->
 <style>
+    /* ========== CSS VARIABLES ========== */
+    :root {
+      --main-sidebar-width: 260px;
+      
+      /* Main Sidebar Colors - Dark Theme */
+      --ms-bg-gradient: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      --ms-text-primary: #ffffff;
+      --ms-text-secondary: rgba(255, 255, 255, 0.7);
+      --ms-text-muted: rgba(255, 255, 255, 0.4);
+      
+      /* Interactive States */
+      --ms-hover-bg: rgba(255, 255, 255, 0.08);
+      --ms-active-bg: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      --ms-active-shadow: 0 8px 24px rgba(8, 145, 178, 0.35);
+      
+      /* Accent */
+      --ms-accent-gradient: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      
+      /* Transitions */
+      --ms-transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      --ms-transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    /* ========== MAIN SIDEBAR CONTAINER ========== */
     .main-sidebar {
         position: fixed;
         top: 0;
         left: 0;
         height: 100vh;
-        width: var(--sidebar-width, 260px);
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        width: var(--main-sidebar-width);
+        background: var(--ms-bg-gradient);
         color: white;
         z-index: 1001;
         overflow-y: auto;
-        transition: all 0.3s ease;
+        overflow-x: hidden;
+        transition: var(--ms-transition-smooth);
+        display: flex;
+        flex-direction: column;
     }
 
+    /* Custom Scrollbar - Hidden */
+    .main-sidebar::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+    }
+
+    .main-sidebar {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    /* ========== BRAND HEADER ========== */
     .main-sidebar-header {
-        padding: 1.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 24px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .main-sidebar-header h4 {
+    .main-sidebar-header .brand-logo {
+      width: 48px;
+      height: 48px;
+      background: var(--ms-accent-gradient);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 22px;
+      box-shadow: 0 8px 20px rgba(8, 145, 178, 0.4);
+      flex-shrink: 0;
+    }
+
+    .main-sidebar-header .brand-text h4 {
         color: white;
-        font-weight: 600;
+        font-weight: 700;
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: 0.3px;
+    }
+
+    .main-sidebar-header .brand-text span {
+      display: block;
+      font-size: 11px;
+      color: var(--ms-text-muted);
+      font-weight: 500;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ========== NAVIGATION MENU ========== */
+    .main-sidebar-nav {
+        flex: 1;
+        padding: 20px 12px;
+        list-style: none;
         margin: 0;
     }
 
-    .main-sidebar-nav {
-        padding: 1rem 0;
+    /* ========== SECTION TITLES ========== */
+    .main-nav-section-title {
+      padding: 20px 12px 10px 12px;
+      list-style: none;
     }
 
+    .main-nav-section-title:first-child {
+      padding-top: 0;
+    }
+
+    .main-nav-section-title span {
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--ms-text-muted);
+      position: relative;
+      padding-left: 12px;
+    }
+
+    .main-nav-section-title span::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 3px;
+      height: 10px;
+      background: var(--ms-accent-gradient);
+      border-radius: 10px;
+    }
+
+    /* ========== NAV ITEMS ========== */
     .main-nav-item {
-        margin: 0 1rem 0.5rem 1rem;
+        margin: 0 0 4px 0;
+        list-style: none;
     }
 
     .main-nav-link {
         display: flex;
         align-items: center;
-        padding: 0.75rem 1rem;
-        color: rgba(255, 255, 255, 0.8);
+        padding: 12px 16px;
+        color: var(--ms-text-secondary);
         text-decoration: none;
-        border-radius: 0.5rem;
-        transition: all 0.3s ease;
+        border-radius: 12px;
+        transition: var(--ms-transition-smooth);
         font-weight: 500;
         position: relative;
+        overflow: hidden;
     }
 
     .main-nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-        transform: translateX(5px);
+        background-color: var(--ms-hover-bg);
+        color: var(--ms-text-primary);
+        transform: translateX(4px);
+    }
+
+    .main-nav-link:hover .main-nav-link-icon {
+      transform: scale(1.1);
+    }
+
+    .main-nav-link:hover .main-nav-link-icon i {
+      color: #22d3ee;
+    }
+
+    .main-nav-link:hover .main-nav-link-glow {
+      opacity: 1;
     }
 
     .main-nav-link.active {
-        background-color: var(--primary-color, #2563eb);
-        color: white;
+        background: var(--ms-active-bg);
+        color: white !important;
+        box-shadow: var(--ms-active-shadow);
+        transform: translateX(6px);
     }
 
-    .main-nav-link i {
-        margin-right: 0.75rem;
-        width: 20px;
-        text-align: center;
+    .main-nav-link.active .main-nav-link-icon {
+      background: rgba(255, 255, 255, 0.2);
     }
 
-    .nav-icon-wrapper {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 0.75rem;
+    .main-nav-link.active .main-nav-link-icon i {
+      color: white;
     }
 
-    .nav-icon-wrapper i {
-        margin-right: 0;
+    .main-nav-link.active .main-nav-link-text {
+      font-weight: 600;
     }
 
-    .nav-link-text {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
+    /* Icon Container */
+    .main-nav-link-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      margin-right: 14px;
+      transition: var(--ms-transition-bounce);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .main-nav-link-icon i {
+      font-size: 17px;
+      color: var(--ms-text-secondary);
+      transition: var(--ms-transition-smooth);
+    }
+
+    /* Link Text */
+    .main-nav-link-text {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      transition: var(--ms-transition-smooth);
+    }
+
+    /* Glow Effect */
+    .main-nav-link-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(8, 145, 178, 0.2), transparent 70%);
+      opacity: 0;
+      transition: var(--ms-transition-smooth);
+      pointer-events: none;
+    }
+
+    /* ========== BADGE STYLES ========== */
+    .main-nav-link-icon.has-badge {
+      position: relative;
     }
 
     .main-nav-badge {
-        margin-left: auto;
-        min-width: 28px;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 10px;
         background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
         color: #fff;
-        font-size: 0.75rem;
+        font-size: 10px;
         font-weight: 700;
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
-        transform-origin: center;
         opacity: 0;
         transform: scale(0.6);
         transition: opacity 0.25s ease, transform 0.25s ease;
@@ -100,17 +260,10 @@
     .main-nav-badge.show {
         opacity: 1;
         transform: scale(1);
-        animation: badgePulse 1.4s ease-in-out infinite;
+        animation: mainBadgePulse 2s ease-in-out infinite;
     }
 
-    .nav-icon-wrapper .main-nav-badge {
-        position: absolute;
-        top: -6px;
-        right: -10px;
-        margin-left: 0;
-    }
-
-    @keyframes badgePulse {
+    @keyframes mainBadgePulse {
         0%, 100% {
             box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
         }
@@ -118,37 +271,155 @@
             box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
         }
     }
+
+    /* ========== SIDEBAR FOOTER ========== */
+    .main-sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin-top: auto;
+    }
+
+    .company-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      color: var(--ms-text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .company-badge i {
+      color: #22d3ee;
+      font-size: 14px;
+    }
+
+    /* ========== RESPONSIVE DESIGN ========== */
+    @media (max-width: 992px) {
+      .main-sidebar {
+        width: 0;
+        overflow: hidden;
+        opacity: 0;
+      }
+
+      .main-sidebar.show {
+        width: var(--main-sidebar-width);
+        opacity: 1;
+      }
+    }
+
+    /* ========== ANIMATIONS ========== */
+    @keyframes mainSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .main-nav-item {
+      animation: mainSlideIn 0.4s ease-out backwards;
+    }
+
+    .main-nav-item:nth-child(1) { animation-delay: 0.1s; }
+    .main-nav-item:nth-child(2) { animation-delay: 0.15s; }
+    .main-nav-item:nth-child(3) { animation-delay: 0.2s; }
+    .main-nav-item:nth-child(4) { animation-delay: 0.25s; }
+    .main-nav-item:nth-child(5) { animation-delay: 0.3s; }
+    .main-nav-item:nth-child(n+6) { animation-delay: 0.35s; }
+
+    /* ========== UTILITY ========== */
+    .main-sidebar * {
+      box-sizing: border-box;
+    }
+
+    .main-nav-link {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
 </style>
 
-<div class="main-sidebar">
-    <div class="main-sidebar-header">
-        <h4><i class="fas fa-headset me-2"></i>Admin Support</h4>
+<aside id="main-sidebar" class="main-sidebar">
+  <!-- Brand Header -->
+  <div class="main-sidebar-header">
+    <div class="brand-logo">
+      <i class="fas fa-headset"></i>
     </div>
-    <nav class="main-sidebar-nav">
-        <div class="main-nav-item">
-            <a href="{% url 'adminSupport:support_dashboard' %}" class="main-nav-link {% if request.resolver_match.url_name == 'support_dashboard' %}active{% endif %}">
-                <i class="fas fa-users-cog"></i>
-                Customer Relations
-            </a>
+    <div class="brand-text">
+      <h4>Admin Support</h4>
+      <span>Customer Care Hub</span>
+    </div>
+  </div>
+
+  <!-- Navigation Menu -->
+  <ul class="main-sidebar-nav" id="main-sidebar-nav">
+    <!-- Main Sections -->
+    <li class="main-nav-section-title">
+      <span>Modules</span>
+    </li>
+    
+    <li class="main-nav-item">
+      <a class="main-nav-link {% if 'support_dashboard' in request.resolver_match.url_name or 'clients_directory' in request.resolver_match.url_name or 'marketers_directory' in request.resolver_match.url_name or 'templates' in request.resolver_match.url_name or 'auto_special_day' in request.resolver_match.url_name or 'messages' in request.resolver_match.url_name or 'newsletter' in request.resolver_match.url_name or 'settings' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'adminSupport:support_dashboard' %}">
+        <div class="main-nav-link-icon">
+          <i class="fas fa-users-cog"></i>
         </div>
-        <div class="main-nav-item">
-            <a href="{% url 'adminSupport:app_content_management' %}" class="main-nav-link {% if request.resolver_match.url_name == 'app_content_management' %}active{% endif %}">
-                <i class="fas fa-file-edit"></i>
-                Content Management
-            </a>
+        <span class="main-nav-link-text">Customer Relations</span>
+        <div class="main-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="main-nav-item">
+      <a class="main-nav-link {% if request.resolver_match.url_name == 'app_content_management' or request.resolver_match.url_name == 'manage_app_content' %}active{% endif %}" href="{% url 'adminSupport:app_content_management' %}">
+        <div class="main-nav-link-icon">
+          <i class="fas fa-file-alt"></i>
         </div>
-        <div class="main-nav-item">
-            <a href="{% url 'adminSupport:chat' %}" class="main-nav-link {% if request.resolver_match.url_name == 'chat' %}active{% endif %}">
-                <span class="nav-icon-wrapper">
-                    <i class="fas fa-comments"></i>
-                    <span id="main-chat-badge" class="main-nav-badge"{% if unread_count|default:0 %} data-initial="{{ unread_count }}"{% endif %}></span>
-                </span>
-                <span class="nav-link-text">Chat Support</span>
-            </a>
+        <span class="main-nav-link-text">Content Management</span>
+        <div class="main-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <li class="main-nav-item">
+      <a class="main-nav-link {% if request.resolver_match.url_name == 'chat' or 'chat_' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'adminSupport:chat' %}">
+        <div class="main-nav-link-icon has-badge">
+          <i class="fas fa-comments"></i>
+          <span id="main-chat-badge" class="main-nav-badge"{% if unread_count|default:0 %} data-initial="{{ unread_count }}"{% endif %}></span>
         </div>
-        <hr style="margin: 1rem; border-color: rgba(255, 255, 255, 0.1);">
-    </nav>
-</div>
+        <span class="main-nav-link-text">Chat Support</span>
+        <div class="main-nav-link-glow"></div>
+      </a>
+    </li>
+
+    <!-- Quick Actions -->
+    <li class="main-nav-section-title">
+      <span>Quick Actions</span>
+    </li>
+
+    <li class="main-nav-item">
+      <a class="main-nav-link {% if request.resolver_match.url_name == 'crm_enterprise_dashboard' %}active{% endif %}" href="{% url 'adminSupport:crm_enterprise_dashboard' %}">
+        <div class="main-nav-link-icon">
+          <i class="fas fa-rocket"></i>
+        </div>
+        <span class="main-nav-link-text">CRM Enterprise</span>
+        <div class="main-nav-link-glow"></div>
+      </a>
+    </li>
+  </ul>
+
+  <!-- Sidebar Footer -->
+  <div class="main-sidebar-footer">
+    <div class="company-badge">
+      <i class="fas fa-building"></i>
+      <span>{{ user.company_profile.company_name|default:"Company"|truncatewords:2 }}</span>
+    </div>
+  </div>
+</aside><!-- End Main Sidebar -->
 
 <script>
     (function () {

@@ -1333,6 +1333,69 @@ class ClientUser(CustomUser):
 
         return getattr(self, 'assigned_marketer', None)
 
+    @property
+    def plot_count(self) -> int:
+        """Count of fully settled plots for this client.
+        Includes only transactions that are fully paid (see _fully_paid_transactions_qs).
+        """
+        paid_qs = self._fully_paid_transactions_qs()
+        try:
+            # Distinct allocations in case of any anomalies
+            return paid_qs.values('allocation_id').distinct().count()
+        except AttributeError:
+            # Fallback when paid_qs is a list
+            return len({getattr(t, 'allocation_id', getattr(t.allocation, 'id', None)) for t in paid_qs})
+
+    @property
+    def total_value(self):
+        """Sum of total_amount from fully settled transactions only (Decimal)."""
+        paid_qs = self._fully_paid_transactions_qs()
+        try:
+            agg = paid_qs.aggregate(
+                tv=Coalesce(
+                    Sum('total_amount'),
+                    Decimal('0'),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
+            )
+            return agg.get('tv') or Decimal('0')
+        except AttributeError:
+            # Fallback when paid_qs is a list
+            total = Decimal('0')
+            for t in paid_qs:
+                try:
+                    total += t.total_amount or Decimal('0')
+                except Exception:
+                    continue
+            return total
+
+    @property
+    def rank_tag(self) -> str:
+        """Rank tag derived from total_value and plot_count thresholds.
+        Rules:
+        - Royal Elite: total_value ≥ 150,000,000 AND plot_count ≥ 5
+        - Estate Ambassador: total_value ≥ 100,000,000 OR plot_count ≥ 4
+        - Prime Investor: total_value ≥ 50,000,000 OR plot_count ≥ 3
+        - Smart Owner: total_value ≥ 20,000,000 OR plot_count ≥ 2
+        - First-Time Investor: else
+        """
+        tv = self.total_value
+        pc = self.plot_count
+        try:
+            tv_num = Decimal(tv)
+        except Exception:
+            tv_num = Decimal('0')
+
+        if tv_num >= Decimal('150000000') and pc >= 5:
+            return 'Royal Elite'
+        if tv_num >= Decimal('100000000') or pc >= 4:
+            return 'Estate Ambassador'
+        if tv_num >= Decimal('50000000') or pc >= 3:
+            return 'Prime Investor'
+        if tv_num >= Decimal('20000000') or pc >= 2:
+            return 'Smart Owner'
+        return 'First-Time Investor'
+
 
 class ClientMarketerAssignment(models.Model):
     """Assign a marketer to a client for a specific company.

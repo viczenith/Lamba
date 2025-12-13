@@ -5,6 +5,7 @@ from django.contrib.auth import login, authenticate
 from .forms import *
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from .decorators import admin_required, admin_or_support_required  # 🔐 Role-based access control
 from .models import *
 import random
 from types import SimpleNamespace
@@ -184,6 +185,7 @@ def admin_dashboard(request):
     return redirect(new_url)
 
 @login_required
+@admin_required
 def add_plotsize(request):
     from django.http import JsonResponse
     from .models import PlotSize, PlotSizeUnits, Estate
@@ -264,6 +266,7 @@ def add_plotsize(request):
     return render(request, "admin_side/add_plotsize.html", {'plot_sizes': plot_sizes_data})
 
 @login_required
+@admin_required
 def add_plotnumber(request):
     from django.http import JsonResponse
     from .models import PlotNumber, PlotAllocation
@@ -351,6 +354,7 @@ def add_plotnumber(request):
     return render(request, "admin_side/add_plotnumber.html", {'plot_numbers': plot_numbers_data})
 
 @login_required
+@admin_required
 def delete_plotsize(request, pk):
     from django.http import JsonResponse
     from .models import PlotSize, PlotSizeUnits
@@ -383,6 +387,7 @@ def delete_plotsize(request, pk):
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 @login_required
+@admin_required
 def delete_plotnumber(request, pk):
     from django.http import JsonResponse
     from .models import PlotNumber, PlotAllocation
@@ -695,6 +700,8 @@ def api_marketer_client_counts(request):
     })
 
 
+@login_required
+@admin_required
 def user_registration(request):
     # Fetch all users with the 'marketer' role
     # SECURITY: Filter by company to prevent cross-company data leakage
@@ -741,8 +748,9 @@ def user_registration(request):
         existing_user_id = request.POST.get('existing_user_id') or request.POST.get('existingId')
         if existing_user_id:
             try:
-                # SECURITY: Only admins may add users to company via this path
-                if getattr(request.user, 'role', None) != 'admin':
+                # SECURITY: Only admin roles may add users to company via this path
+                ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+                if getattr(request.user, 'role', None) not in ADMIN_ROLES:
                     error_msg = 'Only admins can add existing users to a company.'
                     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                         return JsonResponse({'success': False, 'message': error_msg}, status=403)
@@ -1235,6 +1243,7 @@ def user_registration(request):
 
 # ESTATE FUNCTIONS
 @login_required
+@admin_required
 def view_estate(request):
     company = request.user.company_profile
     estates = Estate.objects.filter(company=company).order_by('-date_added')
@@ -1245,6 +1254,7 @@ def view_estate(request):
 
 
 @login_required
+@admin_required
 def update_estate(request, pk):
     # SECURITY: Fetch only company's estate to prevent cross-tenant access
     company = request.user.company_profile
@@ -1282,6 +1292,7 @@ def update_estate(request, pk):
     return render(request, 'admin_side/edit_estate.html', context)
 
 @login_required
+@admin_required
 def delete_estate(request, pk):
     """Delete an estate and return a success message on the same page."""
     # SECURITY: Only allow deletion of company's own estates
@@ -1295,6 +1306,7 @@ def delete_estate(request, pk):
     return redirect('view-estate')
 
 @login_required
+@admin_required
 def add_estate(request):
     if request.method == "POST":
         # SECURITY: Auto-assign company to prevent cross-tenant data creation
@@ -1333,6 +1345,7 @@ def add_estate(request):
 # ESTATE PLOTS AND ALLOCATION FUNCTIONS
 
 @login_required
+@admin_required
 def plot_allocation(request):
     # SECURITY: Get company context for data isolation
     company = request.user.company_profile
@@ -1905,6 +1918,8 @@ def download_estate_pdf(request, estate_id):
     return response
 
 
+@login_required
+@admin_required
 @csrf_exempt
 def add_estate_plot(request):
     if request.method == "POST":
@@ -2167,6 +2182,7 @@ def estate_property_list(request):
     return render(request, "admin_side/estate_property_list.html",)
 
 @login_required
+@admin_required
 def add_floor_plan(request):
     estate_id = request.GET.get('estate_id')
     
@@ -2258,6 +2274,7 @@ def estate_details(request):
 
 # protoTypes
 @login_required
+@admin_required
 def add_prototypes(request):
     estate_id = request.GET.get('estate_id')
     
@@ -2537,6 +2554,7 @@ def add_progress_status(request):
 
 
 @login_required
+@admin_required
 def marketer_list(request):
     """
     Display marketer list with company-scoped data and client counts.
@@ -3007,6 +3025,7 @@ def admin_marketer_profile(request, slug=None, pk=None, company_slug=None):
 
 # Admin Chat Hub - Entry point without requiring a specific client
 @login_required
+@admin_required
 def admin_chat_hub_view(request):
     """
     Chat hub view that shows the chat interface without requiring a client_id.
@@ -3972,8 +3991,9 @@ def verify_company_profile_access(request, company):
     """
     user = request.user
     
-    # Check 1: Must be admin
-    if getattr(user, 'role', None) != 'admin':
+    # Check 1: Must be admin role
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(user, 'role', None) not in ADMIN_ROLES:
         return False, 'Access denied: Admin role required'
     
     # Check 2: Must belong to this company
@@ -4015,7 +4035,9 @@ def verify_company_profile_access(request, company):
 def company_profile_view(request):
     """Admin-only page showing the current company's profile and key real estate stats."""
     user = request.user
-    if getattr(user, 'role', None) != 'admin':
+    # 🔐 Allow admin roles (admin, secondary_admin, company_admin) - NOT support
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(user, 'role', None) not in ADMIN_ROLES:
         return redirect('home')
 
     try:
@@ -4612,7 +4634,8 @@ def send_engagement_emails(request):
     from django.http import JsonResponse
     
     user = request.user
-    if getattr(user, 'role', None) != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(user, 'role', None) not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Only admins can send engagement emails'}, status=403)
     
     company = getattr(user, 'company_profile', None)
@@ -4689,7 +4712,9 @@ def company_profile_verify_view(request):
     """
     from django.utils import timezone
     
-    if request.user.role != 'admin':
+    # 🔐 Allow admin roles (admin, secondary_admin, company_admin) - NOT support
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if request.user.role not in ADMIN_ROLES:
         return redirect('login')
     
     company = request.user.company_profile
@@ -4734,7 +4759,8 @@ def verify_master_password(request):
     - Session-based verification with 5-minute expiry
     - Logging of failed attempts
     """
-    if request.user.role != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if request.user.role not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=403)
 
     # Rate limiting check
@@ -4810,7 +4836,8 @@ def verify_master_password(request):
 @require_POST
 def toggle_full_control(request):
     """Toggle full control permission for an admin user. Only master admin can do this."""
-    if request.user.role != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if request.user.role not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=403)
 
     company = request.user.company_profile
@@ -4859,7 +4886,8 @@ def check_full_control(request):
     Check if current user has full control (master admin or has_full_control=True).
     Also checks if session verification is valid (for non-full-control users).
     """
-    if request.user.role != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if request.user.role not in ADMIN_ROLES:
         return JsonResponse({'has_full_control': False, 'is_master': False, 'session_verified': False})
 
     company = request.user.company_profile
@@ -4900,7 +4928,9 @@ def check_full_control(request):
 def company_profile_update(request):
     """Handle modal-based updates to company details. Returns JSON on AJAX."""
     user = request.user
-    if getattr(user, 'role', None) != 'admin':
+    # 🔐 Allow admin roles (admin, secondary_admin, company_admin) - NOT support
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(user, 'role', None) not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
     # Support dynamic slug parameter
@@ -5016,7 +5046,8 @@ def delete_company_ceo(request, ceo_id: int):
     - Primary CEOs are protected from deletion.
     """
     user = request.user
-    if getattr(user, 'role', None) != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(user, 'role', None) not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
     # Support dynamic slug parameter
@@ -5051,7 +5082,8 @@ def delete_company_ceo(request, ceo_id: int):
 @require_POST
 def admin_toggle_mute(request, user_id: int):
     """Mute or unmute an admin or support account. Muted => is_active=False (cannot log in)."""
-    if getattr(request.user, 'role', None) != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(request.user, 'role', None) not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
     if request.user.id == user_id:
@@ -5126,7 +5158,8 @@ def admin_toggle_mute(request, user_id: int):
 @require_POST
 def admin_delete_admin(request, user_id: int):
     """Delete an admin or support user. Supports soft delete (default) or permanent delete."""
-    if getattr(request.user, 'role', None) != 'admin':
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    if getattr(request.user, 'role', None) not in ADMIN_ROLES:
         return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
 
     if request.user.id == user_id:
@@ -5821,8 +5854,9 @@ def add_existing_user_to_company(request):
         if not company:
             return JsonResponse({'error': 'User not assigned to any company'}, status=403)
         
-        # Check if user is admin
-        if request.user.role != 'admin':
+        # Check if user is admin role
+        ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+        if request.user.role not in ADMIN_ROLES:
             return JsonResponse({'error': 'Only admins can add users to company'}, status=403)
         
         data = json.loads(request.body)
@@ -6065,6 +6099,7 @@ def client_dashboard_cross_company(request):
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 @login_required
+@admin_required
 def client(request):
     """
     Display client list with company-scoped data.
@@ -9378,7 +9413,8 @@ class CustomLoginView(LoginView):
         elif user.role == 'marketer':
             return reverse_lazy('secure-marketer-dashboard')  # /m/dashboard/
         elif user.role == 'support':
-            return reverse_lazy('admin-dashboard')  # Support goes to admin dashboard
+            # Support users go to their own AdminSupport dashboard (NOT admin dashboard)
+            return reverse_lazy('adminsupport:support_dashboard')  # /adminsupport/dashboard/
         else:
             return reverse_lazy('home')  # Fallback to home page
 
@@ -11804,7 +11840,8 @@ class CustomLogoutView(LogoutView):
 class MarketersAPI(View):
     def get(self, request):
         # SECURITY: Only return marketers from the same company as the requesting admin
-        if not request.user.is_authenticated or request.user.role != 'admin':
+        ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+        if not request.user.is_authenticated or request.user.role not in ADMIN_ROLES:
             return JsonResponse([], safe=False)
         
         # Get marketers from both company_profile and MarketerAffiliation
@@ -12186,7 +12223,8 @@ class SetCommissionAPI(View):
         if not request.user.is_authenticated:
             return JsonResponse({'status':'error','message':'Authentication required'}, status=401)
         
-        if request.user.role != 'admin':
+        ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+        if request.user.role not in ADMIN_ROLES:
             return JsonResponse({'status':'error','message':'Admin access required'}, status=403)
 
         # Fetch exactly one marketer
@@ -13268,8 +13306,9 @@ class SendMarketerMessageAPI(View):
         if not request.user.is_authenticated:
             return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
         
-        # SECURITY: Verify user is an admin
-        if request.user.role != 'admin':
+        # SECURITY: Verify user is an admin role
+        ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+        if request.user.role not in ADMIN_ROLES:
             return JsonResponse({'status': 'error', 'message': 'Admin access required'}, status=403)
         
         # SECURITY: Verify user has a company profile

@@ -1,11 +1,11 @@
 {% extends 'adminSupport/customer_relations_base.html' %}
 
-{% block title %}Clients Directory{% endblock %}
+{% block title %}{{ company_name }} - Clients Directory{% endblock %}
 
 {% block content %}
 <div class="content-header">
     <div>
-        <h1><i class="fas fa-users me-2"></i>Clients Directory</h1>
+        <h1><i class="fas fa-users me-2"></i>{{ company_name }} Clients</h1>
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'adminSupport:support_dashboard' %}">Admin Support</a></li>
             <li class="breadcrumb-item active">Clients Directory</li>
@@ -22,15 +22,13 @@
         <button class="btn btn-outline-secondary" type="submit">
             <i class="fas fa-search me-1"></i> Search
         </button>
-        <a class="btn btn-primary" href="?{% if q %}q={{ q|urlencode }}&{% endif %}export=1">
-            <i class="fas fa-download me-1"></i> Export
-        </a>
     </form>
 </div>
 
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-light">
-        <h6 class="mb-0"><i class="fas fa-table me-2"></i>Clients Database</h6>
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-table me-2"></i>{{ company_name }} Clients Database</h6>
+        <span class="badge bg-primary">{{ total }} Client{{ total|pluralize }}</span>
     </div>
     <div class="card-body">
         <div id="clients-directory-content">
@@ -62,19 +60,12 @@
                             </td>
                             <td>
                                 {% with tag=u.rank_tag %}
-                                {% if tag == 'Royal Elite' %}
-                                <span class="badge text-bg-info">Royal Elite</span>
-                                {% elif tag == 'Estate Ambassador' %}
-                                <span class="badge text-bg-warning">Estate Ambassador</span>
-                                {% elif tag == 'Prime Investor' %}
-                                <span class="badge text-bg-info">Prime Investor</span>
-                                {% elif tag == 'Smart Owner' %}
-                                <span class="badge text-bg-success">Smart Owner</span>
-                                {% else %}
-                                <span class="badge text-bg-secondary">First-Time Investor</span>
-                                {% endif %}
+                                <span class="badge badge-rank 
+                                    {% if tag == 'Royal Elite' %}rank-royal{% elif tag == 'Estate Ambassador' %}rank-ambassador{% elif tag == 'Prime Investor' %}rank-prime{% elif tag == 'Smart Owner' %}rank-smart{% else %}rank-first{% endif %}">
+                                    <i class="bi {% if tag == 'Royal Elite' %}bi-gem{% elif tag == 'Estate Ambassador' %}bi-award{% elif tag == 'Prime Investor' %}bi-star-fill{% elif tag == 'Smart Owner' %}bi-patch-check-fill{% else %}bi-person-check{% endif %} me-1"></i>
+                                    {{ tag }}
+                                </span>
                                 {% endwith %}
-                                <!-- <small class="text-muted d-block">₦{{ u.total_value|floatformat:0 }} • {{ u.plot_count }} plots</small> -->
                             </td>
                             <td>{% if u.assigned_marketer %}{{ u.assigned_marketer.full_name }}{% else %}<span
                                     class="text-muted">—</span>{% endif %}</td>
@@ -113,6 +104,42 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Rank Badge Styles - Matching estateApp styling */
+    .badge-rank {
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        letter-spacing: 0.2px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .badge-rank.rank-royal {
+        background: linear-gradient(45deg, #6a11cb, #2575fc);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(37,117,252,0.25);
+    }
+    .badge-rank.rank-ambassador {
+        background: linear-gradient(45deg, #fbbf24, #f59e0b);
+        color: #111827;
+    }
+    .badge-rank.rank-prime {
+        background: linear-gradient(45deg, #3b82f6, #06b6d4);
+        color: #0b132a;
+    }
+    .badge-rank.rank-smart {
+        background: linear-gradient(45deg, #10b981, #34d399);
+        color: #06281b;
+    }
+    .badge-rank.rank-first {
+        background: linear-gradient(45deg, #9ca3af, #6b7280);
+        color: #fff;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}{% endblock %}

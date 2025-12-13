@@ -30,6 +30,10 @@ from functools import wraps
 # SECURITY DECORATORS
 # ============================================================================
 
+# Allowed admin roles for admin panel access
+ADMIN_ROLES = ('admin', 'secondary_admin', 'support', 'company_admin', 'superadmin')
+
+
 def tenant_context_required(view_func):
     """
     SECURITY DECORATOR: Validates tenant (company) access before executing view.
@@ -37,12 +41,16 @@ def tenant_context_required(view_func):
     This decorator:
     ✅ Validates company slug exists
     ✅ Verifies user belongs to company
+    ✅ Verifies user has admin-level role (blocks clients/marketers)
     ✅ Injects company into request context
     ✅ Prevents unauthorized access
     ✅ Returns 403 for access violations
     """
     @wraps(view_func)
     def wrapper(request, company_slug, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Step 1: Validate company exists
         try:
             company = Company.objects.get(slug=company_slug)
@@ -54,6 +62,18 @@ def tenant_context_required(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         
+        # Step 3: 🔐 SECURITY - Verify admin role (blocks clients and marketers)
+        user_role = getattr(request.user, 'role', None)
+        if user_role not in ADMIN_ROLES:
+            logger.warning(
+                f"🚫 SECURITY: Non-admin user {request.user.id} "
+                f"(email: {request.user.email}, role: {user_role}) "
+                f"attempted to access admin dashboard at {request.path}"
+            )
+            return HttpResponseForbidden(
+                "⛔ Access Denied: Admin privileges required to access this dashboard"
+            )
+        
         # Super admin can access any company
         if request.user.role == 'superadmin':
             request.company = company
@@ -63,15 +83,19 @@ def tenant_context_required(view_func):
         # Regular users can ONLY access their own company
         if request.user.company_profile != company:
             # User trying to access other company's data - FORBIDDEN
+            logger.warning(
+                f"🚫 SECURITY: User {request.user.id} attempted cross-tenant access "
+                f"to company {company.id} (own company: {getattr(request.user.company_profile, 'id', None)})"
+            )
             return HttpResponseForbidden(
                 "❌ Access Denied: You can only access your own company's dashboard"
             )
         
-        # Step 3: Inject company into request (available in view as request.company)
+        # Step 4: Inject company into request (available in view as request.company)
         request.company = company
         request.company_slug = company_slug
         
-        # Step 4: Execute view with verified company context
+        # Step 5: Execute view with verified company context
         return view_func(request, company_slug, *args, **kwargs)
     
     return wrapper

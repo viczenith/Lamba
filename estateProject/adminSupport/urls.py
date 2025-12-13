@@ -22,6 +22,7 @@ urlpatterns = [
     # directories
     path('clients-directory/', views.clients_directory, name='clients_directory'),
     path('marketers-directory/', views.marketers_directory, name='marketers_directory'),
+    path('staff-directory/', views.staff_directory, name='staff_directory'),
 
     # users
     path('api/users/', views.api_users, name='api_users'),
@@ -96,8 +97,7 @@ urlpatterns = [
     path('api/custom-special-days/', views.api_custom_special_days, name='api_custom_special_days'),
     path('api/custom-special-days/<uuid:day_id>/', views.api_custom_special_day_detail, name='api_custom_special_day_detail'),
 
-    # SEND MESSAGE
-    path('messages/', views.messages, name='messages'),
+    # API TEMPLATES
     path('api/templates/<uuid:tpl_id>/', views.api_templates_detail, name='api_templates_detail'),
     path('api/messages/<int:msg_id>/', views.api_messages_detail, name='api_messages_detail'),
     path('api/outbound/<uuid:outbound_id>/', views.api_outbound_detail, name='api_outbound_detail'),

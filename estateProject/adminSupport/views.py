@@ -114,6 +114,12 @@ def messages(request):
     return render(request, 'adminSupport/customer_relation/staff_dashboard.html',)
 
 @login_required
+@support_required
+def staff_directory(request):
+    """Staff Directory page - manage company staff members."""
+    return render(request, 'adminSupport/customer_relation/staff_dashboard.html')
+
+@login_required
 def newsletter(request):
     ctx = {'home_url': '/', 'home_url': '/'}
     return render(request, 'adminSupport/customer_relation/newsletter.html',ctx)
@@ -574,16 +580,33 @@ def chat_delete_message(request):
 @login_required
 @support_required
 def clients_directory(request):
-    """Standalone Clients Directory page (moved out of dashboard tabs)."""
+    """Standalone Clients Directory page - filtered by support user's company."""
     q = (request.GET.get('q') or '').strip()
-    qs = ClientUser.with_investment_metrics()
+    
+    # Get the support user's company for data isolation
+    user_company = getattr(request.user, 'company_profile', None)
+    
+    # Start with base queryset filtered by company
+    if user_company:
+        qs = ClientUser.objects.filter(company_profile=user_company)
+    else:
+        # If support user has no company, show no clients (security measure)
+        qs = ClientUser.objects.none()
+    
     if q:
         qs = qs.filter(
             Q(full_name__icontains=q) |
             Q(email__icontains=q) |
             Q(phone__icontains=q)
         )
-    qs = qs.select_related('assigned_marketer').order_by('full_name')
+    
+    # Prefetch transactions and payment_records for efficient rank_tag calculation
+    qs = qs.select_related('assigned_marketer').prefetch_related(
+        'transactions',
+        'transactions__allocation',
+        'transactions__payment_records',
+        'plotallocation_set'
+    ).order_by('full_name')
 
     # optional export
     if request.GET.get('export'):
@@ -607,6 +630,8 @@ def clients_directory(request):
         'page_obj': page_obj,
         'q': q,
         'total': paginator.count,
+        'company': user_company,
+        'company_name': user_company.company_name if user_company else 'Unknown Company',
     }
     return render(request, 'adminSupport/customer_relation/clients_directory.html', ctx)
 
@@ -614,22 +639,36 @@ def clients_directory(request):
 @login_required
 @support_required
 def marketers_directory(request):
-    """Standalone Marketers Directory page (moved out of dashboard tabs)."""
+    """Standalone Marketers Directory page - filtered by support user's company."""
     q = (request.GET.get('q') or '').strip()
     current_year = timezone.now().year
     year_str = str(current_year)
+    
+    # Get the support user's company for data isolation
+    user_company = getattr(request.user, 'company_profile', None)
 
     # Annual targets: prefer marketer-specific, else global (marketer=None)
+    # Also filter targets by company for proper isolation
     target_specific_sq = (MarketerTarget.objects
                           .filter(period_type='annual', specific_period=year_str, marketer=OuterRef('pk'))
                           .order_by('-created_at')
                           .values('target_amount')[:1])
-    target_global_sq = (MarketerTarget.objects
-                        .filter(period_type='annual', specific_period=year_str, marketer__isnull=True)
-                        .order_by('-created_at')
-                        .values('target_amount')[:1])
+    
+    # For global targets, also filter by company if available
+    target_global_qs = MarketerTarget.objects.filter(period_type='annual', specific_period=year_str, marketer__isnull=True)
+    if user_company:
+        target_global_qs = target_global_qs.filter(Q(company=user_company) | Q(company__isnull=True))
+    target_global_sq = target_global_qs.order_by('-created_at').values('target_amount')[:1]
 
-    qs = (MarketerUser.objects
+    # Start with base queryset filtered by company
+    base_qs = MarketerUser.objects.all()
+    if user_company:
+        base_qs = base_qs.filter(company_profile=user_company)
+    else:
+        # If support user has no company, show no marketers (security measure)
+        base_qs = base_qs.none()
+    
+    qs = (base_qs
           .annotate(
               year_sales=Coalesce(
                   Sum('transaction__total_amount', filter=Q(transaction__transaction_date__year=current_year)),
@@ -673,14 +712,27 @@ def marketers_directory(request):
             Q(phone__icontains=q)
         )
 
-    # Always order by performance
+    # Always order by performance (yearly sales descending)
     qs = qs.order_by('-year_sales', 'full_name')
-
-    # Determine top-3 among those who have a target and >0% progress
-    eligible_ids = list(
-        qs.filter(year_target__gt=0, year_target_pct__gt=0)
-          .values_list('id', flat=True)[:3]
-    )
+    
+    # === MARKETER RANK CALCULATION ===
+    # Calculate rank position for each marketer based on yearly sales within the company
+    # This mirrors the estateApp marketer ranking logic
+    all_marketers = list(qs)
+    total_marketers = len(all_marketers)
+    
+    # Attach rank info directly to each marketer object
+    # Sorted by year_sales descending
+    for idx, marketer in enumerate(all_marketers):
+        position = idx + 1  # 1-indexed
+        has_sales = float(getattr(marketer, 'year_sales', 0) or 0) > 0
+        
+        # Attach rank data to the marketer object for template access
+        marketer.rank_position = position if has_sales else None
+        marketer.rank_total = total_marketers
+    
+    # Determine top-3 among those with sales for Gold/Silver/Bronze badges
+    eligible_ids = [m.id for m in all_marketers if float(getattr(m, 'year_sales', 0) or 0) > 0][:3]
     gold_ids = eligible_ids[:1]
     silver_ids = eligible_ids[1:2]
     bronze_ids = eligible_ids[2:3]
@@ -690,15 +742,14 @@ def marketers_directory(request):
         resp = HttpResponse(content_type='text/csv')
         resp['Content-Disposition'] = 'attachment; filename="marketers.csv"'
         writer = csv.writer(resp)
-        writer.writerow(['Full Name', 'Email', 'Phone', 'Year', 'Deals (Year)', 'Sales (Year ₦)', 'Target (Year ₦)', 'Target %', 'Rank/Badge', 'Date Registered'])
-        data = list(qs)
-        for u in data:
+        writer.writerow(['Full Name', 'Email', 'Phone', 'Year', 'Deals (Year)', 'Sales (Year ₦)', 'Target (Year ₦)', 'Target %', 'Rank Position', 'Rank Badge', 'Date Registered'])
+        for u in all_marketers:
             if u.id in gold_ids:
                 badge = 'Gold'
             elif u.id in silver_ids:
-                badge = 'Elite Marketer'
+                badge = 'Silver'
             elif u.id in bronze_ids:
-                badge = 'Consistent Performer'
+                badge = 'Bronze'
             else:
                 badge = ''
             writer.writerow([
@@ -710,21 +761,28 @@ def marketers_directory(request):
                 getattr(u, 'year_sales', 0),
                 getattr(u, 'year_target', 0),
                 getattr(u, 'year_target_pct', None),
+                getattr(u, 'rank_position', ''),
                 badge,
                 u.date_registered.isoformat() if u.date_registered else ''
             ])
         return resp
-    paginator = Paginator(qs, 25)
+    
+    # For pagination, we need to re-attach rank info to page objects
+    paginator = Paginator(all_marketers, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
     ctx = {
         'page_obj': page_obj,
         'q': q,
-        'total': paginator.count,
+        'total': total_marketers,
         'current_year': current_year,
         'gold_ids': gold_ids,
         'silver_ids': silver_ids,
         'bronze_ids': bronze_ids,
+        'total_marketers': total_marketers,
+        'company': user_company,
+        'company_name': user_company.company_name if user_company else 'Unknown Company',
     }
     return render(request, 'adminSupport/customer_relation/marketers_directory.html', ctx)
 

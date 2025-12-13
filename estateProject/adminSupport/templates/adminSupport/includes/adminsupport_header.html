@@ -1,0 +1,340 @@
+{% load static %}
+{% load custom_filters %}
+<!-- ======= AdminSupport Header ======= -->
+<header id="header" class="header fixed-top d-flex align-items-center" data-theme="light">
+
+  <div class="d-flex align-items-center justify-content-between">
+    <div class="logo d-flex align-items-center">
+      {# Show company logo when available; otherwise show a placeholder #}
+      {% if request.user.is_authenticated and request.user.company_profile %}
+        {% with company=request.user.company_profile %}
+          {% if company.logo %}
+            <a href="{% url 'adminSupport:support_dashboard' %}">
+              <img src="{{ company.logo|versioned_file }}" alt="{{ company.company_name }} Logo">
+            </a>
+          {% else %}
+            <a href="{% url 'adminSupport:support_dashboard' %}" title="Admin Support Dashboard">
+              <img src="{% static 'assets/img/logo.png' %}" alt="Admin Support" class="placeholder-logo">
+            </a>
+          {% endif %}
+        {% endwith %}
+      {% else %}
+        <a href="{% url 'adminSupport:support_dashboard' %}">
+          <img src="{% static 'assets/img/logo.png' %}" alt="Admin Support">
+        </a>
+      {% endif %}
+    </div>
+    <i class="bi bi-list toggle-sidebar-btn" id="adminsupport-sidebar-toggle"></i>
+  </div><!-- End Logo -->
+
+  <nav class="header-nav ms-auto">
+    <ul class="d-flex align-items-center">
+
+      <!-- Chat Messages Icon - Routes to AdminSupport Chat -->
+      <li class="nav-item">
+        <a class="nav-link nav-icon" href="{% url 'adminSupport:chat' %}" title="Chat Support">
+          <i class="bi bi-chat-left-text"></i>
+          <span id="adminsupport-chat-badge" class="badge bg-success badge-number" style="display:none">0</span>
+        </a>
+      </li>
+      <!-- End Chat Messages Icon -->
+
+      <!-- Profile Nav -->
+      <li class="nav-item dropdown pe-3">
+        {% if user.is_authenticated %}
+          <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
+            {% if user.profile_image %}
+              <img src="{{ user.profile_image.url }}" alt="{{ user.full_name }} Profile Image" class="rounded-circle">
+            {% else %}
+              <div class="profile-avatar-icon">
+                <i class="fas fa-user-tie"></i>
+              </div>
+            {% endif %}
+            <span class="d-none d-md-block dropdown-toggle ps-2">{{ user.full_name|default:user.username }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
+            <li class="dropdown-header">
+              <h6>{{ user.full_name|default:user.username }}</h6>
+              <span>Support Agent</span>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center" href="{% url 'adminSupport:support_dashboard' %}">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center" href="{% url 'adminSupport:settings' %}">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form action="{% url 'logout' %}" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item d-flex align-items-center">
+                  <i class="bi bi-box-arrow-right"></i>
+                  <span>Logout</span>
+                </button>
+              </form>
+            </li>
+          </ul>
+        {% else %}
+          <a class="nav-link" href="{% url 'login' %}">Login</a>
+        {% endif %}
+      </li><!-- End Profile Nav -->
+    </ul>
+  </nav><!-- End Icons Navigation -->
+
+  <style>
+    :root {
+      --header-bg: #ffffff;
+      --header-text: #000000;
+      --header-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --dropdown-bg: #ffffff;
+      --dropdown-text: #212529;
+      --dropdown-border: rgba(0, 0, 0, 0.15);
+      --dropdown-divider: rgba(0, 0, 0, 0.1);
+      --dropdown-hover: #f8f9fa;
+      --nav-icon-color: #495057;
+      --nav-icon-hover: #0891b2;
+      --profile-dropdown-header: #f8f9fa;
+    }
+
+    /* Header Base Styles */
+    .header {
+      background-color: var(--header-bg);
+      color: var(--header-text);
+      box-shadow: var(--header-shadow);
+      padding: 0.5rem 1rem;
+      z-index: 1000;
+      transition: all 0.3s ease;
+      height: 60px;
+    }
+
+    .logo img {
+      height: auto;
+      max-height: 40px;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      transition: all 0.15s ease;
+      display: block;
+    }
+
+    .logo span {
+      font-weight: 600;
+      color: var(--header-text);
+      margin-left: 10px;
+    }
+
+    .toggle-sidebar-btn {
+      font-size: 1.5rem;
+      color: var(--nav-icon-color);
+      cursor: pointer;
+      margin-left: 15px;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-sidebar-btn:hover {
+      color: var(--nav-icon-hover);
+    }
+
+    /* Navigation Icons */
+    .nav-link.nav-icon {
+      color: var(--nav-icon-color);
+      font-size: 1.25rem;
+      position: relative;
+      margin: 0 0.5rem;
+      transition: all 0.3s ease;
+      border: none !important;
+      overflow: visible; 
+    }
+
+    .nav-link.nav-icon:hover {
+      color: var(--nav-icon-hover);
+    }
+
+    .badge-number {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      z-index: 1000;
+      pointer-events: none;
+      box-shadow: 0 0 0 2px var(--header-bg);
+    }
+
+    /* Dropdown Menus */
+    .dropdown-menu {
+      background-color: var(--dropdown-bg);
+      border: 1px solid var(--dropdown-border);
+      color: var(--dropdown-text);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .dropdown-header {
+      background-color: var(--profile-dropdown-header);
+      color: var(--dropdown-text);
+    }
+
+    .dropdown-divider {
+      border-color: var(--dropdown-divider);
+    }
+
+    .dropdown-item {
+      color: var(--dropdown-text);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+      background-color: var(--dropdown-hover);
+      color: var(--dropdown-text);
+    }
+
+    .dropdown-item i {
+      margin-right: 10px;
+      width: 16px;
+      text-align: center;
+    }
+
+    /* Profile Dropdown */
+    .nav-profile img {
+      width: 36px;
+      height: 36px;
+      object-fit: cover;
+    }
+
+    .profile-avatar-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      border-radius: 50%;
+      color: white;
+      font-size: 16px;
+    }
+
+    .dropdown-menu.profile {
+      min-width: 250px;
+    }
+
+    .dropdown-menu.profile .dropdown-header h6 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .dropdown-menu.profile .dropdown-header span {
+      font-size: 0.85rem;
+      color: var(--dropdown-text);
+      opacity: 0.8;
+    }
+
+    /* Pulse Animation */
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .logo span {
+        display: none;
+      }
+      
+      .nav-profile span {
+        display: none;
+      }
+      
+      .header {
+        padding: 0.5rem;
+      }
+      
+      .nav-link.nav-icon {
+        margin: 0 0.25rem;
+        font-size: 1.1rem;
+      }
+
+      .logo img {
+        max-height: 32px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo img { max-height: 26px; }
+    }
+    
+    /* New message flash animation */
+    @keyframes newMessageFlash {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.4); background-color: #28a745; }
+      50% { transform: scale(1); }
+      75% { transform: scale(1.4); background-color: #ffc107; }
+    }
+    
+    .new-message-flash {
+      animation: newMessageFlash 0.5s ease-in-out 3 !important;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // AdminSupport Sidebar Toggle
+      const toggleBtn = document.getElementById('adminsupport-sidebar-toggle');
+      const sidebar = document.querySelector('.cr-sidebar');
+      
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          document.body.classList.toggle('toggle-sidebar');
+        });
+      }
+
+      // Chat badge polling for AdminSupport
+      const chatBadge = document.getElementById('adminsupport-chat-badge');
+      
+      async function updateAdminSupportChatBadge() {
+        try {
+          const response = await fetch('{% url "adminSupport:chat_list_partial" %}', {
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          if (!response.ok) throw new Error('Network error');
+          const data = await response.json();
+          const totals = data?.totals || {};
+          const totalThreads = Number(totals.client_threads || 0) + Number(totals.marketer_threads || 0);
+          
+          if (chatBadge) {
+            if (totalThreads > 0) {
+              chatBadge.textContent = String(totalThreads);
+              chatBadge.style.display = 'inline-block';
+              chatBadge.classList.add('pulse');
+            } else {
+              chatBadge.style.display = 'none';
+              chatBadge.classList.remove('pulse');
+            }
+          }
+        } catch (error) {
+          console.error('Unable to refresh chat badge:', error);
+        }
+      }
+      
+      // Initial update and polling
+      updateAdminSupportChatBadge();
+      setInterval(updateAdminSupportChatBadge, 10000);
+    });
+  </script>
+</header><!-- End AdminSupport Header -->

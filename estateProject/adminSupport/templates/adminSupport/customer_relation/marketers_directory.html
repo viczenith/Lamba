@@ -1,12 +1,12 @@
 {% extends 'adminSupport/customer_relations_base.html' %}
 {% load humanize %}
 
-{% block title %}Marketers Directory{% endblock %}
+{% block title %}{{ company_name }} - Marketers Directory{% endblock %}
 
 {% block content %}
 <div class="content-header">
     <div>
-        <h1><i class="fas fa-user-tie me-2"></i>Marketers Directory</h1>
+        <h1><i class="fas fa-user-tie me-2"></i>{{ company_name }} Marketers</h1>
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'adminSupport:support_dashboard' %}">Admin Support</a></li>
             <li class="breadcrumb-item active">Marketers Directory</li>
@@ -23,15 +23,13 @@
         <button class="btn btn-outline-secondary" type="submit">
             <i class="fas fa-search me-1"></i> Search
         </button>
-        <a class="btn btn-outline-primary" href="?{% if q %}q={{ q|urlencode }}&{% endif %}export=1">
-            <i class="fas fa-download me-1"></i> Export
-        </a>
     </form>
 </div>
 
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-light">
-        <h6 class="mb-0"><i class="fas fa-table me-2"></i>Marketing Team Database</h6>
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-table me-2"></i>{{ company_name }} Marketing Team</h6>
+        <span class="badge bg-primary">{{ total }} Marketer{{ total|pluralize }}</span>
     </div>
     <div class="card-body">
         <div id="marketers-directory-content">
@@ -44,7 +42,7 @@
                             <th>Phone</th>
                             <th>Birthday</th>
                             <th class="text-center">Rank ({{ current_year }})</th>
-                            <th class="text-center">Top</th>
+                            <th class="text-center">Position</th>
                             <th>Date Registered</th>
                         </tr>
                     </thead>
@@ -56,36 +54,76 @@
                             </td>
                             <td>{{ u.email }}</td>
                             <td>{{ u.phone }}</td>
-                                                        <td>
-                                                                {% if u.date_of_birth %}
-                                                                    {{ u.date_of_birth|date:'M d' }}
-                                                                {% else %}
-                                                                    <span class="text-muted">—</span>
-                                                                {% endif %}
-                                                        </td>
-                            <!-- Rank column (badges only for eligible top 3 with >0% of target) -->
+                            <td>
+                                {% if u.date_of_birth %}
+                                    {{ u.date_of_birth|date:'M d' }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <!-- Rank column (Gold/Silver/Bronze badges for top 3 with sales) -->
                             <td class="text-center">
                                 {% if u.id in gold_ids %}
-                                <span class="badge bg-gold" title="Top performer">Gold</span>
+                                <span class="rank-badge rank-1" title="Top performer - #1 of {{ total_marketers }}">
+                                    <span class="rank-icon">🥇</span>
+                                    <span class="rank-text">Gold</span>
+                                </span>
                                 {% elif u.id in silver_ids %}
-                                <span class="badge bg-silver" title="Top performer">Silver</span>
+                                <span class="rank-badge rank-2" title="Top performer - #2 of {{ total_marketers }}">
+                                    <span class="rank-icon">🥈</span>
+                                    <span class="rank-text">Silver</span>
+                                </span>
                                 {% elif u.id in bronze_ids %}
-                                <span class="badge bg-bronze" title="Top performer">Bronze</span>
+                                <span class="rank-badge rank-3" title="Top performer - #3 of {{ total_marketers }}">
+                                    <span class="rank-icon">🥉</span>
+                                    <span class="rank-text">Bronze</span>
+                                </span>
                                 {% else %}
                                 <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <!-- Top column (Top N if progress, else 0) -->
+                            <!-- Position column (Top N ranking like estateApp) -->
                             <td class="text-center">
-                                {% with offset=page_obj.start_index|add:'-1' %}
-                                {% with global_rank=offset|add:forloop.counter %}
-                                {% if u.has_progress %}
-                                <span class="fw-semibold">Top {{ global_rank }}</span>
+                                {% if u.rank_position %}
+                                    {% if u.rank_position == 1 %}
+                                    <span class="rank-badge rank-1" title="#1 of {{ u.rank_total }} marketers">
+                                        <span class="rank-icon">🥇</span>
+                                        <span class="rank-text">#1 of {{ current_year }}</span>
+                                    </span>
+                                    {% elif u.rank_position == 2 %}
+                                    <span class="rank-badge rank-2" title="#2 of {{ u.rank_total }} marketers">
+                                        <span class="rank-icon">🥈</span>
+                                        <span class="rank-text">#2 of {{ current_year }}</span>
+                                    </span>
+                                    {% elif u.rank_position == 3 %}
+                                    <span class="rank-badge rank-3" title="#3 of {{ u.rank_total }} marketers">
+                                        <span class="rank-icon">🥉</span>
+                                        <span class="rank-text">#3 of {{ current_year }}</span>
+                                    </span>
+                                    {% elif u.rank_position <= 5 %}
+                                    <span class="rank-badge rank-top5" title="#{{ u.rank_position }} of {{ u.rank_total }} marketers">
+                                        <i class="bi bi-star-fill rank-icon"></i>
+                                        <span class="rank-text">Top #{{ u.rank_position }}</span>
+                                    </span>
+                                    {% elif u.rank_position <= 10 %}
+                                    <span class="rank-badge rank-top10" title="#{{ u.rank_position }} of {{ u.rank_total }} marketers">
+                                        <i class="bi bi-award-fill rank-icon"></i>
+                                        <span class="rank-text">Top #{{ u.rank_position }}</span>
+                                    </span>
+                                    {% elif u.rank_position <= 20 %}
+                                    <span class="rank-badge rank-top20" title="#{{ u.rank_position }} of {{ u.rank_total }} marketers">
+                                        <i class="bi bi-trophy rank-icon"></i>
+                                        <span class="rank-text">Top #{{ u.rank_position }}</span>
+                                    </span>
+                                    {% else %}
+                                    <span class="rank-badge rank-other" title="#{{ u.rank_position }} of {{ u.rank_total }} marketers">
+                                        <i class="bi bi-hash rank-icon"></i>
+                                        <span class="rank-text">#{{ u.rank_position }}</span>
+                                    </span>
+                                    {% endif %}
                                 {% else %}
-                                <span class="text-muted">0</span>
+                                    <span class="text-muted">No sales</span>
                                 {% endif %}
-                                {% endwith %}
-                                {% endwith %}
                             </td>
                             <td>{{ u.date_registered|date:'Y-m-d' }}</td>
                         </tr>
@@ -126,6 +164,77 @@
 
 {% block extra_js %}
 <style>
+    /* Rank Badge Styles - Matching estateApp */
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        transition: all 0.2s ease;
+    }
+
+    .rank-badge:hover {
+        transform: scale(1.05);
+    }
+
+    .rank-badge.rank-1 {
+        background: linear-gradient(135deg, #ffd700 0%, #ffb800 100%);
+        color: #7c5f00;
+        border: 1px solid rgba(255, 215, 0, 0.5);
+    }
+
+    .rank-badge.rank-2 {
+        background: linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%);
+        color: #4a4a4a;
+        border: 1px solid rgba(192, 192, 192, 0.5);
+    }
+
+    .rank-badge.rank-3 {
+        background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%);
+        color: #fff;
+        border: 1px solid rgba(205, 127, 50, 0.5);
+    }
+
+    .rank-badge.rank-top5 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: 1px solid rgba(102, 126, 234, 0.5);
+    }
+
+    .rank-badge.rank-top10 {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: #fff;
+        border: 1px solid rgba(17, 153, 142, 0.5);
+    }
+
+    .rank-badge.rank-top20 {
+        background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+        color: #fff;
+        border: 1px solid rgba(59, 130, 246, 0.5);
+    }
+
+    .rank-badge.rank-other {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+
+    .rank-badge .rank-icon {
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .rank-badge .rank-text {
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    /* Legacy badge styles for backward compatibility */
     .badge {
         border-radius: 999px;
         padding: 0.4rem 0.75rem;

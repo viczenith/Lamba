@@ -740,8 +740,21 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
     ]
     
     # ========================================================================
+    # SUPPORT-SIDE URLS (require support role) - AdminSupport Dashboard
+    # ========================================================================
+    SUPPORT_URLS = [
+        '/adminsupport/',          # Covers /adminsupport/dashboard/, /adminsupport/tickets/, etc.
+    ]
+    
+    # ========================================================================
     # ADMIN-SIDE URLS (require admin role)
     # ========================================================================
+    # 🔐 ADMIN_ROLES: Roles allowed to access admin panel (NOT support - they have their own dashboard)
+    ADMIN_ROLES = ('admin', 'secondary_admin', 'company_admin')
+    
+    # 🔐 SUPPORT_ROLES: Roles allowed to access admin support panel
+    SUPPORT_ROLES = ('support',)
+    
     ADMIN_URLS = [
         '/chat-admin/',            # Covers /chat-admin/chat/1/, /chat-admin/marketer-chat/1/
         '/admin-dashboard',
@@ -1025,9 +1038,20 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                     messages.error(request, "Access denied. This page is for marketers only.")
                     return redirect('login')
             
+            # Support URL protection (AdminSupport dashboard)
+            if any(path.startswith(url) for url in self.SUPPORT_URLS):
+                if user_role not in self.SUPPORT_ROLES:
+                    _log_security_event(request, 'unauthorized_access', f"Non-support accessing support URL: {path}")
+                    log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
+                        'attempted_role': 'support',
+                        'actual_role': user_role
+                    })
+                    messages.error(request, "Access denied. This page is for support staff only.")
+                    return redirect('login')
+            
             # Admin URL protection
             if any(path.startswith(url) for url in self.ADMIN_URLS):
-                if user_role != 'admin':
+                if user_role not in self.ADMIN_ROLES:
                     _log_security_event(request, 'unauthorized_access', f"Non-admin accessing admin URL: {path}")
                     log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
                         'attempted_role': 'admin',
@@ -1037,12 +1061,13 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                     return redirect('login')
             
             # Tenant-scoped admin URL protection (/<company_slug>/dashboard/, etc.)
-            # IMPORTANT: Skip this check if URL already matched marketer/client/admin URLs
+            # IMPORTANT: Skip this check if URL already matched marketer/client/admin/support URLs
             # to avoid false positives on /m/dashboard/, /c/dashboard/, etc.
             is_known_role_url = (
                 any(path.startswith(url) for url in self.MARKETER_URLS) or
                 any(path.startswith(url) for url in self.CLIENT_URLS) or
-                any(path.startswith(url) for url in self.ADMIN_URLS)
+                any(path.startswith(url) for url in self.ADMIN_URLS) or
+                any(path.startswith(url) for url in self.SUPPORT_URLS)
             )
             
             if not is_known_role_url:
@@ -1050,7 +1075,7 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                 if len(path_parts) >= 2:
                     potential_page = '/' + path_parts[1] + '/'
                     if potential_page in self.TENANT_ADMIN_PATTERNS:
-                        if user_role != 'admin':
+                        if user_role not in self.ADMIN_ROLES:
                             _log_security_event(request, 'unauthorized_access', f"Non-admin accessing tenant admin URL: {path}")
                             log_security_event('PRIVILEGE_ESCALATION_ATTEMPT', request, {
                                 'attempted_role': 'tenant_admin',
