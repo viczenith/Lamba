@@ -228,66 +228,12 @@
   });
 </script>
 
-<!-- Chat Badge Real-time Polling Script -->
+<!-- Chat Badge Script - Disabled to prevent SSL errors -->
 <script>
   (function () {
-    if (window.__crSidebarChatBadgeInitialized) {
-      return;
-    }
-    window.__crSidebarChatBadgeInitialized = true;
-
-    const chatListPollUrl = '{% url "adminSupport:chat_list_partial" %}';
-
-    function setChatBadge(badgeEl, count) {
-      if (!badgeEl) return;
-      if (count > 0) {
-        badgeEl.textContent = String(count);
-        badgeEl.style.display = 'flex';
-        badgeEl.classList.add('pulse');
-      } else {
-        badgeEl.style.display = 'none';
-        badgeEl.classList.remove('pulse');
-        badgeEl.textContent = '';
-      }
-    }
-
-    async function refreshChatBadge(badgeEl) {
-      if (!badgeEl) return;
-      try {
-        const response = await fetch(chatListPollUrl, {
-          credentials: 'same-origin',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-        });
-        if (!response.ok) throw new Error('network');
-        const data = await response.json();
-        const totals = data?.totals || {};
-        const totalThreads = Number(totals.client_threads || 0) + Number(totals.marketer_threads || 0);
-        setChatBadge(badgeEl, totalThreads);
-      } catch (error) {
-        console.error('Unable to refresh chat badge:', error);
-      }
-    }
-
-    function initChatBadge() {
-      const badgeEl = document.getElementById('cr-chat-badge');
-      if (!badgeEl) return;
-
-      const initialCount = parseInt(badgeEl.dataset.initial || '0', 10);
-      if (!Number.isNaN(initialCount) && initialCount > 0) {
-        setChatBadge(badgeEl, initialCount);
-      }
-
-      refreshChatBadge(badgeEl);
-      setInterval(() => refreshChatBadge(badgeEl), 10000);
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initChatBadge);
-    } else {
-      initChatBadge();
-    }
+    // Chat badge polling disabled - will be re-enabled when chat API is properly configured
+    // This prevents SSL/fetch errors in the console
+    console.log('Chat badge polling is currently disabled');
   })();
 </script>
 

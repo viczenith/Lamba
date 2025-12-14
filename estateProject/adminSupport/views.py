@@ -101,15 +101,18 @@ def support_required(func=None):
 #     return render(request, 'customer_relation/support_dashboard.html',)
 
 @login_required
+@support_required
 def contentManagementPage(request):
     return render(request, 'adminSupport/content_management/management_content.html',)
 
 
 @login_required
+@support_required
 def manageContentPage(request):
     return render(request, 'adminSupport/content_management/manage_content_page.html',)
 
 @login_required
+@support_required
 def messages(request):
     return render(request, 'adminSupport/customer_relation/staff_dashboard.html',)
 
@@ -120,17 +123,20 @@ def staff_directory(request):
     return render(request, 'adminSupport/customer_relation/staff_dashboard.html')
 
 @login_required
+@support_required
 def newsletter(request):
     ctx = {'home_url': '/', 'home_url': '/'}
     return render(request, 'adminSupport/customer_relation/newsletter.html',ctx)
 
 
 @login_required
+@support_required
 def autobirthday(request):
     ctx = {'home_url': '/'}
     return render(request, 'adminSupport/customer_relation/auto_birthday_templates.html', ctx)
 
 @login_required
+@support_required
 def autoSpecialDay(request):
     ctx = {'home_url': '/'}
     return render(request, 'adminSupport/customer_relation/auto_special_day_template.html', ctx)
@@ -362,6 +368,8 @@ def _search_users_by_role(role, query):
 
 
 @require_GET
+@login_required
+@support_required
 def chat_search_clients(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -389,6 +397,8 @@ def chat_search_clients(request):
 
 
 @require_GET
+@login_required
+@support_required
 def chat_search_marketers(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -466,6 +476,8 @@ def _serialize_support_chat_row(row):
     return payload
 
 
+@login_required
+@support_required
 def chat_list_clients_api(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -476,6 +488,8 @@ def chat_list_clients_api(request):
     return JsonResponse(payload, safe=False)
 
 
+@login_required
+@support_required
 def chat_list_marketers_api(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -1550,6 +1564,8 @@ def _collect_support_birthdays(request, start, end, today):
 
 
 @require_http_methods(['GET'])
+@login_required
+@support_required
 def api_birthdays_summary(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -1583,6 +1599,8 @@ def api_birthdays_summary(request):
 
 
 @require_http_methods(['GET'])
+@login_required
+@support_required
 def api_birthdays_counts(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
@@ -1679,6 +1697,8 @@ def _collect_special_days_window(start_date, end_date):
 
 
 @require_http_methods(['GET'])
+@login_required
+@support_required
 def api_special_days_counts(request):
     support_user = _authenticate_support_request(request)
     if not support_user:
