@@ -831,6 +831,35 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/security-verification/', # Security verification checkpoint
     ]
     
+    # ========================================================================
+    # INJECTION WHITELIST - Safe fields that can contain special characters
+    # ========================================================================
+    # Fields where ampersand (&) and other special chars are legitimate business data
+    SAFE_TEXT_FIELDS = [
+        'name',              # Department names, role names (e.g., "Sales & Marketing")
+        'description',       # Descriptions often contain special characters
+        'address',           # Addresses can have special characters
+        'notes',             # Notes fields
+        'message',           # Message content
+        'subject',           # Message subjects
+        'full_name',         # Names with special characters
+        'company_name',      # Company names
+        'office_address',    # Office addresses
+        'location',          # Location fields
+        'bio',               # Biography fields
+        'comment',           # Comments
+        'feedback',          # Feedback fields
+    ]
+    
+    # Endpoints where command injection checking should be lenient
+    SAFE_ENDPOINTS = [
+        '/admin-support/api/departments/',
+        '/admin-support/api/roles/',
+        '/admin-support/api/staff/',
+        '/company-console/',
+        '/admin-dashboard/',
+    ]
+    
     # URLs that require EXACT match (not startswith) - Home page
     EXACT_AUTHENTICATED_URLS = [
         '/',                       # Home page (requires login) - EXACT match only
@@ -915,6 +944,13 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         # Check all input sources for injection attacks
         injection_sources = []
         
+        # Check if current endpoint is in safe endpoints list
+        is_safe_endpoint = any(path.startswith(safe_path) for safe_path in self.SAFE_ENDPOINTS)
+        
+        # Debug logging for safe endpoint detection
+        if is_safe_endpoint and request.method == 'POST':
+            logger.info(f"[SECURITY] Safe endpoint detected: {path} - Lenient command injection checking enabled")
+        
         # Check GET parameters
         for key, value in request.GET.items():
             is_sql, _ = _injection_protection.check_injection(value, 'sql')
@@ -923,9 +959,11 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             is_xss, _ = _injection_protection.check_injection(value, 'xss')
             if is_xss:
                 injection_sources.append(('XSS_ATTACK', 'GET', key))
-            is_cmd, _ = _injection_protection.check_injection(value, 'command')
-            if is_cmd:
-                injection_sources.append(('COMMAND_INJECTION', 'GET', key))
+            # Skip command injection check for safe fields in safe endpoints
+            if not (is_safe_endpoint and key in self.SAFE_TEXT_FIELDS):
+                is_cmd, _ = _injection_protection.check_injection(value, 'command')
+                if is_cmd:
+                    injection_sources.append(('COMMAND_INJECTION', 'GET', key))
         
         # Check POST parameters
         for key, value in request.POST.items():
@@ -936,9 +974,14 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                 is_xss, _ = _injection_protection.check_injection(value, 'xss')
                 if is_xss:
                     injection_sources.append(('XSS_ATTACK', 'POST', key))
-                is_cmd, _ = _injection_protection.check_injection(value, 'command')
-                if is_cmd:
-                    injection_sources.append(('COMMAND_INJECTION', 'POST', key))
+                # Skip command injection check for safe fields in safe endpoints
+                should_skip_cmd_check = is_safe_endpoint and key in self.SAFE_TEXT_FIELDS
+                if should_skip_cmd_check:
+                    logger.debug(f"[SECURITY] Skipping command injection check for field '{key}' on safe endpoint")
+                if not should_skip_cmd_check:
+                    is_cmd, _ = _injection_protection.check_injection(value, 'command')
+                    if is_cmd:
+                        injection_sources.append(('COMMAND_INJECTION', 'POST', key))
                 is_template, _ = _injection_protection.check_injection(value, 'template')
                 if is_template:
                     injection_sources.append(('TEMPLATE_INJECTION', 'POST', key))

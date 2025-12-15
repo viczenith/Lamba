@@ -27,6 +27,30 @@
         color: #1e293b;
         padding-top: 60px;
     }
+    
+    /* Custom modal z-index to appear above other modals */
+    #customAlertModal,
+    #customConfirmModal,
+    #customPromptModal {
+        z-index: 10000 !important;
+    }
+    
+    /* Custom backdrops for alert, confirm, and prompt modals */
+    #customAlertBackdrop,
+    #customConfirmBackdrop,
+    #customPromptBackdrop {
+        z-index: 9999 !important;
+        opacity: 0.5;
+    }
+    
+    /* Default modal backdrop (for department modal) */
+    .modal-backdrop:not(#customAlertBackdrop):not(#customConfirmBackdrop):not(#customPromptBackdrop) {
+        z-index: 1040 !important;
+    }
+    
+    .modal-backdrop.show {
+        opacity: 0.5;
+    }
 
     .main-wrapper {
         display: flex;
@@ -740,6 +764,85 @@
         font-style: italic;
     }
 
+    /* Staff Selection Styles */
+    .staff-select-item {
+        transition: all 0.2s ease;
+    }
+
+    .staff-select-item:hover {
+        background-color: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        transform: translateX(4px);
+    }
+
+    .staff-select-item.selected {
+        background-color: #e8f5e9 !important;
+        border-color: #4caf50 !important;
+    }
+
+    .staff-select-item.selected:hover {
+        background-color: #d4edda !important;
+        border-color: #28a745 !important;
+    }
+
+    .staff-select-item label {
+        cursor: pointer;
+        margin-bottom: 0;
+    }
+
+    .staff-select-item .form-check-input {
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+        margin-top: 0;
+    }
+
+    .staff-select-item .form-check-input:checked {
+        background-color: #4caf50;
+        border-color: #4caf50;
+    }
+
+    .selected-staff-badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: #e8f5e9;
+        border: 1px solid #4caf50;
+        border-radius: 20px;
+        padding: 6px 12px;
+        margin: 4px;
+        font-size: 14px;
+        color: #2e7d32;
+    }
+
+    .selected-staff-badge .remove-staff {
+        margin-left: 8px;
+        cursor: pointer;
+        color: #d32f2f;
+        transition: color 0.2s;
+    }
+
+    .selected-staff-badge .remove-staff:hover {
+        color: #b71c1c;
+    }
+
+    #staffSelectionContainer::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #staffSelectionContainer::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    #staffSelectionContainer::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 4px;
+    }
+
+    #staffSelectionContainer::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+
     @media (max-width: 768px) {
         .content-area {
             margin-left: 0;
@@ -823,6 +926,11 @@
             <button class="btn-custom btn-success-custom" data-bs-toggle="modal" data-bs-target="#importStaffModal">
                 <i class="fas fa-file-import"></i>
                 Import Staff
+            </button>
+            <button class="btn-custom btn-custom" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none;"
+                data-bs-toggle="modal" data-bs-target="#departmentRoleModal">
+                <i class="fas fa-sitemap me-2"></i>
+                Manage Departments & Roles
             </button>
             <button class="btn-custom btn-custom" style="background: var(--warning-color); color: white;"
                 data-bs-toggle="modal" data-bs-target="#composeStaffMessageModal">
@@ -970,6 +1078,19 @@
                 <input type="hidden" name="staff_id" id="staffIdField">
                 <div class="modal-body p-4">
                     <div id="addStaffAlert"></div>
+                    
+                    <!-- Warning Badge if no departments/roles -->
+                    <div id="noDeptRoleWarning" class="alert alert-warning alert-dismissible fade show mb-4" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle me-3" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <strong>⚠️ No Departments or Roles Found</strong>
+                                <p class="mb-0 small mt-1">Before adding staff, please create departments and roles. Click the <strong>"Manage Departments & Roles"</strong> button in the staff list header.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -981,70 +1102,20 @@
                                 </div>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label fw-semibold">Department *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                    <select class="form-select" id="staffDepartment" name="department_id" required>
+                                        <option value="">Select Department</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Role/Position *</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
-                                    <select class="form-select" id="staffRole" name="role" required>
-                                        <option value="">Select Role/Position</option>
-                                        <optgroup label="Executive & Management">
-                                            <option>Managing Director (MD)</option>
-                                            <option>Chief Executive Officer (CEO)</option>
-                                            <option>General Manager</option>
-                                            <option>Head of Operations</option>
-                                            <option>Head of Sales</option>
-                                            <option>Head of Marketing</option>
-                                            <option>Head of Legal</option>
-                                            <option>HR Manager</option>
-                                            <option>Finance Manager</option>
-                                            <option>Branch Manager</option>
-                                        </optgroup>
-                                        <optgroup label="Sales & Agency">
-                                            <option>Senior Real Estate Agent</option>
-                                            <option>Real Estate Agent</option>
-                                            <option>Sales Executive</option>
-                                            <option>Business Development Executive</option>
-                                            <option>Leasing Officer</option>
-                                            <option>Client Relationship Officer</option>
-                                        </optgroup>
-                                        <optgroup label="Marketing & Communications">
-                                            <option>Marketing Executive</option>
-                                            <option>Digital Marketing Specialist</option>
-                                            <option>Content Creator</option>
-                                            <option>Brand/PR Officer</option>
-                                        </optgroup>
-                                        <optgroup label="Operations & Admin">
-                                            <option>Operations Officer</option>
-                                            <option>Administrative Officer</option>
-                                            <option>Front Desk/Receptionist</option>
-                                            <option>Customer Support Officer</option>
-                                        </optgroup>
-                                        <optgroup label="Legal & Compliance">
-                                            <option>Legal Officer</option>
-                                            <option>Compliance Officer</option>
-                                            <option>Documentation Officer</option>
-                                        </optgroup>
-                                        <optgroup label="Finance & Accounts">
-                                            <option>Accountant</option>
-                                            <option>Finance Officer</option>
-                                            <option>Cashier</option>
-                                        </optgroup>
-                                        <optgroup label="Technical & Site">
-                                            <option>Estate Surveyor/Valuer</option>
-                                            <option>Site Supervisor</option>
-                                            <option>Facility Manager</option>
-                                            <option>Project Coordinator</option>
-                                            <option>Architect</option>
-                                            <option>Engineer</option>
-                                        </optgroup>
-                                        <optgroup label="IT & Support">
-                                            <option>IT Support</option>
-                                            <option>System Administrator</option>
-                                        </optgroup>
-                                        <optgroup label="Security & Field">
-                                            <option>Security</option>
-                                            <option>Field Officer</option>
-                                            <option>Driver</option>
-                                        </optgroup>
+                                    <select class="form-select" id="staffRole" name="role_id" required>
+                                        <option value="">Select a Department First</option>
                                     </select>
                                 </div>
                             </div>
@@ -1052,14 +1123,14 @@
                                 <label class="form-label fw-semibold">Employment Date *</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                                    <input type="date" class="form-control" name="employment_date" required>
+                                    <input type="date" class="form-control" id="staffEmploymentDate" name="employment_date" required>
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Address *</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
-                                    <textarea class="form-control" name="address" rows="3"
+                                    <textarea class="form-control" id="staffAddress" name="address" rows="3"
                                         placeholder="Enter full address" required></textarea>
                                 </div>
                             </div>
@@ -1085,7 +1156,7 @@
                                 <label class="form-label fw-semibold">WhatsApp Number</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fab fa-whatsapp"></i></span>
-                                    <input type="tel" class="form-control" name="whatsapp"
+                                    <input type="tel" class="form-control" id="staffWhatsapp" name="whatsapp"
                                         placeholder="+234-XXX-XXX-XXXX">
                                 </div>
                                 <div class="form-text">Optional - Leave blank if same as phone number</div>
@@ -1095,7 +1166,7 @@
                                 <label class="form-label fw-semibold">Date of Birth *</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-birthday-cake"></i></span>
-                                    <input type="date" class="form-control" name="date_of_birth" required>
+                                    <input type="date" class="form-control" id="staffDOB" name="date_of_birth" required>
                                 </div>
                                 <div class="form-text">Used for birthday reminders and staff analytics</div>
                             </div>
@@ -1104,7 +1175,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success" id="submitAddStaff">
+                    <button type="button" class="btn btn-success" id="submitAddStaff">
                         <i class="fas fa-user-plus me-2"></i>Add Staff Member
                     </button>
                 </div>
@@ -1120,25 +1191,88 @@
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-file-import"></i>
-                    Import Staff from CSV
+                    Import Staff
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div id="importStaffAlert"></div>
+                
+                <!-- Warning Badge if no departments/roles -->
+                <div id="noDeptRoleWarningImport" class="alert alert-warning alert-dismissible fade show mb-4" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle me-3" style="font-size: 1.5rem;"></i>
+                        <div>
+                            <strong>⚠️ No Departments or Roles Found</strong>
+                            <p class="mb-0 small mt-1">Before importing staff, please create departments and roles. Click the <strong>"Manage Departments & Roles"</strong> button in the staff list header.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                
+                <!-- Download Template Section -->
+                <div class="alert alert-info mb-4" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border: 2px dashed #0ea5e9; border-radius: 12px;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file-excel me-3" style="font-size: 2.5rem; color: #0ea5e9;"></i>
+                            <div>
+                                <h6 class="mb-1 fw-bold" style="color: #0369a1;">📥 Download Excel Template</h6>
+                                <p class="mb-0 small" style="color: #0c4a6e;">Get the correct format with sample data and instructions</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="downloadTemplateBtn" style="min-width: 140px; font-weight: 600; box-shadow: 0 4px 6px rgba(3, 105, 161, 0.3);">
+                            <i class="fas fa-download me-2"></i>Download Template
+                        </button>
+                    </div>
+                </div>
+                
                 <form id="importStaffForm">
                     {% csrf_token %}
+                    
+                    <!-- Drag and Drop Zone -->
                     <div class="form-group">
-                        <label class="form-label">Upload CSV File *</label>
-                        <input type="file" class="form-control-custom" id="staffFile" name="file" accept=".csv"
-                            required>
-                        <small class="text-muted">File should include: Name, Email, Phone, Role, Department</small>
+                        <label class="form-label fw-semibold">Upload Staff File *</label>
+                        <div id="dropZone" class="border-2 border-dashed rounded p-4 text-center" style="border-color: #cbd5e1; background: #f8fafc; cursor: pointer; transition: all 0.3s ease;">
+                            <div id="dropZoneContent">
+                                <i class="fas fa-cloud-upload-alt mb-3" style="font-size: 3rem; color: #94a3b8;"></i>
+                                <h6 class="mb-2" style="color: #475569;">Drag & Drop your file here</h6>
+                                <p class="text-muted small mb-2">or click to browse</p>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-file-excel text-success me-1"></i> Excel (.xlsx, .xls) or 
+                                    <i class="fas fa-file-csv text-primary me-1"></i> CSV (.csv)
+                                </p>
+                            </div>
+                            <input type="file" class="d-none" id="staffFile" name="file" accept=".csv,.xlsx,.xls">
+                        </div>
+                        <div id="fileInfo" class="mt-3 p-3 rounded" style="background: #f1f5f9; display: none;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file-alt me-2" style="color: #64748b;"></i>
+                                    <span id="fileName" class="fw-semibold" style="color: #334155;"></span>
+                                    <span id="fileSize" class="ms-2 text-muted small"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="removeFileBtn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="alert-custom alert-success">
-                        <i class="fas fa-info-circle"></i>
+                    
+                    <div class="alert-custom alert-success mt-3">
+                        <i class="fas fa-lightbulb"></i>
                         <div>
-                            <strong>CSV Format:</strong> Ensure your CSV has columns: name, email, phone, role,
-                            department
+                            <strong>📋 Required Columns:</strong>
+                            <ul class="mb-0 mt-2 small">
+                                <li><strong>full_name</strong> - Employee's full name</li>
+                                <li><strong>email</strong> - Valid email address</li>
+                                <li><strong>phone</strong> - Contact phone number</li>
+                                <li><strong>department_name</strong> - Must match existing department</li>
+                                <li><strong>role_name</strong> - Must match existing role in that department</li>
+                                <li><strong>address</strong> - Physical address (optional)</li>
+                                <li><strong>employment_date</strong> - Format: YYYY-MM-DD (optional)</li>
+                                <li><strong>date_of_birth</strong> - Format: YYYY-MM-DD (optional)</li>
+                                <li><strong>whatsapp</strong> - WhatsApp number (optional)</li>
+                            </ul>
                         </div>
                     </div>
                 </form>
@@ -1147,7 +1281,7 @@
                 <button type="button" class="btn-custom btn-outline-custom" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn-custom btn-success-custom" id="submitImportStaff">
                     <i class="fas fa-upload"></i>
-                    Import
+                    Import Staff
                 </button>
             </div>
         </div>
@@ -1211,24 +1345,18 @@
                         <input type="tel" class="form-control-custom" id="editStaffPhone" name="phone">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Role *</label>
-                        <select class="form-control-custom" id="editStaffRole" name="role" required>
-                            <option value="Manager">Manager</option>
-                            <option value="Agent">Agent</option>
-                            <option value="Marketer">Marketer</option>
-                            <option value="Support">Support</option>
-                            <option value="Admin">Admin</option>
+                        <label class="form-label">Department *</label>
+                        <select class="form-control-custom" id="editStaffDepartment" name="department_id" required>
+                            <option value="">Select Department</option>
                         </select>
+                        <small class="text-muted">Select the department this staff member belongs to</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Department *</label>
-                        <select class="form-control-custom" id="editStaffDepartment" name="department" required>
-                            <option value="Sales">Sales</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="Operations">Operations</option>
-                            <option value="Finance">Finance</option>
-                            <option value="HR">HR</option>
+                        <label class="form-label">Role/Position *</label>
+                        <select class="form-control-custom" id="editStaffRole" name="role_id" required>
+                            <option value="">Select Role</option>
                         </select>
+                        <small class="text-muted">Role will be filtered based on selected department</small>
                     </div>
                 </form>
             </div>
@@ -1296,61 +1424,6 @@
         </div>
     </div>
 </div>
-
-<!-- Auto Message Template Modal -->
-<!-- <div class="modal fade" id="messageBulkStaffModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
-                <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border-radius: 1rem 1rem 0 0;">
-                    <h5 class="modal-title d-flex align-items-center">
-                        <i class="fas fa-envelope me-3" style="font-size: 1.5rem;"></i>
-                        Create Auto Message Template
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="messageBulkStaffAlert"></div>
-                    <form id="messageBulkStaffForm">
-                        {% csrf_token %}
-                        <div class="form-group">
-                            <label class="form-label">Recipients *</label>
-                            <select class="form-control-custom" id="bulkRecipients" name="recipients" multiple size="5" required>
-                                <option value="all">All Active Staff</option>
-                                <option value="managers">All Managers</option>
-                                <option value="agents">All Agents</option>
-                                <option value="marketers">All Marketers</option>
-                                <option value="support">All Support Staff</option>
-                            </select>
-                            <small class="text-muted">Hold Ctrl (Cmd on Mac) to select multiple groups</small>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Subject *</label>
-                            <input type="text" class="form-control-custom" id="bulkMessageSubject" name="subject" placeholder="Enter message subject" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Message *</label>
-                            <textarea class="form-control-custom" id="bulkMessageContent" name="message" rows="6" placeholder="Type your message here..." required style="resize: vertical;"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Priority</label>
-                            <select class="form-control-custom" id="bulkMessagePriority" name="priority">
-                                <option value="normal">Normal</option>
-                                <option value="high">High Priority</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-custom btn-outline-custom" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn-custom btn-primary-custom" id="submitBulkMessageStaff">
-                        <i class="fas fa-paper-plane"></i>
-                        Send to All Selected
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div> -->
 
 <!-- Auto Message Template Modal -->
 <div class="modal fade" id="composeStaffMessageModal">
@@ -1559,6 +1632,246 @@
     </div>
 </div>
 
+<!-- Custom Alert Modal -->
+<div class="modal fade" id="customAlertModal" tabindex="-1" style="z-index: 10000;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+            <div class="modal-body p-0">
+                <div id="customAlertHeader" class="text-center py-4 px-4" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    <div id="customAlertIcon" class="mb-3">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; color: white;"></i>
+                    </div>
+                </div>
+                <div class="p-4 text-center">
+                    <h5 id="customAlertTitle" class="mb-3 fw-bold">Notification</h5>
+                    <p id="customAlertMessage" class="text-muted mb-4" style="line-height: 1.6;"></p>
+                    <button type="button" class="btn btn-primary px-4" id="customAlertOkBtn" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-2"></i>OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Confirm Modal -->
+<div class="modal fade" id="customConfirmModal" tabindex="-1" style="z-index: 10000;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+            <div class="modal-body p-0">
+                <div id="customConfirmHeader" class="text-center py-4 px-4" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <div id="customConfirmIcon" class="mb-3">
+                        <i class="fas fa-question-circle" style="font-size: 3rem; color: white;"></i>
+                    </div>
+                </div>
+                <div class="p-4 text-center">
+                    <h5 id="customConfirmTitle" class="mb-3 fw-bold">Confirm Action</h5>
+                    <p id="customConfirmMessage" class="text-muted mb-4" style="line-height: 1.6;"></p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" class="btn btn-secondary px-4" id="customConfirmCancelBtn" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-warning px-4" id="customConfirmOkBtn">
+                            <i class="fas fa-check me-2"></i>Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Prompt Modal -->
+<div class="modal fade" id="customPromptModal" tabindex="-1" data-bs-backdrop="static" style="z-index: 9999;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+            <div class="modal-body p-0">
+                <div id="customPromptHeader" class="text-center py-4 px-4" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    <div class="mb-3">
+                        <i class="fas fa-edit" style="font-size: 3rem; color: white;"></i>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <h5 id="customPromptTitle" class="mb-3 fw-bold text-center">Input Required</h5>
+                    <p id="customPromptMessage" class="text-muted mb-3 text-center" style="line-height: 1.6;"></p>
+                    <input type="text" class="form-control mb-4" id="customPromptInput" placeholder="Enter value...">
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" class="btn btn-secondary px-4" id="customPromptCancelBtn" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary px-4" id="customPromptOkBtn">
+                            <i class="fas fa-check me-2"></i>OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Department & Role Management Modal -->
+<div class="modal fade" id="departmentRoleModal">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border-radius: 1rem 1rem 0 0;">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="fas fa-sitemap me-3" style="font-size: 1.5rem;"></i>
+                    Manage Departments & Roles
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="departmentRoleAlert"></div>
+
+                <ul class="nav nav-tabs mb-4" id="deptRoleTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="departments-tab" data-bs-toggle="tab"
+                            data-bs-target="#departments-content" type="button" role="tab" aria-selected="true">
+                            <i class="fas fa-building me-2"></i>Departments
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles-content"
+                            type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-user-tag me-2"></i>Roles & Positions
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="deptRoleTabContent">
+                    <!-- Departments Tab -->
+                    <div class="tab-pane fade show active" id="departments-content" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <h6 class="fw-semibold mb-3">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>Add New Department
+                                </h6>
+                                <form id="addDepartmentForm">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Department Name *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                            <input type="text" class="form-control" id="departmentName"
+                                                placeholder="e.g., Sales, Marketing, Operations" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Description</label>
+                                        <textarea class="form-control" id="departmentDesc" rows="3"
+                                            placeholder="Optional: Describe this department's responsibilities"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100" id="addDepartmentBtn">
+                                        <span class="btn-text">
+                                            <i class="fas fa-plus me-2"></i>Add Department
+                                        </span>
+                                        <span class="btn-spinner d-none">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>Adding...
+                                        </span>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div class="col-md-7">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-semibold mb-0">
+                                        <i class="fas fa-list me-2" style="color: #8b5cf6;"></i>Existing Departments
+                                    </h6>
+                                    <span class="badge bg-secondary" id="modalDepartmentsCount">0</span>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="departmentSearchBox" 
+                                            placeholder="Search departments..." autocomplete="off">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearDeptSearch" style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="departmentsList" style="min-height: 350px;">
+                                    <div class="text-center py-5 text-muted">
+                                        <div class="spinner-border spinner-border-sm mb-2" role="status"></div>
+                                        <p class="mb-0">Loading departments...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roles Tab -->
+                    <div class="tab-pane fade" id="roles-content" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <h6 class="fw-semibold mb-3">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>Add New Role
+                                </h6>
+                                <form id="addRoleForm">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Role/Position Name *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                                            <input type="text" class="form-control" id="roleName"
+                                                placeholder="e.g., Senior Manager, Junior Agent" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Assign to Department *</label>
+                                        <select class="form-select" id="roleDepGroup" required>
+                                            <option value="">Select Department</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Description</label>
+                                        <textarea class="form-control" id="roleDesc" rows="3"
+                                            placeholder="Optional: Job description and responsibilities"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100" id="addRoleBtn">
+                                        <span class="btn-text">
+                                            <i class="fas fa-plus me-2"></i>Add Role
+                                        </span>
+                                        <span class="btn-spinner d-none">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>Adding...
+                                        </span>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div class="col-md-7">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-semibold mb-0">
+                                        <i class="fas fa-list me-2" style="color: #3b82f6;"></i>Existing Roles & Positions
+                                    </h6>
+                                    <span class="badge bg-secondary" id="modalRolesCount">0</span>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="roleSearchBox" 
+                                            placeholder="Search roles/positions..." autocomplete="off">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearRoleSearch" style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="rolesList" style="min-height: 350px;">
+                                    <div class="text-center py-5 text-muted">
+                                        <div class="spinner-border spinner-border-sm mb-2" role="status"></div>
+                                        <p class="mb-0">Loading roles...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -1575,13 +1888,286 @@
     let formerTotalPages = 1;
     let allFormerStaff = [];
 
+    // Department and Role management
+    let allDepartmentsForStaff = [];
+    let allRolesForStaff = [];
+    let rolesGroupedByDept = {};
+
     // Initialize on page load
     $(document).ready(function () {
         loadStaffStats();
         loadStaffDirectory();
         loadFormerStaff();
+        loadDepartmentsAndRolesForStaff();
         setupEventListeners();
+        
+        // Initialize department & role modal handler
+        $('#departmentRoleModal').on('shown.bs.modal', function () {
+            loadDepartments();
+            loadRoles();
+            populateDepartmentSelect();
+        });
+        
+        // Initialize modal handlers after page loads
+        setTimeout(() => {
+            setupComposeStaffMessageModal();
+            setupAddStaffModal();
+        }, 100);
     });
+
+    // ============================================================================
+    // CUSTOM ALERT & CONFIRM FUNCTIONS
+    // ============================================================================
+    
+    // Custom alert function
+    function showCustomAlert(message, type = 'info', title = '') {
+        const modal = new bootstrap.Modal(document.getElementById('customAlertModal'), {
+            backdrop: false,
+            keyboard: false
+        });
+        const header = document.getElementById('customAlertHeader');
+        const icon = document.getElementById('customAlertIcon').querySelector('i');
+        const titleEl = document.getElementById('customAlertTitle');
+        const messageEl = document.getElementById('customAlertMessage');
+        const okBtn = document.getElementById('customAlertOkBtn');
+        
+        // Set default title based on type if not provided
+        if (!title) {
+            title = type === 'success' ? 'Success' : 
+                    type === 'error' ? 'Error' : 
+                    type === 'warning' ? 'Warning' : 'Notification';
+        }
+        
+        // Configure based on type
+        const configs = {
+            success: {
+                gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                icon: 'fa-check-circle',
+                btnClass: 'btn-success'
+            },
+            error: {
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                icon: 'fa-exclamation-circle',
+                btnClass: 'btn-danger'
+            },
+            warning: {
+                gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                icon: 'fa-exclamation-triangle',
+                btnClass: 'btn-warning'
+            },
+            info: {
+                gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                icon: 'fa-info-circle',
+                btnClass: 'btn-primary'
+            }
+        };
+        
+        const config = configs[type] || configs.info;
+        
+        // Apply styles
+        header.style.background = config.gradient;
+        icon.className = `fas ${config.icon}`;
+        okBtn.className = `btn ${config.btnClass} px-4`;
+        
+        // Set content
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        
+        // Create custom backdrop manually
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade';
+        backdrop.id = 'customAlertBackdrop';
+        document.body.appendChild(backdrop);
+        // Trigger fade-in animation
+        setTimeout(() => backdrop.classList.add('show'), 10);
+        
+        // Show modal
+        modal.show();
+        
+        // Remove backdrop when modal is hidden
+        const modalEl = document.getElementById('customAlertModal');
+        modalEl.addEventListener('hidden.bs.modal', function removeBackdrop() {
+            const bd = document.getElementById('customAlertBackdrop');
+            if (bd) bd.remove();
+            modalEl.removeEventListener('hidden.bs.modal', removeBackdrop);
+        }, { once: true });
+    }
+    
+    // Custom confirm function
+    function showCustomConfirm(message, onConfirm, options = {}) {
+        const modal = new bootstrap.Modal(document.getElementById('customConfirmModal'), {
+            backdrop: false,
+            keyboard: false
+        });
+        const header = document.getElementById('customConfirmHeader');
+        const icon = document.getElementById('customConfirmIcon').querySelector('i');
+        const titleEl = document.getElementById('customConfirmTitle');
+        const messageEl = document.getElementById('customConfirmMessage');
+        const okBtn = document.getElementById('customConfirmOkBtn');
+        const cancelBtn = document.getElementById('customConfirmCancelBtn');
+        
+        // Set title
+        titleEl.textContent = options.title || 'Confirm Action';
+        messageEl.textContent = message;
+        
+        // Configure based on type
+        const type = options.type || 'warning';
+        const configs = {
+            warning: {
+                gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                icon: 'fa-question-circle',
+                btnClass: 'btn-warning'
+            },
+            danger: {
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                icon: 'fa-exclamation-triangle',
+                btnClass: 'btn-danger'
+            },
+            info: {
+                gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                icon: 'fa-info-circle',
+                btnClass: 'btn-primary'
+            }
+        };
+        
+        const config = configs[type] || configs.warning;
+        
+        // Apply styles
+        header.style.background = config.gradient;
+        icon.className = `fas ${config.icon}`;
+        okBtn.className = `btn ${config.btnClass} px-4`;
+        
+        // Set button text
+        okBtn.innerHTML = `<i class="fas fa-check me-2"></i>${options.confirmText || 'Confirm'}`;
+        cancelBtn.innerHTML = `<i class="fas fa-times me-2"></i>${options.cancelText || 'Cancel'}`;
+        
+        // Remove old event listeners
+        const newOkBtn = okBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        
+        // Add new event listeners
+        newOkBtn.addEventListener('click', () => {
+            modal.hide();
+            if (onConfirm) onConfirm(true);
+        });
+        
+        newCancelBtn.addEventListener('click', () => {
+            modal.hide();
+            if (onConfirm) onConfirm(false);
+        });
+        
+        // Create custom backdrop manually
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade';
+        backdrop.id = 'customConfirmBackdrop';
+        document.body.appendChild(backdrop);
+        // Trigger fade-in animation
+        setTimeout(() => backdrop.classList.add('show'), 10);
+        
+        // Show modal
+        modal.show();
+        
+        // Remove backdrop when modal is hidden
+        const modalEl = document.getElementById('customConfirmModal');
+        modalEl.addEventListener('hidden.bs.modal', function removeBackdrop() {
+            const bd = document.getElementById('customConfirmBackdrop');
+            if (bd) bd.remove();
+            modalEl.removeEventListener('hidden.bs.modal', removeBackdrop);
+        }, { once: true });
+    }
+    
+    // Custom prompt function
+    function showCustomPrompt(message, defaultValue = '', onSubmit, options = {}) {
+        const modal = new bootstrap.Modal(document.getElementById('customPromptModal'), {
+            backdrop: false,
+            keyboard: false
+        });
+        const titleEl = document.getElementById('customPromptTitle');
+        const messageEl = document.getElementById('customPromptMessage');
+        const inputEl = document.getElementById('customPromptInput');
+        const okBtn = document.getElementById('customPromptOkBtn');
+        const cancelBtn = document.getElementById('customPromptCancelBtn');
+        
+        // Set content
+        titleEl.textContent = options.title || 'Input Required';
+        messageEl.textContent = message;
+        inputEl.value = defaultValue;
+        inputEl.placeholder = options.placeholder || 'Enter value...';
+        
+        // Focus input after modal shows
+        document.getElementById('customPromptModal').addEventListener('shown.bs.modal', function () {
+            inputEl.focus();
+            inputEl.select();
+        }, { once: true });
+        
+        // Remove old event listeners
+        const newOkBtn = okBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        
+        // Add new event listeners
+        newOkBtn.addEventListener('click', () => {
+            const value = inputEl.value;
+            modal.hide();
+            // Wait for modal to hide before calling callback
+            setTimeout(() => {
+                if (onSubmit) onSubmit(value);
+            }, 150);
+        });
+        
+        newCancelBtn.addEventListener('click', () => {
+            modal.hide();
+            // Wait for modal to hide before calling callback
+            setTimeout(() => {
+                if (onSubmit) onSubmit(null);
+            }, 150);
+        });
+        
+        // Handle Enter key
+        const enterKeyHandler = function(e) {
+            if (e.key === 'Enter') {
+                const value = inputEl.value;
+                modal.hide();
+                // Wait for modal to hide before calling callback
+                setTimeout(() => {
+                    if (onSubmit) onSubmit(value);
+                }, 150);
+                // Remove this specific listener
+                inputEl.removeEventListener('keypress', enterKeyHandler);
+            }
+        };
+        inputEl.addEventListener('keypress', enterKeyHandler);
+        
+        // Create custom backdrop manually with unique ID
+        const backdropId = 'customPromptBackdrop_' + Date.now();
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade';
+        backdrop.id = backdropId;
+        document.body.appendChild(backdrop);
+        // Trigger fade-in animation
+        setTimeout(() => backdrop.classList.add('show'), 10);
+        
+        // Show modal
+        modal.show();
+        
+        // Remove backdrop when modal is hidden
+        const modalEl = document.getElementById('customPromptModal');
+        const removeBackdrop = function() {
+            const bd = document.getElementById(backdropId);
+            if (bd) bd.remove();
+            modalEl.removeEventListener('hidden.bs.modal', removeBackdrop);
+        };
+        modalEl.addEventListener('hidden.bs.modal', removeBackdrop, { once: true });
+        
+        // Auto-focus input after modal is shown
+        modalEl.addEventListener('shown.bs.modal', function focusInput() {
+            inputEl.focus();
+            inputEl.select();
+        }, { once: true });
+    }
 
     // Load staff statistics
     function loadStaffStats() {
@@ -1608,13 +2194,10 @@
             url: '{% url "adminSupport:api_staff_list" %}',
             method: 'GET',
             success: function (response) {
-                if (response.success) {
-                    allStaff = response.data || [];
-                    filteredStaff = [...allStaff];
-                    renderStaffTable();
-                } else {
-                    showEmptyState('activeStaffTableBody', 'No staff members found');
-                }
+                allStaff = response.results || [];
+                filteredStaff = [...allStaff];
+                populateFilterDropdowns();
+                renderStaffTable();
             },
             error: function () {
                 showEmptyState('activeStaffTableBody', 'Failed to load staff data');
@@ -1628,12 +2211,8 @@
             url: '{% url "adminSupport:api_staff_former" %}',
             method: 'GET',
             success: function (response) {
-                if (response.success) {
-                    allFormerStaff = response.data || [];
-                    renderFormerStaffTable();
-                } else {
-                    showEmptyState('formerStaffTableBody', 'No former staff members');
-                }
+                allFormerStaff = response.results || [];
+                renderFormerStaffTable();
             },
             error: function () {
                 showEmptyState('formerStaffTableBody', 'Failed to load former staff data');
@@ -1669,9 +2248,9 @@
                             </div>
                         </td>
                         <td>
-                            <span class="badge-custom badge-role">${staff.role || 'N/A'}</span>
+                            <span class="badge-custom badge-role">${staff.role_name || staff.role || 'N/A'}</span>
                         </td>
-                        <td>${staff.department || 'N/A'}</td>
+                        <td>${staff.department_name || staff.department || 'N/A'}</td>
                         <td>${staff.phone || 'N/A'}</td>
                         <td>
                             <span class="badge-custom badge-active">
@@ -1728,9 +2307,9 @@
                             </div>
                         </td>
                         <td>
-                            <span class="badge-custom badge-role">${staff.role || 'N/A'}</span>
+                            <span class="badge-custom badge-role">${staff.role_name || staff.role || 'N/A'}</span>
                         </td>
-                        <td>${staff.department || 'N/A'}</td>
+                        <td>${staff.department_name || staff.department || 'N/A'}</td>
                         <td>${staff.removed_date || 'N/A'}</td>
                         <td>
                             <button class="action-btn reactivate" onclick="reactivateStaff(${staff.id})" title="Reactivate">
@@ -1888,7 +2467,13 @@
         });
 
         // Add staff form submission
-        $('#submitAddStaff').on('click', function () {
+        $('#addStaffForm').on('submit', function (e) {
+            e.preventDefault();
+            handleAddStaff();
+        });
+        
+        $('#submitAddStaff').on('click', function (e) {
+            e.preventDefault();
             handleAddStaff();
         });
 
@@ -1896,6 +2481,14 @@
         $('#submitImportStaff').on('click', function () {
             handleImportStaff();
         });
+        
+        // Download template button
+        $('#downloadTemplateBtn').on('click', function () {
+            downloadTemplate();
+        });
+        
+        // Setup drag and drop
+        setupDragAndDrop();
 
         // Confirm remove staff
         $('#confirmRemoveStaff').on('click', function () {
@@ -1920,6 +2513,175 @@
         });
     }
 
+    // ============================================================================
+    // DEPARTMENT & ROLE LOADING FOR ADD STAFF MODAL
+    // ============================================================================
+
+    // Load departments and roles for staff modal
+    function loadDepartmentsAndRolesForStaff() {
+        $.ajax({
+            url: '{% url "adminSupport:api_departments_list" %}',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    allDepartmentsForStaff = response.departments || [];
+                    populateDepartmentDropdown();
+                }
+            }
+        });
+
+        $.ajax({
+            url: '{% url "adminSupport:api_roles_list" %}',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    allRolesForStaff = response.roles || [];
+                    groupRolesByDepartment();
+                }
+            }
+        });
+    }
+
+    // Populate department dropdown in Add Staff Modal
+    function populateDepartmentDropdown() {
+        const deptSelect = $('#staffDepartment');
+        deptSelect.html('<option value="">Select Department</option>');
+
+        if (allDepartmentsForStaff.length === 0) {
+            $('#noDeptRoleWarning').show();
+            // Disable all form fields in Add Staff Modal
+            $('#staffName, #staffEmail, #staffPhone, #staffWhatsapp, #staffAddress, #staffEmploymentDate, #staffDOB, #staffDepartment, #staffRole').prop('disabled', true);
+            // Disable submit button
+            $('#submitAddStaff').prop('disabled', true);
+        } else {
+            $('#noDeptRoleWarning').hide();
+            // Enable all form fields
+            $('#staffName, #staffEmail, #staffPhone, #staffWhatsapp, #staffAddress, #staffEmploymentDate, #staffDOB, #staffDepartment').prop('disabled', false);
+            // Enable submit button
+            $('#submitAddStaff').prop('disabled', false);
+            allDepartmentsForStaff.forEach(dept => {
+                deptSelect.append(`<option value="${dept.id}">${dept.name}</option>`);
+            });
+        }
+    }
+
+    // Group roles by department
+    function groupRolesByDepartment() {
+        rolesGroupedByDept = {};
+        allRolesForStaff.forEach(role => {
+            if (!rolesGroupedByDept[role.department_id]) {
+                rolesGroupedByDept[role.department_id] = [];
+            }
+            rolesGroupedByDept[role.department_id].push(role);
+        });
+    }
+
+    // Update role dropdown when department is selected
+    function updateRolesDropdown() {
+        const deptId = $('#staffDepartment').val();
+        const roleSelect = $('#staffRole');
+
+        roleSelect.html('<option value="">Select Role/Position</option>');
+
+        if (!deptId) {
+            roleSelect.html('<option value="">Select a Department First</option>');
+            roleSelect.prop('disabled', true);
+            return;
+        }
+
+        const roles = rolesGroupedByDept[deptId] || [];
+
+        if (roles.length === 0) {
+            roleSelect.html('<option value="">No roles available for this department</option>');
+            roleSelect.prop('disabled', true);
+        } else {
+            roleSelect.prop('disabled', false);
+            roles.forEach(role => {
+                roleSelect.append(`<option value="${role.id}">${role.name}</option>`);
+            });
+        }
+    }
+
+    // Setup Add Staff Modal handlers
+    function setupAddStaffModal() {
+        // Department change event
+        $('#staffDepartment').on('change', function () {
+            updateRolesDropdown();
+        });
+
+        // Modal show event - Add Staff
+        $('#addStaffModal').on('shown.bs.modal', function () {
+            populateDepartmentDropdown();
+            updateRolesDropdown();
+        });
+        
+        // Modal show event - Import Staff
+        $('#importStaffModal').on('shown.bs.modal', function () {
+            checkDepartmentsForImport();
+        });
+    }
+    
+    // Check if departments exist when opening Import modal
+    function checkDepartmentsForImport() {
+        if (allDepartmentsForStaff.length === 0) {
+            $('#noDeptRoleWarningImport').show();
+            $('#staffFile').prop('disabled', true);
+            $('#submitImportStaff').prop('disabled', true);
+        } else {
+            $('#noDeptRoleWarningImport').hide();
+            $('#staffFile').prop('disabled', false);
+            $('#submitImportStaff').prop('disabled', false);
+        }
+    }
+
+    // Populate filter dropdowns dynamically
+    function populateFilterDropdowns() {
+        // Get unique departments and roles from loaded staff
+        const departments = new Map();
+        const roles = new Map();
+        
+        if (allStaff && allStaff.length > 0) {
+            allStaff.forEach(staff => {
+                if (staff.department_id && staff.department_name) {
+                    departments.set(staff.department_id, staff.department_name);
+                }
+                if (staff.role_id && staff.role_name) {
+                    roles.set(staff.role_id, staff.role_name);
+                }
+            });
+        }
+        
+        // Populate department filter
+        const deptFilter = $('#departmentFilter');
+        const currentDeptValue = deptFilter.val();
+        let deptHtml = '<option value="">All Departments</option>';
+        
+        if (departments.size > 0) {
+            Array.from(departments.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
+                deptHtml += `<option value="${id}">${name}</option>`;
+            });
+        }
+        deptFilter.html(deptHtml);
+        if (currentDeptValue && departments.has(currentDeptValue)) {
+            deptFilter.val(currentDeptValue);
+        }
+        
+        // Populate role filter
+        const roleFilter = $('#roleFilter');
+        const currentRoleValue = roleFilter.val();
+        let roleHtml = '<option value="">All Roles</option>';
+        
+        if (roles.size > 0) {
+            Array.from(roles.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
+                roleHtml += `<option value="${id}">${name}</option>`;
+            });
+        }
+        roleFilter.html(roleHtml);
+        if (currentRoleValue && roles.has(currentRoleValue)) {
+            roleFilter.val(currentRoleValue);
+        }
+    }
+
     // Apply filters
     function applyFilters() {
         const searchTerm = $('#searchInput').val().toLowerCase();
@@ -1930,10 +2692,11 @@
             const matchesSearch = !searchTerm ||
                 (staff.name && staff.name.toLowerCase().includes(searchTerm)) ||
                 (staff.email && staff.email.toLowerCase().includes(searchTerm)) ||
-                (staff.department && staff.department.toLowerCase().includes(searchTerm));
+                (staff.department_name && staff.department_name.toLowerCase().includes(searchTerm)) ||
+                (staff.role_name && staff.role_name.toLowerCase().includes(searchTerm));
 
-            const matchesRole = !roleFilter || staff.role === roleFilter;
-            const matchesDepartment = !departmentFilter || staff.department === departmentFilter;
+            const matchesRole = !roleFilter || staff.role_id === roleFilter;
+            const matchesDepartment = !departmentFilter || staff.department_id === departmentFilter;
 
             return matchesSearch && matchesRole && matchesDepartment;
         });
@@ -1945,14 +2708,21 @@
     // Handle add staff
     function handleAddStaff() {
         const formData = {
-            name: $('#staffName').val(),
-            email: $('#staffEmail').val(),
-            phone: $('#staffPhone').val(),
-            role: $('#staffRole').val(),
-            department: $('#staffDepartment').val()
+            full_name: $('#staffName').val() || '',
+            email: $('#staffEmail').val() || '',
+            phone: $('#staffPhone').val() || '',
+            whatsapp: $('#staffWhatsapp').val() || '',
+            address: $('#staffAddress').val() || '',
+            employment_date: $('#staffEmploymentDate').val() || '',
+            date_of_birth: $('#staffDOB').val() || '',
+            department_id: $('#staffDepartment').val() || '',
+            role_id: $('#staffRole').val() || ''
         };
 
-        if (!formData.name || !formData.email || !formData.role || !formData.department) {
+        // Validate all required fields
+        if (!formData.full_name || !formData.email || !formData.phone || 
+            !formData.address || !formData.employment_date || !formData.date_of_birth ||
+            !formData.department_id || !formData.role_id) {
             showAlert('addStaffAlert', 'error', 'Please fill in all required fields');
             return;
         }
@@ -1963,25 +2733,32 @@
         $.ajax({
             url: '{% url "adminSupport:api_staff_create" %}',
             method: 'POST',
-            data: formData,
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
             headers: {
                 'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
             },
             success: function (response) {
-                if (response.success) {
+                if (response.ok) {
                     showAlert('addStaffAlert', 'success', 'Staff member added successfully!');
                     $('#addStaffForm')[0].reset();
                     setTimeout(() => {
                         $('#addStaffModal').modal('hide');
+                        // Remove any lingering backdrops
+                        $('.modal-backdrop').remove();
+                        $('body').removeClass('modal-open');
+                        $('body').css('overflow', '');
+                        $('body').css('padding-right', '');
                         loadStaffStats();
                         loadStaffDirectory();
                     }, 1500);
                 } else {
-                    showAlert('addStaffAlert', 'error', response.message || 'Failed to add staff member');
+                    showAlert('addStaffAlert', 'error', response.error || 'Failed to add staff member');
                 }
             },
-            error: function () {
-                showAlert('addStaffAlert', 'error', 'An error occurred. Please try again.');
+            error: function (xhr) {
+                const errorMsg = xhr.responseJSON?.error || 'An error occurred. Please try again.';
+                showAlert('addStaffAlert', 'error', errorMsg);
             },
             complete: function () {
                 btn.html('<i class="fas fa-check"></i> Add Staff').prop('disabled', false);
@@ -1989,11 +2766,109 @@
         });
     }
 
+    // Setup drag and drop for file upload
+    function setupDragAndDrop() {
+        const dropZone = $('#dropZone');
+        const fileInput = $('#staffFile');
+        const fileInfo = $('#fileInfo');
+        const fileName = $('#fileName');
+        const fileSize = $('#fileSize');
+        
+        // Click to browse
+        dropZone.on('click', function(e) {
+            if (!$(e.target).closest('#removeFileBtn').length) {
+                fileInput.click();
+            }
+        });
+        
+        // File input change
+        fileInput.on('change', function() {
+            const file = this.files[0];
+            if (file) {
+                displayFileInfo(file);
+            }
+        });
+        
+        // Remove file button
+        $('#removeFileBtn').on('click', function(e) {
+            e.stopPropagation();
+            fileInput.val('');
+            fileInfo.hide();
+            $('#dropZoneContent').show();
+        });
+        
+        // Drag events
+        dropZone.on('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).css({
+                'border-color': '#3b82f6',
+                'background': '#eff6ff'
+            });
+        });
+        
+        dropZone.on('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).css({
+                'border-color': '#cbd5e1',
+                'background': '#f8fafc'
+            });
+        });
+        
+        dropZone.on('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).css({
+                'border-color': '#cbd5e1',
+                'background': '#f8fafc'
+            });
+            
+            const files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                // Validate file type
+                const validTypes = ['.csv', '.xlsx', '.xls'];
+                const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (validTypes.includes(fileExtension)) {
+                    fileInput[0].files = files;
+                    displayFileInfo(file);
+                } else {
+                    showAlert('importStaffAlert', 'error', 'Please upload a valid CSV or Excel file');
+                }
+            }
+        });
+        
+        function displayFileInfo(file) {
+            const fileSizeKB = (file.size / 1024).toFixed(2);
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const sizeDisplay = file.size > 1024 * 1024 ? `${fileSizeMB} MB` : `${fileSizeKB} KB`;
+            
+            fileName.text(file.name);
+            fileSize.text(`(${sizeDisplay})`);
+            $('#dropZoneContent').hide();
+            fileInfo.show();
+        }
+    }
+    
+    // Download Excel template
+    function downloadTemplate() {
+        const btn = $('#downloadTemplateBtn');
+        btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Downloading...').prop('disabled', true);
+        
+        window.location.href = '{% url "adminSupport:api_staff_template_download" %}';
+        
+        setTimeout(() => {
+            btn.html('<i class="fas fa-download me-2"></i>Download Template').prop('disabled', false);
+        }, 2000);
+    }
+
     // Handle import staff
     function handleImportStaff() {
         const fileInput = $('#staffFile')[0];
         if (!fileInput.files.length) {
-            showAlert('importStaffAlert', 'error', 'Please select a CSV file');
+            showAlert('importStaffAlert', 'error', 'Please select a file to upload');
             return;
         }
 
@@ -2029,36 +2904,111 @@
                 showAlert('importStaffAlert', 'error', 'An error occurred during import');
             },
             complete: function () {
-                btn.html('<i class="fas fa-upload"></i> Import').prop('disabled', false);
+                btn.html('<i class="fas fa-upload"></i> Import Staff').prop('disabled', false);
+                // Reset file info display
+                $('#fileInfo').hide();
+                $('#dropZoneContent').show();
             }
         });
     }
 
     // Edit staff
-    function editStaff(staffId) {
+    async function editStaff(staffId) {
         const staff = allStaff.find(s => s.id === staffId);
         if (!staff) return;
 
+        // Populate basic fields
         $('#editStaffId').val(staff.id);
         $('#editStaffName').val(staff.name);
         $('#editStaffEmail').val(staff.email);
         $('#editStaffPhone').val(staff.phone);
-        $('#editStaffRole').val(staff.role);
-        $('#editStaffDepartment').val(staff.department);
+
+        // Load departments and roles for edit modal
+        await loadDepartmentsForEdit();
+        
+        // Set department if exists
+        if (staff.department_id) {
+            $('#editStaffDepartment').val(staff.department_id);
+            // Load roles for this department
+            await loadRolesForEdit(staff.department_id);
+            // Set role if exists
+            if (staff.role_id) {
+                $('#editStaffRole').val(staff.role_id);
+            }
+        }
 
         $('#editStaffModal').modal('show');
     }
+    
+    // Load departments for edit modal
+    async function loadDepartmentsForEdit() {
+        try {
+            const response = await $.ajax({
+                url: '{% url "adminSupport:api_departments_list" %}',
+                method: 'GET'
+            });
+            
+            const select = $('#editStaffDepartment');
+            select.empty().append('<option value="">Select Department</option>');
+            
+            if (response.departments && response.departments.length > 0) {
+                response.departments.forEach(dept => {
+                    select.append(`<option value="${dept.id}">${dept.name}</option>`);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+    
+    // Load roles for edit modal based on department
+    async function loadRolesForEdit(departmentId) {
+        try {
+            const response = await $.ajax({
+                url: '{% url "adminSupport:api_roles_list" %}',
+                method: 'GET',
+                data: { department_id: departmentId }
+            });
+            
+            const select = $('#editStaffRole');
+            select.empty().append('<option value="">Select Role</option>');
+            
+            if (response.roles && response.roles.length > 0) {
+                response.roles.forEach(role => {
+                    select.append(`<option value="${role.id}">${role.name}</option>`);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading roles:', error);
+        }
+    }
+    
+    // Handle department change in edit modal
+    $('#editStaffDepartment').on('change', async function() {
+        const departmentId = $(this).val();
+        if (departmentId) {
+            await loadRolesForEdit(departmentId);
+        } else {
+            $('#editStaffRole').empty().append('<option value="">Select Role</option>');
+        }
+    });
 
     // Handle edit staff
     function handleEditStaff() {
         const staffId = $('#editStaffId').val();
         const formData = {
-            name: $('#editStaffName').val(),
+            full_name: $('#editStaffName').val(),
             email: $('#editStaffEmail').val(),
             phone: $('#editStaffPhone').val(),
-            role: $('#editStaffRole').val(),
-            department: $('#editStaffDepartment').val()
+            department_id: $('#editStaffDepartment').val(),
+            role_id: $('#editStaffRole').val()
         };
+
+        // Validate required fields
+        if (!formData.full_name || !formData.email) {
+            showAlert('editStaffAlert', 'error', 'Please fill in all required fields');
+            return;
+        }
 
         const btn = $('#submitEditStaff');
         btn.html('<span class="loading-spinner"></span> Saving...').prop('disabled', true);
@@ -2066,7 +3016,8 @@
         $.ajax({
             url: `/api/staff/${staffId}/update/`,
             method: 'POST',
-            data: formData,
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
             headers: {
                 'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
             },
@@ -2081,16 +3032,18 @@
                     showAlert('editStaffAlert', 'error', response.message || 'Failed to update staff member');
                 }
             },
-            error: function () {
-                showAlert('editStaffAlert', 'error', 'An error occurred. Please try again.');
+            error: function (xhr) {
+                const errorMsg = xhr.responseJSON?.message || 'An error occurred. Please try again.';
+                showAlert('editStaffAlert', 'error', errorMsg);
             },
             complete: function () {
                 btn.html('<i class="fas fa-save"></i> Save Changes').prop('disabled', false);
             }
+        });
+    }
 
-
-        // Message staff
-        function messageStaff(staffId, staffName, staffEmail) {
+    // Message staff
+    function messageStaff(staffId, staffName, staffEmail) {
             $('#messageStaffId').val(staffId);
             $('#messageRecipientName').text(staffName);
             $('#messageRecipientEmail').text(staffEmail);
@@ -2187,6 +3140,13 @@
                 const audienceType = $(this).val();
                 if (audienceType === 'individuals') {
                     $('#individualStaffSelection').slideDown(300);
+                    
+                    // Load staff list immediately if not already loaded
+                    if (!staffListLoaded) {
+                        loadStaffForSelection();
+                        staffListLoaded = true;
+                    }
+                    
                     // Auto-focus on search box after animation
                     setTimeout(() => {
                         $('#staffSearchBox').focus();
@@ -2214,34 +3174,34 @@
             $('#staffSearchBox').on('input', function () {
                 const searchTerm = $(this).val().toLowerCase().trim();
 
-                // Load staff list on first keystroke
-                if (!staffListLoaded && searchTerm.length > 0) {
+                // Ensure staff list is loaded
+                if (!staffListLoaded) {
                     loadStaffForSelection();
                     staffListLoaded = true;
                 }
 
                 // Filter based on search term
-                if (staffListLoaded) {
-                    if (searchTerm.length > 0) {
-                        filterStaffForSelection(searchTerm);
-                    } else {
-                        // Show all staff when search is cleared
-                        $('.staff-select-item').show();
-                        $('.no-results-msg').remove();
-                    }
+                if (searchTerm.length > 0) {
+                    filterStaffForSelection(searchTerm);
+                } else {
+                    // Show all staff when search is cleared
+                    $('.staff-select-item').show();
+                    $('.no-results-msg').remove();
                 }
             });
 
             // Clear all selected staff
             $('#clearAllStaff').on('click', function (e) {
                 e.preventDefault();
-                if (confirm('Clear all selected staff members?')) {
-                    selectedStaffMembers = [];
-                    updateSelectedStaffDisplay();
-                    // Uncheck all checkboxes and remove selected class
-                    $('#staffSelectionContainer input[type="checkbox"]').prop('checked', false);
-                    $('.staff-select-item').removeClass('selected');
-                }
+                showCustomConfirm('Clear all selected staff members?', (confirmed) => {
+                    if (confirmed) {
+                        selectedStaffMembers = [];
+                        updateSelectedStaffDisplay();
+                        // Uncheck all checkboxes and remove selected class
+                        $('#staffSelectionContainer input[type="checkbox"]').prop('checked', false);
+                        $('.staff-select-item').removeClass('selected');
+                    }
+                }, { title: 'Clear Selection', confirmText: 'Clear', type: 'warning' });
             });
 
             // Form submission
@@ -2266,12 +3226,28 @@
                 const escapedName = (staff.name || '').replace(/'/g, "\\'");
                 const selectedClass = isSelected ? 'selected' : '';
                 html += `
-                    <div class="form-check staff-select-item ${selectedClass}" data-staff-id="${staff.id}" data-staff-name="${staff.name || ''}" data-staff-role="${staff.role || ''}" data-staff-dept="${staff.department || ''}">
-                        <input class="form-check-input" type="checkbox" value="${staff.id}" id="staffCheck${staff.id}" ${isSelected ? 'checked' : ''} onchange="toggleStaffSelection(${staff.id}, '${escapedName}')">
-                        <label class="form-check-label" for="staffCheck${staff.id}">
-                            <div class="staff-member-info">
-                                <span class="staff-member-name">${staff.name || 'N/A'}</span>
-                                <span class="staff-member-role">${staff.role || 'N/A'} • ${staff.department || 'N/A'}</span>
+                    <div class="form-check staff-select-item ${selectedClass} p-2 mb-2 rounded" 
+                         style="border: 1px solid #dee2e6; transition: all 0.2s; cursor: pointer;" 
+                         data-staff-id="${staff.id}" 
+                         data-staff-name="${staff.name || ''}" 
+                         data-staff-role="${staff.role || ''}" 
+                         data-staff-dept="${staff.department || ''}">
+                        <input class="form-check-input" type="checkbox" value="${staff.id}" 
+                               id="staffCheck${staff.id}" ${isSelected ? 'checked' : ''} 
+                               onchange="toggleStaffSelection(${staff.id}, '${escapedName}')">
+                        <label class="form-check-label w-100 cursor-pointer" for="staffCheck${staff.id}" 
+                               style="cursor: pointer;">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold text-dark">${staff.name || 'N/A'}</div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-briefcase me-1"></i>${staff.role || 'N/A'} • 
+                                        <i class="fas fa-building ms-2 me-1"></i>${staff.department || 'N/A'}
+                                    </small>
+                                </div>
+                                <div class="ms-2">
+                                    <i class="fas fa-check-circle text-success" style="display: ${isSelected ? 'block' : 'none'}"></i>
+                                </div>
                             </div>
                         </label>
                     </div>
@@ -2322,15 +3298,22 @@
         function toggleStaffSelection(staffId, staffName) {
             const index = selectedStaffMembers.indexOf(staffId);
             const staffItem = $(`.staff-select-item[data-staff-id="${staffId}"]`);
+            const checkIcon = staffItem.find('.fa-check-circle');
 
             if (index > -1) {
+                // Deselect
                 selectedStaffMembers.splice(index, 1);
                 staffItem.removeClass('selected');
+                staffItem.css({'background-color': '', 'border-color': '#dee2e6'});
                 $(`#staffCheck${staffId}`).prop('checked', false);
+                checkIcon.hide();
             } else {
+                // Select
                 selectedStaffMembers.push(staffId);
                 staffItem.addClass('selected');
+                staffItem.css({'background-color': '#e8f5e9', 'border-color': '#4caf50'});
                 $(`#staffCheck${staffId}`).prop('checked', true);
+                checkIcon.show();
             }
             updateSelectedStaffDisplay();
         }
@@ -2379,7 +3362,7 @@
             const audienceType = $('#audienceType').val();
 
             if (!messageContent) {
-                alert('Please enter message content to preview');
+                showCustomAlert('Please enter message content to preview', 'warning');
                 return;
             }
 
@@ -2414,9 +3397,14 @@
                 return;
             }
 
-            if (!confirm('Send this message immediately to the selected audience?')) {
-                return;
-            }
+            showCustomConfirm('Send this message immediately to the selected audience?', (confirmed) => {
+                if (!confirmed) return;
+                
+                sendMessageNow();
+            }, { title: 'Send Message', confirmText: 'Send Now', type: 'info' });
+        }
+
+        function sendMessageNow() {
 
             // Prepare data for API
             const apiData = {
@@ -2441,17 +3429,17 @@
                 },
                 success: function (response) {
                     if (response.success) {
-                        alert('Message sent successfully!');
+                        showCustomAlert('Message sent successfully!', 'success');
                         $('#composeStaffMessageModal').modal('hide');
                         $('#composeStaffMessageForm')[0].reset();
                         selectedStaffMembers = [];
                         updateSelectedStaffDisplay();
                     } else {
-                        alert('Failed to send message: ' + (response.message || 'Unknown error'));
+                        showCustomAlert('Failed to send message: ' + (response.message || 'Unknown error'), 'error');
                     }
                 },
                 error: function () {
-                    alert('An error occurred while sending the message. Please try again.');
+                    showCustomAlert('An error occurred while sending the message. Please try again.', 'error');
                 }
             });
         }
@@ -2467,7 +3455,7 @@
             // Check if schedule is required
             if (!$('#sendImmediatelyToggle').is(':checked')) {
                 if (!formData.triggerDate || !formData.triggerTime) {
-                    alert('Please set trigger date and time for scheduled messages');
+                    showCustomAlert('Please set trigger date and time for scheduled messages', 'warning');
                     return;
                 }
             }
@@ -2499,17 +3487,17 @@
                 },
                 success: function (response) {
                     if (response.success) {
-                        alert('Message scheduled successfully!');
+                        showCustomAlert('Message scheduled successfully!', 'success');
                         $('#composeStaffMessageModal').modal('hide');
                         $('#composeStaffMessageForm')[0].reset();
                         selectedStaffMembers = [];
                         updateSelectedStaffDisplay();
                     } else {
-                        alert('Failed to schedule message: ' + (response.message || 'Unknown error'));
+                        showCustomAlert('Failed to schedule message: ' + (response.message || 'Unknown error'), 'error');
                     }
                 },
                 error: function () {
-                    alert('An error occurred while scheduling the message. Please try again.');
+                    showCustomAlert('An error occurred while scheduling the message. Please try again.', 'error');
                 }
             });
         }
@@ -2537,28 +3525,28 @@
         // Validate staff message form
         function validateStaffMessageForm(formData) {
             if (!formData.templateName) {
-                alert('Please enter a template name');
+                showCustomAlert('Please enter a template name', 'warning');
                 return false;
             }
 
             if (!formData.audienceType) {
-                alert('Please select an audience');
+                showCustomAlert('Please select an audience', 'warning');
                 return false;
             }
 
             if (formData.audienceType === 'individuals' && selectedStaffMembers.length === 0) {
-                alert('Please select at least one staff member from the search list');
+                showCustomAlert('Please select at least one staff member from the search list', 'warning');
                 $('#staffSearchBox').focus();
                 return false;
             }
 
             if (!formData.messageContent) {
-                alert('Please enter message content');
+                showCustomAlert('Please enter message content', 'warning');
                 return false;
             }
 
             if (formData.channels.length === 0) {
-                alert('Please select at least one communication channel');
+                showCustomAlert('Please select at least one communication channel', 'warning');
                 return false;
             }
 
@@ -2606,7 +3594,14 @@
 
         // Reactivate staff
         function reactivateStaff(staffId) {
-            if (!confirm('Are you sure you want to reactivate this staff member?')) return;
+            showCustomConfirm('Are you sure you want to reactivate this staff member?', (confirmed) => {
+                if (!confirmed) return;
+                
+                reactivateStaffConfirmed(staffId);
+            }, { title: 'Reactivate Staff', confirmText: 'Reactivate', type: 'info' });
+        }
+
+        function reactivateStaffConfirmed(staffId) {
 
             $.ajax({
                 url: '{% url "adminSupport:api_staff_reactivate" %}',
@@ -2621,11 +3616,11 @@
                         loadStaffDirectory();
                         loadFormerStaff();
                     } else {
-                        alert(response.message || 'Failed to reactivate staff member');
+                        showCustomAlert(response.message || 'Failed to reactivate staff member', 'error');
                     }
                 },
                 error: function () {
-                    alert('An error occurred. Please try again.');
+                    showCustomAlert('An error occurred. Please try again.', 'error');
                 }
             });
         }
@@ -2647,6 +3642,587 @@
             }, 5000);
         }
 
+        // ============================================================================
+        // DEPARTMENT & ROLE MANAGEMENT FUNCTIONS
+        // ============================================================================
+
+        let allDepartments = [];
+        let allRoles = [];
+        let departmentsPage = 1;
+        let rolesPage = 1;
+        const itemsPerPage = 5;
+
+        // ============================================================================
+        // DEPARTMENT FUNCTIONS
+        // ============================================================================
+
+        // Load all departments
+        function loadDepartments() {
+            $.ajax({
+                url: '{% url "adminSupport:api_departments_list" %}',
+                method: 'GET',
+                success: function (response) {
+                    if (response.success) {
+                        allDepartments = response.departments || [];
+                        departmentsPage = 1;
+                        renderDepartmentsList();
+                        populateDepartmentSelect(); // Update dropdown in real-time
+                    } else {
+                        $('#departmentsList').html('<div class="alert alert-warning">Failed to load departments</div>');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    $('#departmentsList').html('<div class="alert alert-danger">Error loading departments</div>');
+                }
+            });
+        }
+
+        // Render departments list with pagination
+        function renderDepartmentsList() {
+            const container = $('#departmentsList');
+            
+            // Filter departments based on search term
+            let filteredDepartments = allDepartments;
+            if (departmentSearchTerm) {
+                filteredDepartments = allDepartments.filter(dept => 
+                    dept.name.toLowerCase().includes(departmentSearchTerm) ||
+                    (dept.description && dept.description.toLowerCase().includes(departmentSearchTerm))
+                );
+            }
+            
+            // Update count badge
+            $('#modalDepartmentsCount').text(filteredDepartments.length);
+
+            if (filteredDepartments.length === 0) {
+                container.html(`
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-building fa-2x mb-2" style="opacity: 0.3;"></i>
+                        <p class="mb-0">${departmentSearchTerm ? 'No matching departments found' : 'No departments created yet'}</p>
+                        <small>${departmentSearchTerm ? 'Try a different search term' : 'Add your first department using the form on the left'}</small>
+                    </div>
+                `);
+                return;
+            }
+
+            const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
+            const startIndex = (departmentsPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedDepts = filteredDepartments.slice(startIndex, endIndex);
+
+            let html = '';
+            paginatedDepts.forEach((dept, index) => {
+                const rowNumber = startIndex + index + 1;
+                html += `
+                    <div class="card mb-2" style="border-left: 4px solid #8b5cf6; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-semibold d-flex align-items-center">
+                                        <span class="badge bg-secondary me-2" style="font-size: 0.75rem; min-width: 24px;">${rowNumber}</span>
+                                        <i class="fas fa-building me-2" style="color: #8b5cf6;"></i>${dept.name}
+                                        <span class="badge bg-info ms-2" style="font-size: 0.7rem;">${dept.roles_count || 0} roles</span>
+                                    </h6>
+                                    ${dept.description ? `<small class="text-muted d-block mt-1">${dept.description}</small>` : ''}
+                                    ${dept.staff_count ? `<small class="text-muted d-block"><i class="fas fa-users me-1"></i>${dept.staff_count} staff</small>` : ''}
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editDepartment('${dept.id}'); return false;" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('${dept.id}'); return false;" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Add pagination if needed
+            if (totalPages > 1) {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted">Showing ${startIndex + 1}-${Math.min(endIndex, filteredDepartments.length)} of ${filteredDepartments.length}</small>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="changeDepartmentsPage(${departmentsPage - 1})" ${departmentsPage === 1 ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary disabled">${departmentsPage} / ${totalPages}</button>
+                            <button class="btn btn-outline-secondary" onclick="changeDepartmentsPage(${departmentsPage + 1})" ${departmentsPage === totalPages ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.html(html);
+        }
+
+        function changeDepartmentsPage(page) {
+            departmentsPage = page;
+            renderDepartmentsList();
+        }
+
+        // Search departments
+        let departmentSearchTerm = '';
+        $('#departmentSearchBox').on('input', function() {
+            departmentSearchTerm = $(this).val().toLowerCase();
+            const clearBtn = $('#clearDeptSearch');
+            
+            if (departmentSearchTerm) {
+                clearBtn.show();
+            } else {
+                clearBtn.hide();
+            }
+            
+            departmentsPage = 1; // Reset to first page on search
+            renderDepartmentsList();
+        });
+
+        $('#clearDeptSearch').on('click', function() {
+            $('#departmentSearchBox').val('');
+            departmentSearchTerm = '';
+            $(this).hide();
+            departmentsPage = 1;
+            renderDepartmentsList();
+        });
+
+        // Add department
+        $('#addDepartmentForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const deptName = $('#departmentName').val().trim();
+            const deptDesc = $('#departmentDesc').val().trim();
+
+            if (!deptName) {
+                showAlert('departmentRoleAlert', 'error', 'Please enter a department name');
+                return;
+            }
+
+            // Show spinner
+            const btn = $('#addDepartmentBtn');
+            btn.prop('disabled', true);
+            btn.find('.btn-text').addClass('d-none');
+            btn.find('.btn-spinner').removeClass('d-none');
+
+            $.ajax({
+                url: '{% url "adminSupport:api_department_create" %}',
+                method: 'POST',
+                data: {
+                    name: deptName,
+                    description: deptDesc
+                },
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showAlert('departmentRoleAlert', 'success', 'Department created successfully!');
+                        $('#addDepartmentForm')[0].reset();
+                        loadDepartments(); // This now also updates the dropdown
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                    } else {
+                        showAlert('departmentRoleAlert', 'error', response.message || 'Failed to create department');
+                    }
+                },
+                error: function () {
+                    showAlert('departmentRoleAlert', 'error', 'An error occurred. Please try again.');
+                },
+                complete: function () {
+                    // Hide spinner
+                    const btn = $('#addDepartmentBtn');
+                    btn.prop('disabled', false);
+                    btn.find('.btn-text').removeClass('d-none');
+                    btn.find('.btn-spinner').addClass('d-none');
+                }
+            });
+        });
+
+        // Edit department
+        function editDepartment(deptId) {
+            const dept = allDepartments.find(d => d.id === deptId);
+            if (!dept) return;
+
+            showCustomPrompt('Enter the new department name:', dept.name, (newName) => {
+                if (newName === null) return;
+                
+                if (!newName.trim()) {
+                    showCustomAlert('Department name cannot be empty', 'warning');
+                    return;
+                }
+                
+                // Add delay to allow first modal to fully close before opening second
+                setTimeout(() => {
+                    showCustomPrompt('Edit department description (leave blank to keep current):', dept.description || '', (newDesc) => {
+                        if (newDesc === null) return; // User cancelled
+                        updateDepartmentData(deptId, newName.trim(), newDesc);
+                    }, { title: 'Edit Description', placeholder: 'Optional description...' });
+                }, 350);
+            }, { title: 'Edit Department Name', placeholder: 'Department name...' });
+        }
+        
+        function updateDepartmentData(deptId, newName, newDesc) {
+            $.ajax({
+                url: `{% url "adminSupport:api_department_update" %}?id=${deptId}`,
+                method: 'POST',
+                data: {
+                    name: newName,
+                    description: newDesc
+                },
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showCustomAlert('Department updated successfully!', 'success');
+                        loadDepartments(); // This now also updates the dropdown
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                        loadStaffDirectory(); // Reload staff to show updated department name
+                    } else {
+                        showCustomAlert(response.message || 'Failed to update department', 'error');
+                    }
+                },
+                error: function () {
+                    showCustomAlert('An error occurred. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Delete department
+        function deleteDepartment(deptId) {
+            const dept = allDepartments.find(d => d.id === deptId);
+            if (!dept) return;
+
+            const message = `Are you sure you want to delete "${dept.name}" department?${dept.staff_count ? ' This department has ' + dept.staff_count + ' staff members.' : ''}`;
+            showCustomConfirm(message, (confirmed) => {
+                if (!confirmed) return;
+                
+                deleteDepartmentConfirmed(deptId);
+            }, { title: 'Delete Department', confirmText: 'Delete', type: 'danger' });
+        }
+
+        function deleteDepartmentConfirmed(deptId) {
+
+            $.ajax({
+                url: `{% url "adminSupport:api_department_delete" %}?id=${deptId}`,
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showCustomAlert('Department deleted successfully!', 'success');
+                        loadDepartments(); // This now also updates the dropdown
+                        loadRoles(); // Reload roles since they depend on departments
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                        loadStaffDirectory(); // Reload staff to update filters
+                    } else {
+                        showCustomAlert(response.message || 'Failed to delete department', 'error');
+                    }
+                },
+                error: function () {
+                    showAlert('departmentRoleAlert', 'error', 'An error occurred. Please try again.');
+                }
+            });
+        }
+
+        // ============================================================================
+        // ROLE FUNCTIONS
+        // ============================================================================
+
+        // Load all roles
+        function loadRoles() {
+            $.ajax({
+                url: '{% url "adminSupport:api_roles_list" %}',
+                method: 'GET',
+                success: function (response) {
+                    if (response.success) {
+                        allRoles = response.roles || [];
+                        rolesPage = 1;
+                        renderRolesList();
+                    } else {
+                        $('#rolesList').html('<div class="alert alert-warning">Failed to load roles</div>');
+                    }
+                },
+                error: function () {
+                    $('#rolesList').html('<div class="alert alert-danger">Error loading roles</div>');
+                }
+            });
+        }
+
+        // Render roles list with pagination
+        function renderRolesList() {
+            const container = $('#rolesList');
+            
+            // Filter roles based on search term
+            let filteredRoles = allRoles;
+            if (roleSearchTerm) {
+                filteredRoles = allRoles.filter(role => {
+                    const dept = allDepartments.find(d => d.id === role.department_id);
+                    return role.name.toLowerCase().includes(roleSearchTerm) ||
+                           (role.description && role.description.toLowerCase().includes(roleSearchTerm)) ||
+                           (dept && dept.name.toLowerCase().includes(roleSearchTerm));
+                });
+            }
+            
+            // Update count badge
+            $('#modalRolesCount').text(filteredRoles.length);
+
+            if (filteredRoles.length === 0) {
+                container.html(`
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-user-tag fa-2x mb-2" style="opacity: 0.3;"></i>
+                        <p class="mb-0">${roleSearchTerm ? 'No matching roles found' : 'No roles created yet'}</p>
+                        <small>${roleSearchTerm ? 'Try a different search term' : 'Add your first role using the form on the left'}</small>
+                    </div>
+                `);
+                return;
+            }
+
+            const totalPages = Math.ceil(filteredRoles.length / itemsPerPage);
+            const startIndex = (rolesPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedRoles = filteredRoles.slice(startIndex, endIndex);
+
+            let html = '';
+            paginatedRoles.forEach((role, index) => {
+                const rowNumber = startIndex + index + 1;
+                const dept = allDepartments.find(d => d.id === role.department_id);
+                html += `
+                    <div class="card mb-2" style="border-left: 4px solid #3b82f6; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-semibold d-flex align-items-center">
+                                        <span class="badge bg-secondary me-2" style="font-size: 0.75rem; min-width: 24px;">${rowNumber}</span>
+                                        <i class="fas fa-user-tag me-2" style="color: #3b82f6;"></i>${role.name}
+                                    </h6>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-building me-1"></i>${dept ? dept.name : 'Unknown Department'}
+                                    </small>
+                                    ${role.description ? `<small class="text-muted d-block">${role.description}</small>` : ''}
+                                    ${role.staff_count ? `<small class="text-muted d-block"><i class="fas fa-users me-1"></i>${role.staff_count} staff</small>` : ''}
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editRole('${role.id}'); return false;" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRole('${role.id}'); return false;" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Add pagination if needed
+            if (totalPages > 1) {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted">Showing ${startIndex + 1}-${Math.min(endIndex, filteredRoles.length)} of ${filteredRoles.length}</small>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="changeRolesPage(${rolesPage - 1})" ${rolesPage === 1 ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary disabled">${rolesPage} / ${totalPages}</button>
+                            <button class="btn btn-outline-secondary" onclick="changeRolesPage(${rolesPage + 1})" ${rolesPage === totalPages ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.html(html);
+        }
+
+        function changeRolesPage(page) {
+            rolesPage = page;
+            renderRolesList();
+        }
+
+        // Search roles
+        let roleSearchTerm = '';
+        $('#roleSearchBox').on('input', function() {
+            roleSearchTerm = $(this).val().toLowerCase();
+            const clearBtn = $('#clearRoleSearch');
+            
+            if (roleSearchTerm) {
+                clearBtn.show();
+            } else {
+                clearBtn.hide();
+            }
+            
+            rolesPage = 1; // Reset to first page on search
+            renderRolesList();
+        });
+
+        $('#clearRoleSearch').on('click', function() {
+            $('#roleSearchBox').val('');
+            roleSearchTerm = '';
+            $(this).hide();
+            rolesPage = 1;
+            renderRolesList();
+        });
+
+        // Populate department select for role creation
+        function populateDepartmentSelect() {
+            const select = $('#roleDepGroup');
+            select.html('<option value="">Select Department</option>');
+            allDepartments.forEach(dept => {
+                select.append(`<option value="${dept.id}">${dept.name}</option>`);
+            });
+        }
+
+        // Add role
+        $('#addRoleForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const roleName = $('#roleName').val().trim();
+            const deptId = $('#roleDepGroup').val();
+            const roleDesc = $('#roleDesc').val().trim();
+
+            if (!roleName) {
+                showAlert('departmentRoleAlert', 'error', 'Please enter a role name');
+                return;
+            }
+
+            if (!deptId) {
+                showAlert('departmentRoleAlert', 'error', 'Please select a department');
+                return;
+            }
+
+            // Show spinner
+            const btn = $('#addRoleBtn');
+            btn.prop('disabled', true);
+            btn.find('.btn-text').addClass('d-none');
+            btn.find('.btn-spinner').removeClass('d-none');
+
+            $.ajax({
+                url: '{% url "adminSupport:api_role_create" %}',
+                method: 'POST',
+                data: {
+                    name: roleName,
+                    department_id: deptId,
+                    description: roleDesc
+                },
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showAlert('departmentRoleAlert', 'success', 'Role created successfully!');
+                        $('#addRoleForm')[0].reset();
+                        loadRoles();
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                    } else {
+                        showAlert('departmentRoleAlert', 'error', response.message || 'Failed to create role');
+                    }
+                },
+                error: function () {
+                    showAlert('departmentRoleAlert', 'error', 'An error occurred. Please try again.');
+                },
+                complete: function () {
+                    // Hide spinner
+                    const btn = $('#addRoleBtn');
+                    btn.prop('disabled', false);
+                    btn.find('.btn-text').removeClass('d-none');
+                    btn.find('.btn-spinner').addClass('d-none');
+                }
+            });
+        });
+
+        // Edit role
+        function editRole(roleId) {
+            const role = allRoles.find(r => r.id === roleId);
+            if (!role) return;
+
+            showCustomPrompt('Enter the new role name:', role.name, (newName) => {
+                if (newName === null) return;
+                
+                if (!newName.trim()) {
+                    showCustomAlert('Role name cannot be empty', 'warning');
+                    return;
+                }
+                
+                // Add delay to allow first modal to fully close before opening second
+                setTimeout(() => {
+                    showCustomPrompt('Edit role description (leave blank to keep current):', role.description || '', (newDesc) => {
+                        if (newDesc === null) return; // User cancelled
+                        updateRoleData(roleId, newName.trim(), newDesc);
+                    }, { title: 'Edit Description', placeholder: 'Optional description...' });
+                }, 350);
+            }, { title: 'Edit Role Name', placeholder: 'Role name...' });
+        }
+        
+        function updateRoleData(roleId, newName, newDesc) {
+            $.ajax({
+                url: `{% url "adminSupport:api_role_update" %}?id=${roleId}`,
+                method: 'POST',
+                data: {
+                    name: newName,
+                    description: newDesc
+                },
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showCustomAlert('Role updated successfully!', 'success');
+                        loadRoles();
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                        loadStaffDirectory(); // Reload staff to show updated role name
+                    } else {
+                        showCustomAlert(response.message || 'Failed to update role', 'error');
+                    }
+                },
+                error: function () {
+                    showCustomAlert('An error occurred. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Delete role
+        function deleteRole(roleId) {
+            const role = allRoles.find(r => r.id === roleId);
+            if (!role) return;
+
+            const message = `Are you sure you want to delete "${role.name}" role?${role.staff_count ? ' This role has ' + role.staff_count + ' staff members.' : ''}`;
+            showCustomConfirm(message, (confirmed) => {
+                if (!confirmed) return;
+                
+                deleteRoleConfirmed(roleId);
+            }, { title: 'Delete Role', confirmText: 'Delete', type: 'danger' });
+        }
+
+        function deleteRoleConfirmed(roleId) {
+
+            $.ajax({
+                url: `{% url "adminSupport:api_role_delete" %}?id=${roleId}`,
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showCustomAlert('Role deleted successfully!', 'success');
+                        loadRoles();
+                        loadDepartmentsAndRolesForStaff(); // Update Add Staff modal dropdowns
+                        loadStaffDirectory(); // Reload staff to update filters
+                    } else {
+                        showCustomAlert(response.message || 'Failed to delete role', 'error');
+                    }
+                },
+                error: function () {
+                    showAlert('departmentRoleAlert', 'error', 'An error occurred. Please try again.');
+                }
+            });
+        }
+
         // === DEBUG HELPER FUNCTION ===
         // Call from console: testMessageModal()
         window.testMessageModal = function () {
@@ -2657,10 +4233,5 @@
             console.log('Opening modal...');
             $('#composeStaffMessageModal').modal('show');
         };
-
-        // Initialize compose staff message modal after all functions are defined
-        $(document).ready(function () {
-            setupComposeStaffMessageModal();
-        });
 </script>
 {% endblock %}

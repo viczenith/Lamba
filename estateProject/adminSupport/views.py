@@ -18,6 +18,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.views.generic import TemplateView
 from django.utils.decorators import method_decorator
 from django.template.loader import render_to_string
+from django.db.models import Count
 import requests
 from io import TextIOWrapper
 try:
@@ -1726,6 +1727,13 @@ def _serialize_staff(s):
     full_name = (s.full_name or '').strip()
     employment_date = s.employment_date.isoformat() if s.employment_date else None
     dob = s.date_of_birth.isoformat() if s.date_of_birth else None
+    
+    # Get department and role information
+    department_name = s.department.name if s.department else ''
+    department_id = str(s.department.id) if s.department else None
+    role_name = s.staff_role.name if s.staff_role else ''
+    role_id = str(s.staff_role.id) if s.staff_role else None
+    
     return {
         'id': s.id,
         'name': full_name,
@@ -1734,7 +1742,11 @@ def _serialize_staff(s):
         'phone': s.phone or '',
         'whatsapp': s.whatsapp or '',
         'address': s.address or '',
-        'role': s.role or '',
+        'role': s.role or '',  # Legacy field
+        'department_id': department_id,
+        'department_name': department_name,
+        'role_id': role_id,
+        'role_name': role_name,
         'employmentDate': employment_date,
         'employment_date': employment_date,
         'status': 'active' if s.active else 'inactive',
@@ -1794,7 +1806,9 @@ def _staff_form_values(payload):
         'phone': _get_value(['phone_number', 'phone']),
         'whatsapp': _get_value(['whatsapp']),
         'address': _get_value(['address']),
-        'role': _get_value(['role', 'job']),
+        'role': _get_value(['role', 'job']),  # Legacy field
+        'department_id': _get_value(['department_id', 'department']),
+        'role_id': _get_value(['role_id', 'staff_role']),
         'employment_date': _parse_iso_date(employment_raw),
         'date_of_birth': _parse_iso_date(dob_raw),
         'active': active_val,
@@ -1811,7 +1825,6 @@ def api_staff_create(request):
     required_map = {
         'full_name': 'Full name',
         'email': 'Email address',
-        'role': 'Role/Position',
         'employment_date': 'Employment date',
         'address': 'Address',
         'phone': 'Phone number',
@@ -1821,6 +1834,31 @@ def api_staff_create(request):
     missing = [label for key, label in required_map.items() if not values.get(key)]
     if missing:
         return JsonResponse({'ok': False, 'error': f"Missing required fields: {', '.join(missing)}"}, status=400)
+
+    # Get company from user profile
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No company profile found for user.'}, status=400)
+
+    # Validate and fetch department and role if provided
+    department = None
+    staff_role = None
+    
+    if values.get('department_id'):
+        try:
+            department = StaffDepartment.objects.get(id=values['department_id'], company=company)
+        except StaffDepartment.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Invalid department selected.'}, status=400)
+    
+    if values.get('role_id'):
+        try:
+            staff_role = StaffRole.objects.get(id=values['role_id'])
+            # Verify role belongs to selected department (if department was provided)
+            if department and staff_role.department != department:
+                return JsonResponse({'ok': False, 'error': 'Selected role does not belong to the selected department.'}, status=400)
+        except StaffRole.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Invalid role selected.'}, status=400)
 
     staff = StaffMember.objects.filter(email=values['email']).first()
     created = False
@@ -1833,6 +1871,18 @@ def api_staff_create(request):
             if new_value and getattr(staff, field) != new_value:
                 setattr(staff, field, new_value)
                 updated_fields.append(field)
+        
+        # Update company, department, and staff_role
+        if company and staff.company != company:
+            staff.company = company
+            updated_fields.append('company')
+        if department and staff.department != department:
+            staff.department = department
+            updated_fields.append('department')
+        if staff_role and staff.staff_role != staff_role:
+            staff.staff_role = staff_role
+            updated_fields.append('staff_role')
+            
         if not staff.active:
             staff.active = True
             reactivated = True
@@ -1851,7 +1901,10 @@ def api_staff_create(request):
             phone=values['phone'],
             whatsapp=values.get('whatsapp') or '',
             address=values['address'],
-            role=values['role'],
+            role=values.get('role') or '',  # Legacy field, keep for backward compatibility
+            company=company,
+            department=department,
+            staff_role=staff_role,
             employment_date=values['employment_date'],
             date_of_birth=values['date_of_birth'],
             active=True if values.get('active') is None else bool(values['active']),
@@ -1892,14 +1945,34 @@ def api_staff_stats(request):
 def api_staff_list(request):
     q = (request.GET.get('q') or '').strip().lower()
     filter_role = (request.GET.get('role') or '').strip().lower()
+    filter_department = (request.GET.get('department_id') or '').strip()
+    filter_role_id = (request.GET.get('role_id') or '').strip()
+    
     data = []
-    qs = StaffMember.objects.filter(active=True)
+    qs = StaffMember.objects.filter(active=True).select_related('department', 'staff_role', 'company')
+    
     if q:
         qs = qs.filter(
-            Q(full_name__icontains=q) | Q(email__icontains=q) | Q(phone__icontains=q) | Q(role__icontains=q)
+            Q(full_name__icontains=q) | 
+            Q(email__icontains=q) | 
+            Q(phone__icontains=q) | 
+            Q(role__icontains=q) |
+            Q(department__name__icontains=q) |
+            Q(staff_role__name__icontains=q)
         )
+    
+    # Legacy role filter (string-based)
     if filter_role:
         qs = qs.filter(role__icontains=filter_role)
+    
+    # New department filter (ID-based)
+    if filter_department:
+        qs = qs.filter(department_id=filter_department)
+    
+    # New role filter (ID-based)
+    if filter_role_id:
+        qs = qs.filter(staff_role_id=filter_role_id)
+    
     for s in qs.order_by('-created_at')[:500]:
         data.append(_serialize_staff(s))
     return JsonResponse({'results': data})
@@ -1909,7 +1982,7 @@ def api_staff_list(request):
 @login_required
 @support_required
 def api_staff_detail(request, staff_id):
-    staff = get_object_or_404(StaffMember, id=staff_id)
+    staff = get_object_or_404(StaffMember.objects.select_related('department', 'staff_role', 'company'), id=staff_id)
     return JsonResponse({'ok': True, 'staff': _serialize_staff(staff)})
 
 
@@ -1918,7 +1991,7 @@ def api_staff_detail(request, staff_id):
 @support_required
 def api_staff_former(request):
     data = []
-    for s in StaffMember.objects.filter(active=False).order_by('-created_at')[:500]:
+    for s in StaffMember.objects.filter(active=False).select_related('department', 'staff_role', 'company').order_by('-created_at')[:500]:
         data.append(_serialize_staff(s))
     return JsonResponse({'results': data})
 
@@ -2038,20 +2111,39 @@ def api_staff_failed_delete(request):
 
 
 def _parse_iso_date(val):
-    try:
+    """Parse ISO date string (YYYY-MM-DD) to date object."""
+    from datetime import date as date_type, datetime as datetime_type
+    
+    if not val:
+        return None
+    
+    # Handle string values
+    if isinstance(val, str):
+        val = val.strip()
         if not val:
             return None
-        return datetime.fromisoformat(val).date()
-    except Exception:
-        try:
-            return datetime.strptime(val, '%Y-%m-%d').date()
-        except Exception:
-            return None
+    
+    # If it's already a date object, return it
+    if isinstance(val, date_type):
+        return val
+    
+    # If it's a datetime object, return the date part
+    if isinstance(val, datetime_type):
+        return val.date()
+    
+    # Try to parse the string
+    try:
+        # Parse YYYY-MM-DD format
+        parts = str(val).split('-')
+        if len(parts) == 3:
+            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+            return date_type(year, month, day)
+    except (ValueError, AttributeError, IndexError):
+        return None
+    
+    return None
 
 
-@require_http_methods(['POST'])
-@login_required
-@support_required
 @require_http_methods(['POST'])
 @login_required
 @support_required
@@ -2107,22 +2199,55 @@ def api_staff_import(request):
     def upsert(row):
         nonlocal created, updated
         try:
+            # Get company from user profile
+            company = request.user.company_profile
+            
+            # Extract basic fields
             email = (row.get('email') or row.get('Email') or '').strip().lower()
             full_name = (row.get('full_name') or row.get('Full Name') or row.get('name') or '').strip()
             phone = (row.get('phone') or row.get('Phone') or '').strip()
-            role = (row.get('role') or row.get('Role') or row.get('job') or '').strip()
+            whatsapp = (row.get('whatsapp') or row.get('Whatsapp') or '').strip()
             address = (row.get('address') or row.get('Address') or '').strip()
-            dob = _parse_iso_date(row.get('date_of_birth') or row.get('Date of Birth'))
+            role = (row.get('role') or row.get('Role') or row.get('job') or '').strip()  # Legacy field
+            dob = _parse_iso_date(row.get('date_of_birth') or row.get('Date of Birth') or row.get('Date Of Birth'))
             employment_date = _parse_iso_date(row.get('employment_date') or row.get('Employment Date'))
+            
+            # Extract department and role names
+            department_name = (row.get('department_name') or row.get('Department Name') or row.get('Department') or '').strip()
+            role_name = (row.get('role_name') or row.get('Role Name') or '').strip()
+            
             if not email or not full_name:
+                errors.append(f"Skipped row: missing email or full_name")
                 return
+            
+            # Find department and role if provided
+            department = None
+            staff_role = None
+            
+            if department_name and company:
+                try:
+                    department = StaffDepartment.objects.get(company=company, name__iexact=department_name)
+                except StaffDepartment.DoesNotExist:
+                    errors.append(f"Department '{department_name}' not found for {email}")
+            
+            if role_name and department:
+                try:
+                    staff_role = StaffRole.objects.get(department=department, name__iexact=role_name)
+                except StaffRole.DoesNotExist:
+                    errors.append(f"Role '{role_name}' not found in department '{department_name}' for {email}")
+            
+            # Get or create staff member
             obj, was_created = StaffMember.objects.get_or_create(
                 email=email,
                 defaults={
                     'full_name': full_name,
                     'phone': phone,
+                    'whatsapp': whatsapp,
                     'address': address,
-                    'role': role,
+                    'role': role,  # Legacy field
+                    'company': company,
+                    'department': department,
+                    'staff_role': staff_role,
                     'employment_date': employment_date,
                     'date_of_birth': dob,
                     'active': True,
@@ -2132,18 +2257,25 @@ def api_staff_import(request):
             if was_created:
                 created += 1
             else:
-                # update existing
+                # Update existing record
                 obj.full_name = full_name or obj.full_name
                 obj.phone = phone or obj.phone
+                obj.whatsapp = whatsapp or obj.whatsapp
                 obj.address = address or obj.address
-                obj.role = role or obj.role
+                obj.role = role or obj.role  # Legacy field
+                if company and not obj.company:
+                    obj.company = company
+                if department:
+                    obj.department = department
+                if staff_role:
+                    obj.staff_role = staff_role
                 obj.employment_date = employment_date or obj.employment_date
                 obj.date_of_birth = dob or obj.date_of_birth
                 obj.active = True
                 obj.save()
                 updated += 1
         except Exception as e:
-            errors.append(str(e))
+            errors.append(f"Error processing row: {str(e)}")
 
     if name.endswith('.csv'):
         try:
@@ -2170,7 +2302,178 @@ def api_staff_import(request):
         return JsonResponse({'error': 'Unsupported file type. Upload .csv or .xlsx'}, status=400)
 
     ActivityLog.objects.create(actor=request.user, action=f"Imported staff: +{created}/~{updated} updates")
-    return JsonResponse({'ok': True, 'created': created, 'updated': updated, 'errors': errors})
+    
+    response_data = {
+        'success': True,
+        'imported': created,
+        'created': created,
+        'updated': updated,
+        'message': f'Successfully imported {created} new staff, updated {updated} existing records'
+    }
+    
+    if errors:
+        response_data['warnings'] = errors
+        response_data['message'] += f'. {len(errors)} warnings occurred.'
+    
+    return JsonResponse(response_data)
+
+
+@require_http_methods(['GET'])
+@login_required
+@support_required
+def api_staff_template_download(request):
+    """Generate and download Excel template for bulk staff import"""
+    try:
+        # Get company from user profile
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'error': 'No company profile found'}, status=400)
+        
+        if not OPENPYXL_AVAILABLE:
+            return JsonResponse({'error': 'Excel support requires openpyxl to be installed'}, status=400)
+        
+        # Create workbook
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Staff Import Template"
+        
+        # Define headers
+        headers = [
+            'full_name', 'email', 'phone', 'whatsapp', 'address',
+            'department_name', 'role_name', 'employment_date', 'date_of_birth'
+        ]
+        
+        # Style for header row
+        header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=12)
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        border = Border(
+            left=Side(style='thin', color='000000'),
+            right=Side(style='thin', color='000000'),
+            top=Side(style='thin', color='000000'),
+            bottom=Side(style='thin', color='000000')
+        )
+        
+        # Write headers
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header.replace('_', ' ').title()
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = border
+        
+        # Get company's departments and roles for reference
+        departments = StaffDepartment.objects.filter(company=company).values_list('name', flat=True)
+        roles = StaffRole.objects.filter(department__company=company).select_related('department').values_list('name', 'department__name')
+        
+        # Add sample data row with company's actual departments/roles
+        sample_data = [
+            'Victor Akor',
+            'victor.akor@example.com',
+            '+234 801 234 5678',
+            '+234 801 234 5678',
+            '123 Main Street, Lagos',
+            list(departments)[0] if departments else 'Sales',
+            list(roles)[0][0] if roles else 'Senior Manager',
+            '2024-01-15',
+            '1990-05-20'
+        ]
+        
+        for col_num, value in enumerate(sample_data, 1):
+            cell = ws.cell(row=2, column=col_num)
+            cell.value = value
+            cell.border = border
+            cell.alignment = Alignment(vertical="center")
+        
+        # Add instructions sheet
+        ws_instructions = wb.create_sheet(title="Instructions")
+        
+        # Instructions content
+        instructions = [
+            ["📋 BULK STAFF IMPORT TEMPLATE - INSTRUCTIONS", ""],
+            ["", ""],
+            ["REQUIRED COLUMNS:", ""],
+            ["full_name", "Employee's full name (Required)"],
+            ["email", "Valid email address (Required, must be unique)"],
+            ["phone", "Contact phone number (Required)"],
+            ["department_name", f"Department name - Must match existing department (Required)"],
+            ["role_name", f"Role/Position name - Must match existing role in that department (Required)"],
+            ["", ""],
+            ["OPTIONAL COLUMNS:", ""],
+            ["whatsapp", "WhatsApp number (Optional)"],
+            ["address", "Physical address (Optional)"],
+            ["employment_date", "Format: YYYY-MM-DD (e.g., 2024-01-15)"],
+            ["date_of_birth", "Format: YYYY-MM-DD (e.g., 1990-05-20)"],
+            ["", ""],
+            ["IMPORTANT NOTES:", ""],
+            ["1.", "Before importing, ensure you have created departments and roles in the system"],
+            ["2.", "Department and role names must match EXACTLY (case-sensitive)"],
+            ["3.", "Email addresses must be unique - duplicate emails will update existing records"],
+            ["4.", "Dates must be in YYYY-MM-DD format"],
+            ["5.", "Remove the sample data row before importing your actual staff data"],
+            ["6.", "Save the file as .xlsx or .csv format"],
+            ["", ""],
+            ["YOUR COMPANY'S DEPARTMENTS:", ""],
+        ]
+        
+        # Add company's departments
+        if departments:
+            for dept in departments:
+                instructions.append([f"  • {dept}", ""])
+        else:
+            instructions.append(["  (No departments found - Please create departments first)", ""])
+        
+        instructions.append(["", ""])
+        instructions.append(["YOUR COMPANY'S ROLES:", ""])
+        
+        # Add company's roles grouped by department
+        if roles:
+            current_dept = None
+            for role_name, dept_name in roles:
+                if dept_name != current_dept:
+                    instructions.append([f"  {dept_name}:", ""])
+                    current_dept = dept_name
+                instructions.append([f"    • {role_name}", ""])
+        else:
+            instructions.append(["  (No roles found - Please create roles first)", ""])
+        
+        # Write instructions
+        for row_num, row_data in enumerate(instructions, 1):
+            for col_num, value in enumerate(row_data, 1):
+                cell = ws_instructions.cell(row=row_num, column=col_num)
+                cell.value = value
+                if row_num == 1:
+                    cell.font = Font(bold=True, size=14, color="0066CC")
+                elif ":" in str(value) and col_num == 1:
+                    cell.font = Font(bold=True, size=11)
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+        
+        # Adjust column widths for both sheets
+        for worksheet in [ws, ws_instructions]:
+            for col_num in range(1, 10):
+                col_letter = get_column_letter(col_num)
+                if worksheet == ws:
+                    worksheet.column_dimensions[col_letter].width = 20
+                else:
+                    worksheet.column_dimensions[col_letter].width = 50 if col_num == 1 else 30
+        
+        # Set response for file download
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="Staff_Import_Template_{company.company_name.replace(" ", "_")}.xlsx"'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating staff template: {str(e)}")
+        return JsonResponse({'error': f'Failed to generate template: {str(e)}'}, status=500)
 
 
 @require_http_methods(['GET'])
@@ -4158,3 +4461,403 @@ def automation_settings(request):
         ]
     }
     return render(request, 'adminSupport/customer_relation/automation_settings.html', context)
+
+
+# ============================================================================
+# DEPARTMENT & ROLE MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@login_required
+@require_GET
+def api_departments_list(request):
+    """Get all departments for the current company"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        departments = StaffDepartment.objects.filter(company=company).values(
+            'id', 'name', 'description'
+        ).annotate(
+            roles_count=Count('roles'),
+            staff_count=Count('staff_members', filter=Q(staff_members__active=True))
+        ).order_by('name')
+        
+        return JsonResponse({
+            'success': True,
+            'departments': list(departments)
+        })
+    except Exception as e:
+        logger.error(f"Error fetching departments: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error fetching departments'}, status=500)
+
+
+@login_required
+@require_POST
+def api_department_create(request):
+    """Create a new department"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Department name is required'}, status=400)
+        
+        # Check if department already exists
+        if StaffDepartment.objects.filter(company=company, name=name).exists():
+            return JsonResponse({'success': False, 'message': 'Department already exists'}, status=400)
+        
+        dept = StaffDepartment.objects.create(
+            company=company,
+            name=name,
+            description=description
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Department created successfully',
+            'department': {
+                'id': str(dept.id),
+                'name': dept.name,
+                'description': dept.description
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error creating department: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error creating department'}, status=500)
+
+
+@login_required
+@require_POST
+def api_department_update(request):
+    """Update a department"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        dept_id = request.GET.get('id')
+        if not dept_id:
+            return JsonResponse({'success': False, 'message': 'Department ID is required'}, status=400)
+        
+        dept = StaffDepartment.objects.get(id=dept_id, company=company)
+        
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '')
+        
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Department name is required'}, status=400)
+        
+        # Check if another department has this name
+        if StaffDepartment.objects.filter(company=company, name=name).exclude(id=dept.id).exists():
+            return JsonResponse({'success': False, 'message': 'Another department with this name already exists'}, status=400)
+        
+        dept.name = name
+        dept.description = description  # Allow empty description
+        dept.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Department updated successfully'
+        })
+    except StaffDepartment.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Department not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating department: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error updating department'}, status=500)
+
+
+@login_required
+@require_POST
+def api_department_delete(request):
+    """Delete a department"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        dept_id = request.GET.get('id')
+        if not dept_id:
+            return JsonResponse({'success': False, 'message': 'Department ID is required'}, status=400)
+        
+        dept = StaffDepartment.objects.get(id=dept_id, company=company)
+        
+        # Check if department has staff members
+        staff_count = StaffMember.objects.filter(company=company, department=dept, active=True).count()
+        if staff_count > 0:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Cannot delete department with {staff_count} active staff member(s). Please reassign them first.'
+            }, status=400)
+        
+        dept.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Department deleted successfully'
+        })
+    except StaffDepartment.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Department not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error deleting department: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error deleting department'}, status=500)
+
+
+@login_required
+@require_GET
+def api_roles_list(request):
+    """Get all roles for the current company"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        roles = StaffRole.objects.filter(
+            department__company=company
+        ).values(
+            'id', 'name', 'description', 'department_id', 'department__name'
+        ).annotate(
+            staff_count=Count('staff_members', filter=Q(staff_members__active=True))
+        ).order_by('department__name', 'name')
+        
+        return JsonResponse({
+            'success': True,
+            'roles': list(roles)
+        })
+    except Exception as e:
+        logger.error(f"Error fetching roles: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error fetching roles'}, status=500)
+
+
+@login_required
+@require_POST
+def api_role_create(request):
+    """Create a new role"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        name = request.POST.get('name', '').strip()
+        dept_id = request.POST.get('department_id')
+        description = request.POST.get('description', '').strip()
+        
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Role name is required'}, status=400)
+        
+        if not dept_id:
+            return JsonResponse({'success': False, 'message': 'Department is required'}, status=400)
+        
+        # Verify department belongs to company
+        dept = StaffDepartment.objects.get(id=dept_id, company=company)
+        
+        # Check if role already exists in this department
+        if StaffRole.objects.filter(department=dept, name=name).exists():
+            return JsonResponse({'success': False, 'message': 'Role already exists in this department'}, status=400)
+        
+        role = StaffRole.objects.create(
+            department=dept,
+            name=name,
+            description=description
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Role created successfully',
+            'role': {
+                'id': str(role.id),
+                'name': role.name,
+                'description': role.description,
+                'department_id': str(role.department_id)
+            }
+        })
+    except StaffDepartment.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Department not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error creating role: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error creating role'}, status=500)
+
+
+@login_required
+@require_POST
+def api_role_update(request):
+    """Update a role"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        role_id = request.GET.get('id')
+        if not role_id:
+            return JsonResponse({'success': False, 'message': 'Role ID is required'}, status=400)
+        
+        role = StaffRole.objects.get(id=role_id, department__company=company)
+        
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '')
+        
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Role name is required'}, status=400)
+        
+        # Check if another role has this name in the same department
+        if StaffRole.objects.filter(department=role.department, name=name).exclude(id=role.id).exists():
+            return JsonResponse({'success': False, 'message': 'Another role with this name already exists in this department'}, status=400)
+        
+        role.name = name
+        role.description = description  # Allow empty description
+        role.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Role updated successfully'
+        })
+    except StaffRole.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Role not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating role: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error updating role'}, status=500)
+
+
+@login_required
+@require_POST
+def api_role_delete(request):
+    """Delete a role"""
+    try:
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        role_id = request.GET.get('id')
+        if not role_id:
+            return JsonResponse({'success': False, 'message': 'Role ID is required'}, status=400)
+        
+        role = StaffRole.objects.get(id=role_id, department__company=company)
+        
+        # Check if role has staff members
+        staff_count = StaffMember.objects.filter(company=company, staff_role=role, active=True).count()
+        if staff_count > 0:
+            return JsonResponse({
+                'success': False,
+                'message': f'Cannot delete role with {staff_count} assigned staff member(s). Please reassign them first.'
+            }, status=400)
+        
+        role.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Role deleted successfully'
+        })
+    except StaffRole.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Role not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error deleting role: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error deleting role'}, status=500)
+
+
+@login_required
+@require_POST
+def api_staff_update(request, staff_id):
+    """Update StaffMember details from staff directory"""
+    try:
+        # Get company from user profile
+        company = request.user.company_profile
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+        
+        # Get the staff member (from StaffMember model, not CustomUser)
+        staff = StaffMember.objects.select_related('company', 'department', 'staff_role').get(id=staff_id)
+        
+        # Parse request payload
+        payload = _get_staff_payload(request)
+        values = _staff_form_values(payload)
+        
+        updated_fields = []
+        
+        # Update basic fields
+        if values.get('full_name') and values['full_name'] != staff.full_name:
+            staff.full_name = values['full_name']
+            updated_fields.append('full_name')
+        
+        if values.get('email') and values['email'] != staff.email:
+            # Check for duplicate email
+            if StaffMember.objects.filter(email=values['email']).exclude(id=staff_id).exists():
+                return JsonResponse({'success': False, 'message': 'Email already in use'}, status=400)
+            staff.email = values['email']
+            updated_fields.append('email')
+        
+        if values.get('phone') and values['phone'] != staff.phone:
+            staff.phone = values['phone']
+            updated_fields.append('phone')
+        
+        if values.get('whatsapp') and values['whatsapp'] != staff.whatsapp:
+            staff.whatsapp = values['whatsapp']
+            updated_fields.append('whatsapp')
+        
+        if values.get('address') and values['address'] != staff.address:
+            staff.address = values['address']
+            updated_fields.append('address')
+        
+        if values.get('employment_date') and values['employment_date'] != staff.employment_date:
+            staff.employment_date = values['employment_date']
+            updated_fields.append('employment_date')
+        
+        if values.get('date_of_birth') and values['date_of_birth'] != staff.date_of_birth:
+            staff.date_of_birth = values['date_of_birth']
+            updated_fields.append('date_of_birth')
+        
+        # Handle department and role
+        if values.get('department_id'):
+            try:
+                department = StaffDepartment.objects.get(id=values['department_id'], company=company)
+                if staff.department != department:
+                    staff.department = department
+                    updated_fields.append('department')
+            except StaffDepartment.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Invalid department selected'}, status=400)
+        
+        if values.get('role_id'):
+            try:
+                staff_role = StaffRole.objects.get(id=values['role_id'])
+                # Verify role belongs to selected department (if department was updated or exists)
+                if staff.department and staff_role.department != staff.department:
+                    return JsonResponse({'success': False, 'message': 'Selected role does not belong to the selected department'}, status=400)
+                if staff.staff_role != staff_role:
+                    staff.staff_role = staff_role
+                    updated_fields.append('staff_role')
+            except StaffRole.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Invalid role selected'}, status=400)
+        
+        # Legacy role field (keep for backward compatibility)
+        if values.get('role') and values['role'] != staff.role:
+            staff.role = values['role']
+            updated_fields.append('role')
+        
+        # Update company if not set
+        if not staff.company:
+            staff.company = company
+            updated_fields.append('company')
+        
+        if updated_fields:
+            staff.save(update_fields=updated_fields)
+            ActivityLog.objects.create(
+                actor=request.user, 
+                action=f"Updated staff {staff.full_name} ({staff.email})"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Staff member updated successfully',
+                'staff': _serialize_staff(staff)
+            })
+        else:
+            return JsonResponse({'success': True, 'message': 'No changes detected'})
+            
+    except StaffMember.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Staff member not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating staff: {str(e)}")
+        return JsonResponse({'success': False, 'message': f'Error updating staff member: {str(e)}'}, status=500)

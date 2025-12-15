@@ -288,18 +288,61 @@ class StaffRoster(models.Model):
         return f"Staff: {getattr(self.user, 'email', self.user_id)} ({'active' if self.active else 'inactive'})"
 
 
+class StaffDepartment(models.Model):
+    """Staff Departments - customizable by each company"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='staff_departments')
+    name = models.CharField(max_length=200, help_text="Department name")
+    description = models.TextField(blank=True, null=True, help_text="Department description")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('company', 'name')
+        ordering = ['name']
+        verbose_name = 'Staff Department'
+        verbose_name_plural = 'Staff Departments'
+    
+    def __str__(self):
+        return f"{self.name} ({self.company.name})"
+
+
+class StaffRole(models.Model):
+    """Staff Roles/Positions - attached to departments"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    department = models.ForeignKey(StaffDepartment, on_delete=models.CASCADE, related_name='roles')
+    name = models.CharField(max_length=200, help_text="Role/Position name")
+    description = models.TextField(blank=True, null=True, help_text="Role description and responsibilities")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('department', 'name')
+        ordering = ['department__name', 'name']
+        verbose_name = 'Staff Role'
+        verbose_name_plural = 'Staff Roles'
+    
+    def __str__(self):
+        return f"{self.name} ({self.department.name})"
+
+
 class StaffMember(models.Model):
     """
     Independent staff directory record, decoupled from estateApp users.
     Only records created via Add Staff modal or CSV/Excel import should appear
     in the Staff Directory. This model is the single source of truth for that UI.
     """
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='staff_members', null=True, blank=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=50, blank=True)
     whatsapp = models.CharField(max_length=50, blank=True, help_text='WhatsApp number (optional)')
     address = models.CharField(max_length=255, blank=True)
-    role = models.CharField(max_length=120, blank=True, help_text='Role/Position')
+    department = models.ForeignKey(StaffDepartment, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    staff_role = models.ForeignKey(StaffRole, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
+    role = models.CharField(max_length=120, blank=True, help_text='Role/Position (legacy field)')
     employment_date = models.DateField(null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     active = models.BooleanField(default=True)

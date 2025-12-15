@@ -32,10 +32,11 @@ urlpatterns = [
     path('api/staff/', views.api_staff_list, name='api_staff_list'),
     path('api/staff/former/', views.api_staff_former, name='api_staff_former'),
     path('api/staff/create/', views.api_staff_create, name='api_staff_create'),
-    path('api/staff/<int:staff_id>/', views.api_staff_detail, name='api_staff_detail'),
+    path('api/staff/<int:staff_id>/update/', views.api_staff_update, name='api_staff_update'),
     path('api/staff/remove/', views.api_staff_remove, name='api_staff_remove'),
     path('api/staff/reactivate/', views.api_staff_reactivate, name='api_staff_reactivate'),
     path('api/staff/import/', views.api_staff_import, name='api_staff_import'),
+    path('api/staff/template/download/', views.api_staff_template_download, name='api_staff_template_download'),
     path('api/staff/failed-messages/', views.api_staff_failed_messages, name='api_staff_failed_messages'),
     path('api/staff/failed-retry/', views.api_staff_failed_retry, name='api_staff_failed_retry'),
     path('api/staff/failed-retry-all/', views.api_staff_failed_retry_all, name='api_staff_failed_retry_all'),
@@ -122,5 +123,13 @@ urlpatterns = [
     path('crm-analytics/', views.crm_analytics, name='crm_analytics'),
     path('automation-settings/', views.automation_settings, name='automation_settings'),
 
-
+    # DEPARTMENT & ROLE MANAGEMENT
+    path('api/departments/', views.api_departments_list, name='api_departments_list'),
+    path('api/departments/create/', views.api_department_create, name='api_department_create'),
+    path('api/departments/update/', views.api_department_update, name='api_department_update'),
+    path('api/departments/delete/', views.api_department_delete, name='api_department_delete'),
+    path('api/roles/', views.api_roles_list, name='api_roles_list'),
+    path('api/roles/create/', views.api_role_create, name='api_role_create'),
+    path('api/roles/update/', views.api_role_update, name='api_role_update'),
+    path('api/roles/delete/', views.api_role_delete, name='api_role_delete'),
 ]
