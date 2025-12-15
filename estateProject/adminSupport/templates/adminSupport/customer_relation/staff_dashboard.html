@@ -1093,6 +1093,24 @@
 
                     <div class="row">
                         <div class="col-md-6">
+                            <!-- Profile Picture Upload -->
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">Profile Picture</label>
+                                <div class="profile-upload-container" style="text-align: center;">
+                                    <div class="profile-preview" id="addStaffProfilePreview" style="width: 120px; height: 120px; margin: 0 auto 15px; border: 3px dashed #dee2e6; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f8f9fa; cursor: pointer;" onclick="$('#staffProfilePicture').click()">
+                                        <i class="fas fa-camera" style="font-size: 32px; color: #adb5bd;"></i>
+                                    </div>
+                                    <input type="file" id="staffProfilePicture" name="profile_picture" accept="image/*" style="display: none;">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="$('#staffProfilePicture').click()">
+                                        <i class="fas fa-upload me-1"></i>Choose Photo
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeAddStaffPhoto" style="display: none;" onclick="removeAddStaffProfilePicture()">
+                                        <i class="fas fa-times me-1"></i>Remove
+                                    </button>
+                                    <div class="form-text mt-2">Optional passport photo (JPG, PNG, max 5MB)</div>
+                                </div>
+                            </div>
+
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Full Name *</label>
                                 <div class="input-group">
@@ -1180,6 +1198,131 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Staff Modal -->
+<div class="modal fade" id="editStaffModal">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-edit"></i>
+                    Edit Staff Member
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editStaffAlert"></div>
+                <form id="editStaffForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!-- Profile Picture Upload -->
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold">Profile Picture</label>
+                                <div class="profile-upload-container" style="text-align: center;">
+                                    <div class="profile-preview" id="editStaffProfilePreview" style="width: 120px; height: 120px; margin: 0 auto 15px; border: 3px dashed #dee2e6; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f8f9fa; cursor: pointer;" onclick="$('#editStaffProfilePicture').click()">
+                                        <i class="fas fa-camera" style="font-size: 32px; color: #adb5bd;"></i>
+                                    </div>
+                                    <input type="file" id="editStaffProfilePicture" name="profile_picture" accept="image/*" style="display: none;">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="$('#editStaffProfilePicture').click()">
+                                        <i class="fas fa-upload me-1"></i>Change Photo
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeEditStaffPhoto" style="display: none;" onclick="removeEditStaffProfilePicture()">
+                                        <i class="fas fa-times me-1"></i>Remove
+                                    </button>
+                                    <div class="form-text mt-2">Update passport photo (JPG, PNG, max 5MB)</div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Full Name *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" id="editStaffName" name="full_name" required
+                                        placeholder="Enter full name">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Department *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-building"></i></span>
+                                    <select class="form-select" id="editStaffDepartment" name="department_id" required>
+                                        <option value="">Select Department</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Role/Position *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                                    <select class="form-select" id="editStaffRole" name="role_id" required>
+                                        <option value="">Select a Department First</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Employment Date *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                    <input type="date" class="form-control" id="editStaffEmploymentDate" name="employment_date" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Address *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                                    <textarea class="form-control" id="editStaffAddress" name="address" rows="3"
+                                        placeholder="Enter full address" required></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Phone Number *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                    <input type="tel" class="form-control" id="editStaffPhone" name="phone_number"
+                                        placeholder="+234-XXX-XXX-XXXX" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Email Address *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                    <input type="email" class="form-control" id="editStaffEmail" name="email"
+                                        placeholder="staff@company.com" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">WhatsApp Number</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fab fa-whatsapp"></i></span>
+                                    <input type="tel" class="form-control" id="editStaffWhatsapp" name="whatsapp"
+                                        placeholder="+234-XXX-XXX-XXXX">
+                                </div>
+                                <div class="form-text">Optional - Leave blank if same as phone number</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Date of Birth *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-birthday-cake"></i></span>
+                                    <input type="date" class="form-control" id="editStaffDOB" name="date_of_birth" required>
+                                </div>
+                                <div class="form-text">Used for birthday reminders and staff analytics</div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitEditStaff">
+                    <i class="fas fa-save me-2"></i>Update Staff Member
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1291,27 +1434,106 @@
 <!-- Remove Staff Modal -->
 <div class="modal fade" id="removeStaffModal">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-user-times"></i>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border-radius: 1rem 1rem 0 0;">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="fas fa-user-times me-3" style="font-size: 1.5rem;"></i>
                     Remove Staff Member
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div id="removeStaffAlert"></div>
-                <p>Are you sure you want to remove <strong id="removeStaffName"></strong> from the active staff list?
-                </p>
-                <p class="text-muted small">This action can be reversed by reactivating the staff member.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-custom btn-outline-custom" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn-custom btn-danger-custom" id="confirmRemoveStaff">
-                    <i class="fas fa-trash"></i>
-                    Remove
-                </button>
-            </div>
+            <form id="removeStaffForm">
+                {% csrf_token %}
+                <input type="hidden" name="staffId" id="removeStaffId">
+                <div class="modal-body p-4">
+                    <div id="removeStaffAlert"></div>
+                    <div class="alert alert-warning d-flex align-items-center mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <div>
+                            <strong>Are you sure you want to remove staff member:</strong>
+                            <div class="mt-1" id="removeStaffName">Staff Name</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Reason(s) for Removal *</label>
+                        <div class="form-text mb-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            You can select multiple reasons if applicable
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="retired" id="reasonRetired">
+                                    <label class="form-check-label" for="reasonRetired">
+                                        <i class="fas fa-user-clock me-1 text-info"></i>Retired
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="resigned" id="reasonResigned">
+                                    <label class="form-check-label" for="reasonResigned">
+                                        <i class="fas fa-handshake me-1 text-success"></i>Resigned
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="absconded" id="reasonAbsconded">
+                                    <label class="form-check-label" for="reasonAbsconded">
+                                        <i class="fas fa-user-slash me-1 text-warning"></i>Absconded
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="sacked" id="reasonSacked">
+                                    <label class="form-check-label" for="reasonSacked">
+                                        <i class="fas fa-user-minus me-1 text-danger"></i>Sacked
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="fired" id="reasonFired">
+                                    <label class="form-check-label" for="reasonFired">
+                                        <i class="fas fa-fire me-1 text-danger"></i>Fired
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="terminated" id="reasonTerminated">
+                                    <label class="form-check-label" for="reasonTerminated">
+                                        <i class="fas fa-ban me-1 text-dark"></i>Terminated
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="dismissed" id="reasonDismissed">
+                                    <label class="form-check-label" for="reasonDismissed">
+                                        <i class="fas fa-times-circle me-1 text-danger"></i>Dismissed
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="removalReason" value="contract_ended" id="reasonContractEnded">
+                                    <label class="form-check-label" for="reasonContractEnded">
+                                        <i class="fas fa-calendar-times me-1 text-secondary"></i>Contract Ended
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Additional Notes (Optional)</label>
+                        <textarea class="form-control" name="removalNotes" id="removalNotes" rows="3" placeholder="Any additional notes about the removal..."></textarea>
+                    </div>
+                    
+                    <p class="text-muted small mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        This action can be reversed by reactivating the staff member from the Former Staff table.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning" id="confirmRemoveStaff">
+                        <i class="fas fa-user-times me-2"></i>Remove Staff
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1893,6 +2115,28 @@
     let allRolesForStaff = [];
     let rolesGroupedByDept = {};
 
+    // Utility function to escape HTML special characters
+    function escapeHtml(text) {
+        if (text == null) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Utility function to escape string for use in JavaScript onclick attributes
+    function escapeJsString(text) {
+        if (text == null) return '';
+        return String(text)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r');
+    }
+
     // Initialize on page load
     $(document).ready(function () {
         loadStaffStats();
@@ -2235,23 +2479,27 @@
 
         let html = '';
         pageData.forEach(staff => {
-            const avatar = staff.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=2563eb&color=fff';
+            const staffName = escapeHtml(staff.name || 'N/A');
+            const staffNameJs = escapeJsString(staff.name || '');
+            const staffEmail = escapeHtml(staff.email || 'N/A');
+            const staffEmailJs = escapeJsString(staff.email || '');
+            const avatar = staff.profile_picture || staff.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=2563eb&color=fff';
             html += `
                     <tr>
                         <td>
                             <div class="staff-info">
-                                <img src="${avatar}" alt="${staff.name}" class="staff-avatar">
+                                <img src="${avatar}" alt="${staffName}" class="staff-avatar">
                                 <div class="staff-details">
-                                    <h4>${staff.name || 'N/A'}</h4>
-                                    <p>${staff.email || 'N/A'}</p>
+                                    <h4>${staffName}</h4>
+                                    <p>${staffEmail}</p>
                                 </div>
                             </div>
                         </td>
                         <td>
-                            <span class="badge-custom badge-role">${staff.role_name || staff.role || 'N/A'}</span>
+                            <span class="badge-custom badge-role">${escapeHtml(staff.role_name || staff.role || 'N/A')}</span>
                         </td>
-                        <td>${staff.department_name || staff.department || 'N/A'}</td>
-                        <td>${staff.phone || 'N/A'}</td>
+                        <td>${escapeHtml(staff.department_name || staff.department || 'N/A')}</td>
+                        <td>${escapeHtml(staff.phone || 'N/A')}</td>
                         <td>
                             <span class="badge-custom badge-active">
                                 <i class="fas fa-circle"></i> Active
@@ -2262,11 +2510,11 @@
                                 <button class="action-btn edit" onclick="editStaff(${staff.id})" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="action-btn message" onclick="messageStaff(${staff.id}, '${staff.name}', '${staff.email}')" title="Send Message">
+                                <button class="action-btn message" onclick="messageStaff(${staff.id}, '${staffNameJs}', '${staffEmailJs}')" title="Send Message">
                                     <i class="fas fa-envelope"></i>
                                 </button>
-                                <button class="action-btn delete" onclick="removeStaff(${staff.id}, '${staff.name}')" title="Remove">
-                                    <i class="fas fa-trash"></i>
+                                <button class="action-btn delete" onclick="removeStaff(${staff.id}, '${staffNameJs}')" title="Remove">
+                                    <i class="fas fa-user-times"></i>
                                 </button>
                             </div>
                         </td>
@@ -2294,7 +2542,7 @@
 
         let html = '';
         pageData.forEach(staff => {
-            const avatar = staff.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=64748b&color=fff';
+            const avatar = staff.profile_picture || staff.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=64748b&color=fff';
             html += `
                     <tr>
                         <td>
@@ -2421,11 +2669,6 @@
                 <tr>
                     <td colspan="6">
                         <div class="empty-state">
-
-            // Message staff form submission
-            $('#submitMessageStaff').on('click', function() {
-                handleMessageStaff();
-            });
                             <i class="fas fa-users"></i>
                             <h3>${message}</h3>
                             <p>No records to display</p>
@@ -2490,12 +2733,8 @@
         // Setup drag and drop
         setupDragAndDrop();
 
-        // Confirm remove staff
-        $('#confirmRemoveStaff').on('click', function () {
-            if (staffToRemove) {
-                confirmRemoveStaff(staffToRemove);
-            }
-        });
+        // Note: Remove staff form submission is now handled by the form's submit event
+        // in the REMOVE STAFF FUNCTIONALITY section
 
         // Edit staff form submission
         $('#submitEditStaff').on('click', function () {
@@ -2705,26 +2944,121 @@
         renderStaffTable();
     }
 
+    // ============================================================================
+    // PROFILE PICTURE HANDLING
+    // ============================================================================
+
+    // Handle add staff profile picture preview
+    $('#staffProfilePicture').on('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showAlert('addStaffAlert', 'error', 'Image size must be less than 5MB');
+                $(this).val('');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.match('image.*')) {
+                showAlert('addStaffAlert', 'error', 'Please select a valid image file');
+                $(this).val('');
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#addStaffProfilePreview').html(`<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`);
+                $('#removeAddStaffPhoto').show();
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Remove add staff profile picture
+    function removeAddStaffProfilePicture() {
+        $('#staffProfilePicture').val('');
+        $('#addStaffProfilePreview').html('<i class="fas fa-camera" style="font-size: 32px; color: #adb5bd;"></i>');
+        $('#removeAddStaffPhoto').hide();
+    }
+
+    // Handle edit staff profile picture preview
+    $('#editStaffProfilePicture').on('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showAlert('editStaffAlert', 'error', 'Image size must be less than 5MB');
+                $(this).val('');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.match('image.*')) {
+                showAlert('editStaffAlert', 'error', 'Please select a valid image file');
+                $(this).val('');
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#editStaffProfilePreview').html(`<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`);
+                $('#removeEditStaffPhoto').show();
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Remove edit staff profile picture
+    function removeEditStaffProfilePicture() {
+        $('#editStaffProfilePicture').val('');
+        const currentStaffId = $('#editStaffModal').data('staff-id');
+        // Restore original or default avatar
+        const staff = allStaff.find(s => s.id === currentStaffId);
+        const avatar = staff && staff.profile_picture ? staff.profile_picture : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff ? staff.name : 'User') + '&background=2563eb&color=fff';
+        $('#editStaffProfilePreview').html(`<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover;">`);
+        $('#removeEditStaffPhoto').hide();
+    }
+
+    // ============================================================================
+    // ADD STAFF FUNCTIONALITY
+    // ============================================================================
+
     // Handle add staff
     function handleAddStaff() {
-        const formData = {
-            full_name: $('#staffName').val() || '',
-            email: $('#staffEmail').val() || '',
-            phone: $('#staffPhone').val() || '',
-            whatsapp: $('#staffWhatsapp').val() || '',
-            address: $('#staffAddress').val() || '',
-            employment_date: $('#staffEmploymentDate').val() || '',
-            date_of_birth: $('#staffDOB').val() || '',
-            department_id: $('#staffDepartment').val() || '',
-            role_id: $('#staffRole').val() || ''
-        };
+        const fullName = $('#staffName').val() || '';
+        const email = $('#staffEmail').val() || '';
+        const phone = $('#staffPhone').val() || '';
+        const address = $('#staffAddress').val() || '';
+        const employmentDate = $('#staffEmploymentDate').val() || '';
+        const dateOfBirth = $('#staffDOB').val() || '';
+        const departmentId = $('#staffDepartment').val() || '';
+        const roleId = $('#staffRole').val() || '';
 
         // Validate all required fields
-        if (!formData.full_name || !formData.email || !formData.phone || 
-            !formData.address || !formData.employment_date || !formData.date_of_birth ||
-            !formData.department_id || !formData.role_id) {
+        if (!fullName || !email || !phone || !address || !employmentDate || !dateOfBirth || !departmentId || !roleId) {
             showAlert('addStaffAlert', 'error', 'Please fill in all required fields');
             return;
+        }
+
+        // Create FormData for file upload support
+        const formData = new FormData();
+        formData.append('full_name', fullName);
+        formData.append('email', email);
+        formData.append('phone', phone);
+        formData.append('whatsapp', $('#staffWhatsapp').val() || '');
+        formData.append('address', address);
+        formData.append('employment_date', employmentDate);
+        formData.append('date_of_birth', dateOfBirth);
+        formData.append('department_id', departmentId);
+        formData.append('role_id', roleId);
+
+        // Add profile picture if selected
+        const profilePicture = $('#staffProfilePicture')[0].files[0];
+        if (profilePicture) {
+            formData.append('profile_picture', profilePicture);
         }
 
         const btn = $('#submitAddStaff');
@@ -2733,8 +3067,9 @@
         $.ajax({
             url: '{% url "adminSupport:api_staff_create" %}',
             method: 'POST',
-            data: JSON.stringify(formData),
-            contentType: 'application/json',
+            data: formData,
+            processData: false,
+            contentType: false,
             headers: {
                 'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
             },
@@ -2742,6 +3077,7 @@
                 if (response.ok) {
                     showAlert('addStaffAlert', 'success', 'Staff member added successfully!');
                     $('#addStaffForm')[0].reset();
+                    removeAddStaffProfilePicture(); // Reset profile picture preview
                     setTimeout(() => {
                         $('#addStaffModal').modal('hide');
                         // Remove any lingering backdrops
@@ -3553,43 +3889,254 @@
             return true;
         }
 
-        // Remove staff
-        function removeStaff(staffId, staffName) {
-            staffToRemove = staffId;
-            $('#removeStaffName').text(staffName);
-            $('#removeStaffModal').modal('show');
+        // ============================================================================
+        // EDIT STAFF FUNCTIONALITY
+        // ============================================================================
+
+        // Edit staff
+        function editStaff(staffId) {
+            const staff = allStaff.find(s => s.id === staffId);
+            if (!staff) {
+                showAlert('mainAlert', 'error', 'Staff member not found');
+                return;
+            }
+
+            // Store staff ID in modal for later use
+            $('#editStaffModal').data('staff-id', staffId);
+
+            // Populate form fields
+            $('#editStaffName').val(staff.full_name || '');
+            $('#editStaffEmail').val(staff.email || '');
+            $('#editStaffPhone').val(staff.phone || '');
+            $('#editStaffWhatsapp').val(staff.whatsapp || '');
+            $('#editStaffAddress').val(staff.address || '');
+            $('#editStaffEmploymentDate').val(staff.employment_date || '');
+            $('#editStaffDOB').val(staff.date_of_birth || '');
+
+            // Set profile picture preview
+            const avatar = staff.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=2563eb&color=fff';
+            $('#editStaffProfilePreview').html(`<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover;">`);
+            $('#removeEditStaffPhoto').hide();
+
+            // Load departments and roles for the edit modal
+            loadDepartmentsForEdit(staff.department_id, staff.role_id);
+
+            // Show modal
+            $('#editStaffModal').modal('show');
         }
 
-        // Confirm remove staff
-        function confirmRemoveStaff(staffId) {
-            const btn = $('#confirmRemoveStaff');
-            btn.html('<span class="loading-spinner"></span> Removing...').prop('disabled', true);
+        // Load departments and roles for edit modal
+        function loadDepartmentsForEdit(selectedDeptId, selectedRoleId) {
+            $.ajax({
+                url: '{% url "adminSupport:api_departments_list" %}',
+                method: 'GET',
+                success: function (response) {
+                    const departments = response.results || response.data || [];
+                    let deptHtml = '<option value="">Select Department</option>';
+                    departments.forEach(dept => {
+                        const selected = dept.id == selectedDeptId ? 'selected' : '';
+                        deptHtml += `<option value="${dept.id}" ${selected}>${dept.name}</option>`;
+                    });
+                    $('#editStaffDepartment').html(deptHtml);
+
+                    // If department is selected, load its roles
+                    if (selectedDeptId) {
+                        loadRolesForEditDepartment(selectedDeptId, selectedRoleId);
+                    }
+                }
+            });
+        }
+
+        // Load roles for edit department
+        function loadRolesForEditDepartment(departmentId, selectedRoleId) {
+            if (!departmentId) {
+                $('#editStaffRole').html('<option value="">Select a Department First</option>');
+                return;
+            }
 
             $.ajax({
-                url: '{% url "adminSupport:api_staff_remove" %}',
+                url: '{% url "adminSupport:api_roles_list" %}',
+                method: 'GET',
+                data: { department_id: departmentId },
+                success: function (response) {
+                    const roles = response.results || response.data || [];
+                    let roleHtml = '<option value="">Select Role</option>';
+                    roles.forEach(role => {
+                        const selected = role.id == selectedRoleId ? 'selected' : '';
+                        roleHtml += `<option value="${role.id}" ${selected}>${role.name}</option>`;
+                    });
+                    $('#editStaffRole').html(roleHtml);
+                }
+            });
+        }
+
+        // Handle edit department change
+        $('#editStaffDepartment').on('change', function () {
+            const departmentId = $(this).val();
+            loadRolesForEditDepartment(departmentId, null);
+        });
+
+        // Handle edit staff submission
+        $('#submitEditStaff').on('click', function () {
+            handleEditStaff();
+        });
+
+        function handleEditStaff() {
+            const staffId = $('#editStaffModal').data('staff-id');
+            if (!staffId) {
+                showAlert('editStaffAlert', 'error', 'No staff member selected');
+                return;
+            }
+
+            const fullName = $('#editStaffName').val() || '';
+            const email = $('#editStaffEmail').val() || '';
+            const phone = $('#editStaffPhone').val() || '';
+            const address = $('#editStaffAddress').val() || '';
+            const employmentDate = $('#editStaffEmploymentDate').val() || '';
+            const dateOfBirth = $('#editStaffDOB').val() || '';
+            const departmentId = $('#editStaffDepartment').val() || '';
+            const roleId = $('#editStaffRole').val() || '';
+
+            // Validate all required fields
+            if (!fullName || !email || !phone || !address || !employmentDate || !dateOfBirth || !departmentId || !roleId) {
+                showAlert('editStaffAlert', 'error', 'Please fill in all required fields');
+                return;
+            }
+
+            // Create FormData for file upload support
+            const formData = new FormData();
+            formData.append('full_name', fullName);
+            formData.append('email', email);
+            formData.append('phone', phone);
+            formData.append('whatsapp', $('#editStaffWhatsapp').val() || '');
+            formData.append('address', address);
+            formData.append('employment_date', employmentDate);
+            formData.append('date_of_birth', dateOfBirth);
+            formData.append('department_id', departmentId);
+            formData.append('role_id', roleId);
+
+            // Add profile picture if selected
+            const profilePicture = $('#editStaffProfilePicture')[0].files[0];
+            if (profilePicture) {
+                formData.append('profile_picture', profilePicture);
+            }
+
+            const btn = $('#submitEditStaff');
+            btn.html('<span class="loading-spinner"></span> Updating...').prop('disabled', true);
+
+            $.ajax({
+                url: '{% url "adminSupport:api_staff_update" staff_id=0 %}'.replace('0', staffId),
                 method: 'POST',
-                data: { staff_id: staffId },
+                data: formData,
+                processData: false,
+                contentType: false,
                 headers: {
                     'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
                 },
                 success: function (response) {
-                    if (response.success) {
+                    if (response.ok) {
+                        showAlert('editStaffAlert', 'success', 'Staff member updated successfully!');
+                        setTimeout(() => {
+                            $('#editStaffModal').modal('hide');
+                            $('.modal-backdrop').remove();
+                            $('body').removeClass('modal-open');
+                            $('body').css('overflow', '');
+                            $('body').css('padding-right', '');
+                            loadStaffStats();
+                            loadStaffDirectory();
+                        }, 1500);
+                    } else {
+                        showAlert('editStaffAlert', 'error', response.error || 'Failed to update staff member');
+                    }
+                },
+                error: function (xhr) {
+                    const errorMsg = xhr.responseJSON?.error || 'An error occurred while updating staff member';
+                    showAlert('editStaffAlert', 'error', errorMsg);
+                },
+                complete: function () {
+                    btn.html('<i class="fas fa-save me-2"></i>Update Staff Member').prop('disabled', false);
+                }
+            });
+        }
+
+        // ============================================================================
+        // REMOVE STAFF FUNCTIONALITY
+        // ============================================================================
+
+        // Remove staff - opens modal with reasons
+        function removeStaff(staffId, staffName) {
+            staffToRemove = staffId;
+            $('#removeStaffId').val(staffId);
+            $('#removeStaffName').text(staffName);
+            
+            // Reset form
+            $('input[name="removalReason"]').prop('checked', false);
+            $('textarea[name="removalNotes"]').val('');
+            $('#removeStaffAlert').html('');
+            
+            // Show modal
+            $('#removeStaffModal').modal('show');
+        }
+
+        // Handle remove staff form submission
+        $('#removeStaffForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const staffId = $('#removeStaffId').val();
+            const staffName = $('#removeStaffName').text();
+            const checkedReasons = $('input[name="removalReason"]:checked').map(function() {
+                return $(this).val();
+            }).get();
+            const notes = $('textarea[name="removalNotes"]').val();
+            
+            if (checkedReasons.length === 0) {
+                showAlert('removeStaffAlert', 'error', 'Please select at least one reason for removal.');
+                return;
+            }
+            
+            // Show loading state
+            const btn = $('#confirmRemoveStaff');
+            const originalText = btn.html();
+            btn.html('<span class="loading-spinner"></span> Removing...').prop('disabled', true);
+            
+            $.ajax({
+                url: '{% url "adminSupport:api_staff_remove" %}',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ 
+                    user_id: staffId, 
+                    reasons: checkedReasons, 
+                    notes: notes 
+                }),
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function(response) {
+                    if (response.success || response.ok) {
                         $('#removeStaffModal').modal('hide');
+                        showCustomAlert(`${staffName} has been removed from active staff and moved to former staff.`, 'success');
                         loadStaffStats();
                         loadStaffDirectory();
                         loadFormerStaff();
                     } else {
-                        showAlert('removeStaffAlert', 'error', response.message || 'Failed to remove staff member');
+                        showAlert('removeStaffAlert', 'error', response.message || response.error || 'Failed to remove staff member');
                     }
                 },
-                error: function () {
-                    showAlert('removeStaffAlert', 'error', 'An error occurred. Please try again.');
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'An error occurred. Please try again.';
+                    showAlert('removeStaffAlert', 'error', errorMsg);
                 },
-                complete: function () {
-                    btn.html('<i class="fas fa-trash"></i> Remove').prop('disabled', false);
+                complete: function() {
+                    btn.html(originalText).prop('disabled', false);
                     staffToRemove = null;
                 }
             });
+        });
+
+        // Legacy confirm remove staff function (kept for backwards compatibility)
+        function confirmRemoveStaff(staffId) {
+            // Trigger form submission instead
+            $('#removeStaffForm').submit();
         }
 
         // Reactivate staff

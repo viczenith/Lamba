@@ -84,6 +84,17 @@ def lagos_today():
     return lagos_now().date()
 
 
+def get_user_company(user):
+    """
+    CRITICAL SECURITY HELPER: Get company from user for multi-tenant isolation.
+    Returns company or None. Views should check and return 400/403 if None.
+    """
+    try:
+        return user.company_profile if user and user.is_authenticated else None
+    except Exception:
+        return None
+
+
 def support_required(func=None):
     """Decorator restricting access to support/admin/staff users."""
     def _check(user):
@@ -982,7 +993,9 @@ def api_templates_save(request):
 
     tpl.is_active = payload.get('isActive', tpl.is_active)
     tpl.save()
-    ActivityLog.objects.create(actor=request.user, action=f"Saved template '{tpl.name}'")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Saved template '{tpl.name}'")
     return JsonResponse({'ok': True, 'id': tpl.id}, encoder=DjangoJSONEncoder)
     
 
@@ -994,7 +1007,9 @@ def api_templates_delete(request, tpl_id):
     tpl = get_object_or_404(MessageTemplate, id=tpl_id)
     name = tpl.name
     tpl.delete()
-    ActivityLog.objects.create(actor=request.user, action=f"Deleted template '{name}'")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted template '{name}'")
     return JsonResponse({'ok': True})
 
 
@@ -1002,7 +1017,12 @@ def api_templates_delete(request, tpl_id):
 @login_required
 @support_required
 def api_outbound_list(request):
-    q = OutboundMessage.objects.all().order_by('-created_at')[:200]
+    # CRITICAL: Filter by company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    if company:
+        q = OutboundMessage.objects.filter(company=company).order_by('-created_at')[:200]
+    else:
+        q = OutboundMessage.objects.filter(created_by=request.user).order_by('-created_at')[:200]
     out = []
     for it in q:
         out.append({
@@ -1058,18 +1078,21 @@ def api_outbound_create(request):
         except Exception:
             scheduled_for_dt = None
 
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
     om = OutboundMessage.objects.create(
         channel=channel,
         audience=audience,
         subject=subject,
         body=body,
         created_by=request.user,
+        company=company,
         recipients_count=recipients_count,
         recipients_sample=sample_strs,
         scheduled_for=scheduled_for_dt,
         status='queued'
     )
-    ActivityLog.objects.create(actor=request.user, action=f"Queued outbound {om.channel} to {recipients_count} (id={om.id})")
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Queued outbound {om.channel} to {recipients_count} (id={om.id})")
     return JsonResponse({'ok': True, 'id': str(om.id)}, encoder=DjangoJSONEncoder)
 
 
@@ -1077,9 +1100,11 @@ def api_outbound_create(request):
 @login_required
 @support_required
 def api_outbound_delete(request, outbound_id):
-    om = get_object_or_404(OutboundMessage, id=outbound_id)
+    # CRITICAL: Filter by company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    om = get_object_or_404(OutboundMessage, id=outbound_id, company=company)
     om.delete()
-    ActivityLog.objects.create(actor=request.user, action=f"Deleted outbound {outbound_id}")
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted outbound {outbound_id}")
     return JsonResponse({'ok': True})
 
 
@@ -1143,9 +1168,12 @@ def api_messages_create_or_update(request):
             entries.append(InboxEntry(user=u, message=msg))
         # ignore_conflicts available in modern Django
         InboxEntry.objects.bulk_create(entries, ignore_conflicts=True)
-        ActivityLog.objects.create(actor=request.user, action=f"Sent InApp '{msg.subject or '(no subject)'}' to {msg.recipients.count()}")
+        # CRITICAL: Include company for multi-tenant data isolation
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Sent InApp '{msg.subject or '(no subject)'}' to {msg.recipients.count()}")
     else:
-        ActivityLog.objects.create(actor=request.user, action=f"Saved draft '{msg.subject or '(no subject)'}'")
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Saved draft '{msg.subject or '(no subject)'}'")
 
     return JsonResponse({'ok': True, 'id': msg.id}, encoder=DjangoJSONEncoder)
 
@@ -1156,7 +1184,9 @@ def api_messages_create_or_update(request):
 def api_messages_delete(request, msg_id):
     msg = get_object_or_404(InAppMessage, id=msg_id, sender=request.user)
     msg.delete()
-    ActivityLog.objects.create(actor=request.user, action=f"Deleted message {msg_id}")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted message {msg_id}")
     return JsonResponse({'ok': True})
 
 
@@ -1164,7 +1194,12 @@ def api_messages_delete(request, msg_id):
 @login_required
 @support_required
 def api_activity(request):
-    logs = ActivityLog.objects.all().order_by('-created_at')[:200]
+    # CRITICAL: Filter by company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    if company:
+        logs = ActivityLog.objects.filter(company=company).order_by('-created_at')[:200]
+    else:
+        logs = ActivityLog.objects.filter(actor=request.user).order_by('-created_at')[:200]
     data = [{'at': l.created_at.isoformat() if l.created_at else None, 'text': l.action, 'actor': l.actor.get_full_name() if l.actor else None} for l in logs]
     return JsonResponse({'activity': data}, encoder=DjangoJSONEncoder)
 
@@ -1734,6 +1769,9 @@ def _serialize_staff(s):
     role_name = s.staff_role.name if s.staff_role else ''
     role_id = str(s.staff_role.id) if s.staff_role else None
     
+    # Get profile picture URL
+    profile_picture_url = s.profile_picture.url if s.profile_picture else None
+    
     return {
         'id': s.id,
         'name': full_name,
@@ -1742,6 +1780,7 @@ def _serialize_staff(s):
         'phone': s.phone or '',
         'whatsapp': s.whatsapp or '',
         'address': s.address or '',
+        'profile_picture': profile_picture_url,
         'role': s.role or '',  # Legacy field
         'department_id': department_id,
         'department_name': department_name,
@@ -1860,7 +1899,11 @@ def api_staff_create(request):
         except StaffRole.DoesNotExist:
             return JsonResponse({'ok': False, 'error': 'Invalid role selected.'}, status=400)
 
-    staff = StaffMember.objects.filter(email=values['email']).first()
+    # Handle profile picture upload
+    profile_picture = request.FILES.get('profile_picture')
+    
+    # CRITICAL: Filter by company to prevent cross-company data access
+    staff = StaffMember.objects.filter(company=company, email=values['email']).first()
     created = False
     reactivated = False
 
@@ -1871,6 +1914,11 @@ def api_staff_create(request):
             if new_value and getattr(staff, field) != new_value:
                 setattr(staff, field, new_value)
                 updated_fields.append(field)
+        
+        # Update profile picture if provided
+        if profile_picture:
+            staff.profile_picture = profile_picture
+            updated_fields.append('profile_picture')
         
         # Update company, department, and staff_role
         if company and staff.company != company:
@@ -1893,7 +1941,8 @@ def api_staff_create(request):
 
         staff.save(update_fields=updated_fields)
         action = "Reactivated" if reactivated else "Updated"
-        ActivityLog.objects.create(actor=request.user, action=f"{action} staff {staff.full_name} ({staff.email})")
+        # CRITICAL: Include company for multi-tenant data isolation
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"{action} staff {staff.full_name} ({staff.email})")
     else:
         staff = StaffMember.objects.create(
             full_name=values['full_name'],
@@ -1910,8 +1959,15 @@ def api_staff_create(request):
             active=True if values.get('active') is None else bool(values['active']),
             created_by=request.user,
         )
+        
+        # Add profile picture if provided
+        if profile_picture:
+            staff.profile_picture = profile_picture
+            staff.save(update_fields=['profile_picture'])
+        
         created = True
-        ActivityLog.objects.create(actor=request.user, action=f"Added staff {staff.full_name} ({staff.email})")
+        # CRITICAL: Include company for multi-tenant data isolation
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Added staff {staff.full_name} ({staff.email})")
 
     return JsonResponse({
         'ok': True,
@@ -1925,10 +1981,17 @@ def api_staff_create(request):
 @login_required
 @support_required
 def api_staff_stats(request):
-    total = StaffMember.objects.count()
-    active = StaffMember.objects.filter(active=True).count()
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No company profile found'}, status=400)
+    
+    # Filter all queries by company
+    total = StaffMember.objects.filter(company=company).count()
+    active = StaffMember.objects.filter(company=company, active=True).count()
 
-    staff_items = OutboundMessageItem.objects.filter(outbound__message_type='staff')
+    staff_items = OutboundMessageItem.objects.filter(outbound__message_type='staff', outbound__company=company)
     delivered = staff_items.filter(status__in=['sent', 'delivered']).count()
     failed = staff_items.filter(status='failed').count()
     return JsonResponse({
@@ -1943,13 +2006,20 @@ def api_staff_stats(request):
 @login_required
 @support_required
 def api_staff_list(request):
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No company profile found'}, status=400)
+    
     q = (request.GET.get('q') or '').strip().lower()
     filter_role = (request.GET.get('role') or '').strip().lower()
     filter_department = (request.GET.get('department_id') or '').strip()
     filter_role_id = (request.GET.get('role_id') or '').strip()
     
     data = []
-    qs = StaffMember.objects.filter(active=True).select_related('department', 'staff_role', 'company')
+    # CRITICAL: Filter by company for data isolation
+    qs = StaffMember.objects.filter(company=company, active=True).select_related('department', 'staff_role', 'company')
     
     if q:
         qs = qs.filter(
@@ -1982,7 +2052,14 @@ def api_staff_list(request):
 @login_required
 @support_required
 def api_staff_detail(request, staff_id):
-    staff = get_object_or_404(StaffMember.objects.select_related('department', 'staff_role', 'company'), id=staff_id)
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No company profile found'}, status=400)
+    
+    # CRITICAL: Filter by company to prevent cross-company access
+    staff = get_object_or_404(StaffMember.objects.select_related('department', 'staff_role', 'company'), id=staff_id, company=company)
     return JsonResponse({'ok': True, 'staff': _serialize_staff(staff)})
 
 
@@ -1990,8 +2067,15 @@ def api_staff_detail(request, staff_id):
 @login_required
 @support_required
 def api_staff_former(request):
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'No company profile found'}, status=400)
+    
     data = []
-    for s in StaffMember.objects.filter(active=False).select_related('department', 'staff_role', 'company').order_by('-created_at')[:500]:
+    # CRITICAL: Filter by company for data isolation
+    for s in StaffMember.objects.filter(company=company, active=False).select_related('department', 'staff_role', 'company').order_by('-created_at')[:500]:
         data.append(_serialize_staff(s))
     return JsonResponse({'results': data})
 
@@ -2148,40 +2232,62 @@ def _parse_iso_date(val):
 @login_required
 @support_required
 def api_staff_remove(request):
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'success': False, 'error': 'No company profile found'}, status=400)
+    
     payload = None
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
     except Exception:
         payload = request.POST or {}
-    staff_id = payload.get('user_id') or payload.get('staffId') or payload.get('id')
+    staff_id = payload.get('user_id') or payload.get('staffId') or payload.get('staff_id') or payload.get('id')
     if not staff_id:
-        return JsonResponse({'error': 'id required'}, status=400)
-    s = get_object_or_404(StaffMember, id=staff_id)
+        return JsonResponse({'ok': False, 'success': False, 'error': 'Staff ID required'}, status=400)
+    # CRITICAL: Filter by company to prevent cross-company access
+    s = get_object_or_404(StaffMember, id=staff_id, company=company)
     s.active = False
     s.save(update_fields=['active'])
     reasons = payload.get('reasons') or []
     notes = payload.get('notes') or ''
-    ActivityLog.objects.create(actor=request.user, action=f"Removed staff {s.full_name} reasons={reasons} notes={(notes or '')[:120]}")
-    return JsonResponse({'ok': True})
+    # Convert reasons list to readable string
+    reasons_str = ', '.join(reasons) if reasons else 'No reason specified'
+    # CRITICAL: Include company for multi-tenant data isolation
+    ActivityLog.objects.create(
+        actor=request.user,
+        company=company,
+        action=f"Removed staff {s.full_name} - Reasons: {reasons_str}" + (f" - Notes: {(notes or '')[:120]}" if notes else "")
+    )
+    return JsonResponse({'ok': True, 'success': True, 'message': f'{s.full_name} has been removed successfully'})
 
 
 @require_http_methods(['POST'])
 @login_required
 @support_required
 def api_staff_reactivate(request):
+    # Get company from user profile for tenancy isolation
+    try:
+        company = request.user.company_profile
+    except Exception:
+        return JsonResponse({'ok': False, 'success': False, 'error': 'No company profile found'}, status=400)
+    
     payload = None
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
     except Exception:
         payload = request.POST or {}
-    staff_id = payload.get('user_id') or payload.get('staffId') or payload.get('id')
+    staff_id = payload.get('user_id') or payload.get('staffId') or payload.get('staff_id') or payload.get('id')
     if not staff_id:
-        return JsonResponse({'error': 'id required'}, status=400)
-    s = get_object_or_404(StaffMember, id=staff_id)
+        return JsonResponse({'ok': False, 'success': False, 'error': 'Staff ID required'}, status=400)
+    # CRITICAL: Filter by company to prevent cross-company access
+    s = get_object_or_404(StaffMember, id=staff_id, company=company)
     s.active = True
     s.save(update_fields=['active'])
-    ActivityLog.objects.create(actor=request.user, action=f"Reactivated staff {s.full_name}")
-    return JsonResponse({'ok': True})
+    # CRITICAL: Include company for multi-tenant data isolation
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Reactivated staff {s.full_name}")
+    return JsonResponse({'ok': True, 'success': True, 'message': f'{s.full_name} has been reactivated successfully'})
 
 
 @require_http_methods(['POST'])
@@ -2236,8 +2342,9 @@ def api_staff_import(request):
                 except StaffRole.DoesNotExist:
                     errors.append(f"Role '{role_name}' not found in department '{department_name}' for {email}")
             
-            # Get or create staff member
+            # CRITICAL: Get or create staff member filtered by company for data isolation
             obj, was_created = StaffMember.objects.get_or_create(
+                company=company,
                 email=email,
                 defaults={
                     'full_name': full_name,
@@ -2245,7 +2352,6 @@ def api_staff_import(request):
                     'whatsapp': whatsapp,
                     'address': address,
                     'role': role,  # Legacy field
-                    'company': company,
                     'department': department,
                     'staff_role': staff_role,
                     'employment_date': employment_date,
@@ -2301,7 +2407,9 @@ def api_staff_import(request):
     else:
         return JsonResponse({'error': 'Unsupported file type. Upload .csv or .xlsx'}, status=400)
 
-    ActivityLog.objects.create(actor=request.user, action=f"Imported staff: +{created}/~{updated} updates")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Imported staff: +{created}/~{updated} updates")
     
     response_data = {
         'success': True,
@@ -2534,12 +2642,15 @@ def api_run_scheduled_triggers(request):
             sample = list(recipients_qs.values_list('first_name', 'last_name')[:3])
             sample_strs = [f"{a or ''} {b or ''}".strip() for a, b in sample]
 
+            # Get company from template's created_by user if available
+            tpl_company = getattr(tpl.created_by, 'company_profile', None) if tpl.created_by else None
             om = OutboundMessage.objects.create(
                 channel=tpl.channel,
                 audience=tpl.audience,
                 subject=tpl.subject,
                 body=tpl.body,
                 created_by=None,
+                company=tpl_company,
                 recipients_count=recipients_count,
                 recipients_sample=sample_strs,
                 scheduled_for=now,
@@ -2547,7 +2658,8 @@ def api_run_scheduled_triggers(request):
             )
             t.last_run = now
             t.save(update_fields=['last_run'])
-            ActivityLog.objects.create(actor=None, action=f"Scheduled trigger queued outbound id={om.id} for template {tpl.name}")
+            # CRITICAL: Include company for multi-tenant data isolation
+            ActivityLog.objects.create(actor=None, company=tpl_company, action=f"Scheduled trigger queued outbound id={om.id} for template {tpl.name}")
             created.append(str(om.id))
 
     return JsonResponse({'ok': True, 'created': created}, encoder=DjangoJSONEncoder)
@@ -2566,13 +2678,15 @@ def api_conversation_create(request):
     part_ids = payload.get('participant_ids', [])
     subject = payload.get('subject', None)
 
-    conv = SupportConversation.objects.create(subject=subject, created_by=request.user)
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    conv = SupportConversation.objects.create(subject=subject, created_by=request.user, company=company)
     if part_ids:
         participants = User.objects.filter(id__in=part_ids)
         if participants.exists():
             conv.participants.set(participants)
     conv.participants.add(request.user)
-    ActivityLog.objects.create(actor=request.user, action=f"Created conversation {conv.id} ({subject})")
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Created conversation {conv.id} ({subject})")
     return JsonResponse({'ok': True, 'id': conv.id}, encoder=DjangoJSONEncoder)
 
 
@@ -2638,7 +2752,9 @@ def api_conversation_send_message(request, conv_id):
     for u in conv.participants.exclude(id=request.user.id):
         receipts.append(SupportMessageReceipt(message=msg, user=u))
     SupportMessageReceipt.objects.bulk_create(receipts, ignore_conflicts=True)
-    ActivityLog.objects.create(actor=request.user, action=f"Sent message in conv {conv.id}")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Sent message in conv {conv.id}")
     return JsonResponse({'ok': True, 'id': msg.id}, encoder=DjangoJSONEncoder)
 
 
@@ -3701,7 +3817,9 @@ def api_templates_detail(request, tpl_id):
 
     if request.method == "DELETE":
         tpl.delete()
-        ActivityLog.objects.create(actor=request.user, action=f"Deleted template '{tpl.name}'")
+        # CRITICAL: Include company for multi-tenant data isolation
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted template '{tpl.name}'")
         return HttpResponse(status=204)
 
     # PATCH
@@ -3737,7 +3855,9 @@ def api_templates_detail(request, tpl_id):
             else:
                 tpl.send_time = None
         tpl.save()
-        ActivityLog.objects.create(actor=request.user, action=f"Updated template '{tpl.name}'")
+        # CRITICAL: Include company for multi-tenant data isolation
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Updated template '{tpl.name}'")
         return JsonResponse({'ok': True, 'id': tpl.id}, encoder=DjangoJSONEncoder)
 
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
@@ -3768,7 +3888,9 @@ def api_messages_detail(request, msg_id):
 
     if request.method == "DELETE":
         msg.delete()
-        ActivityLog.objects.create(actor=request.user, action=f"Deleted InApp message id={msg_id}")
+        # CRITICAL: Include company for multi-tenant data isolation
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted InApp message id={msg_id}")
         return JsonResponse({'ok': True})
 
     # PATCH
@@ -3784,7 +3906,9 @@ def api_messages_detail(request, msg_id):
     if 'is_draft' in payload or 'isDraft' in payload:
         msg.is_draft = bool(payload.get('is_draft', payload.get('isDraft', msg.is_draft)))
     msg.save()
-    ActivityLog.objects.create(actor=request.user, action=f"Updated InApp message id={msg.id}")
+    # CRITICAL: Include company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    ActivityLog.objects.create(actor=request.user, company=company, action=f"Updated InApp message id={msg.id}")
     return JsonResponse({'ok': True, 'id': msg.id}, encoder=DjangoJSONEncoder)
 
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
@@ -3796,7 +3920,9 @@ def api_outbound_detail(request, outbound_id):
     PATCH -> update body/subject/status
     DELETE -> delete queued outbound
     """
-    om = get_object_or_404(OutboundMessage, id=outbound_id)
+    # CRITICAL: Filter by company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    om = get_object_or_404(OutboundMessage, id=outbound_id, company=company)
 
     if request.method == "GET":
         data = {
@@ -3822,7 +3948,7 @@ def api_outbound_detail(request, outbound_id):
 
     if request.method == "DELETE":
         om.delete()
-        ActivityLog.objects.create(actor=request.user, action=f"Deleted outbound id={outbound_id}")
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Deleted outbound id={outbound_id}")
         return JsonResponse({'ok': True})
 
     # PATCH
@@ -3840,7 +3966,7 @@ def api_outbound_detail(request, outbound_id):
         om.status = payload.get('status') or om.status; changed = True
     if changed:
         om.save()
-        ActivityLog.objects.create(actor=request.user, action=f"Updated outbound id={om.id}")
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Updated outbound id={om.id}")
     return JsonResponse({'ok': True, 'id': str(om.id)}, encoder=DjangoJSONEncoder)
 
 # NEWSLETTER
@@ -4154,7 +4280,9 @@ def api_settings_update(request):
     # Save if changed
     if changed:
         ms.save()
-        ActivityLog.objects.create(actor=request.user, action=f"Updated messaging settings by {request.user.get_full_name() or request.user.username}")
+        # CRITICAL: Include company for multi-tenant data isolation
+        company = getattr(request.user, 'company_profile', None)
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Updated messaging settings by {request.user.get_full_name() or request.user.username}")
 
     # newsletter section (not stored in current models — you can store as site config or environment)
     newsletter = payload.get('newsletter', {})
@@ -4766,10 +4894,10 @@ def api_staff_update(request, staff_id):
         # Get company from user profile
         company = request.user.company_profile
         if not company:
-            return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
+            return JsonResponse({'ok': False, 'success': False, 'error': 'No company found', 'message': 'No company found'}, status=400)
         
-        # Get the staff member (from StaffMember model, not CustomUser)
-        staff = StaffMember.objects.select_related('company', 'department', 'staff_role').get(id=staff_id)
+        # CRITICAL: Get the staff member and verify company ownership for data isolation
+        staff = StaffMember.objects.select_related('company', 'department', 'staff_role').get(id=staff_id, company=company)
         
         # Parse request payload
         payload = _get_staff_payload(request)
@@ -4783,9 +4911,9 @@ def api_staff_update(request, staff_id):
             updated_fields.append('full_name')
         
         if values.get('email') and values['email'] != staff.email:
-            # Check for duplicate email
-            if StaffMember.objects.filter(email=values['email']).exclude(id=staff_id).exists():
-                return JsonResponse({'success': False, 'message': 'Email already in use'}, status=400)
+            # CRITICAL: Check for duplicate email within the same company only
+            if StaffMember.objects.filter(company=company, email=values['email']).exclude(id=staff_id).exists():
+                return JsonResponse({'ok': False, 'success': False, 'error': 'Email already in use', 'message': 'Email already in use'}, status=400)
             staff.email = values['email']
             updated_fields.append('email')
         
@@ -4809,6 +4937,12 @@ def api_staff_update(request, staff_id):
             staff.date_of_birth = values['date_of_birth']
             updated_fields.append('date_of_birth')
         
+        # Handle profile picture upload
+        profile_picture = request.FILES.get('profile_picture')
+        if profile_picture:
+            staff.profile_picture = profile_picture
+            updated_fields.append('profile_picture')
+        
         # Handle department and role
         if values.get('department_id'):
             try:
@@ -4817,19 +4951,19 @@ def api_staff_update(request, staff_id):
                     staff.department = department
                     updated_fields.append('department')
             except StaffDepartment.DoesNotExist:
-                return JsonResponse({'success': False, 'message': 'Invalid department selected'}, status=400)
+                return JsonResponse({'ok': False, 'success': False, 'error': 'Invalid department selected', 'message': 'Invalid department selected'}, status=400)
         
         if values.get('role_id'):
             try:
                 staff_role = StaffRole.objects.get(id=values['role_id'])
                 # Verify role belongs to selected department (if department was updated or exists)
                 if staff.department and staff_role.department != staff.department:
-                    return JsonResponse({'success': False, 'message': 'Selected role does not belong to the selected department'}, status=400)
+                    return JsonResponse({'ok': False, 'success': False, 'error': 'Selected role does not belong to the selected department', 'message': 'Selected role does not belong to the selected department'}, status=400)
                 if staff.staff_role != staff_role:
                     staff.staff_role = staff_role
                     updated_fields.append('staff_role')
             except StaffRole.DoesNotExist:
-                return JsonResponse({'success': False, 'message': 'Invalid role selected'}, status=400)
+                return JsonResponse({'ok': False, 'success': False, 'error': 'Invalid role selected', 'message': 'Invalid role selected'}, status=400)
         
         # Legacy role field (keep for backward compatibility)
         if values.get('role') and values['role'] != staff.role:
@@ -4849,15 +4983,17 @@ def api_staff_update(request, staff_id):
             )
             
             return JsonResponse({
+                'ok': True,
                 'success': True,
                 'message': 'Staff member updated successfully',
                 'staff': _serialize_staff(staff)
             })
         else:
-            return JsonResponse({'success': True, 'message': 'No changes detected'})
+            return JsonResponse({'ok': True, 'success': True, 'message': 'No changes detected'})
             
     except StaffMember.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'Staff member not found'}, status=404)
+        return JsonResponse({'ok': False, 'success': False, 'error': 'Staff member not found', 'message': 'Staff member not found'}, status=404)
     except Exception as e:
         logger.error(f"Error updating staff: {str(e)}")
+        return JsonResponse({'ok': False, 'success': False, 'error': str(e)}, status=500)
         return JsonResponse({'success': False, 'message': f'Error updating staff member: {str(e)}'}, status=500)

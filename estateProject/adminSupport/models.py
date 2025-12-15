@@ -110,8 +110,10 @@ class OutboundMessage(models.Model):
     """
     A queue entry representing a broadcast or scheduled send.
     A worker (Celery/RQ) should pick queued rows and process them.
+    CRITICAL: All outbound messages are company-isolated for multi-tenancy.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='outbound_messages', null=True, blank=True, help_text='Company that owns this message')
     channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES, default='inapp')
     audience = models.CharField(max_length=30, choices=AUDIENCE_CHOICES, default='clients')
     subject = models.CharField(max_length=255, blank=True, null=True)
@@ -139,10 +141,12 @@ class SupportConversation(models.Model):
     """
     Conversation between support (or staff) and one or more users.
     Each conversation is a thread; support staff can reply, etc.
+    CRITICAL: All conversations are company-isolated for multi-tenancy.
     """
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='support_conversations', null=True, blank=True, help_text='Company that owns this conversation')
     subject = models.CharField(max_length=255, blank=True, null=True)
     created_by = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='support_started_conversations')
-    participants = models.ManyToManyField(AUTH_USER_MODEL, related_name='support_conversations', blank=True)
+    participants = models.ManyToManyField(AUTH_USER_MODEL, related_name='support_participant_conversations', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -211,7 +215,9 @@ class InAppMessage(models.Model):
     """
     Standalone in-app message (broadcast or admin-sent) persisted to recipients' inboxes.
     This differs from conversation messages which are threaded.
+    CRITICAL: All in-app messages are company-isolated for multi-tenancy.
     """
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='inapp_messages', null=True, blank=True, help_text='Company that owns this message')
     sender = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_inapp_sent')
     recipients = models.ManyToManyField(AUTH_USER_MODEL, related_name='support_inapp_inbox', blank=True)
     subject = models.CharField(max_length=255, blank=True, null=True)
@@ -328,6 +334,31 @@ class StaffRole(models.Model):
         return f"{self.name} ({self.department.name})"
 
 
+def staff_profile_picture_path(instance, filename):
+    """
+    Generate company-isolated file path for staff profile pictures.
+    Format: staff_profiles/company_{company_id}/{staff_id}_{filename}
+    This ensures complete data isolation between companies.
+    """
+    import os
+    from django.utils.text import slugify
+    
+    # Get company ID for isolation
+    company_id = instance.company.id if instance.company else 'no_company'
+    
+    # Get file extension
+    ext = os.path.splitext(filename)[1].lower()
+    
+    # Create safe filename with staff ID (if exists) or email
+    if instance.id:
+        safe_filename = f"{instance.id}_{slugify(instance.full_name[:30])}{ext}"
+    else:
+        safe_filename = f"{slugify(instance.email.split('@')[0][:30])}{ext}"
+    
+    # Return company-isolated path
+    return f'staff_profiles/company_{company_id}/{safe_filename}'
+
+
 class StaffMember(models.Model):
     """
     Independent staff directory record, decoupled from estateApp users.
@@ -340,6 +371,7 @@ class StaffMember(models.Model):
     phone = models.CharField(max_length=50, blank=True)
     whatsapp = models.CharField(max_length=50, blank=True, help_text='WhatsApp number (optional)')
     address = models.CharField(max_length=255, blank=True)
+    profile_picture = models.ImageField(upload_to=staff_profile_picture_path, null=True, blank=True, help_text='Staff profile picture/passport')
     department = models.ForeignKey(StaffDepartment, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
     staff_role = models.ForeignKey(StaffRole, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_members')
     role = models.CharField(max_length=120, blank=True, help_text='Role/Position (legacy field)')
@@ -371,7 +403,9 @@ class StaffMember(models.Model):
 class ActivityLog(models.Model):
     """
     Human-readable activity items for the dashboard.
+    CRITICAL: All activity logs are company-isolated for multi-tenancy.
     """
+    company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='activity_logs', null=True, blank=True, help_text='Company that owns this log entry')
     actor = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_activities')
     action = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
