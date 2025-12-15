@@ -1538,61 +1538,6 @@
     </div>
 </div>
 
-<!-- Edit Staff Modal -->
-<div class="modal fade" id="editStaffModal">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-user-edit"></i>
-                    Edit Staff Member
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="editStaffAlert"></div>
-                <form id="editStaffForm">
-                    {% csrf_token %}
-                    <input type="hidden" id="editStaffId">
-                    <div class="form-group">
-                        <label class="form-label">Full Name *</label>
-                        <input type="text" class="form-control-custom" id="editStaffName" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Email Address *</label>
-                        <input type="email" class="form-control-custom" id="editStaffEmail" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control-custom" id="editStaffPhone" name="phone">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Department *</label>
-                        <select class="form-control-custom" id="editStaffDepartment" name="department_id" required>
-                            <option value="">Select Department</option>
-                        </select>
-                        <small class="text-muted">Select the department this staff member belongs to</small>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Role/Position *</label>
-                        <select class="form-control-custom" id="editStaffRole" name="role_id" required>
-                            <option value="">Select Role</option>
-                        </select>
-                        <small class="text-muted">Role will be filtered based on selected department</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-custom btn-outline-custom" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn-custom btn-primary-custom" id="submitEditStaff">
-                    <i class="fas fa-save"></i>
-                    Save Changes
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Message Individual Staff Modal -->
 <div class="modal fade" id="messageStaffModal">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -2873,52 +2818,51 @@
         }
     }
 
-    // Populate filter dropdowns dynamically
+    // Populate filter dropdowns dynamically from API
     function populateFilterDropdowns() {
-        // Get unique departments and roles from loaded staff
-        const departments = new Map();
-        const roles = new Map();
-        
-        if (allStaff && allStaff.length > 0) {
-            allStaff.forEach(staff => {
-                if (staff.department_id && staff.department_name) {
-                    departments.set(staff.department_id, staff.department_name);
+        // Fetch departments from API
+        $.ajax({
+            url: '{% url "adminSupport:api_departments_list" %}',
+            method: 'GET',
+            success: function(response) {
+                const departments = response.departments || response.results || response.data || [];
+                const deptFilter = $('#departmentFilter');
+                const currentDeptValue = deptFilter.val();
+                
+                let deptHtml = '<option value="">All Departments</option>';
+                if (departments.length > 0) {
+                    departments.sort((a, b) => a.name.localeCompare(b.name)).forEach(dept => {
+                        deptHtml += `<option value="${dept.id}">${dept.name}</option>`;
+                    });
                 }
-                if (staff.role_id && staff.role_name) {
-                    roles.set(staff.role_id, staff.role_name);
+                deptFilter.html(deptHtml);
+                if (currentDeptValue) {
+                    deptFilter.val(currentDeptValue);
                 }
-            });
-        }
+            }
+        });
         
-        // Populate department filter
-        const deptFilter = $('#departmentFilter');
-        const currentDeptValue = deptFilter.val();
-        let deptHtml = '<option value="">All Departments</option>';
-        
-        if (departments.size > 0) {
-            Array.from(departments.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
-                deptHtml += `<option value="${id}">${name}</option>`;
-            });
-        }
-        deptFilter.html(deptHtml);
-        if (currentDeptValue && departments.has(currentDeptValue)) {
-            deptFilter.val(currentDeptValue);
-        }
-        
-        // Populate role filter
-        const roleFilter = $('#roleFilter');
-        const currentRoleValue = roleFilter.val();
-        let roleHtml = '<option value="">All Roles</option>';
-        
-        if (roles.size > 0) {
-            Array.from(roles.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
-                roleHtml += `<option value="${id}">${name}</option>`;
-            });
-        }
-        roleFilter.html(roleHtml);
-        if (currentRoleValue && roles.has(currentRoleValue)) {
-            roleFilter.val(currentRoleValue);
-        }
+        // Fetch all roles from API
+        $.ajax({
+            url: '{% url "adminSupport:api_roles_list" %}',
+            method: 'GET',
+            success: function(response) {
+                const roles = response.roles || response.results || response.data || [];
+                const roleFilter = $('#roleFilter');
+                const currentRoleValue = roleFilter.val();
+                
+                let roleHtml = '<option value="">All Roles</option>';
+                if (roles.length > 0) {
+                    roles.sort((a, b) => a.name.localeCompare(b.name)).forEach(role => {
+                        roleHtml += `<option value="${role.id}">${role.name}</option>`;
+                    });
+                }
+                roleFilter.html(roleHtml);
+                if (currentRoleValue) {
+                    roleFilter.val(currentRoleValue);
+                }
+            }
+        });
     }
 
     // Apply filters
@@ -3251,33 +3195,41 @@
     // Edit staff
     async function editStaff(staffId) {
         const staff = allStaff.find(s => s.id === staffId);
-        if (!staff) return;
-
-        // Populate basic fields
-        $('#editStaffId').val(staff.id);
-        $('#editStaffName').val(staff.name);
-        $('#editStaffEmail').val(staff.email);
-        $('#editStaffPhone').val(staff.phone);
-
-        // Load departments and roles for edit modal
-        await loadDepartmentsForEdit();
-        
-        // Set department if exists
-        if (staff.department_id) {
-            $('#editStaffDepartment').val(staff.department_id);
-            // Load roles for this department
-            await loadRolesForEdit(staff.department_id);
-            // Set role if exists
-            if (staff.role_id) {
-                $('#editStaffRole').val(staff.role_id);
-            }
+        if (!staff) {
+            showAlert('mainAlert', 'error', 'Staff member not found');
+            return;
         }
+
+        // Store staff ID in modal for later use
+        $('#editStaffModal').data('staff-id', staffId);
+
+        // Populate ALL form fields
+        $('#editStaffId').val(staff.id);
+        $('#editStaffName').val(staff.full_name || staff.name || '');
+        $('#editStaffEmail').val(staff.email || '');
+        $('#editStaffPhone').val(staff.phone || '');
+        $('#editStaffWhatsapp').val(staff.whatsapp || '');
+        $('#editStaffAddress').val(staff.address || '');
+        $('#editStaffEmploymentDate').val(staff.employment_date || '');
+        $('#editStaffDOB').val(staff.date_of_birth || '');
+
+        // Set profile picture preview
+        const avatar = staff.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.full_name || staff.name || 'User') + '&background=2563eb&color=fff';
+        $('#editStaffProfilePreview').html(`<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover;">`);
+        if (staff.profile_picture) {
+            $('#removeEditStaffPhoto').show();
+        } else {
+            $('#removeEditStaffPhoto').hide();
+        }
+
+        // Load departments and roles for edit modal with selected values
+        await loadDepartmentsForEdit(staff.department_id, staff.role_id);
 
         $('#editStaffModal').modal('show');
     }
     
     // Load departments for edit modal
-    async function loadDepartmentsForEdit() {
+    async function loadDepartmentsForEdit(selectedDeptId, selectedRoleId) {
         try {
             const response = await $.ajax({
                 url: '{% url "adminSupport:api_departments_list" %}',
@@ -3287,18 +3239,38 @@
             const select = $('#editStaffDepartment');
             select.empty().append('<option value="">Select Department</option>');
             
-            if (response.departments && response.departments.length > 0) {
-                response.departments.forEach(dept => {
+            // Get departments from response (handle different response formats)
+            const departments = response.departments || response.results || response.data || [];
+            
+            if (departments.length > 0) {
+                departments.forEach(dept => {
                     select.append(`<option value="${dept.id}">${dept.name}</option>`);
                 });
+                
+                // Explicitly set the selected value after all options are added
+                if (selectedDeptId) {
+                    select.val(String(selectedDeptId));
+                }
+            }
+            
+            // If department is selected, load its roles
+            if (selectedDeptId) {
+                await loadRolesForEdit(selectedDeptId, selectedRoleId);
+            } else {
+                $('#editStaffRole').empty().append('<option value="">Select a Department First</option>');
             }
         } catch (error) {
-            console.error('Error loading departments:', error);
+            // Silent fail - user will see empty dropdowns
         }
     }
     
     // Load roles for edit modal based on department
-    async function loadRolesForEdit(departmentId) {
+    async function loadRolesForEdit(departmentId, selectedRoleId) {
+        if (!departmentId) {
+            $('#editStaffRole').empty().append('<option value="">Select a Department First</option>');
+            return;
+        }
+        
         try {
             const response = await $.ajax({
                 url: '{% url "adminSupport:api_roles_list" %}',
@@ -3309,13 +3281,21 @@
             const select = $('#editStaffRole');
             select.empty().append('<option value="">Select Role</option>');
             
-            if (response.roles && response.roles.length > 0) {
-                response.roles.forEach(role => {
+            // Get roles from response (handle different response formats)
+            const roles = response.roles || response.results || response.data || [];
+            
+            if (roles.length > 0) {
+                roles.forEach(role => {
                     select.append(`<option value="${role.id}">${role.name}</option>`);
                 });
+                
+                // Explicitly set the selected value after all options are added
+                if (selectedRoleId) {
+                    select.val(String(selectedRoleId));
+                }
             }
         } catch (error) {
-            console.error('Error loading roles:', error);
+            // Silent fail - user will see empty dropdown
         }
     }
     
@@ -3323,9 +3303,9 @@
     $('#editStaffDepartment').on('change', async function() {
         const departmentId = $(this).val();
         if (departmentId) {
-            await loadRolesForEdit(departmentId);
+            await loadRolesForEdit(departmentId, null);
         } else {
-            $('#editStaffRole').empty().append('<option value="">Select Role</option>');
+            $('#editStaffRole').empty().append('<option value="">Select a Department First</option>');
         }
     });
 
@@ -3890,91 +3870,8 @@
         }
 
         // ============================================================================
-        // EDIT STAFF FUNCTIONALITY
+        // EDIT STAFF FUNCTIONALITY - Event Handlers
         // ============================================================================
-
-        // Edit staff
-        function editStaff(staffId) {
-            const staff = allStaff.find(s => s.id === staffId);
-            if (!staff) {
-                showAlert('mainAlert', 'error', 'Staff member not found');
-                return;
-            }
-
-            // Store staff ID in modal for later use
-            $('#editStaffModal').data('staff-id', staffId);
-
-            // Populate form fields
-            $('#editStaffName').val(staff.full_name || '');
-            $('#editStaffEmail').val(staff.email || '');
-            $('#editStaffPhone').val(staff.phone || '');
-            $('#editStaffWhatsapp').val(staff.whatsapp || '');
-            $('#editStaffAddress').val(staff.address || '');
-            $('#editStaffEmploymentDate').val(staff.employment_date || '');
-            $('#editStaffDOB').val(staff.date_of_birth || '');
-
-            // Set profile picture preview
-            const avatar = staff.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(staff.name || 'User') + '&background=2563eb&color=fff';
-            $('#editStaffProfilePreview').html(`<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover;">`);
-            $('#removeEditStaffPhoto').hide();
-
-            // Load departments and roles for the edit modal
-            loadDepartmentsForEdit(staff.department_id, staff.role_id);
-
-            // Show modal
-            $('#editStaffModal').modal('show');
-        }
-
-        // Load departments and roles for edit modal
-        function loadDepartmentsForEdit(selectedDeptId, selectedRoleId) {
-            $.ajax({
-                url: '{% url "adminSupport:api_departments_list" %}',
-                method: 'GET',
-                success: function (response) {
-                    const departments = response.results || response.data || [];
-                    let deptHtml = '<option value="">Select Department</option>';
-                    departments.forEach(dept => {
-                        const selected = dept.id == selectedDeptId ? 'selected' : '';
-                        deptHtml += `<option value="${dept.id}" ${selected}>${dept.name}</option>`;
-                    });
-                    $('#editStaffDepartment').html(deptHtml);
-
-                    // If department is selected, load its roles
-                    if (selectedDeptId) {
-                        loadRolesForEditDepartment(selectedDeptId, selectedRoleId);
-                    }
-                }
-            });
-        }
-
-        // Load roles for edit department
-        function loadRolesForEditDepartment(departmentId, selectedRoleId) {
-            if (!departmentId) {
-                $('#editStaffRole').html('<option value="">Select a Department First</option>');
-                return;
-            }
-
-            $.ajax({
-                url: '{% url "adminSupport:api_roles_list" %}',
-                method: 'GET',
-                data: { department_id: departmentId },
-                success: function (response) {
-                    const roles = response.results || response.data || [];
-                    let roleHtml = '<option value="">Select Role</option>';
-                    roles.forEach(role => {
-                        const selected = role.id == selectedRoleId ? 'selected' : '';
-                        roleHtml += `<option value="${role.id}" ${selected}>${role.name}</option>`;
-                    });
-                    $('#editStaffRole').html(roleHtml);
-                }
-            });
-        }
-
-        // Handle edit department change
-        $('#editStaffDepartment').on('change', function () {
-            const departmentId = $(this).val();
-            loadRolesForEditDepartment(departmentId, null);
-        });
 
         // Handle edit staff submission
         $('#submitEditStaff').on('click', function () {

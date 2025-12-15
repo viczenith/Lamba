@@ -367,7 +367,7 @@ class StaffMember(models.Model):
     """
     company = models.ForeignKey('estateApp.Company', on_delete=models.CASCADE, related_name='staff_members', null=True, blank=True)
     full_name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()  # Removed unique=True, using compound unique_together instead
     phone = models.CharField(max_length=50, blank=True)
     whatsapp = models.CharField(max_length=50, blank=True, help_text='WhatsApp number (optional)')
     address = models.CharField(max_length=255, blank=True)
@@ -393,10 +393,14 @@ class StaffMember(models.Model):
         verbose_name = 'Staff Member'
         verbose_name_plural = 'Staff Members'
         ordering = ['-created_at']
+        # CRITICAL: Compound unique constraint for multi-tenancy
+        # Each company can have unique emails, but same email can exist across different companies
+        unique_together = [['company', 'email']]
         indexes = [
             models.Index(fields=['active']),
             models.Index(fields=['role']),
             models.Index(fields=['email']),
+            models.Index(fields=['company', 'email']),
         ]
 
 

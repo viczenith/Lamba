@@ -51,7 +51,7 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q, Sum, Count, IntegerField, DecimalField, BooleanField, F, Value, Case, When, ExpressionWrapper, Subquery, OuterRef, Max
 from django.db.models.functions import Coalesce
 from django.views.decorators.csrf import csrf_protect
@@ -1902,12 +1902,21 @@ def api_staff_create(request):
     # Handle profile picture upload
     profile_picture = request.FILES.get('profile_picture')
     
-    # CRITICAL: Filter by company to prevent cross-company data access
-    staff = StaffMember.objects.filter(company=company, email=values['email']).first()
+    # CRITICAL: Check if staff with this email already exists in this company
+    existing_staff = StaffMember.objects.filter(company=company, email=values['email']).first()
     created = False
     reactivated = False
 
-    if staff:
+    if existing_staff:
+        # If staff exists and is active, block duplicate creation
+        if existing_staff.active:
+            return JsonResponse({
+                'ok': False, 
+                'error': f"A staff member with email '{values['email']}' already exists in your company."
+            }, status=400)
+        
+        # If staff exists but is inactive (former staff), reactivate them
+        staff = existing_staff
         updated_fields = []
         for field in ['full_name', 'phone', 'whatsapp', 'address', 'role', 'employment_date', 'date_of_birth']:
             new_value = values.get(field)
@@ -1920,45 +1929,41 @@ def api_staff_create(request):
             staff.profile_picture = profile_picture
             updated_fields.append('profile_picture')
         
-        # Update company, department, and staff_role
-        if company and staff.company != company:
-            staff.company = company
-            updated_fields.append('company')
+        # Update department and staff_role
         if department and staff.department != department:
             staff.department = department
             updated_fields.append('department')
         if staff_role and staff.staff_role != staff_role:
             staff.staff_role = staff_role
             updated_fields.append('staff_role')
-            
-        if not staff.active:
-            staff.active = True
-            reactivated = True
-            updated_fields.append('active')
-
-        if not updated_fields:
-            return JsonResponse({'ok': False, 'error': 'Staff member with this email already exists.'}, status=400)
+        
+        # Reactivate the staff member
+        staff.active = True
+        updated_fields.append('active')
+        reactivated = True
 
         staff.save(update_fields=updated_fields)
-        action = "Reactivated" if reactivated else "Updated"
         # CRITICAL: Include company for multi-tenant data isolation
-        ActivityLog.objects.create(actor=request.user, company=company, action=f"{action} staff {staff.full_name} ({staff.email})")
+        ActivityLog.objects.create(actor=request.user, company=company, action=f"Reactivated staff {staff.full_name} ({staff.email})")
     else:
-        staff = StaffMember.objects.create(
-            full_name=values['full_name'],
-            email=values['email'],
-            phone=values['phone'],
-            whatsapp=values.get('whatsapp') or '',
-            address=values['address'],
-            role=values.get('role') or '',  # Legacy field, keep for backward compatibility
-            company=company,
-            department=department,
-            staff_role=staff_role,
-            employment_date=values['employment_date'],
-            date_of_birth=values['date_of_birth'],
-            active=True if values.get('active') is None else bool(values['active']),
-            created_by=request.user,
-        )
+        try:
+            staff = StaffMember.objects.create(
+                full_name=values['full_name'],
+                email=values['email'],
+                phone=values['phone'],
+                whatsapp=values.get('whatsapp') or '',
+                address=values['address'],
+                role=values.get('role') or '',  # Legacy field, keep for backward compatibility
+                company=company,
+                department=department,
+                staff_role=staff_role,
+                employment_date=values['employment_date'],
+                date_of_birth=values['date_of_birth'],
+                active=True if values.get('active') is None else bool(values['active']),
+                created_by=request.user,
+            )
+        except IntegrityError:
+            return JsonResponse({'ok': False, 'error': 'Staff member with this email already exists in your company.'}, status=400)
         
         # Add profile picture if provided
         if profile_picture:
@@ -4738,15 +4743,21 @@ def api_department_delete(request):
 @login_required
 @require_GET
 def api_roles_list(request):
-    """Get all roles for the current company"""
+    """Get all roles for the current company, optionally filtered by department"""
     try:
         company = request.user.company_profile
         if not company:
             return JsonResponse({'success': False, 'message': 'No company found'}, status=400)
         
-        roles = StaffRole.objects.filter(
-            department__company=company
-        ).values(
+        # Filter by department_id if provided
+        department_id = request.GET.get('department_id')
+        
+        roles_qs = StaffRole.objects.filter(department__company=company)
+        
+        if department_id:
+            roles_qs = roles_qs.filter(department_id=department_id)
+        
+        roles = roles_qs.values(
             'id', 'name', 'description', 'department_id', 'department__name'
         ).annotate(
             staff_count=Count('staff_members', filter=Q(staff_members__active=True))
