@@ -87,6 +87,7 @@
         font-size: 0.95rem;
     }
 
+    /* Stats Cards - Modern Design matching Admin Dashboard */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -94,79 +95,131 @@
         margin-bottom: 2rem;
     }
 
-    .stat-card {
+    .stats-card {
         background: white;
-        border-radius: var(--border-radius);
-        padding: 1.5rem;
-        box-shadow: var(--card-shadow);
-        transition: var(--transition);
-        border-left: 4px solid;
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        position: relative;
     }
 
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--card-shadow-hover);
+    .stats-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%);
+        animation: float 6s ease-in-out infinite;
     }
 
-    .stat-card.primary {
-        border-left-color: var(--primary-color);
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
     }
 
-    .stat-card.success {
-        border-left-color: var(--success-color);
+    .stats-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.12);
     }
 
-    .stat-card.warning {
-        border-left-color: var(--warning-color);
+    .stats-card .card-body {
+        padding: 25px;
+        position: relative;
+        z-index: 1;
     }
 
-    .stat-card.info {
-        border-left-color: var(--info-color);
+    .stats-card .card-title {
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        opacity: 0.7;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
 
-    .stat-card .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+    .stats-card .card-icon {
+        width: 60px;
+        height: 60px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
+        border-radius: 16px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 1;
     }
 
-    .stat-card.primary .stat-icon {
-        background: rgba(37, 99, 235, 0.1);
-        color: var(--primary-color);
+    .stats-card .card-icon i {
+        font-size: 28px;
     }
 
-    .stat-card.success .stat-icon {
-        background: rgba(34, 197, 94, 0.1);
-        color: var(--success-color);
+    .stats-card .card-icon:hover {
+        transform: scale(1.1) rotate(5deg);
     }
 
-    .stat-card.warning .stat-icon {
-        background: rgba(245, 158, 11, 0.1);
-        color: var(--warning-color);
-    }
-
-    .stat-card.info .stat-icon {
-        background: rgba(59, 130, 246, 0.1);
-        color: var(--info-color);
-    }
-
-    .stat-card h3 {
-        font-size: 2rem;
+    .stats-card .stat-value {
+        font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
-        color: #1e293b;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
-    .stat-card p {
-        margin: 0.5rem 0 0 0;
-        color: var(--secondary-color);
-        font-size: 0.875rem;
-        font-weight: 500;
+    .stats-card.primary .stat-value {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stats-card.success .stat-value {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stats-card.warning .stat-value {
+        background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stats-card.info .stat-value {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Icon backgrounds */
+    .stats-card.primary .card-icon {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+    }
+
+    .stats-card.success .card-icon {
+        background: rgba(17, 153, 142, 0.1);
+        color: #11998e;
+    }
+
+    .stats-card.warning .card-icon {
+        background: rgba(242, 153, 74, 0.1);
+        color: #f2994a;
+    }
+
+    .stats-card.info .card-icon {
+        background: rgba(79, 172, 254, 0.1);
+        color: #4facfe;
     }
 
     .content-card {
@@ -881,36 +934,72 @@
 
 <!-- Stats Grid -->
 <div class="stats-grid">
-    <div class="stat-card primary">
-        <div class="stat-icon">
-            <i class="fas fa-users"></i>
+    <!-- Total Staff Card -->
+    <div class="stats-card primary">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="card-title">Total Staff</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="stat-value mb-0" id="totalStaffCount">0</h2>
+                    </div>
+                </div>
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
         </div>
-        <h3 id="totalStaffCount">0</h3>
-        <p>Total Staff</p>
     </div>
 
-    <div class="stat-card success">
-        <div class="stat-icon">
-            <i class="fas fa-user-check"></i>
+    <!-- Active Staff Card -->
+    <div class="stats-card success">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="card-title">Active Staff</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="stat-value mb-0" id="activeStaffCount">0</h2>
+                    </div>
+                </div>
+                <div class="card-icon">
+                    <i class="fas fa-user-check"></i>
+                </div>
+            </div>
         </div>
-        <h3 id="activeStaffCount">0</h3>
-        <p>Active Staff</p>
     </div>
 
-    <div class="stat-card warning">
-        <div class="stat-icon">
-            <i class="fas fa-user-clock"></i>
+    <!-- Former Staff Card -->
+    <div class="stats-card warning">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="card-title">Former Staff</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="stat-value mb-0" id="formerStaffCount">0</h2>
+                    </div>
+                </div>
+                <div class="card-icon">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+            </div>
         </div>
-        <h3 id="formerStaffCount">0</h3>
-        <p>Former Staff</p>
     </div>
 
-    <div class="stat-card info">
-        <div class="stat-icon">
-            <i class="fas fa-building"></i>
+    <!-- Departments Card -->
+    <div class="stats-card info">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="card-title">Departments</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="stat-value mb-0" id="departmentsCount">0</h2>
+                    </div>
+                </div>
+                <div class="card-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+            </div>
         </div>
-        <h3 id="departmentsCount">0</h3>
-        <p>Departments</p>
     </div>
 </div>
 
@@ -1375,7 +1464,7 @@
                     <!-- Drag and Drop Zone -->
                     <div class="form-group">
                         <label class="form-label fw-semibold">Upload Staff File *</label>
-                        <div id="dropZone" class="border-2 border-dashed rounded p-4 text-center" style="border-color: #cbd5e1; background: #f8fafc; cursor: pointer; transition: all 0.3s ease;">
+                        <div id="dropZone" class="border-2 border-dashed rounded p-4 text-center" style="border-color: #cbd5e1; background: #f8fafc; cursor: pointer; transition: all 0.3s ease; user-select: none;">
                             <div id="dropZoneContent">
                                 <i class="fas fa-cloud-upload-alt mb-3" style="font-size: 3rem; color: #94a3b8;"></i>
                                 <h6 class="mb-2" style="color: #475569;">Drag & Drop your file here</h6>
@@ -1416,6 +1505,28 @@
                                 <li><strong>date_of_birth</strong> - Format: YYYY-MM-DD (optional)</li>
                                 <li><strong>whatsapp</strong> - WhatsApp number (optional)</li>
                             </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- File Preview Section -->
+                    <div id="previewSection" style="display: none;" class="mt-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="mb-0" style="color: #334155;">
+                                <i class="fas fa-eye me-2 text-info"></i>
+                                <strong>Preview Data</strong>
+                                <span class="badge bg-info ms-2" id="previewRowCount">0 rows</span>
+                            </h6>
+                            <small class="text-muted">Edit inconsistent department/role fields before importing</small>
+                        </div>
+                        
+                        <div id="previewTable" class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 8px; max-height: 400px; overflow-y: auto; background: white;">
+                            <!-- Preview table will be generated here -->
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3" id="validationAlert" style="display: none;">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>⚠️ Validation Issues:</strong>
+                            <div id="validationMessages" class="mt-2"></div>
                         </div>
                     </div>
                 </form>
@@ -1562,9 +1673,9 @@
                     {% csrf_token %}
                     <input type="hidden" id="messageStaffId">
                     <div class="form-group">
-                        <label class="form-label">Subject *</label>
+                        <label class="form-label">Subject <span class="text-muted">(required for email)</span></label>
                         <input type="text" class="form-control-custom" id="messageSubject" name="subject"
-                            placeholder="Enter message subject" required>
+                            placeholder="Enter message subject">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Message *</label>
@@ -1572,12 +1683,22 @@
                             placeholder="Type your message here..." required style="resize: vertical;"></textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Priority</label>
-                        <select class="form-control-custom" id="messagePriority" name="priority">
-                            <option value="normal">Normal</option>
-                            <option value="high">High Priority</option>
-                            <option value="urgent">Urgent</option>
-                        </select>
+                        <label class="form-label">Send Via *</label>
+                        <div class="d-flex gap-4 mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="messageChannelEmail" name="channels" value="email" checked>
+                                <label class="form-check-label" for="messageChannelEmail">
+                                    <i class="fas fa-envelope me-1 text-primary"></i> Email
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="messageChannelSMS" name="channels" value="sms">
+                                <label class="form-check-label" for="messageChannelSMS">
+                                    <i class="fas fa-sms me-1 text-success"></i> SMS
+                                </label>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Select at least one channel to send the message</small>
                     </div>
                 </form>
             </div>
@@ -2364,12 +2485,11 @@
             url: '{% url "adminSupport:api_staff_stats" %}',
             method: 'GET',
             success: function (response) {
-                if (response.success) {
-                    $('#totalStaffCount').text(response.data.total || 0);
-                    $('#activeStaffCount').text(response.data.active || 0);
-                    $('#formerStaffCount').text(response.data.former || 0);
-                    $('#departmentsCount').text(response.data.departments || 0);
-                }
+                // Animate the counter values
+                animateCounter('#totalStaffCount', response.total || 0);
+                animateCounter('#activeStaffCount', response.active || 0);
+                animateCounter('#formerStaffCount', response.former || 0);
+                animateCounter('#departmentsCount', response.departments || 0);
             },
             error: function () {
                 console.error('Failed to load staff statistics');
@@ -2377,18 +2497,50 @@
         });
     }
 
+    // Animate counter from 0 to target value
+    function animateCounter(selector, targetValue) {
+        const element = $(selector);
+        const duration = 1000;
+        const startValue = 0;
+        const startTime = performance.now();
+        
+        function updateCounter(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Ease out cubic
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            const currentValue = Math.round(startValue + (targetValue - startValue) * easeProgress);
+            
+            element.text(currentValue);
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateCounter);
+            }
+        }
+        
+        requestAnimationFrame(updateCounter);
+    }
+
     // Load staff directory
     function loadStaffDirectory() {
         $.ajax({
             url: '{% url "adminSupport:api_staff_list" %}',
             method: 'GET',
+            dataType: 'json',
             success: function (response) {
-                allStaff = response.results || [];
+                console.log('Staff API Response:', response);
+                allStaff = response.results || response.data || [];
+                console.log('All Staff Count:', allStaff.length);
+                if (allStaff.length === 0) {
+                    console.warn('No staff data received from API');
+                }
                 filteredStaff = [...allStaff];
                 populateFilterDropdowns();
                 renderStaffTable();
             },
-            error: function () {
+            error: function (xhr, status, error) {
+                console.error('Staff API Error:', {error, status, xhr_status: xhr.status, response: xhr.responseText});
                 showEmptyState('activeStaffTableBody', 'Failed to load staff data');
             }
         });
@@ -2399,11 +2551,15 @@
         $.ajax({
             url: '{% url "adminSupport:api_staff_former" %}',
             method: 'GET',
+            dataType: 'json',
             success: function (response) {
-                allFormerStaff = response.results || [];
+                console.log('Former Staff API Response:', response);
+                allFormerStaff = response.results || response.data || [];
+                console.log('All Former Staff Count:', allFormerStaff.length);
                 renderFormerStaffTable();
             },
-            error: function () {
+            error: function (xhr, status, error) {
+                console.error('Former Staff API Error:', {error, status, xhr_status: xhr.status, response: xhr.responseText});
                 showEmptyState('formerStaffTableBody', 'Failed to load former staff data');
             }
         });
@@ -2414,7 +2570,10 @@
         const tbody = $('#activeStaffTableBody');
 
         if (filteredStaff.length === 0) {
-            showEmptyState('activeStaffTableBody', 'No staff members match your search');
+            const searchActive = $('#searchInput').val().trim().length > 0;
+            const message = searchActive ? 'No staff members match your search' : 'No staff members have been added yet. Click "Add Staff Member" to get started.';
+            showEmptyState('activeStaffTableBody', message);
+            updatePaginationInfo(0, 0, 0);
             return;
         }
 
@@ -2477,7 +2636,8 @@
         const tbody = $('#formerStaffTableBody');
 
         if (allFormerStaff.length === 0) {
-            showEmptyState('formerStaffTableBody', 'No former staff members');
+            showEmptyState('formerStaffTableBody', 'No former staff members. All your staff are currently active.');
+            updateFormerPaginationInfo(0, 0, 0);
             return;
         }
 
@@ -2878,8 +3038,8 @@
                 (staff.department_name && staff.department_name.toLowerCase().includes(searchTerm)) ||
                 (staff.role_name && staff.role_name.toLowerCase().includes(searchTerm));
 
-            const matchesRole = !roleFilter || staff.role_id === roleFilter;
-            const matchesDepartment = !departmentFilter || staff.department_id === departmentFilter;
+            const matchesRole = !roleFilter || String(staff.role_id) === String(roleFilter);
+            const matchesDepartment = !departmentFilter || String(staff.department_id) === String(departmentFilter);
 
             return matchesSearch && matchesRole && matchesDepartment;
         });
@@ -3054,11 +3214,20 @@
         const fileName = $('#fileName');
         const fileSize = $('#fileSize');
         
-        // Click to browse
+        // Click to browse - using direct DOM element click to ensure it works
         dropZone.on('click', function(e) {
-            if (!$(e.target).closest('#removeFileBtn').length) {
-                fileInput.click();
+            // Don't trigger if clicking the remove button
+            if ($(e.target).closest('#removeFileBtn').length) {
+                return;
             }
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.trigger('click');
+        });
+        
+        // Also handle direct input click on the hidden input element
+        fileInput.on('click', function(e) {
+            e.stopPropagation();
         });
         
         // File input change
@@ -3071,6 +3240,7 @@
         
         // Remove file button
         $('#removeFileBtn').on('click', function(e) {
+            e.preventDefault();
             e.stopPropagation();
             fileInput.val('');
             fileInfo.hide();
@@ -3129,6 +3299,202 @@
             fileSize.text(`(${sizeDisplay})`);
             $('#dropZoneContent').hide();
             fileInfo.show();
+            
+            // Parse file and show preview
+            parseFileForPreview(file);
+        }
+        
+        function parseFileForPreview(file) {
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (fileExtension === '.csv') {
+                // Parse CSV
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const csv = e.target.result;
+                        const lines = csv.split('\n').filter(line => line.trim());
+                        if (lines.length < 2) {
+                            showAlert('importStaffAlert', 'error', 'CSV file is empty');
+                            return;
+                        }
+                        
+                        const headers = lines[0].split(',').map(h => h.trim());
+                        const rows = [];
+                        for (let i = 1; i < lines.length; i++) {
+                            const values = lines[i].split(',').map(v => v.trim());
+                            const row = {};
+                            headers.forEach((header, idx) => {
+                                row[header] = values[idx] || '';
+                            });
+                            rows.push(row);
+                        }
+                        
+                        // Store parsed data for later submission
+                        window.importStaffData = {
+                            headers: headers,
+                            rows: rows,
+                            originalFile: file
+                        };
+                        
+                        displayPreviewTable(headers, rows);
+                    } catch (err) {
+                        showAlert('importStaffAlert', 'error', `Failed to parse CSV: ${err.message}`);
+                    }
+                };
+                reader.readAsText(file);
+            } else if (['.xlsx', '.xls'].includes(fileExtension)) {
+                // For Excel, we need to use a library or send to backend for parsing
+                // Using a simple approach: send to backend for preview
+                sendFileForPreview(file);
+            }
+        }
+        
+        function sendFileForPreview(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('preview', 'true');
+            
+            $.ajax({
+                url: '{% url "adminSupport:api_staff_import" %}',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function(response) {
+                    if (response.success && response.preview_data) {
+                        window.importStaffData = {
+                            rows: response.preview_data,
+                            originalFile: file,
+                            isPreview: true
+                        };
+                        
+                        // Extract headers from first row
+                        const headers = Object.keys(response.preview_data[0] || {});
+                        displayPreviewTable(headers, response.preview_data);
+                    } else {
+                        showAlert('importStaffAlert', 'error', 'Failed to parse file');
+                    }
+                },
+                error: function() {
+                    showAlert('importStaffAlert', 'error', 'Failed to preview file');
+                }
+            });
+        }
+        
+        function displayPreviewTable(headers, rows) {
+            const previewSection = $('#previewSection');
+            const previewTable = $('#previewTable');
+            const validationAlert = $('#validationAlert');
+            const validationMessages = $('#validationMessages');
+            
+            $('#previewRowCount').text(rows.length + ' rows');
+            
+            // Build table HTML
+            let tableHTML = '<table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">';
+            tableHTML += '<thead style="background: #f1f5f9; position: sticky; top: 0;"><tr>';
+            
+            headers.forEach(header => {
+                tableHTML += `<th style="padding: 10px 8px; font-weight: 600; color: #334155; border-bottom: 2px solid #cbd5e1;">${header}</th>`;
+            });
+            
+            tableHTML += '</tr></thead><tbody>';
+            
+            const validationIssues = {};
+            
+            rows.forEach((row, rowIdx) => {
+                tableHTML += '<tr>';
+                
+                headers.forEach(header => {
+                    let cellValue = row[header] || '';
+                    let cellClass = '';
+                    let cellStyle = '';
+                    
+                    // Validation for department and role
+                    if (header === 'department_name' || header === 'Department Name') {
+                        const deptName = cellValue.trim();
+                        const deptExists = allDepartmentsForStaff.some(d => d.name.toLowerCase() === deptName.toLowerCase());
+                        
+                        if (deptName && !deptExists) {
+                            cellClass = 'table-danger';
+                            cellStyle = 'background: #fee2e2; color: #991b1b;';
+                            if (!validationIssues[header]) validationIssues[header] = [];
+                            validationIssues[header].push(`Row ${rowIdx + 1}: "${deptName}" not found`);
+                        }
+                    }
+                    
+                    if (header === 'role_name' || header === 'Role Name') {
+                        const roleName = cellValue.trim();
+                        const roleExists = allRolesForStaff.some(r => r.name.toLowerCase() === roleName.toLowerCase());
+                        
+                        if (roleName && !roleExists) {
+                            cellClass = 'table-danger';
+                            cellStyle = 'background: #fee2e2; color: #991b1b;';
+                            if (!validationIssues[header]) validationIssues[header] = [];
+                            validationIssues[header].push(`Row ${rowIdx + 1}: "${roleName}" not found`);
+                        }
+                    }
+                    
+                    // Make cells editable for problem fields
+                    const isEditableField = header === 'department_name' || header === 'Department Name' || 
+                                           header === 'role_name' || header === 'Role Name';
+                    
+                    if (isEditableField && cellStyle) {
+                        tableHTML += `
+                            <td ${cellClass ? `class="${cellClass}"` : ''} style="${cellStyle}; padding: 8px; cursor: pointer; position: relative;">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control form-control-sm staff-edit-field" 
+                                           value="${cellValue}" 
+                                           data-row="${rowIdx}" 
+                                           data-field="${header}"
+                                           style="padding: 4px; font-size: 0.8rem;"
+                                           placeholder="Edit...">
+                                    <i class="fas fa-exclamation-triangle" style="position: absolute; right: 6px; top: 8px; color: #dc2626; font-size: 0.75rem;"></i>
+                                </div>
+                            </td>
+                        `;
+                    } else {
+                        tableHTML += `<td ${cellClass ? `class="${cellClass}"` : ''} style="${cellStyle}; padding: 8px; word-break: break-word;">${cellValue}</td>`;
+                    }
+                });
+                
+                tableHTML += '</tr>';
+            });
+            
+            tableHTML += '</tbody></table>';
+            previewTable.html(tableHTML);
+            
+            // Show validation issues if any
+            if (Object.keys(validationIssues).length > 0) {
+                let issueHTML = '';
+                Object.keys(validationIssues).forEach(field => {
+                    issueHTML += `<div class="mb-2"><strong>${field}:</strong><br>`;
+                    validationIssues[field].forEach(issue => {
+                        issueHTML += `<small class="text-danger">• ${issue}</small><br>`;
+                    });
+                    issueHTML += '</div>';
+                });
+                validationMessages.html(issueHTML);
+                validationAlert.show();
+            } else {
+                validationAlert.hide();
+            }
+            
+            // Setup edit field handlers
+            $(document).on('change', '.staff-edit-field', function() {
+                const rowIdx = $(this).data('row');
+                const field = $(this).data('field');
+                const value = $(this).val();
+                
+                if (window.importStaffData && window.importStaffData.rows[rowIdx]) {
+                    window.importStaffData.rows[rowIdx][field] = value;
+                }
+            });
+            
+            previewSection.show();
         }
     }
     
@@ -3146,27 +3512,72 @@
 
     // Handle import staff
     function handleImportStaff() {
-        const fileInput = $('#staffFile')[0];
-        if (!fileInput.files.length) {
-            showAlert('importStaffAlert', 'error', 'Please select a file to upload');
-            return;
-        }
+        // Check if preview data exists (user edited data)
+        if (window.importStaffData && window.importStaffData.rows) {
+            // Use edited data from preview
+            const formData = new FormData();
+            formData.append('file', window.importStaffData.originalFile);
+            formData.append('edited_data', JSON.stringify(window.importStaffData.rows));
 
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+            const btn = $('#submitImportStaff');
+            btn.html('<span class="loading-spinner"></span> Importing...').prop('disabled', true);
 
-        const btn = $('#submitImportStaff');
-        btn.html('<span class="loading-spinner"></span> Importing...').prop('disabled', true);
+            $.ajax({
+                url: '{% url "adminSupport:api_staff_import" %}',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: function (response) {
+                    if (response.success) {
+                        showAlert('importStaffAlert', 'success', `Successfully imported ${response.imported || 0} staff members!`);
+                        $('#importStaffForm')[0].reset();
+                        $('#previewSection').hide();
+                        $('#fileInfo').hide();
+                        $('#dropZoneContent').show();
+                        window.importStaffData = null;
+                        setTimeout(() => {
+                            $('#importStaffModal').modal('hide');
+                            loadStaffStats();
+                            loadStaffDirectory();
+                        }, 2000);
+                    } else {
+                        showAlert('importStaffAlert', 'error', response.message || 'Failed to import staff');
+                    }
+                },
+                error: function () {
+                    showAlert('importStaffAlert', 'error', 'Import failed. Please try again.');
+                },
+                complete: function () {
+                    btn.html('<i class="fas fa-upload"></i> Import Staff').prop('disabled', false);
+                }
+            });
+        } else {
+            // Fallback to original behavior if no preview data
+            const fileInput = $('#staffFile')[0];
+            if (!fileInput.files.length) {
+                showAlert('importStaffAlert', 'error', 'Please select a file to upload');
+                return;
+            }
 
-        $.ajax({
-            url: '{% url "adminSupport:api_staff_import" %}',
-            method: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const btn = $('#submitImportStaff');
+            btn.html('<span class="loading-spinner"></span> Importing...').prop('disabled', true);
+
+            $.ajax({
+                url: '{% url "adminSupport:api_staff_import" %}',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                },
             success: function (response) {
                 if (response.success) {
                     showAlert('importStaffAlert', 'success', `Successfully imported ${response.imported || 0} staff members!`);
@@ -3371,15 +3782,32 @@
         // Handle message staff
         function handleMessageStaff() {
                 const staffId = $('#messageStaffId').val();
+                
+                // Get selected channels
+                const channels = [];
+                if ($('#messageChannelEmail').is(':checked')) channels.push('email');
+                if ($('#messageChannelSMS').is(':checked')) channels.push('sms');
+                
                 const formData = {
                     staff_id: staffId,
                     subject: $('#messageSubject').val(),
                     message: $('#messageContent').val(),
-                    priority: $('#messagePriority').val()
+                    channels: channels
                 };
 
-                if (!formData.subject || !formData.message) {
-                    showAlert('messageStaffAlert', 'error', 'Please fill in all required fields');
+                if (!formData.message) {
+                    showAlert('messageStaffAlert', 'error', 'Please enter a message');
+                    return;
+                }
+                
+                if (formData.channels.length === 0) {
+                    showAlert('messageStaffAlert', 'error', 'Please select at least one channel (Email or SMS)');
+                    return;
+                }
+                
+                // Subject is required only for email
+                if (formData.channels.includes('email') && !formData.subject) {
+                    showAlert('messageStaffAlert', 'error', 'Subject is required for email');
                     return;
                 }
 
@@ -3389,26 +3817,29 @@
                 $.ajax({
                     url: '{% url "adminSupport:api_messages_save" %}',
                     method: 'POST',
-                    data: {
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         recipient_type: 'staff',
                         recipient_id: formData.staff_id,
                         subject: formData.subject,
-                        message: formData.message,
-                        priority: formData.priority,
-                        status: 'sent'
-                    },
+                        body: formData.message,
+                        channels: formData.channels,
+                        is_draft: false
+                    }),
                     headers: {
                         'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
                     },
                     success: function (response) {
-                        if (response.success) {
+                        if (response.ok || response.success) {
                             showAlert('messageStaffAlert', 'success', 'Message sent successfully!');
                             $('#messageStaffForm')[0].reset();
+                            // Re-check email by default for next message
+                            $('#messageChannelEmail').prop('checked', true);
                             setTimeout(() => {
                                 $('#messageStaffModal').modal('hide');
                             }, 1500);
                         } else {
-                            showAlert('messageStaffAlert', 'error', response.message || 'Failed to send message');
+                            showAlert('messageStaffAlert', 'error', response.message || response.error || 'Failed to send message');
                         }
                     },
                     error: function () {

@@ -1131,6 +1131,84 @@ def api_messages_create_or_update(request):
     except Exception:
         return HttpResponseBadRequest("Invalid JSON")
 
+    # Get company for multi-tenant data isolation
+    company = getattr(request.user, 'company_profile', None)
+    
+    # Handle staff message with channels (Email/SMS)
+    recipient_type = payload.get('recipient_type')
+    if recipient_type == 'staff':
+        recipient_id = payload.get('recipient_id')
+        subject = payload.get('subject', '')
+        body = payload.get('body', '')
+        channels = payload.get('channels', [])
+        
+        if not recipient_id:
+            return JsonResponse({'ok': False, 'error': 'Recipient ID is required'}, status=400)
+        
+        if not body:
+            return JsonResponse({'ok': False, 'error': 'Message is required'}, status=400)
+        
+        if not channels:
+            return JsonResponse({'ok': False, 'error': 'At least one channel (email or sms) is required'}, status=400)
+        
+        # Email requires subject, SMS doesn't
+        if 'email' in channels and not subject:
+            return JsonResponse({'ok': False, 'error': 'Subject is required for email'}, status=400)
+        
+        # Get staff member
+        try:
+            staff = StaffMember.objects.get(id=recipient_id, company=company)
+        except StaffMember.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Staff member not found'}, status=404)
+        
+        # Send via selected channels
+        sent_channels = []
+        errors = []
+        
+        if 'email' in channels:
+            if staff.email:
+                success, error = send_email_message(subject, body, staff.email)
+                if success:
+                    sent_channels.append('email')
+                else:
+                    errors.append(f'Email failed: {error}')
+            else:
+                errors.append('Email selected but staff has no email address')
+        
+        if 'sms' in channels:
+            if staff.phone:
+                success, error = send_sms_message(body, staff.phone)
+                if success:
+                    sent_channels.append('sms')
+                else:
+                    errors.append(f'SMS failed: {error}')
+            else:
+                errors.append('SMS selected but staff has no phone number')
+        
+        # Log the activity
+        channel_str = ' and '.join(sent_channels) if sent_channels else 'none'
+        ActivityLog.objects.create(
+            actor=request.user, 
+            company=company, 
+            action=f"Sent message to staff {staff.full_name} via {channel_str}: '{subject[:50]}...'"
+        )
+        
+        if sent_channels:
+            return JsonResponse({
+                'ok': True, 
+                'success': True,
+                'message': f'Message sent via {channel_str}',
+                'sent_channels': sent_channels,
+                'errors': errors
+            })
+        else:
+            return JsonResponse({
+                'ok': False, 
+                'error': 'Failed to send message via any channel',
+                'errors': errors
+            }, status=400)
+
+    # Original InAppMessage handling for other recipients
     msg_id = payload.get('id')
     if msg_id:
         msg = get_object_or_404(InAppMessage, id=msg_id, sender=request.user)
@@ -1168,11 +1246,8 @@ def api_messages_create_or_update(request):
             entries.append(InboxEntry(user=u, message=msg))
         # ignore_conflicts available in modern Django
         InboxEntry.objects.bulk_create(entries, ignore_conflicts=True)
-        # CRITICAL: Include company for multi-tenant data isolation
-        company = getattr(request.user, 'company_profile', None)
         ActivityLog.objects.create(actor=request.user, company=company, action=f"Sent InApp '{msg.subject or '(no subject)'}' to {msg.recipients.count()}")
     else:
-        company = getattr(request.user, 'company_profile', None)
         ActivityLog.objects.create(actor=request.user, company=company, action=f"Saved draft '{msg.subject or '(no subject)'}'")
 
     return JsonResponse({'ok': True, 'id': msg.id}, encoder=DjangoJSONEncoder)
@@ -1772,6 +1847,11 @@ def _serialize_staff(s):
     # Get profile picture URL
     profile_picture_url = s.profile_picture.url if s.profile_picture else None
     
+    # For former staff, use updated_at as removed_date (when active was set to False)
+    removed_date = None
+    if not s.active and s.updated_at:
+        removed_date = s.updated_at.strftime('%b %d, %Y')
+    
     return {
         'id': s.id,
         'name': full_name,
@@ -1792,6 +1872,7 @@ def _serialize_staff(s):
         'active': bool(s.active),
         'date_of_birth': dob,
         'dateOfBirth': dob,
+        'removed_date': removed_date,
     }
 
 
@@ -1995,6 +2076,8 @@ def api_staff_stats(request):
     # Filter all queries by company
     total = StaffMember.objects.filter(company=company).count()
     active = StaffMember.objects.filter(company=company, active=True).count()
+    former = StaffMember.objects.filter(company=company, active=False).count()
+    departments = StaffDepartment.objects.filter(company=company).count()
 
     staff_items = OutboundMessageItem.objects.filter(outbound__message_type='staff', outbound__company=company)
     delivered = staff_items.filter(status__in=['sent', 'delivered']).count()
@@ -2002,6 +2085,8 @@ def api_staff_stats(request):
     return JsonResponse({
         'total': total,
         'active': active,
+        'former': former,
+        'departments': departments,
         'messages_delivered': delivered,
         'messages_failed': failed,
     })
@@ -2302,7 +2387,52 @@ def api_staff_import(request):
     f = request.FILES.get('file')
     if not f:
         return JsonResponse({'error': 'No file provided'}, status=400)
-    name = f.name.lower()
+    
+    # Check if this is a preview request
+    is_preview = request.POST.get('preview') == 'true'
+    edited_data = request.POST.get('edited_data')
+    
+    # If edited_data provided, use that instead of parsing file
+    if edited_data:
+        try:
+            rows = json.loads(edited_data)
+        except:
+            return JsonResponse({'error': 'Invalid edited data'}, status=400)
+    else:
+        # Parse the file
+        name = f.name.lower()
+        rows = []
+        
+        if name.endswith('.csv'):
+            try:
+                text = TextIOWrapper(f.file, encoding='utf-8')
+                reader = csv.DictReader(text)
+                rows = list(reader)
+            except Exception as e:
+                return JsonResponse({'error': f'CSV parse failed: {e}'}, status=400)
+        elif name.endswith('.xlsx') or name.endswith('.xlsm'):
+            if not OPENPYXL_AVAILABLE:
+                return JsonResponse({'error': 'Excel support requires openpyxl'}, status=400)
+            try:
+                wb = openpyxl.load_workbook(f, data_only=True)
+                ws = wb.active
+                headers = [str(c.value).strip() if c.value else '' for c in next(ws.iter_rows(min_row=1, max_row=1))]
+                for r in ws.iter_rows(min_row=2):
+                    row = {headers[i]: (r[i].value if i < len(r) else None) for i in range(len(headers))}
+                    rows.append(row)
+            except Exception as e:
+                return JsonResponse({'error': f'Excel parse failed: {e}'}, status=400)
+        else:
+            return JsonResponse({'error': 'Unsupported file type'}, status=400)
+    
+    # If preview requested, return preview data
+    if is_preview:
+        return JsonResponse({
+            'success': True,
+            'preview_data': rows[:100]  # Return first 100 rows for preview
+        })
+    
+    # Otherwise, process the import
     created = 0
     updated = 0
     errors = []
@@ -2387,30 +2517,10 @@ def api_staff_import(request):
                 updated += 1
         except Exception as e:
             errors.append(f"Error processing row: {str(e)}")
-
-    if name.endswith('.csv'):
-        try:
-            # Ensure text mode wrapper with utf-8
-            text = TextIOWrapper(f.file, encoding='utf-8')
-            reader = csv.DictReader(text)
-            for row in reader:
-                upsert(row)
-        except Exception as e:
-            return JsonResponse({'error': f'CSV parse failed: {e}'}, status=400)
-    elif name.endswith('.xlsx') or name.endswith('.xlsm'):
-        if not OPENPYXL_AVAILABLE:
-            return JsonResponse({'error': 'Excel support requires openpyxl to be installed'}, status=400)
-        try:
-            wb = openpyxl.load_workbook(f, data_only=True)
-            ws = wb.active
-            headers = [str(c.value).strip() if c.value else '' for c in next(ws.iter_rows(min_row=1, max_row=1))]
-            for r in ws.iter_rows(min_row=2):
-                row = {headers[i]: (r[i].value if i < len(r) else None) for i in range(len(headers))}
-                upsert(row)
-        except Exception as e:
-            return JsonResponse({'error': f'Excel parse failed: {e}'}, status=400)
-    else:
-        return JsonResponse({'error': 'Unsupported file type. Upload .csv or .xlsx'}, status=400)
+    
+    # Process all rows through upsert function
+    for row in rows:
+        upsert(row)
 
     # CRITICAL: Include company for multi-tenant data isolation
     company = getattr(request.user, 'company_profile', None)
