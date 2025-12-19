@@ -18,20 +18,45 @@ from DRF.admin.api_views.subscription_views import (
 
 # Import existing client/marketer views
 from DRF.clients.api_views.client_dashboard_views import ActivePromotionsListAPIView, ClientDashboardAPIView, EstateListAPIView, PriceUpdateDetailAPIView, PromotionDetailAPIView, PromotionsListAPIView
-from DRF.clients.api_views.client_estate_detail_views import EstateDetailAPIView, EstateListAPIView as ClientEstateListAPIView
+from DRF.clients.api_views.client_estate_detail_views import ClientEstateDetailAPIView, SecurePrototypeImageAPIView, SecureEstateLayoutAPIView, SecureFloorPlanAPIView, ClientEstateAccessCheckAPIView
 
 from DRF.clients.api_views.client_profile_views import (
-    ClientPaymentReceiptByReferenceAPIView, ClientProfileView, ClientProfileUpdateView, ClientPropertiesView,
-    ClientAppreciationView, ChangePasswordView, ClientTransactionReceiptByIdAPIView, ClientTransactionsView, ReceiptDownloadTokenAPIView,
-    TransactionDetailView, TransactionPaymentsView
+    # Overview Tab
+    ClientProfileOverviewView,
+    ClientProfileView,
+    # Edit Profile Tab  
+    ClientProfileEditView,
+    ClientProfileUpdateView,
+    ClientProfileImageUploadView,
+    # Password Tab
+    ClientChangePasswordView,
+    ChangePasswordView,
 )
-from DRF.clients.api_views.client_notification_views import (
-    ClientNotificationDetailAPI,
+# My Companies Page (separate file)
+from DRF.clients.api_views.client_my_companies_views import (
+    ClientMyCompaniesAPIView,
+)
+# My Company Portfolio Page (separate file)
+from DRF.clients.api_views.client_company_portfolio_views import (
+    ClientCompanyPortfolioAPIView,
+    ClientCompanyTransactionDetailAPIView,
+    ClientCompanyPaymentHistoryAPIView,
+    ClientCompanyReceiptAPIView,
+)
+# Notification List Page (notification.html)
+from DRF.clients.api_views.client_notification_list_views import (
+    ClientNotificationListPageAPIView,
     ClientNotificationListAPI,
-    MarkAllReadAPI,
-    MarkReadAPI,
-    MarkUnreadAPI,
-    UnreadCountAPI,
+    ClientUnreadCountAPIView,
+    ClientMarkReadAPIView,
+    ClientMarkUnreadAPIView,
+    ClientMarkAllReadAPIView,
+)
+# Notification Detail Page (notification_detail.html)
+from DRF.clients.api_views.client_notification_detail_views import (
+    ClientNotificationDetailPageAPIView,
+    ClientNotificationDetailAPI,
+    ClientNotificationDeleteAPIView,
 )
 from DRF.marketers.api_views.marketer_notification_views import (
     MarketerMarkAllReadAPI,
@@ -138,38 +163,53 @@ urlpatterns = [
     path('promotions/', PromotionsListAPIView.as_view(), name='promotions-list'),
     path('promotions/<int:pk>/', PromotionDetailAPIView.as_view(), name='promotion-detail'),
 
-    # Profile
+    # =========================================================================
+    # CLIENT PROFILE ENDPOINTS
+    # =========================================================================
+    
+    # Overview Tab
     path('clients/profile/', ClientProfileView.as_view(), name='client-profile'),
+    path('clients/profile/overview/', ClientProfileOverviewView.as_view(), name='client-profile-overview'),
+    
+    # Edit Profile Tab
     path('clients/profile/update/', ClientProfileUpdateView.as_view(), name='client-profile-update'),
-    path('clients/properties/', ClientPropertiesView.as_view(), name='client-properties'),
-    path('clients/appreciation/', ClientAppreciationView.as_view(), name='client-appreciation'),
+    path('clients/profile/edit/', ClientProfileEditView.as_view(), name='client-profile-edit'),
+    path('clients/profile/image/', ClientProfileImageUploadView.as_view(), name='client-profile-image'),
+    
+    # Password Tab
     path('clients/change-password/', ChangePasswordView.as_view(), name='client-change-password'),
-    path('payment/receipt/<str:reference>/', ClientPaymentReceiptByReferenceAPIView.as_view(), name='drf-client-payment-receipt'),
-    path('clients/receipts/download/', ClientPaymentReceiptByReferenceAPIView.as_view(), name='client-receipt-download'),
-    path('clients/receipts/request-download/', ReceiptDownloadTokenAPIView.as_view(), name='client-receipt-request'),
-    path('transaction/<int:transaction_id>/receipt/', ClientTransactionReceiptByIdAPIView.as_view(), name='client-transaction-receipt'),
+    path('clients/password/change/', ClientChangePasswordView.as_view(), name='client-password-change'),
 
-    # transactions...
-    path('clients/transactions/', ClientTransactionsView.as_view(), name='client-transactions'),
-    path('clients/transaction/<int:transaction_id>/details/', TransactionDetailView.as_view(), name='client-transaction-detail'),
-    path('clients/transaction/payments/', TransactionPaymentsView.as_view(), name='client-transaction-payments'),
-    
-    # transaction receipt
-    path('payment/receipt/<str:reference>/', ClientPaymentReceiptByReferenceAPIView.as_view(), name='api-client-payment-receipt'),
-    path('transaction/<int:transaction_id>/receipt/', ClientTransactionReceiptByIdAPIView.as_view(), name='api-client-transaction-receipt'),
+    # =========================================================================
+    # MY COMPANIES PAGE ENDPOINTS
+    # =========================================================================
+    path('clients/my-companies/', ClientMyCompaniesAPIView.as_view(), name='client-my-companies'),
 
-    # Notifications
-    # path('client/notifications/', UserNotificationListAPIView.as_view(), name='client_notifications_list'),
-    # path('client/notifications/stats/', NotificationStatsAPIView.as_view(), name='client_notifications_stats'),
-    # path('client/notifications/<int:pk>/', UserNotificationDetailAPIView.as_view(), name='client_notifications_detail'),
-    # path('client/notifications/<int:pk>/mark-read/', MarkUserNotificationReadAPIView.as_view(), name='client_notifications_mark_read'),
-    
+    # =========================================================================
+    # MY COMPANY PORTFOLIO PAGE ENDPOINTS
+    # =========================================================================
+    path('clients/company/<int:company_id>/portfolio/', ClientCompanyPortfolioAPIView.as_view(), name='client-company-portfolio'),
+    path('clients/company/transaction/<int:transaction_id>/', ClientCompanyTransactionDetailAPIView.as_view(), name='client-company-transaction-detail'),
+    path('clients/company/payment-history/', ClientCompanyPaymentHistoryAPIView.as_view(), name='client-company-payment-history'),
+    path('clients/company/receipt/<str:reference>/', ClientCompanyReceiptAPIView.as_view(), name='client-company-receipt'),
+    path('clients/company/receipt/', ClientCompanyReceiptAPIView.as_view(), name='client-company-receipt-query'),
+
+    # =========================================================================
+    # NOTIFICATION LIST PAGE ENDPOINTS (notification.html)
+    # =========================================================================
+    path('clients/notifications/page/', ClientNotificationListPageAPIView.as_view(), name='client-notifications-page'),
     path('client/notifications/', ClientNotificationListAPI.as_view(), name='notifications-list'),
-    path('client/notifications/unread-count/', UnreadCountAPI.as_view(), name='notifications-unread-count'),
+    path('client/notifications/unread-count/', ClientUnreadCountAPIView.as_view(), name='notifications-unread-count'),
+    path('client/notifications/<int:pk>/mark-read/', ClientMarkReadAPIView.as_view(), name='notifications-mark-read'),
+    path('client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
+    path('client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
+
+    # =========================================================================
+    # NOTIFICATION DETAIL PAGE ENDPOINTS (notification_detail.html)
+    # =========================================================================
+    path('clients/notifications/<int:pk>/detail/', ClientNotificationDetailPageAPIView.as_view(), name='client-notification-detail-page'),
     path('client/notifications/<int:pk>/', ClientNotificationDetailAPI.as_view(), name='notifications-detail'),
-    path('client/notifications/<int:pk>/mark-read/', MarkReadAPI.as_view(), name='notifications-mark-read'),
-    path('client/notifications/<int:pk>/mark-unread/', MarkUnreadAPI.as_view(), name='notifications-mark-unread'),
-    path('client/notifications/mark-all-read/', MarkAllReadAPI.as_view(), name='notifications-mark-all-read'),
+    path('clients/notifications/<int:pk>/delete/', ClientNotificationDeleteAPIView.as_view(), name='client-notification-delete'),
 
     path('marketers/notifications/', MarketerNotificationListAPI.as_view(), name='marketer-notifications-list'),
     path('marketers/notifications/unread-count/', MarketerUnreadCountAPI.as_view(), name='marketer-notifications-unread-count'),
@@ -218,8 +258,15 @@ urlpatterns = [
     path('marketers/clients/<int:pk>/', MarketerClientDetailAPIView.as_view(), name='marketer-client-detail'),
 
     # client View Estate Plot Details 
-    path('clients/estates/', ClientEstateListAPIView.as_view(), name='client-estate-list'),
-    path('clients/estates/<int:pk>/', EstateDetailAPIView.as_view(), name='client-estate-detail'),
+    path('clients/estates/', EstateListAPIView.as_view(), name='client-estate-list'),
+    path('clients/estates/<int:pk>/', ClientEstateDetailAPIView.as_view(), name='client-estate-detail'),
+    
+    # Secure media endpoints for client estates
+    path('clients/estates/<int:estate_id>/prototype-image/', SecurePrototypeImageAPIView.as_view(), name='client-estate-prototype-image'),
+    path('clients/estates/<int:estate_id>/layout-image/', SecureEstateLayoutAPIView.as_view(), name='client-estate-layout-image'),
+    path('clients/estates/<int:estate_id>/floor-plan/<int:plan_id>/', SecureFloorPlanAPIView.as_view(), name='client-estate-floor-plan'),
+    path('clients/estates/<int:estate_id>/access-check/', ClientEstateAccessCheckAPIView.as_view(), name='client-estate-access-check'),
+
 
 
 ]
