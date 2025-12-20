@@ -130,32 +130,90 @@ class SubscriptionBillingModel(models.Model):
     # ==================== STATUS CHECKING ====================
     
     def refresh_status(self):
-        """Update subscription status based on dates"""
+        """Update subscription status based on dates.
+
+        Important: this method must persist changes (status/date fields) and keep
+        the related Company model in sync because many parts of the app rely on
+        Company.subscription_* fields for access control and UI.
+        """
         now = timezone.now()
-        
+
+        previous_status = self.status
+        update_fields = set()
+
         # Trial active
         if self.trial_ends_at and now < self.trial_ends_at:
             self.status = SubscriptionStatus.TRIAL.value
-            return
-        
+            update_fields.add('status')
+
         # Paid subscription active
-        if self.subscription_ends_at and now < self.subscription_ends_at:
+        elif self.subscription_ends_at and now < self.subscription_ends_at:
             if self.status != SubscriptionStatus.ACTIVE.value:
                 self.status = SubscriptionStatus.ACTIVE.value
                 self.last_payment_date = now
-            return
-        
+                update_fields.update({'status', 'last_payment_date'})
+
         # Grace period
-        if self.grace_period_ends_at and now < self.grace_period_ends_at:
+        elif self.grace_period_ends_at and now < self.grace_period_ends_at:
             self.status = SubscriptionStatus.GRACE_PERIOD.value
-            return
-        
+            update_fields.add('status')
+
         # Expired
-        if self.grace_period_ends_at and now >= self.grace_period_ends_at:
+        elif self.grace_period_ends_at and now >= self.grace_period_ends_at:
             self.status = SubscriptionStatus.EXPIRED.value
+            update_fields.add('status')
+
+        # Persist only if something changed
+        if update_fields and (previous_status != self.status or 'last_payment_date' in update_fields):
+            self.save(update_fields=list(update_fields))
+
+        # Always attempt to sync company fields (cheap, avoids drift)
+        try:
+            self._sync_company_subscription_fields()
+        except Exception:
+            # Never break request flow due to sync issues
+            pass
+
+    def _sync_company_subscription_fields(self):
+        """Mirror billing state into Company fields used across the app."""
+        company = getattr(self, 'company', None)
+        if not company:
             return
-        
-        self.save()
+
+        # Map richer billing statuses to Company.subscription_status choices
+        mapped_status = self.status
+        if mapped_status in {SubscriptionStatus.GRACE_PERIOD.value, SubscriptionStatus.EXPIRED.value}:
+            mapped_status = 'suspended'
+        elif mapped_status not in {'trial', 'active', 'suspended', 'cancelled'}:
+            mapped_status = 'suspended'
+
+        # Best-effort tier sync from current plan
+        plan = getattr(self, 'current_plan', None)
+        if plan and getattr(plan, 'tier', None):
+            company.subscription_tier = plan.tier
+
+        company.subscription_status = mapped_status
+        company.trial_ends_at = self.trial_ends_at
+        company.subscription_ends_at = self.subscription_ends_at
+        company.grace_period_ends_at = self.grace_period_ends_at
+        company.is_read_only_mode = bool(self.is_grace_period() or self.is_expired())
+
+        # Keep started/renewed timestamps aligned when available
+        if self.subscription_started_at and not company.subscription_started_at:
+            company.subscription_started_at = self.subscription_started_at
+        if self.last_payment_date:
+            company.subscription_renewed_at = self.last_payment_date
+
+        company.save(update_fields=[
+            'subscription_tier',
+            'subscription_status',
+            'trial_ends_at',
+            'subscription_ends_at',
+            'grace_period_ends_at',
+            'is_read_only_mode',
+            'subscription_started_at',
+            'subscription_renewed_at',
+        ])
     
     def is_trial(self):
         """Check if in trial period"""

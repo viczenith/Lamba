@@ -440,6 +440,28 @@
                         <h2 class="text-color">Allocate Plot to Client</h2>
                         <p>Assign estate plots to registered clients with payment options</p>
                     </div>
+
+                                        {% if plan_usage and plan_usage.limits and plan_usage.limits.allocations %}
+                                            {% if plan_usage.limits.allocations.is_exhausted %}
+                                                <div class="alert alert-danger d-flex align-items-center" role="alert" style="border-radius:12px;margin-bottom:18px;">
+                                                    <i class="fas fa-lock me-2"></i>
+                                                    <div>
+                                                        <strong>Allocation limit reached:</strong>
+                                                        {{ plan_usage.limits.allocations.used }}/{{ plan_usage.limits.allocations.limit }} total allocations used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">Upgrade to allocate more</a>.
+                                                    </div>
+                                                </div>
+                                            {% elif plan_usage.limits.allocations.is_near_limit %}
+                                                <div class="alert alert-warning d-flex align-items-center" role="alert" style="border-radius:12px;margin-bottom:18px;">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    <div>
+                                                        <strong>Approaching allocation limit:</strong>
+                                                        {{ plan_usage.limits.allocations.used }}/{{ plan_usage.limits.allocations.limit }} total allocations used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">View plans</a>.
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
                     
                     <form id="allocationForm" method="POST">
                         {% csrf_token %}
@@ -542,7 +564,7 @@
                             </small>
                         </div>
                     
-                        <button type="submit" class="btn-submit">
+                        <button type="submit" class="btn-submit" {% if plan_usage and plan_usage.limits and plan_usage.limits.allocations and plan_usage.limits.allocations.is_exhausted %}disabled{% endif %}>
                             <i class="fas fa-paper-plane"></i>
                             <span>Allocate Plot Now</span>
                         </button>

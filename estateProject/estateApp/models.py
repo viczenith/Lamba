@@ -62,6 +62,7 @@ class Company(models.Model):
     SUBSCRIPTION_STATUS = [
         ('trial', 'Trial - 14 Days'),
         ('active', 'Active'),
+        ('expired', 'Expired'),
         ('suspended', 'Suspended'),
         ('cancelled', 'Cancelled'),
     ]
@@ -308,6 +309,33 @@ class Company(models.Model):
             self.max_agents = limits['max_agents']
             self.max_api_calls_daily = limits['max_api_calls_daily']
 
+    def is_trial_active(self) -> bool:
+        """Return True if the company is currently in an active trial period."""
+        if self.subscription_status != 'trial' or not self.trial_ends_at:
+            return False
+        return self.trial_ends_at > timezone.now()
+
+    def is_in_grace_period(self) -> bool:
+        """Return True if the company is within grace period after expiry."""
+        if not self.grace_period_ends_at:
+            return False
+        now = timezone.now()
+        return self.grace_period_ends_at > now
+
+    def subscription_days_remaining(self) -> int:
+        """Best-effort days remaining for trial/subscription/grace; returns 0 if unknown."""
+        now = timezone.now()
+        end = None
+        if self.subscription_status == 'trial' and self.trial_ends_at:
+            end = self.trial_ends_at
+        elif self.subscription_status == 'active' and self.subscription_ends_at:
+            end = self.subscription_ends_at
+        elif self.subscription_status == 'expired' and self.grace_period_ends_at:
+            end = self.grace_period_ends_at
+        if not end:
+            return 0
+        return max(0, (end - now).days)
+
 
 class CompanySequence(models.Model):
     """Per-company sequence counters for named keys (client, marketer, etc.).
@@ -438,6 +466,275 @@ class SubscriptionPlan(models.Model):
     
     def __str__(self):
         return f"{self.name} - ₦{self.monthly_price}/month"
+
+
+class SubscriptionTier(models.Model):
+    """Normalized subscription tier model (pricing + limits) used by alerts/usage tracking."""
+
+    TIER_CHOICES = [
+        ('starter', 'Starter'),
+        ('professional', 'Professional'),
+        ('enterprise', 'Enterprise'),
+    ]
+
+    SUPPORT_LEVELS = [
+        ('email', 'Email Support'),
+        ('priority', 'Priority Support'),
+        ('dedicated', 'Dedicated Support'),
+    ]
+
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES, unique=True, verbose_name='Tier')
+    name = models.CharField(max_length=100, verbose_name='Display Name')
+    description = models.TextField(verbose_name='Description')
+    price_per_month = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monthly Price')
+    price_per_year = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Annual Price')
+
+    max_plots = models.PositiveIntegerField(verbose_name='Max Plots')
+    max_agents = models.PositiveIntegerField(verbose_name='Max Agents')
+    max_api_calls_daily = models.PositiveIntegerField(verbose_name='Max Daily API Calls')
+    max_storage_gb = models.PositiveIntegerField(verbose_name='Max Storage GB')
+    features = models.JSONField(default=list, verbose_name='Available Features')
+
+    support_level = models.CharField(
+        max_length=20,
+        choices=SUPPORT_LEVELS,
+        default='email',
+        verbose_name='Support Level',
+    )
+    sla_uptime_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('99.5'),
+        verbose_name='SLA Uptime %',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Is Active')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
+
+    class Meta:
+        verbose_name = 'Subscription Tier'
+        verbose_name_plural = 'Subscription Tiers'
+        ordering = ['price_per_month']
+
+    def __str__(self):
+        return f"{self.name} ({self.tier})"
+
+
+class CompanyUsage(models.Model):
+    """Per-company usage counters used for plan-limit warnings and enforcement."""
+
+    FEATURE_CHOICES = [
+        ('plots', 'Estate Plots'),
+        ('agents', 'Agents/Marketers'),
+        ('api_calls', 'API Calls'),
+        ('storage', 'Storage'),
+        ('exports', 'Exports'),
+        ('reports', 'Reports'),
+    ]
+
+    PERIOD_CHOICES = [
+        ('daily', 'Daily'),
+        ('monthly', 'Monthly'),
+        ('yearly', 'Yearly'),
+    ]
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='usage_metrics')
+    feature = models.CharField(max_length=20, choices=FEATURE_CHOICES, verbose_name='Feature')
+    usage_count = models.BigIntegerField(default=0, verbose_name='Usage Count')
+    usage_limit = models.BigIntegerField(verbose_name='Usage Limit')
+    period = models.CharField(max_length=10, choices=PERIOD_CHOICES, default='monthly', verbose_name='Period')
+    reset_date = models.DateTimeField(verbose_name='Reset Date')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
+
+    class Meta:
+        verbose_name = 'Company Usage'
+        verbose_name_plural = 'Company Usage Metrics'
+        unique_together = (('company', 'feature', 'period'),)
+        indexes = [
+            models.Index(fields=['company', 'feature']),
+            models.Index(fields=['reset_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.company.company_name} · {self.feature} = {self.usage_count}/{self.usage_limit}"
+
+    def get_usage_percentage(self) -> int:
+        if not self.usage_limit:
+            return 0
+        return int((self.usage_count / self.usage_limit) * 100)
+
+    def is_limit_exceeded(self) -> bool:
+        return bool(self.usage_limit is not None and self.usage_count >= self.usage_limit)
+
+    def is_limit_warning(self, threshold: int = 80) -> bool:
+        return self.get_usage_percentage() >= int(threshold)
+
+
+class SubscriptionAlert(models.Model):
+    """Subscription/usage alerts stored per company and shown in dashboard UI."""
+
+    ALERT_TYPES = [
+        ('trial_ending', 'Trial Ending'),
+        ('trial_expired', 'Trial Expired'),
+        ('grace_period', 'Grace Period Active'),
+        ('subscription_renewing', 'Subscription Renewing'),
+        ('subscription_failed', 'Subscription Payment Failed'),
+        ('usage_warning', 'Usage Limit Warning'),
+        ('usage_exceeded', 'Usage Limit Exceeded'),
+        ('read_only_mode', 'Read-Only Mode Activated'),
+        ('data_deletion_warning', 'Data Deletion Warning'),
+        ('system_alert', 'System Alert'),
+    ]
+
+    SEVERITY_LEVELS = [
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('critical', 'Critical'),
+        ('urgent', 'Urgent'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('acknowledged', 'Acknowledged'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+        ('blocked', 'Blocked'),
+    ]
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='subscription_alerts')
+    alert_type = models.CharField(max_length=30, choices=ALERT_TYPES, verbose_name='Alert Type')
+    severity = models.CharField(max_length=10, choices=SEVERITY_LEVELS, default='warning', verbose_name='Severity')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status')
+    title = models.CharField(max_length=255, verbose_name='Title')
+    message = models.TextField(verbose_name='Message')
+    action_url = models.URLField(blank=True, null=True, verbose_name='Action URL')
+    action_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Action Label')
+    is_dismissible = models.BooleanField(default=True, verbose_name='Is Dismissible')
+    show_on_dashboard = models.BooleanField(default=True, verbose_name='Show on Dashboard')
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    acknowledged_at = models.DateTimeField(blank=True, null=True, verbose_name='Acknowledged At')
+    resolved_at = models.DateTimeField(blank=True, null=True, verbose_name='Resolved At')
+    dismissed_at = models.DateTimeField(blank=True, null=True, verbose_name='Dismissed At')
+    hide_until = models.DateTimeField(blank=True, null=True, verbose_name='Hide Until')
+
+    class Meta:
+        verbose_name = 'Subscription Alert'
+        verbose_name_plural = 'Subscription Alerts'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', 'status']),
+            models.Index(fields=['severity', 'created_at']),
+            models.Index(fields=['alert_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.company.company_name} · {self.alert_type} · {self.severity}"
+
+    def acknowledge(self):
+        self.status = 'acknowledged'
+        self.acknowledged_at = timezone.now()
+        self.save(update_fields=['status', 'acknowledged_at'])
+
+    def resolve(self):
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.save(update_fields=['status', 'resolved_at'])
+
+    def dismiss(self, hide_for_hours: int = 24):
+        if not self.is_dismissible or self.status == 'blocked':
+            return
+        now = timezone.now()
+        self.status = 'dismissed'
+        self.dismissed_at = now
+        self.hide_until = now + timedelta(hours=hide_for_hours)
+        self.save(update_fields=['status', 'dismissed_at', 'hide_until'])
+
+
+class HealthCheck(models.Model):
+    SERVICE_NAMES = [
+        ('database', 'Database'),
+        ('cache', 'Cache/Redis'),
+        ('api', 'API Server'),
+        ('email', 'Email Service'),
+        ('payment_gateway', 'Payment Gateway'),
+        ('storage', 'Storage Service'),
+        ('websocket', 'WebSocket'),
+    ]
+
+    STATUS_CHOICES = [
+        ('healthy', 'Healthy'),
+        ('degraded', 'Degraded'),
+        ('unhealthy', 'Unhealthy'),
+        ('unknown', 'Unknown'),
+    ]
+
+    service_name = models.CharField(max_length=50, choices=SERVICE_NAMES, verbose_name='Service Name')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unknown', verbose_name='Status')
+    response_time_ms = models.FloatField(blank=True, null=True, verbose_name='Response Time (ms)')
+    error_message = models.TextField(blank=True, null=True, verbose_name='Error Message')
+    last_check = models.DateTimeField(auto_now=True, verbose_name='Last Check')
+    last_failure = models.DateTimeField(blank=True, null=True, verbose_name='Last Failure')
+    alert_sent = models.BooleanField(default=False, verbose_name='Alert Sent')
+    alert_sent_at = models.DateTimeField(blank=True, null=True, verbose_name='Alert Sent At')
+
+    class Meta:
+        verbose_name = 'Health Check'
+        verbose_name_plural = 'Health Checks'
+        ordering = ['-last_check']
+        unique_together = (('service_name',),)
+
+    def __str__(self):
+        return f"{self.service_name}: {self.status}"
+
+
+class SystemAlert(models.Model):
+    ALERT_TYPES = [
+        ('performance', 'Performance Issue'),
+        ('security', 'Security Issue'),
+        ('maintenance', 'Maintenance'),
+        ('downtime', 'Downtime'),
+        ('capacity', 'Capacity Issue'),
+        ('error', 'Error'),
+    ]
+
+    SEVERITY_LEVELS = [
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('critical', 'Critical'),
+        ('emergency', 'Emergency'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('acknowledged', 'Acknowledged'),
+        ('resolved', 'Resolved'),
+    ]
+
+    alert_type = models.CharField(max_length=20, choices=ALERT_TYPES, verbose_name='Alert Type')
+    severity = models.CharField(max_length=20, choices=SEVERITY_LEVELS, default='warning', verbose_name='Severity')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status')
+    title = models.CharField(max_length=255, verbose_name='Title')
+    message = models.TextField(verbose_name='Message')
+    resolution_steps = models.TextField(blank=True, null=True, verbose_name='Resolution Steps')
+    affected_users_count = models.PositiveIntegerField(default=0, verbose_name='Affected Users Count')
+    affected_companies_count = models.PositiveIntegerField(default=0, verbose_name='Affected Companies Count')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    acknowledged_at = models.DateTimeField(blank=True, null=True, verbose_name='Acknowledged At')
+    resolved_at = models.DateTimeField(blank=True, null=True, verbose_name='Resolved At')
+
+    class Meta:
+        verbose_name = 'System Alert'
+        verbose_name_plural = 'System Alerts'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['severity', 'status']),
+            models.Index(fields=['alert_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.alert_type} · {self.severity}"
 
 
 class CompanyMarketerProfile(models.Model):

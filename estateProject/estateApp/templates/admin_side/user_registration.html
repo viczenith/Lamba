@@ -753,6 +753,43 @@
                     <input type="hidden" id="existing_user_id" name="existing_user_id" value="">
                     <input type="hidden" name="source" value="admin_registration">
 
+                                        {% if plan_usage and plan_usage.limits %}
+                                            <div class="alert-container" id="planLimitBanner" style="margin-bottom:1.5rem;">
+                                                <div id="planLimitData"
+                                                         data-clients-exhausted="{% if plan_usage.limits.clients and plan_usage.limits.clients.is_exhausted %}1{% else %}0{% endif %}"
+                                                         data-affiliates-exhausted="{% if plan_usage.limits.affiliates and plan_usage.limits.affiliates.is_exhausted %}1{% else %}0{% endif %}"
+                                                         data-subscription-url="{{ plan_usage.subscription_dashboard_url }}"
+                                                         style="display:none;"></div>
+                                                {% if plan_usage.limits.clients and plan_usage.limits.clients.is_exhausted %}
+                                                    <div class="alert alert-danger" role="alert" style="border-radius:12px;">
+                                                        <strong>Client limit reached:</strong>
+                                                        {{ plan_usage.limits.clients.used }}/{{ plan_usage.limits.clients.limit }} clients used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">Upgrade to add more clients</a>.
+                                                    </div>
+                                                {% elif plan_usage.limits.clients and plan_usage.limits.clients.is_near_limit %}
+                                                    <div class="alert alert-warning" role="alert" style="border-radius:12px;">
+                                                        <strong>Approaching client limit:</strong>
+                                                        {{ plan_usage.limits.clients.used }}/{{ plan_usage.limits.clients.limit }} clients used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">View plans</a>.
+                                                    </div>
+                                                {% endif %}
+
+                                                {% if plan_usage.limits.affiliates and plan_usage.limits.affiliates.is_exhausted %}
+                                                    <div class="alert alert-danger" role="alert" style="border-radius:12px;">
+                                                        <strong>Affiliate limit reached:</strong>
+                                                        {{ plan_usage.limits.affiliates.used }}/{{ plan_usage.limits.affiliates.limit }} affiliates used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">Upgrade to add more affiliates</a>.
+                                                    </div>
+                                                {% elif plan_usage.limits.affiliates and plan_usage.limits.affiliates.is_near_limit %}
+                                                    <div class="alert alert-warning" role="alert" style="border-radius:12px;">
+                                                        <strong>Approaching affiliate limit:</strong>
+                                                        {{ plan_usage.limits.affiliates.used }}/{{ plan_usage.limits.affiliates.limit }} affiliates used.
+                                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">View plans</a>.
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+
                     {% if messages %}
                         <div class="alert-container">
                             {% for message in messages %}
@@ -1034,7 +1071,7 @@
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" class="btn-custom">
+                    <button type="submit" class="btn-custom" id="registrationSubmitBtn">
                         <span>Register User</span>
                         <i class="fas fa-arrow-right"></i>
                     </button>
@@ -1084,6 +1121,37 @@
 
     <script>
     (function(){
+        // Plan limit hints for client/marketer creation (UI-only; server is the final guard)
+        const dataEl = document.getElementById('planLimitData');
+        const PLAN_LIMITS = {
+            clientsExhausted: dataEl ? (dataEl.dataset.clientsExhausted === '1') : false,
+            affiliatesExhausted: dataEl ? (dataEl.dataset.affiliatesExhausted === '1') : false,
+            subscriptionUrl: dataEl ? (dataEl.dataset.subscriptionUrl || '') : '',
+        };
+
+        function updateSubmitState(){
+            const submitBtn = document.getElementById('registrationSubmitBtn');
+            if(!submitBtn) return;
+
+            const roleClient = document.getElementById('role-client');
+            const roleMarketer = document.getElementById('role-marketer');
+            const isClient = roleClient && roleClient.checked;
+            const isMarketer = roleMarketer && roleMarketer.checked;
+
+            const shouldBlock = (isClient && PLAN_LIMITS.clientsExhausted) || (isMarketer && PLAN_LIMITS.affiliatesExhausted);
+            submitBtn.disabled = !!shouldBlock;
+        }
+
+        document.addEventListener('change', function(e){
+            if(e && e.target && (e.target.id === 'role-client' || e.target.id === 'role-marketer')){
+                updateSubmitState();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function(){
+            updateSubmitState();
+        });
+
         // Helper to get CSRF token from the form
         function getCsrfToken(){
             const el = document.querySelector('input[name="csrfmiddlewaretoken"]');

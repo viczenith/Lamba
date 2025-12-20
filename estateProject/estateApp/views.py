@@ -27,6 +27,8 @@ from django.core.exceptions import ValidationError
 import json
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 
+from django.core.cache import cache
+
 from django.db.models import Prefetch, Count, Max, Q, F, Value, Sum, DecimalField, OuterRef, Subquery, Exists, ExpressionWrapper
 from django.db.models.functions import Concat, Coalesce
 
@@ -731,6 +733,27 @@ def user_registration(request):
         date_of_birth = request.POST.get('date_of_birth')
         password = request.POST.get('password')
 
+        # PLAN LIMIT ENFORCEMENT (no loopholes): block client/marketer creation when exhausted
+        try:
+            from estateApp.services.plan_limits import (
+                FEATURE_CLIENTS,
+                FEATURE_AFFILIATES,
+                build_limit_block_message,
+                can_create,
+            )
+            if role in ('client', 'marketer') and company:
+                feature = FEATURE_CLIENTS if role == 'client' else FEATURE_AFFILIATES
+                allowed, _res = can_create(company, feature)
+                if not allowed:
+                    error_msg = build_limit_block_message(company, feature)
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg, 'code': 'plan_limit'}, status=403)
+                    messages.error(request, error_msg)
+                    return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+        except Exception:
+            # Fail open if plan resolution fails; do not break registration flows.
+            pass
+
         # Validate required fields
         if not email or not role or not full_name:
             error_msg = "Email, role, and full name are required."
@@ -758,6 +781,27 @@ def user_registration(request):
                     return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
 
                 company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+
+                # PLAN LIMIT ENFORCEMENT for adding existing users into company scope
+                try:
+                    from estateApp.services.plan_limits import (
+                        FEATURE_CLIENTS,
+                        FEATURE_AFFILIATES,
+                        build_limit_block_message,
+                        can_create,
+                    )
+                    if role in ('client', 'marketer') and company:
+                        feature = FEATURE_CLIENTS if role == 'client' else FEATURE_AFFILIATES
+                        allowed, _res = can_create(company, feature)
+                        if not allowed:
+                            error_msg = build_limit_block_message(company, feature)
+                            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                return JsonResponse({'success': False, 'message': error_msg, 'code': 'plan_limit'}, status=403)
+                            messages.error(request, error_msg)
+                            return render(request, 'admin_side/user_registration.html', {'marketers': marketers})
+                except Exception:
+                    pass
+
                 user_to_add = CustomUser.objects.get(id=int(existing_user_id), is_active=True, is_deleted=False)
 
                 # Marketer assignment required for clients
@@ -1311,6 +1355,25 @@ def add_estate(request):
     if request.method == "POST":
         # SECURITY: Auto-assign company to prevent cross-tenant data creation
         company = request.user.company_profile
+
+        # PLAN LIMIT ENFORCEMENT (no loopholes)
+        try:
+            from estateApp.services.plan_limits import (
+                FEATURE_ESTATE_PROPERTIES,
+                build_limit_block_message,
+                can_create,
+            )
+            allowed, _res = can_create(company, FEATURE_ESTATE_PROPERTIES)
+            if not allowed:
+                error_msg = build_limit_block_message(company, FEATURE_ESTATE_PROPERTIES)
+                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                if is_ajax:
+                    return JsonResponse({'message': error_msg, 'code': 'plan_limit'}, status=403)
+                messages.error(request, error_msg)
+                return redirect('view-estate')
+        except Exception:
+            pass
+
         # Handle form submission and save the estate
         estate_name = request.POST.get('name')
         estate_location = request.POST.get('location')
@@ -1353,6 +1416,22 @@ def plot_allocation(request):
     if request.method == "POST":
         try:
             with transaction.atomic():
+                # PLAN LIMIT ENFORCEMENT (TOTAL allocations, not monthly)
+                try:
+                    from estateApp.services.plan_limits import (
+                        FEATURE_ALLOCATIONS,
+                        build_limit_block_message,
+                        can_create,
+                    )
+                    allowed, _res = can_create(company, FEATURE_ALLOCATIONS)
+                    if not allowed:
+                        raise ValidationError(build_limit_block_message(company, FEATURE_ALLOCATIONS))
+                except ValidationError:
+                    raise
+                except Exception:
+                    # Fail open if plan resolution fails
+                    pass
+
                 # SECURITY: Ensure plot_size_unit belongs to company
                 plot_size_unit = get_object_or_404(
                     PlotSizeUnits.objects.select_for_update()
@@ -3795,6 +3874,13 @@ def chat_unread_count(request):
     if not company:
         return JsonResponse(data)
 
+    # Performance: this endpoint is polled frequently (header + sidebar).
+    # Cache briefly to avoid repeated expensive query work.
+    cache_key = f"chat_unread_count:v2:company:{getattr(company, 'id', 'na')}:user:{getattr(user, 'id', 'na')}:role:{getattr(user, 'role', 'na')}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
     if getattr(user, 'role', None) in SUPPORT_ROLES:
         # SECURITY: Get all user IDs for this company (including affiliations)
         all_client_ids = get_all_clients_for_company(company)
@@ -3808,8 +3894,6 @@ def chat_unread_count(request):
             is_read=False
         ).count()
         data['total_unread'] = total
-
-        from django.db.models import Max, Count, Subquery, OuterRef
 
         # Subqueries filtered by company support recipients
         latest_content_sq = Subquery(
@@ -3827,26 +3911,25 @@ def chat_unread_count(request):
             ).order_by('-date_sent').values('file')[:1]
         )
 
+        unread_filter = Q(
+            sent_messages__recipient__company_profile=company,
+            sent_messages__recipient__role__in=SUPPORT_ROLES,
+            sent_messages__is_read=False,
+        )
+
         # SECURITY: Get clients from THIS company (including affiliations) with unread messages
         unread_clients_qs = (CustomUser.objects
             .filter(
                 id__in=all_client_ids,  # CRITICAL: Company isolation including affiliations
                 role='client',
-                sent_messages__recipient__company_profile=company,
-                sent_messages__recipient__role__in=SUPPORT_ROLES,
-                sent_messages__is_read=False
             )
             .annotate(
-                last_message=Max('sent_messages__date_sent'),
-                unread_count=Count('sent_messages', filter=Q(
-                    sent_messages__recipient__company_profile=company,
-                    sent_messages__recipient__role__in=SUPPORT_ROLES,
-                    sent_messages__is_read=False
-                )),
+                unread_count=Count('sent_messages', filter=unread_filter),
+                last_message=Max('sent_messages__date_sent', filter=unread_filter),
                 last_content=latest_content_sq,
                 last_file=latest_file_sq,
             )
-            .distinct()
+            .filter(unread_count__gt=0)
             .order_by('-last_message')
         )
 
@@ -3859,22 +3942,20 @@ def chat_unread_count(request):
             except Exception:
                 profile_url = None
 
-            # SECURITY: Filter last message by company support
-            last_msg = (Message.objects
-                        .filter(
-                            sender=c,
-                            recipient__company_profile=company,
-                            recipient__role__in=SUPPORT_ROLES
-                        )
-                        .order_by('-date_sent')
-                        .first())
-            last_iso = last_msg.date_sent.isoformat() if last_msg else None
-            last_file_name = None
-            if last_msg and getattr(last_msg, 'file', None):
+            last_iso = None
+            if getattr(c, 'last_message', None):
                 try:
-                    last_file_name = last_msg.file.name
+                    last_iso = c.last_message.isoformat()
                 except Exception:
-                    last_file_name = None
+                    last_iso = None
+
+            last_file_name = None
+            lf = getattr(c, 'last_file', None)
+            if lf:
+                try:
+                    last_file_name = lf.name
+                except Exception:
+                    last_file_name = str(lf)
 
             admin_unread_clients.append({
                 'id': c.id,
@@ -3886,41 +3967,42 @@ def chat_unread_count(request):
                 'last_message_iso': last_iso,
             })
 
-        data['client_count'] = unread_clients_qs.count()
+        data['client_count'] = (Message.objects.filter(
+            sender_id__in=all_client_ids,
+            recipient__company_profile=company,
+            recipient__role__in=SUPPORT_ROLES,
+            is_read=False,
+        ).values('sender_id').distinct().count())
         data['admin_unread_clients'] = admin_unread_clients
+
+        latest_marketer_content_sq = Subquery(
+            Message.objects.filter(
+                sender=OuterRef('pk'),
+                recipient__company_profile=company,
+                recipient__role__in=SUPPORT_ROLES
+            ).order_by('-date_sent').values('content')[:1]
+        )
+        latest_marketer_file_sq = Subquery(
+            Message.objects.filter(
+                sender=OuterRef('pk'),
+                recipient__company_profile=company,
+                recipient__role__in=SUPPORT_ROLES
+            ).order_by('-date_sent').values('file')[:1]
+        )
 
         # SECURITY: Get marketers from THIS company (including affiliations) with unread messages
         unread_marketers_qs = (CustomUser.objects
             .filter(
                 id__in=all_marketer_ids,  # CRITICAL: Company isolation including affiliations
                 role='marketer',
-                sent_messages__recipient__company_profile=company,
-                sent_messages__recipient__role__in=SUPPORT_ROLES,
-                sent_messages__is_read=False
             )
             .annotate(
-                last_message=Max('sent_messages__date_sent'),
-                unread_count=Count('sent_messages', filter=Q(
-                    sent_messages__recipient__company_profile=company,
-                    sent_messages__recipient__role__in=SUPPORT_ROLES,
-                    sent_messages__is_read=False
-                )),
-                last_content=Subquery(
-                    Message.objects.filter(
-                        sender=OuterRef('pk'),
-                        recipient__company_profile=company,
-                        recipient__role__in=SUPPORT_ROLES
-                    ).order_by('-date_sent').values('content')[:1]
-                ),
-                last_file=Subquery(
-                    Message.objects.filter(
-                        sender=OuterRef('pk'),
-                        recipient__company_profile=company,
-                        recipient__role__in=SUPPORT_ROLES
-                    ).order_by('-date_sent').values('file')[:1]
-                ),
+                unread_count=Count('sent_messages', filter=unread_filter),
+                last_message=Max('sent_messages__date_sent', filter=unread_filter),
+                last_content=latest_marketer_content_sq,
+                last_file=latest_marketer_file_sq,
             )
-            .distinct()
+            .filter(unread_count__gt=0)
             .order_by('-last_message')
         )
 
@@ -3933,22 +4015,20 @@ def chat_unread_count(request):
             except Exception:
                 profile_url = None
 
-            # SECURITY: Filter last message by company support
-            last_msg = (Message.objects
-                        .filter(
-                            sender=m,
-                            recipient__company_profile=company,
-                            recipient__role__in=SUPPORT_ROLES
-                        )
-                        .order_by('-date_sent')
-                        .first())
-            last_iso = last_msg.date_sent.isoformat() if last_msg else None
-            last_file_name = None
-            if last_msg and getattr(last_msg, 'file', None):
+            last_iso = None
+            if getattr(m, 'last_message', None):
                 try:
-                    last_file_name = last_msg.file.name
+                    last_iso = m.last_message.isoformat()
                 except Exception:
-                    last_file_name = None
+                    last_iso = None
+
+            last_file_name = None
+            lf = getattr(m, 'last_file', None)
+            if lf:
+                try:
+                    last_file_name = lf.name
+                except Exception:
+                    last_file_name = str(lf)
 
             admin_unread_marketers.append({
                 'id': m.id,
@@ -3960,7 +4040,12 @@ def chat_unread_count(request):
                 'last_message_iso': last_iso,
             })
 
-        data['marketer_count'] = unread_marketers_qs.count()
+        data['marketer_count'] = (Message.objects.filter(
+            sender_id__in=all_marketer_ids,
+            recipient__company_profile=company,
+            recipient__role__in=SUPPORT_ROLES,
+            is_read=False,
+        ).values('sender_id').distinct().count())
         data['admin_unread_marketers'] = admin_unread_marketers
     else:
         # For non-admin users (clients/marketers), filter by their company
@@ -3971,6 +4056,7 @@ def chat_unread_count(request):
             is_read=False
         ).count()
 
+    cache.set(cache_key, data, timeout=2)
     return JsonResponse(data)
 
 @login_required
@@ -4454,29 +4540,43 @@ def company_profile_view(request):
         try:
             from datetime import datetime, timedelta
             from estateApp.models import SubscriptionPlan
+            from estateApp.subscription_billing_models import SubscriptionBillingModel
             
-            # Get the subscription plan for pricing
+            # Prefer the enhanced billing record when available
+            billing = None
+            try:
+                billing = SubscriptionBillingModel.objects.select_related('current_plan').filter(company=company).first()
+                if billing:
+                    billing.refresh_status()
+            except Exception:
+                billing = None
+
+            # Get the subscription plan for pricing (billing.current_plan > company.subscription_tier)
             subscription_plan = None
             try:
-                subscription_plan = SubscriptionPlan.objects.get(tier=company.subscription_tier)
+                if billing and billing.current_plan:
+                    subscription_plan = billing.current_plan
+                else:
+                    subscription_plan = SubscriptionPlan.objects.get(tier=company.subscription_tier)
             except SubscriptionPlan.DoesNotExist:
-                pass
+                subscription_plan = None
             
-            # Calculate days remaining
+            # Calculate days remaining (billing takes precedence)
             days_remaining = 0
-            if company.subscription_ends_at:
-                now = timezone.now()
-                if company.subscription_ends_at > now:
-                    days_remaining = (company.subscription_ends_at - now).days
-            elif company.trial_ends_at:
-                now = timezone.now()
-                if company.trial_ends_at > now:
-                    days_remaining = (company.trial_ends_at - now).days
+            now = timezone.now()
+            end_at = None
+            if billing:
+                end_at = billing.get_expiration_datetime() or billing.subscription_ends_at or billing.trial_ends_at
+            if not end_at:
+                end_at = company.subscription_ends_at or company.trial_ends_at
+            if end_at and end_at > now:
+                days_remaining = (end_at - now).days
             
             # Check if in grace period
             is_in_grace_period = False
-            if company.grace_period_ends_at:
-                now = timezone.now()
+            if billing:
+                is_in_grace_period = billing.is_grace_period()
+            elif company.grace_period_ends_at:
                 is_in_grace_period = now < company.grace_period_ends_at and days_remaining <= 0
             
             # Warning level for expiring soon
@@ -4495,17 +4595,30 @@ def company_profile_view(request):
             max_clients = features.get('clients', 30) if isinstance(features.get('clients'), int) else (999999 if features.get('clients') == 'unlimited' else 30)
             max_affiliates = features.get('affiliates', 20) if isinstance(features.get('affiliates'), int) else (999999 if features.get('affiliates') == 'unlimited' else 20)
             
+            # Determine billing period and price to display
+            billing_period = 'monthly'
+            if billing and getattr(billing, 'billing_cycle', None) in ('monthly', 'annual'):
+                billing_period = billing.billing_cycle
+
+            display_amount = 0
+            if subscription_plan:
+                if billing_period == 'annual':
+                    display_amount = subscription_plan.annual_price or (subscription_plan.monthly_price * 10)
+                else:
+                    display_amount = subscription_plan.monthly_price
+
             # Build subscription dict
             subscription = {
                 'subscription_plan': subscription_plan,
                 'plan_name': subscription_plan.name if subscription_plan else company.get_subscription_tier_display(),
                 'tier': company.subscription_tier,
                 'status': company.subscription_status,
-                'amount': subscription_plan.monthly_price if subscription_plan else 0,
+                'billing_period': billing_period,
+                'amount': display_amount,
                 'monthly_price': subscription_plan.monthly_price if subscription_plan else 0,
                 'annual_price': subscription_plan.annual_price if subscription_plan else 0,
                 'subscription_starts_at': company.subscription_started_at,
-                'subscription_ends_at': company.subscription_ends_at or company.trial_ends_at,
+                'subscription_ends_at': end_at,
                 'days_remaining': days_remaining,
                 'is_in_grace_period': is_in_grace_period,
                 'warning_level': warning_level,

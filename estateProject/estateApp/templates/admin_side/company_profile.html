@@ -4518,6 +4518,20 @@
 
     <!-- Subscription & Billing JavaScript -->
     <script>
+        // Endpoint wiring (use Django URL reversing; avoid hardcoded paths)
+        const SUBSCRIPTION_ENDPOINTS = {
+            status: '{% url "get_subscription_status" %}',
+            billingHistory: '{% url "get_billing_history" %}',
+            upgrade: '{% url "drf:subscription-upgrade" %}',
+            downgrade: '{% url "drf:subscription-downgrade" %}',
+            receiptTemplate: '{% url "admin-subscription-receipt" 0 %}',
+        };
+
+        function buildSubscriptionReceiptUrl(transactionId) {
+            // receiptTemplate looks like: /admin/subscription/receipt/0/
+            return SUBSCRIPTION_ENDPOINTS.receiptTemplate.replace('/0/', `/${transactionId}/`);
+        }
+
         // Subscription plans data from Django context (pre-serialized JSON)
         // Use let to allow modification if needed
         let subscriptionPlans = {{ subscription_plans_json|safe }};
@@ -4850,7 +4864,7 @@
             const modal = bootstrap.Modal.getInstance(document.getElementById('downgradeConfirmModal'));
             
             try {
-                const response = await fetch('/api/subscriptions/downgrade/', {
+                const response = await fetch(SUBSCRIPTION_ENDPOINTS.downgrade, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5009,18 +5023,18 @@
             }
             
             try {
-                const response = await fetch('/api/subscription/downgrade/', {
+                const response = await fetch(SUBSCRIPTION_ENDPOINTS.downgrade, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCsrfToken()
                     },
-                    body: JSON.stringify({ plan_tier: planTier })
+                    body: JSON.stringify({ tier: planTier })
                 });
                 
                 const data = await response.json();
                 
-                if (data.success) {
+                if (response.ok) {
                     bootstrap.Modal.getInstance(document.getElementById('downgradePlanModal'))?.hide();
                     showToast('Your plan downgrade has been scheduled.', 'success');
                     setTimeout(() => window.location.reload(), 2000);
@@ -5410,7 +5424,7 @@
         // Load current subscription data
         async function loadCurrentSubscription() {
             try {
-                const response = await fetch('/api/subscription/status/');
+                const response = await fetch(SUBSCRIPTION_ENDPOINTS.status);
                 const data = await response.json();
                 
                 if (data.subscription) {
@@ -5484,7 +5498,7 @@
             } else {
                 // Handle Stripe payment
                 try {
-                    const response = await fetch('/api/subscriptions/upgrade/', {
+                    const response = await fetch(SUBSCRIPTION_ENDPOINTS.upgrade, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5558,7 +5572,7 @@
             
             // Load billing history
             try {
-                const response = await fetch('/api/billing/history/');
+                const response = await fetch(SUBSCRIPTION_ENDPOINTS.billingHistory);
                 const data = await response.json();
                 
                 let html = '';
@@ -5616,7 +5630,7 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <a href="/admin/subscription/receipt/${h.id}/" target="_blank" class="btn btn-sm btn-outline-primary" title="Download Receipt">
+                                                <a href="${buildSubscriptionReceiptUrl(h.id)}" target="_blank" class="btn btn-sm btn-outline-primary" title="Download Receipt">
                                                     <i class="bi bi-file-earmark-pdf"></i>
                                                 </a>
                                             </td>

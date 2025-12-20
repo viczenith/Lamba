@@ -187,7 +187,12 @@
          * Show alert with animation
          */
         showAlert(element, type) {
-            element.style.display = 'flex';
+            // Banners should remain in normal document flow; overlays use flex.
+            if (type === 'banner') {
+                element.style.display = 'block';
+            } else {
+                element.style.display = 'flex';
+            }
 
             // Add animation class
             switch (type) {

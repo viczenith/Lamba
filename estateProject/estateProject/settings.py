@@ -137,6 +137,7 @@ MIDDLEWARE = [
     # These layers provide automatic query interception + security enforcement
     'superAdmin.enhanced_middleware.EnhancedTenantIsolationMiddleware',  # Auto-detects tenant, sets context
     'superAdmin.enhanced_middleware.TenantValidationMiddleware',          # Validates tenant context
+    'estateApp.middleware.ReadOnlyModeMiddleware',                        # Server-side read-only enforcement
     'superAdmin.enhanced_middleware.SubscriptionEnforcementMiddleware',   # Plan limit enforcement
     'superAdmin.enhanced_middleware.AuditLoggingMiddleware',              # Compliance audit trail
     'superAdmin.enhanced_middleware.SecurityHeadersMiddleware',           # XSS/MIME/clickjacking protection
@@ -167,6 +168,8 @@ TEMPLATES = [
                 'estateApp.context_processors.chat_notifications',
                 'estateApp.context_processors.user_notifications',
                 'estateApp.context_processors.dashboard_url',
+                'estateApp.context_processors.subscription_alerts',
+                'estateApp.context_processors.plan_usage',
             ],
         },
     },

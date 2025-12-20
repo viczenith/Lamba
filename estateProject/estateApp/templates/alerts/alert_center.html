@@ -1,0 +1,18 @@
+{# Renders subscription alerts into the DOM for alerts.js to manage. #}
+
+{% if subscription_alerts %}
+  <div id="subscription-alerts-root">
+    {% for alert in subscription_alerts %}
+      {# Non-dismissible or forced states should block/stick. #}
+      {% if alert.status == 'blocked' or alert.severity == 'urgent' or alert.alert_type == 'trial_expired' or alert.alert_type == 'subscription_failed' %}
+        {% include "alerts/blocking_modal_alert.html" %}
+      {% elif not alert.is_dismissible or alert.severity == 'critical' %}
+        {% include "alerts/sticky_modal_alert.html" %}
+      {% elif alert.severity == 'warning' %}
+        {% include "alerts/closable_modal_alert.html" %}
+      {% else %}
+        {% include "alerts/banner_alert.html" %}
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

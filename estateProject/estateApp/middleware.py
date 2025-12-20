@@ -21,6 +21,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
+from django.http import HttpResponseForbidden, JsonResponse
 from django.contrib.auth.models import AnonymousUser
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
@@ -1336,6 +1337,57 @@ class PageLoadOptimizationMiddleware(MiddlewareMixin):
         response['Expires'] = '0'
         
         return response
+
+
+class ReadOnlyModeMiddleware(MiddlewareMixin):
+    """Blocks unsafe writes when the current company is in read-only mode.
+
+    This closes loopholes where UI restrictions exist but endpoints still accept writes.
+    """
+
+    UNSAFE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
+
+    # Paths that must remain usable to recover from read-only state.
+    ALLOW_PREFIXES = (
+        '/static/',
+        '/media/',
+        '/admin/',
+        '/login',
+        '/logout',
+        '/register',
+        '/billing',
+        '/subscription',
+        '/api/alerts/',
+        '/api/billing/',
+    )
+
+    def process_request(self, request):
+        if request.method not in self.UNSAFE_METHODS:
+            return None
+
+        if any(request.path.startswith(p) for p in self.ALLOW_PREFIXES):
+            return None
+
+        # Resolve company from the tenant middleware or user profile.
+        company = getattr(request, 'company', None)
+        if company is None and getattr(request, 'user', None) is not None and request.user.is_authenticated:
+            company = getattr(request.user, 'company_profile', None)
+
+        if not company:
+            return None
+
+        if not getattr(company, 'is_read_only_mode', False):
+            return None
+
+        payload = {
+            'detail': 'Account is in read-only mode. Upgrade/renew to restore write access.',
+            'code': 'read_only_mode',
+        }
+
+        if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse(payload, status=403)
+
+        return HttpResponseForbidden(payload['detail'])
 
 
 class SessionSecurityMiddleware(MiddlewareMixin):

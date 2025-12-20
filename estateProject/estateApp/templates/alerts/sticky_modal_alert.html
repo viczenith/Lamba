@@ -62,6 +62,7 @@
             {% endif %}
             <button class="alert-sticky-btn alert-sticky-btn-secondary"
                     data-alert-id="{{ alert.id }}"
+                    data-alert-acknowledge
                     onclick="acknowledgeAlert(this)">
                 {{ alert.acknowledge_label|default:"I Acknowledge" }}
             </button>

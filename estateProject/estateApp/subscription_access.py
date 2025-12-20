@@ -28,13 +28,18 @@ def subscription_required(feature='general'):
         @login_required
         def wrapper(request, *args, **kwargs):
             try:
-                company = request.user.company
-                billing = company.billing
-                billing.refresh_status()
+                company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+                if not company:
+                    return redirect('dashboard')
+
+                billing = getattr(company, 'billing', None)
+                if billing:
+                    billing.refresh_status()
                 
                 # Check if subscription is active
-                if not billing.is_active():
-                    return redirect('subscription_upgrade', company_slug=company.slug)
+                if billing and not billing.is_active():
+                    # The billing UI is integrated into the company console
+                    return redirect('company-profile')
                 
                 return view_func(request, *args, **kwargs)
             except Exception as e:
@@ -50,12 +55,14 @@ def can_create_client_required(view_func):
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
-        company = request.user.company
-        
-        # Check if can create client
-        can_create, message = company.can_add_client()
-        if not can_create:
-            raise PermissionDenied(message)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company or not hasattr(company, 'billing'):
+            raise PermissionDenied('Company subscription not configured.')
+
+        billing = company.billing
+        billing.refresh_status()
+        if not billing.can_create_client():
+            raise PermissionDenied(billing.get_access_restrictions().get('message') or 'Subscription required.')
         
         return view_func(request, *args, **kwargs)
     
@@ -67,12 +74,14 @@ def can_create_allocation_required(view_func):
     @wraps(view_func)
     @login_required
     def wrapper(request, *args, **kwargs):
-        company = request.user.company
-        
-        # Check if can create allocation
-        can_create, message = company.can_create_allocation()
-        if not can_create:
-            raise PermissionDenied(message)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company or not hasattr(company, 'billing'):
+            raise PermissionDenied('Company subscription not configured.')
+
+        billing = company.billing
+        billing.refresh_status()
+        if not billing.can_create_allocation():
+            raise PermissionDenied(billing.get_access_restrictions().get('message') or 'Subscription required.')
         
         return view_func(request, *args, **kwargs)
     
@@ -87,8 +96,10 @@ def read_only_if_grace_period(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         try:
-            company = request.user.company
-            billing = company.billing
+            company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+            billing = getattr(company, 'billing', None)
+            if not billing:
+                return view_func(request, *args, **kwargs)
             
             if billing.is_grace_period():
                 # Allow read-only operations
@@ -110,8 +121,10 @@ def api_access_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         try:
-            company = request.user.company
-            billing = company.billing
+            company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+            billing = getattr(company, 'billing', None)
+            if not billing:
+                return JsonResponse({'error': 'Unauthorized'}, status=401)
             
             if not billing.can_use_api():
                 return JsonResponse({
@@ -130,16 +143,15 @@ def trial_active_or_paid_required(view_func):
     """Allow access only during trial or active paid subscription"""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        company = request.user.company
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company or not hasattr(company, 'billing'):
+            return redirect('company-profile')
+
         billing = company.billing
         billing.refresh_status()
         
         if not billing.is_active():
-            messages.warning(
-                request,
-                f"Your subscription has {billing.get_access_restrictions()['message']}"
-            )
-            return redirect('subscription_upgrade', company_slug=company.slug)
+            return redirect('company-profile')
         
         return view_func(request, *args, **kwargs)
     
@@ -163,8 +175,11 @@ class SubscriptionMiddleware:
         # Add subscription context if user is authenticated
         if request.user.is_authenticated:
             try:
-                company = request.user.company
-                billing = company.billing
+                company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+                billing = getattr(company, 'billing', None)
+                if not billing:
+                    return self.get_response(request)
+
                 billing.refresh_status()
                 
                 # Inject into request object
@@ -198,8 +213,11 @@ def subscription_context(request):
     
     if request.user.is_authenticated:
         try:
-            company = request.user.company
-            billing = company.billing
+            company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+            billing = getattr(company, 'billing', None)
+            if not company or not billing:
+                return context
+
             billing.refresh_status()
             
             context['user_company'] = company
@@ -230,13 +248,16 @@ class SubscriptionRequiredMixin:
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        
-        billing = request.user.company.billing
+
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company or not hasattr(company, 'billing'):
+            return redirect('company-profile')
+
+        billing = company.billing
         billing.refresh_status()
         
         if not billing.is_active():
-            return redirect('subscription_upgrade', 
-                          company_slug=request.user.company.slug)
+            return redirect('company-profile')
         
         return super().dispatch(request, *args, **kwargs)
 
@@ -247,7 +268,10 @@ class GracePeriodReadOnlyMixin:
     """
     
     def dispatch(self, request, *args, **kwargs):
-        billing = request.user.company.billing
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        billing = getattr(company, 'billing', None)
+        if not billing:
+            return super().dispatch(request, *args, **kwargs)
         
         if billing.is_grace_period():
             if request.method not in ['GET', 'HEAD', 'OPTIONS']:

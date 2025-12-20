@@ -37,11 +37,14 @@
                     {{ alert.action_label|default:"Take Action" }}
                 </a>
             {% endif %}
-            <button class="alert-banner-btn-dismiss" 
-                    data-alert-id="{{ alert.id }}"
-                    onclick="dismissAlert(this)">
-                ✕
-            </button>
+            {% if alert.is_dismissible %}
+                <button class="alert-banner-btn-dismiss"
+                        data-alert-id="{{ alert.id }}"
+                        data-alert-dismiss
+                        onclick="dismissAlert(this)">
+                    ✕
+                </button>
+            {% endif %}
         </div>
     </div>
 </div>

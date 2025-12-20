@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.urls import reverse
 from estateApp.models import Company, SubscriptionAlert, CompanyUsage
 
 logger = logging.getLogger(__name__)
@@ -275,6 +276,59 @@ class SubscriptionAlertService:
                         dismissible=True
                     )
                     alerts.append(alert)
+
+            # ALSO check SubscriptionPlan.features-based limits (live counts)
+            try:
+                from estateApp.services.plan_limits import (
+                    FEATURE_ESTATE_PROPERTIES,
+                    FEATURE_ALLOCATIONS,
+                    FEATURE_CLIENTS,
+                    FEATURE_AFFILIATES,
+                    get_limit_status,
+                )
+
+                feature_labels = {
+                    FEATURE_ESTATE_PROPERTIES: 'Estate Properties',
+                    FEATURE_ALLOCATIONS: 'Allocations',
+                    FEATURE_CLIENTS: 'Clients',
+                    FEATURE_AFFILIATES: 'Affiliates',
+                }
+
+                dashboard_url = reverse('subscription_dashboard')
+
+                for feature in (FEATURE_ESTATE_PROPERTIES, FEATURE_ALLOCATIONS, FEATURE_CLIENTS, FEATURE_AFFILIATES):
+                    res = get_limit_status(company, feature)
+                    if res.limit is None:
+                        continue
+
+                    label = feature_labels.get(feature, feature)
+
+                    if res.is_exhausted:
+                        alerts.append(
+                            SubscriptionAlertService._create_alert_dict(
+                                'usage_exceeded',
+                                'critical',
+                                f'{label} Limit Reached',
+                                f'You have reached your {label.lower()} limit ({res.used}/{res.limit}). Upgrade to add more.',
+                                dashboard_url,
+                                'Manage Subscription',
+                                dismissible=False,
+                            )
+                        )
+                    elif res.is_near_limit:
+                        alerts.append(
+                            SubscriptionAlertService._create_alert_dict(
+                                'usage_warning',
+                                'warning',
+                                f'{label} Nearly Full',
+                                f'You are approaching your {label.lower()} limit ({res.used}/{res.limit}). Consider upgrading soon.',
+                                dashboard_url,
+                                'View Plans',
+                                dismissible=True,
+                            )
+                        )
+            except Exception:
+                pass
         
         except Exception as e:
             logger.error(f"Error checking usage limits for company {company.id}: {str(e)}")

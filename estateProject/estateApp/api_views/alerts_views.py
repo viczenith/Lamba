@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from estateApp.models import SubscriptionAlert, Company
@@ -139,14 +140,14 @@ def dismiss_alert(request):
         if hide_until:
             try:
                 alert.hide_until = timezone.make_aware(
-                    timezone.datetime.fromisoformat(hide_until.replace('Z', '+00:00'))
+                    datetime.fromisoformat(hide_until.replace('Z', '+00:00'))
                 )
             except:
                 # Default to 24 hours if parsing fails
-                alert.hide_until = timezone.now() + timezone.timedelta(days=1)
+                alert.hide_until = timezone.now() + timedelta(days=1)
         else:
             # Default: hide for 24 hours
-            alert.hide_until = timezone.now() + timezone.timedelta(days=1)
+            alert.hide_until = timezone.now() + timedelta(days=1)
         
         alert.save()
         

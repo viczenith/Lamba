@@ -700,6 +700,7 @@
     }
 
     input[type="number"].form-control[type=number] {
+        appearance: textfield;
         -moz-appearance: textfield;
     }
 
@@ -737,6 +738,29 @@
                 <h2>Add New Estate</h2>
                 <p>Fill in the details to add a new estate to the system.</p>
             </div>
+
+                        {% if plan_usage and plan_usage.limits and plan_usage.limits.estate_properties %}
+                            {% if plan_usage.limits.estate_properties.is_exhausted %}
+                                <div class="alert alert-danger d-flex align-items-center" role="alert" style="border-radius:12px;margin-bottom:18px;">
+                                    <i class="fas fa-lock me-2"></i>
+                                    <div>
+                                        <strong>Plan limit reached:</strong>
+                                        You have used {{ plan_usage.limits.estate_properties.used }}/{{ plan_usage.limits.estate_properties.limit }} estate properties.
+                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">Upgrade to add more</a>.
+                                    </div>
+                                </div>
+                            {% elif plan_usage.limits.estate_properties.is_near_limit %}
+                                <div class="alert alert-warning d-flex align-items-center" role="alert" style="border-radius:12px;margin-bottom:18px;">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <div>
+                                        <strong>Approaching limit:</strong>
+                                        {{ plan_usage.limits.estate_properties.used }}/{{ plan_usage.limits.estate_properties.limit }} estate properties used.
+                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">View plans</a>.
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
             <!-- Estate Form -->
             <form id="addEstateForm" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
@@ -801,7 +825,7 @@
                 <div id="estateResponseMessage"></div>
 
                 <div class="text-center">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" {% if plan_usage and plan_usage.limits and plan_usage.limits.estate_properties and plan_usage.limits.estate_properties.is_exhausted %}disabled{% endif %}>
                         <i class="fas fa-plus-circle"></i>
                         <span>Add Estate</span>
                     </button>

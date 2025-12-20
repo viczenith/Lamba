@@ -907,27 +907,32 @@
   chart.render();
 
   // Update chart when theme changes
-  document.getElementById('theme-switch').addEventListener('change', function () {
-    chart.updateOptions({
-      tooltip: {
-        theme: this.checked ? 'dark' : 'light'
-      },
-      foreColor: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
-      colors: [getComputedStyle(document.documentElement).getPropertyValue('--primary')],
-      grid: {
-        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
-      }
+  const themeSwitch = document.getElementById('theme-switch');
+  if (themeSwitch) {
+    themeSwitch.addEventListener('change', function () {
+      chart.updateOptions({
+        tooltip: {
+          theme: this.checked ? 'dark' : 'light'
+        },
+        foreColor: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+        colors: [getComputedStyle(document.documentElement).getPropertyValue('--primary')],
+        grid: {
+          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+        }
+      });
     });
-  });
+  }
 
   // Initialize tilt effect on cards
-  VanillaTilt.init(document.querySelectorAll("[data-tilt]"), {
-    max: 5,
-    speed: 300,
-    glare: true,
-    "max-glare": 0.1,
-    gyroscope: true
-  });
+  if (window.VanillaTilt) {
+    VanillaTilt.init(document.querySelectorAll("[data-tilt]"), {
+      max: 5,
+      speed: 300,
+      glare: true,
+      "max-glare": 0.1,
+      gyroscope: true
+    });
+  }
 
   // Update chart data periodically
   function updateChart() {

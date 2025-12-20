@@ -173,6 +173,10 @@
   {% include 'header.html' %}
   {% include 'admin_component/admin_sidebar.html' %}
 
+  {% if subscription_has_alerts %}
+    {% include "alerts/alert_center.html" %}
+  {% endif %}
+
   <!-- Main -->
   {% block content %}
   <main id="main" class="main">
@@ -195,6 +199,328 @@
   <script src="https://cdn.jsdelivr.net/npm/tinymce@6.7.0/tinymce.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/twbs/form-validation/dist/js/validate.min.js"></script>
   <script src="{% static 'assets/js/main.js' %}"></script>
+
+  <script src="{% static 'js/alerts.js' %}"></script>
+
+  {# Floating subscription button + modal (does NOT affect layout/scroll). #}
+  {% if plan_usage %}
+    {% if plan_usage.any_exhausted or plan_usage.any_near_limit or plan_usage.subscription.is_read_only_mode or plan_usage.subscription.is_trial %}
+      <style>
+        #subscription-fab {
+          position: fixed;
+          top: 90px;
+          right: 22px;
+          z-index: 2147483000;
+          cursor: grab;
+          user-select: none;
+        }
+
+        #subscription-fab.dragging {
+          cursor: grabbing;
+        }
+
+        #subscription-fab .fab-btn {
+          border-radius: 999px;
+          box-shadow: var(--card-shadow);
+          border: 1px solid rgba(0, 0, 0, 0.06);
+          padding: 10px 14px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          white-space: nowrap;
+        }
+
+        #subscription-fab .fab-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          display: inline-block;
+          background: var(--badge-bg);
+        }
+
+        #subscription-fab .fab-sub {
+          font-size: 12px;
+          opacity: 0.9;
+          font-weight: 600;
+        }
+
+        @media (max-width: 576px) {
+          #subscription-fab {
+            top: 80px;
+            right: 14px;
+          }
+        }
+      </style>
+
+      <div
+        id="subscription-fab"
+        data-company-id="{% if request.user.is_authenticated and request.user.company_profile %}{{ request.user.company_profile.id }}{% endif %}"
+      >
+        {% comment %}
+          Severity mapping:
+          - danger: exhausted OR read-only OR trial <= 1
+          - warning: near limit OR trial <= 3
+          - primary: trial <= 7 (info-ish)
+        {% endcomment %}
+        {% with d=plan_usage.subscription.trial_days_remaining %}
+          {% if plan_usage.any_exhausted or plan_usage.subscription.is_read_only_mode or d != None and d <= 1 %}
+            {% with btn_class="btn-danger" dot_class="bg-light" label="Action required" %}
+              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
+                <span class="fab-dot {{ dot_class }}"></span>
+                <span>Subscription</span>
+                <span class="fab-sub">{{ label }}</span>
+              </button>
+            {% endwith %}
+          {% elif plan_usage.any_near_limit or d != None and d <= 3 %}
+            {% with btn_class="btn-warning" dot_class="bg-dark" label="Near limit" %}
+              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
+                <span class="fab-dot {{ dot_class }}"></span>
+                <span>Subscription</span>
+                <span class="fab-sub">{{ label }}</span>
+              </button>
+            {% endwith %}
+          {% elif d != None and d <= 7 %}
+            {% with btn_class="btn-primary" dot_class="bg-light" label="Trial" %}
+              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
+                <span class="fab-dot {{ dot_class }}"></span>
+                <span>Subscription</span>
+                <span class="fab-sub">{{ label }}</span>
+              </button>
+            {% endwith %}
+          {% else %}
+            {% with btn_class="btn-primary" dot_class="bg-light" label="Details" %}
+              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
+                <span class="fab-dot {{ dot_class }}"></span>
+                <span>Subscription</span>
+                <span class="fab-sub">{{ label }}</span>
+              </button>
+            {% endwith %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      <div class="modal fade" id="subscriptionUsageModal" tabindex="-1" aria-labelledby="subscriptionUsageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header">
+              <div>
+                <h5 class="modal-title" id="subscriptionUsageModalLabel">Subscription &amp; Plan Usage</h5>
+                <div class="text-muted" style="font-size: 13px;">
+                  {% if plan_usage.plan.name %}{{ plan_usage.plan.name }}{% else %}{{ plan_usage.plan.tier|default:"" }}{% endif %}
+                  {% if plan_usage.subscription.status %} • {{ plan_usage.subscription.status|title }}{% endif %}
+                  {% if plan_usage.subscription.is_trial and plan_usage.subscription.trial_days_remaining != None %} • {{ plan_usage.subscription.trial_days_remaining }} day(s) left{% endif %}
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              {% if plan_usage.subscription.is_read_only_mode %}
+                <div class="alert alert-danger" role="alert">
+                  <strong>Read-only mode is active.</strong> Creation actions are blocked until your subscription is renewed/upgraded.
+                </div>
+              {% endif %}
+
+              {% if plan_usage.any_exhausted %}
+                <div class="alert alert-danger" role="alert">
+                  <strong>Plan limit reached:</strong> one or more features are exhausted.
+                </div>
+              {% elif plan_usage.any_near_limit %}
+                <div class="alert alert-warning" role="alert">
+                  <strong>Approaching limits:</strong> you’re close to exhausting one or more plan features.
+                </div>
+              {% endif %}
+
+              <div class="row g-3">
+                {% for _k, v in plan_usage.limits.items %}
+                  <div class="col-md-6">
+                    <div class="p-3" style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.08); background: var(--card-bg);">
+                      <div class="d-flex align-items-center justify-content-between">
+                        <div class="fw-semibold">{{ v.label }}</div>
+                        {% if v.is_unlimited %}
+                          <span class="badge bg-primary">Unlimited</span>
+                        {% elif v.is_exhausted %}
+                          <span class="badge bg-danger">Exhausted</span>
+                        {% elif v.is_near_limit %}
+                          <span class="badge bg-warning text-dark">Near limit</span>
+                        {% else %}
+                          <span class="badge bg-success">OK</span>
+                        {% endif %}
+                      </div>
+
+                      <div class="mt-2 text-muted">
+                        {% if v.is_unlimited %}
+                          Used {{ v.used }}
+                        {% else %}
+                          Used {{ v.used }} / {{ v.limit }}
+                        {% endif %}
+                      </div>
+
+                      {% if not v.is_unlimited %}
+                        <div class="progress mt-2" style="height: 10px; border-radius: 999px;">
+                          <div
+                            class="progress-bar {% if v.is_exhausted %}bg-danger{% elif v.is_near_limit %}bg-warning{% else %}bg-success{% endif %}"
+                            role="progressbar"
+                            style="width: {{ v.usage_percent|default:0 }}%;">
+                          </div>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="modal-footer">
+              <a class="btn btn-primary" href="{% url 'company-profile' %}?tab=billing">Upgrade / Manage Subscription</a>
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        document.addEventListener('DOMContentLoaded', function () {
+          const fab = document.getElementById('subscription-fab');
+          if (!fab) return;
+
+          const fabButton = document.getElementById('subscriptionFabButton');
+          const modalEl = document.getElementById('subscriptionUsageModal');
+          const openModal = () => {
+            if (!modalEl) return;
+            // Bootstrap 5 preferred path
+            if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+              window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+              return;
+            }
+            // Very defensive fallback (shouldn't be needed if bootstrap.bundle is loaded)
+            modalEl.classList.add('show');
+            modalEl.style.display = 'block';
+            document.body.classList.add('modal-open');
+          };
+
+          const companyId = fab.getAttribute('data-company-id') || 'global';
+          const storageKey = `subscriptionFabPos:${companyId}`;
+
+          // Restore position
+          try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw) {
+              const pos = JSON.parse(raw);
+              if (typeof pos?.left === 'number' && typeof pos?.top === 'number') {
+                fab.style.left = `${pos.left}px`;
+                fab.style.top = `${pos.top}px`;
+                fab.style.right = 'auto';
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          let dragCandidate = false;
+          let dragging = false;
+          let didDrag = false;
+          let startX = 0;
+          let startY = 0;
+          let startLeft = 0;
+          let startTop = 0;
+          const DRAG_THRESHOLD_PX = 6;
+
+          const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+          const onPointerDown = (e) => {
+            // Mark as a potential drag; only start actual dragging after threshold.
+            // This avoids swallowing a normal click (which should open the modal).
+            dragCandidate = true;
+            didDrag = false;
+
+            const rect = fab.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+          };
+
+          const onPointerMove = (e) => {
+            if (!dragCandidate && !dragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (!dragging) {
+              if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+              dragging = true;
+              didDrag = true;
+              fab.classList.add('dragging');
+              fab.setPointerCapture?.(e.pointerId);
+
+              // Switch to left/top positioning for dragging
+              fab.style.left = `${startLeft}px`;
+              fab.style.top = `${startTop}px`;
+              fab.style.right = 'auto';
+            }
+
+            const maxLeft = window.innerWidth - fab.offsetWidth - 8;
+            const maxTop = window.innerHeight - fab.offsetHeight - 8;
+
+            const nextLeft = clamp(startLeft + dx, 8, maxLeft);
+            const nextTop = clamp(startTop + dy, 8, maxTop);
+
+            fab.style.left = `${nextLeft}px`;
+            fab.style.top = `${nextTop}px`;
+          };
+
+          const onPointerUp = () => {
+            dragCandidate = false;
+            if (!dragging) return;
+            dragging = false;
+            fab.classList.remove('dragging');
+
+            try {
+              const rect = fab.getBoundingClientRect();
+              localStorage.setItem(storageKey, JSON.stringify({ left: rect.left, top: rect.top }));
+            } catch (e) {
+              // ignore
+            }
+          };
+
+          fab.addEventListener('pointerdown', onPointerDown);
+          window.addEventListener('pointermove', onPointerMove);
+          window.addEventListener('pointerup', onPointerUp);
+
+          // Ensure click always opens modal (even if Bootstrap data attributes fail)
+          if (fabButton) {
+            fabButton.addEventListener('click', (e) => {
+              if (didDrag) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              openModal();
+            });
+          } else {
+            // Fallback: clicking anywhere on the wrapper should open when not dragging
+            fab.addEventListener('click', (e) => {
+              if (didDrag) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              openModal();
+            });
+          }
+
+          // Keep FAB from visually sitting on top of the modal
+          if (modalEl) {
+            modalEl.addEventListener('show.bs.modal', () => {
+              fab.style.zIndex = '1040';
+            });
+            modalEl.addEventListener('hidden.bs.modal', () => {
+              fab.style.zIndex = '';
+            });
+          }
+        });
+      </script>
+    {% endif %}
+  {% endif %}
 
   <!-- Theme Switching Script -->
   <script>

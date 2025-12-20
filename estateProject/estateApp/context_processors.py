@@ -142,3 +142,55 @@ def dashboard_url(request):
         url = reverse('login')
     return {'home_url': url}
 
+
+def subscription_alerts(request):
+    """Provide active subscription alerts for the current tenant/company."""
+    if not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return {}
+
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    if not company:
+        return {}
+
+    now = timezone.now()
+
+    qs = SubscriptionAlert.objects.filter(company=company, show_on_dashboard=True).exclude(status='resolved')
+
+    # Hide dismissed alerts until hide_until (if set)
+    qs = qs.exclude(status='dismissed', hide_until__gt=now)
+
+    alerts = list(qs.order_by('-created_at'))
+    severity_counts = {
+        'urgent': 0,
+        'critical': 0,
+        'warning': 0,
+        'info': 0,
+    }
+    for a in alerts:
+        if a.severity in severity_counts:
+            severity_counts[a.severity] += 1
+
+    return {
+        'subscription_alerts': alerts,
+        'subscription_alert_counts': severity_counts,
+        'subscription_has_alerts': bool(alerts),
+    }
+
+
+def plan_usage(request):
+    """Provide live plan usage/limits for the current tenant/company."""
+    if not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return {}
+
+    company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+    if not company:
+        return {}
+
+    try:
+        from estateApp.services.plan_limits import get_plan_usage_summary
+        return {
+            'plan_usage': get_plan_usage_summary(company),
+        }
+    except Exception:
+        return {}
+

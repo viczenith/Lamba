@@ -55,4 +55,9 @@ urlpatterns = [
     path('subscription/receipt/<int:transaction_id>/', 
          subscription_views.generate_subscription_receipt, 
          name='subscription-receipt'),
+
+    # Backward-compatible alias used by some admin templates
+    path('admin/subscription/receipt/<int:transaction_id>/',
+         subscription_views.generate_subscription_receipt,
+         name='admin-subscription-receipt'),
 ]

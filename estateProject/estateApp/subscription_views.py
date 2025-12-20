@@ -74,26 +74,41 @@ def get_subscription_status(request):
     API endpoint to fetch current subscription status for the company
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
         
-        try:
-            subscription = SubscriptionBillingModel.objects.get(company=company)
-            
-            return JsonResponse({
-                'ok': True,
-                'subscription': {
-                    'plan_name': subscription.subscription_plan.name,
-                    'amount': float(subscription.amount),
-                    'status': subscription.get_current_status(),
-                    'starts_at': subscription.subscription_starts_at.isoformat(),
-                    'ends_at': subscription.subscription_ends_at.isoformat(),
-                    'days_remaining': (subscription.subscription_ends_at - timezone.now()).days,
-                    'payment_method': subscription.payment_method,
-                    'is_grace_period': subscription.is_grace_period()
-                }
-            })
-        except SubscriptionBillingModel.DoesNotExist:
+        billing = SubscriptionBillingModel.objects.select_related('current_plan').filter(company=company).first()
+        if not billing:
             return JsonResponse({'ok': True, 'subscription': None})
+
+        billing.refresh_status()
+        plan = billing.current_plan
+        end_at = billing.get_expiration_datetime() or billing.subscription_ends_at or billing.trial_ends_at
+        days_remaining = 0
+        if end_at and end_at > timezone.now():
+            days_remaining = (end_at - timezone.now()).days
+
+        amount = 0
+        if plan:
+            amount = plan.annual_price if billing.billing_cycle == 'annual' else plan.monthly_price
+        return JsonResponse({
+            'ok': True,
+            'subscription': {
+                'plan_name': plan.name if plan else company.get_subscription_tier_display(),
+                'tier': plan.tier if plan else company.subscription_tier,
+                'amount': float(amount) if amount else 0,
+                'status': billing.status,
+                'billing_period': billing.billing_cycle,
+                'starts_at': (billing.subscription_started_at.isoformat() if billing.subscription_started_at else None),
+                'ends_at': (end_at.isoformat() if end_at else None),
+                'days_remaining': days_remaining,
+                'payment_method': billing.payment_method,
+                'is_grace_period': billing.is_grace_period(),
+                'is_trial': billing.is_trial(),
+                'is_active': billing.is_active(),
+            }
+        })
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
@@ -468,29 +483,30 @@ def get_billing_history(request):
     API endpoint to fetch billing history
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
-        
-        try:
-            subscription = SubscriptionBillingModel.objects.get(company=company)
-        except SubscriptionBillingModel.DoesNotExist:
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
+
+        billing = SubscriptionBillingModel.objects.filter(company=company).first()
+        if not billing:
             return JsonResponse({'ok': True, 'history': []})
-        
-        history = BillingHistory.objects.filter(
-            subscription=subscription
-        ).order_by('-created_at').values(
-            'id', 'transaction_type', 'amount', 'description', 'created_at'
-        )
-        
+
+        history_qs = BillingHistory.objects.filter(
+            billing=billing
+        ).order_by('-billing_date')[:200]
+
         history_data = []
-        for entry in history:
+        for entry in history_qs:
             history_data.append({
-                'id': entry['id'],
-                'type': entry['transaction_type'],
-                'amount': float(entry['amount']),
-                'description': entry['description'],
-                'date': entry['created_at'].isoformat()
+                'id': entry.id,
+                'type': entry.transaction_type,
+                'state': entry.state,
+                'amount': float(entry.amount),
+                'description': entry.description,
+                'invoice_number': entry.invoice_number,
+                'date': (entry.billing_date.isoformat() if entry.billing_date else entry.created_at.isoformat()),
             })
-        
+
         return JsonResponse({'ok': True, 'history': history_data})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
@@ -503,12 +519,17 @@ def download_invoice(request, invoice_id):
     Download invoice as PDF
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
-        
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
+
+        billing = SubscriptionBillingModel.objects.filter(company=company).first()
+        if not billing:
+            return JsonResponse({'ok': False, 'error': 'Subscription billing not found'}, status=404)
+
         try:
-            subscription = SubscriptionBillingModel.objects.get(company=company)
-            billing_entry = BillingHistory.objects.get(id=invoice_id, subscription=subscription)
-        except (SubscriptionBillingModel.DoesNotExist, BillingHistory.DoesNotExist):
+            billing_entry = BillingHistory.objects.get(id=invoice_id, billing=billing)
+        except BillingHistory.DoesNotExist:
             return JsonResponse({'ok': False, 'error': 'Invoice not found'}, status=404)
         
         # Generate invoice PDF (implementation depends on PDF library used)
@@ -553,21 +574,23 @@ def subscription_context_for_company_profile(request, company):
         subscription = SubscriptionBillingModel.objects.get(company=company)
         
         # Get feature access
-        features = SubscriptionFeatureAccess.objects.filter(
-            subscription=subscription
-        ).values_list('feature_name', 'is_enabled')
+        # SubscriptionFeatureAccess is keyed by plan in the enhanced model.
+        plan = subscription.current_plan
+        features_qs = SubscriptionFeatureAccess.objects.filter(
+            plan=plan
+        ).values_list('feature_name', 'is_enabled') if plan else []
         
         billing_history = BillingHistory.objects.filter(
-            subscription=subscription
+            billing=subscription
         ).order_by('-created_at')[:10]
         
         context = {
             'subscription': subscription,
-            'subscription_status': subscription.get_current_status(),
+            'subscription_status': subscription.status,
             'warning_level': subscription.get_warning_level(),
-            'features': dict(features),
+            'features': dict(features_qs),
             'billing_history': billing_history,
-            'days_remaining': max(0, (subscription.subscription_ends_at - timezone.now()).days),
+            'days_remaining': subscription.get_days_remaining(),
             'is_grace_period': subscription.is_grace_period(),
         }
     except SubscriptionBillingModel.DoesNotExist:
@@ -600,8 +623,12 @@ def generate_subscription_receipt(request, transaction_id):
     import io
     
     try:
-        # Get the user's company
-        company = getattr(request.user, 'company_profile', None)
+        # Resolve company from tenant-aware request context first
+        company = (
+            getattr(request, 'company', None)
+            or getattr(request.user, 'company_profile', None)
+            or getattr(request.user, 'company', None)
+        )
         if not company:
             return HttpResponse("Company not found", status=404)
         
@@ -623,9 +650,9 @@ def generate_subscription_receipt(request, transaction_id):
                 'reference': billing_transaction.transaction_id or f'TXN-{billing_transaction.id:06d}',
                 'status': 'Completed',
                 'company_name': company.company_name,
-                'company_address': getattr(company, 'address', '') or 'N/A',
+                'company_address': getattr(company, 'office_address', '') or getattr(company, 'location', '') or 'N/A',
                 'company_email': getattr(company, 'email', '') or 'N/A',
-                'plan_name': company.subscription_tier or 'N/A',
+                'plan_name': (getattr(getattr(company, 'billing', None), 'current_plan', None).name if getattr(company, 'billing', None) and getattr(company.billing, 'current_plan', None) else (company.subscription_tier or 'N/A')),
             }
         except BillingHistory.DoesNotExist:
             return HttpResponse("Transaction not found", status=404)
