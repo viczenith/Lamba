@@ -588,6 +588,9 @@
     });
 
     // Chat badge polling function
+    // IMPORTANT: This endpoint is polled frequently across header + sidebars.
+    // Keep exactly ONE poller running per page for performance.
+    const CHAT_UNREAD_POLL_INTERVAL_MS = 6000;
     let previousHeaderUnreadCount = null;
     
     function updateBadge(elementId, count) {
@@ -608,6 +611,12 @@
     }
 
     function pollUnreadCounts() {
+      if (window.__chatUnreadPollInFlight) {
+        setTimeout(pollUnreadCounts, CHAT_UNREAD_POLL_INTERVAL_MS);
+        return;
+      }
+
+      window.__chatUnreadPollInFlight = true;
       fetch("{% url 'chat_unread_count' %}", {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
@@ -736,14 +745,22 @@
           {% else %}
             const clientMarketerCount = data.global_message_count || 0;
             updateBadge('global-messages-badge', clientMarketerCount);
-            ['sidebar-chat-badge', 'sidebar-client-chat-badge'].forEach(function(id) {
+            ['sidebar-chat-badge', 'sidebar-client-chat-badge', 'sidebar-marketer-chat-badge'].forEach(function(id) {
               updateBadge(id, clientMarketerCount);
             });
           {% endif %}
         })
-        .catch(console.error);
-      setTimeout(pollUnreadCounts, 3000);
+        .catch(console.error)
+        .finally(() => {
+          window.__chatUnreadPollInFlight = false;
+        });
+      setTimeout(pollUnreadCounts, CHAT_UNREAD_POLL_INTERVAL_MS);
     }
-    document.addEventListener('DOMContentLoaded', pollUnreadCounts);
+    document.addEventListener('DOMContentLoaded', () => {
+      // Global guard to prevent multiple pollers (header + sidebar)
+      if (window.__globalChatUnreadPollerActive) return;
+      window.__globalChatUnreadPollerActive = true;
+      pollUnreadCounts();
+    });
   </script>
 </header><!-- End Header -->

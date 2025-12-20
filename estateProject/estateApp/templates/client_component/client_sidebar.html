@@ -104,6 +104,8 @@
       }
     }
 
+    const CHAT_UNREAD_POLL_INTERVAL_MS = 6000;
+
     function pollUnreadCounts() {
       fetch("{% url 'chat_unread_count' %}", {credentials: 'same-origin'})
         .then(response => response.json())
@@ -114,10 +116,16 @@
           }
         })
         .catch(console.error);
-      setTimeout(pollUnreadCounts, 2000);
+      setTimeout(pollUnreadCounts, CHAT_UNREAD_POLL_INTERVAL_MS);
     }
     
-    document.addEventListener('DOMContentLoaded', pollUnreadCounts);
+    document.addEventListener('DOMContentLoaded', () => {
+      // Start polling ONLY if header poller isn't already active
+      if (!window.__globalChatUnreadPollerActive) {
+        window.__globalChatUnreadPollerActive = true;
+        pollUnreadCounts();
+      }
+    });
   </script>
 
   <!-- Active Link Highlighter -->
