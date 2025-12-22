@@ -363,29 +363,24 @@
     });
   </script>
 
-  <!-- Sidebar Toggle Script for Mobile -->
+  <!-- Sidebar Close-on-Outside-Click (mobile only)
+       NOTE: The actual toggle is handled globally by `assets/js/main.js`.
+  -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const toggleBtn = document.querySelector('.toggle-sidebar-btn');
       const sidebar = document.querySelector('.sidebar');
-      
-      if (toggleBtn && sidebar) {
-        toggleBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          sidebar.classList.toggle('show');
-          document.body.classList.toggle('toggle-sidebar');
-        });
-        
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-          if (window.innerWidth <= 768) {
-            if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
-              sidebar.classList.remove('show');
-              document.body.classList.remove('toggle-sidebar');
-            }
+
+      if (!toggleBtn || !sidebar) return;
+
+      // Close sidebar when clicking outside on mobile
+      document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 768) {
+          if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+            document.body.classList.remove('toggle-sidebar');
           }
-        });
-      }
+        }
+      });
     });
   </script>
 

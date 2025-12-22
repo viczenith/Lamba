@@ -85,6 +85,20 @@ class SubscriptionBillingModel(models.Model):
         blank=True
     )
     
+    # Billing contact info
+    billing_email = models.EmailField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Email for receipts and renewal notices"
+    )
+    billing_contact = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Billing contact name or department"
+    )
+    
     # Payment gateway IDs
     stripe_subscription_id = models.CharField(
         max_length=255,

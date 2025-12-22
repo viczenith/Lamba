@@ -74,13 +74,43 @@ def get_subscription_status(request):
     API endpoint to fetch current subscription status for the company
     """
     try:
-        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        company = getattr(request, 'company', None)
+        if not company:
+            company_profile = getattr(request.user, 'company_profile', None)
+            company = getattr(company_profile, 'company', None) if company_profile else None
+        if not company:
+            company = getattr(request.user, 'company', None)
         if not company:
             return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
+
+        company_profile = getattr(request.user, 'company_profile', None)
+        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
+            return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
         
         billing = SubscriptionBillingModel.objects.select_related('current_plan').filter(company=company).first()
         if not billing:
-            return JsonResponse({'ok': True, 'subscription': None})
+            end_at = company.subscription_ends_at or company.trial_ends_at
+            days_remaining = 0
+            if end_at and end_at > timezone.now():
+                days_remaining = (end_at - timezone.now()).days
+            return JsonResponse({
+                'ok': True,
+                'subscription': {
+                    'plan_name': company.get_subscription_tier_display() if hasattr(company, 'get_subscription_tier_display') else (company.subscription_tier or 'N/A'),
+                    'tier': company.subscription_tier,
+                    'amount': 0,
+                    'status': company.subscription_status,
+                    'billing_period': 'monthly',
+                    'starts_at': (company.subscription_started_at.isoformat() if company.subscription_started_at else None),
+                    'ends_at': (end_at.isoformat() if end_at else None),
+                    'days_remaining': days_remaining,
+                    'payment_method': None,
+                    'is_grace_period': bool(getattr(company, 'is_read_only_mode', False)) or (company.subscription_status == 'grace_period'),
+                    'is_trial': company.subscription_status == 'trial',
+                    'is_active': company.subscription_status == 'active',
+                }
+            })
 
         billing.refresh_status()
         plan = billing.current_plan
@@ -483,9 +513,19 @@ def get_billing_history(request):
     API endpoint to fetch billing history
     """
     try:
-        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None)
+        company = getattr(request, 'company', None)
+        if not company:
+            company_profile = getattr(request.user, 'company_profile', None)
+            company = getattr(company_profile, 'company', None) if company_profile else None
+        if not company:
+            company = getattr(request.user, 'company', None)
         if not company:
             return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
+
+        company_profile = getattr(request.user, 'company_profile', None)
+        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
+            return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
 
         billing = SubscriptionBillingModel.objects.filter(company=company).first()
         if not billing:
@@ -508,6 +548,90 @@ def get_billing_history(request):
             })
 
         return JsonResponse({'ok': True, 'history': history_data})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_protect
+def update_payment_method(request):
+    """Set default payment method for the current company (tenant-safe).
+
+    Accepts: payment_method, auto_renew, billing_email, billing_contact
+    Note: This endpoint does NOT collect or store raw card data.
+    It only stores which provider the company prefers for billing (e.g. paystack/bank_transfer).
+    """
+    try:
+        company = getattr(request, 'company', None)
+        if not company:
+            company_profile = getattr(request.user, 'company_profile', None)
+            company = getattr(company_profile, 'company', None) if company_profile else None
+        if not company:
+            company = getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
+
+        company_profile = getattr(request.user, 'company_profile', None)
+        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
+            return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
+
+        payload = json.loads(request.body or '{}')
+        payment_method = payload.get('payment_method')
+        auto_renew = payload.get('auto_renew')
+        billing_email = payload.get('billing_email')
+        billing_contact = payload.get('billing_contact')
+
+        # Validate payment method - only allow paystack and bank_transfer (not stripe)
+        allowed_methods = {'paystack', 'bank_transfer'}
+        if payment_method not in allowed_methods:
+            return JsonResponse({
+                'ok': False, 
+                'error': f'Invalid payment method. Allowed: {", ".join(allowed_methods)}'
+            }, status=400)
+
+        billing, _created = SubscriptionBillingModel.objects.get_or_create(company=company)
+
+        # Track which fields to update
+        update_fields = ['payment_method']
+        billing.payment_method = payment_method
+        
+        if isinstance(auto_renew, bool):
+            billing.auto_renew = auto_renew
+            update_fields.append('auto_renew')
+        
+        if billing_email is not None:
+            # Validate email format if provided
+            billing_email = str(billing_email).strip() if billing_email else None
+            if billing_email:
+                from django.core.validators import validate_email
+                from django.core.exceptions import ValidationError
+                try:
+                    validate_email(billing_email)
+                    billing.billing_email = billing_email
+                    update_fields.append('billing_email')
+                except ValidationError:
+                    return JsonResponse({'ok': False, 'error': 'Invalid billing email format'}, status=400)
+            else:
+                billing.billing_email = None
+                update_fields.append('billing_email')
+        
+        if billing_contact is not None:
+            billing.billing_contact = str(billing_contact).strip()[:100] if billing_contact else None
+            update_fields.append('billing_contact')
+        
+        billing.save(update_fields=update_fields)
+
+        return JsonResponse({
+            'ok': True,
+            'payment_method': billing.payment_method,
+            'auto_renew': billing.auto_renew,
+            'billing_email': billing.billing_email,
+            'billing_contact': billing.billing_contact,
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
@@ -624,11 +748,12 @@ def generate_subscription_receipt(request, transaction_id):
     
     try:
         # Resolve company from tenant-aware request context first
-        company = (
-            getattr(request, 'company', None)
-            or getattr(request.user, 'company_profile', None)
-            or getattr(request.user, 'company', None)
-        )
+        company = getattr(request, 'company', None)
+        if not company:
+            company_profile = getattr(request.user, 'company_profile', None)
+            company = getattr(company_profile, 'company', None) if company_profile else None
+        if not company:
+            company = getattr(request.user, 'company', None)
         if not company:
             return HttpResponse("Company not found", status=404)
         

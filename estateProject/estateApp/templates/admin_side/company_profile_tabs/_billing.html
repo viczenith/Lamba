@@ -1,0 +1,879 @@
+{% load humanize %}
+
+<!-- Billing Tab Content - Modern Light Theme Design (Tailwind classes). -->
+<!-- Tailwind is loaded in admin_side/company_profile.html via the extra_css block. -->
+
+<style>
+		.billing-wrapper { margin: 0 auto; width: 100%; min-width: 0; }
+		.billing-wrapper, .billing-wrapper * { box-sizing: border-box; }
+		.billing-card-shadow { box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+		.price-badge { transition: transform .22s ease, background-color .22s ease; }
+		.price-badge:active { transform: translateY(2px); }
+		.billing-focus-ring:focus { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+		.plan-card.selected { border-color: #6366f1 !important; box-shadow: 0 0 0 2px rgba(99,102,241,0.4); }
+		.plan-card:hover { border-color: #818cf8; }
+		@keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+		.badge-popular { animation: pulse-badge 2s ease-in-out infinite; }
+		.break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+</style>
+
+<div class="billing-wrapper">
+	<div class="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-8 min-w-0">
+
+		<!-- Left / Main Content -->
+		<section class="lg:col-span-2 p-4 sm:p-6 rounded-2xl bg-white billing-card-shadow border border-gray-200 min-w-0">
+			<!-- Header -->
+			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+				<div>
+					<h2 class="text-2xl sm:text-3xl font-semibold text-slate-800">Billing & Subscription</h2>
+					<p class="text-slate-500 mt-1 text-sm sm:text-base">Choose the perfect plan for your real estate business</p>
+				</div>
+				<!-- <div class="sm:text-right">
+					<div class="inline-flex items-center gap-3 bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+						<i class="bi bi-building text-indigo-500 fs-5"></i>
+						<div class="text-left sm:text-right">
+							<div class="text-xs text-slate-500">Company</div>
+							<div class="text-sm font-medium text-slate-700 truncate max-w-[180px] sm:max-w-none">{{ company.company_name|default:company|default:"Your Company" }}</div>
+						</div>
+					</div>
+				</div> -->
+			</div>
+
+			<!-- Billing Cycle Toggle + Plans -->
+			<div class="space-y-6">
+				<div class="rounded-xl p-4 sm:p-5 bg-slate-50 border border-slate-200">
+					<!-- Billing Toggle Header -->
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+						<div>
+							<div class="text-sm text-slate-500">Billing cycle</div>
+							<div class="text-base sm:text-lg font-semibold mt-1 text-slate-800">Choose your plan frequency</div>
+						</div>
+						<div class="flex items-center gap-3 sm:gap-4 bg-white px-3 sm:px-4 py-2 rounded-lg w-fit border border-slate-200 shadow-sm">
+							<span id="monthlyLabel" class="text-xs sm:text-sm font-medium text-indigo-600">Monthly</span>
+							<label class="relative inline-flex items-center cursor-pointer">
+								<input id="billingToggle" type="checkbox" class="sr-only peer" aria-label="Toggle billing cycle">
+								<div class="w-12 sm:w-14 h-6 sm:h-7 bg-slate-300 rounded-full peer peer-checked:bg-indigo-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 sm:after:h-6 sm:after:w-6 after:transition-all peer-checked:after:translate-x-6 sm:peer-checked:after:translate-x-7 after:shadow-sm"></div>
+							</label>
+							<div class="flex flex-col">
+								<span id="annualLabel" class="text-xs sm:text-sm text-slate-500">Annually</span>
+								<span class="text-[10px] sm:text-xs text-emerald-600 font-medium">~ Save 2 months!</span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Plan Cards Grid -->
+					<div id="plansGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<!-- Plan Cards rendered by JS -->
+					</div>
+				</div>
+
+				<!-- Payment Method Selection -->
+				<div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
+					<div class="text-sm text-slate-500 mb-3">Payment Method</div>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<label class="payment-method-card cursor-pointer">
+								<input type="radio" name="paymentMethod" value="paystack" class="sr-only peer" checked>
+								<div class="p-4 rounded-lg border-2 border-slate-200 bg-white peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+									<div class="flex items-center gap-3">
+										<div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+											<i class="bi bi-credit-card-2-front text-blue-600 fs-5"></i>
+										</div>
+										<div>
+											<div class="font-medium text-slate-700">Paystack</div>
+											<div class="text-xs text-slate-500">Card, Bank, USSD</div>
+										</div>
+									</div>
+								</div>
+							</label>
+							<label class="payment-method-card cursor-pointer">
+								<input type="radio" name="paymentMethod" value="bank_transfer" class="sr-only peer">
+								<div class="p-4 rounded-lg border-2 border-slate-200 bg-white peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+									<div class="flex items-center gap-3">
+										<div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+											<i class="bi bi-bank text-emerald-600 fs-5"></i>
+										</div>
+										<div>
+											<div class="font-medium text-slate-700">Bank Transfer</div>
+											<div class="text-xs text-slate-500">Direct deposit</div>
+										</div>
+									</div>
+								</div>
+							</label>
+					</div>
+				</div>
+
+				<!-- Coupon Code -->
+				<div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
+					<div class="text-sm text-slate-500 mb-3">Have a promo code?</div>
+					<div class="flex flex-col sm:flex-row gap-3">
+						<div class="flex-1">
+							<input id="couponInput" placeholder="Enter promo code" class="w-full rounded-lg p-3 bg-white border border-slate-300 billing-focus-ring text-slate-800 placeholder-slate-400" />
+						</div>
+						<button id="applyCoupon" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-500 text-white font-semibold hover:bg-indigo-600 transition">Apply</button>
+					</div>
+					<p id="couponFeedback" class="text-sm mt-2 hidden"></p>
+				</div>
+			</div>
+		</section>
+
+		<!-- Order Summary Sidebar -->
+		<aside class="lg:col-span-1 bg-white rounded-xl p-4 sm:p-5 border border-gray-200 h-fit lg:sticky lg:top-6 billing-card-shadow min-w-0">
+			<div class="flex items-center justify-between mb-4">
+				<div>
+					<div class="text-sm text-slate-500">Order Summary</div>
+					<div class="text-base sm:text-lg font-semibold mt-1 text-slate-800">Subscription Details</div>
+				</div>
+				<div class="flex items-center gap-1 text-emerald-600 text-xs sm:text-sm">
+					<i class="bi bi-shield-check"></i>
+					<span>Secure</span>
+				</div>
+			</div>
+
+			<div class="space-y-3 border-b border-slate-200 pb-4">
+				<div class="flex items-center justify-between text-slate-600 text-sm">
+					<div class="text-slate-500">Selected Plan</div>
+					<div id="summaryPlan" class="font-medium text-slate-700">Professional</div>
+				</div>
+				<div class="flex items-center justify-between text-slate-600 text-sm">
+					<div class="text-slate-500">Billing Cycle</div>
+					<div id="summaryBilling" class="font-medium text-slate-700">Monthly</div>
+				</div>
+				<div class="flex items-center justify-between text-slate-600 text-sm">
+					<div class="text-slate-500">Payment Method</div>
+					<div id="summaryPayment" class="font-medium text-slate-700">Paystack</div>
+				</div>
+			</div>
+
+			<div class="space-y-2 py-4 border-b border-slate-200">
+				<div class="flex items-center justify-between text-slate-600 text-sm">
+					<div class="text-slate-500">Subtotal</div>
+					<div id="summarySubtotal" class="text-slate-700">₦100,000</div>
+				</div>
+				<div id="discountRow" class="flex items-center justify-between text-emerald-600 text-sm hidden">
+					<div>Discount</div>
+					<div id="summaryDiscount">-₦0</div>
+				</div>
+				<div id="savingsRow" class="flex items-center justify-between text-emerald-600 text-sm hidden">
+					<div>Annual Savings</div>
+					<div id="summarySavings">₦200,000</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-between text-slate-800 font-bold text-lg sm:text-xl py-4">
+				<div>Total</div>
+				<div id="summaryTotal">₦100,000</div>
+			</div>
+
+			<button id="subscribeBtn" class="w-full px-4 py-3 sm:py-4 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg text-sm sm:text-base">
+				<span class="flex items-center justify-center gap-2">
+					<i class="bi bi-credit-card"></i>
+					Proceed to Payment
+				</span>
+			</button>
+
+			<div class="mt-4 flex items-center justify-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-slate-500 flex-wrap">
+				<span class="flex items-center gap-1">
+					<i class="bi bi-lock-fill"></i>
+					SSL Encrypted
+				</span>
+				<span>•</span>
+				<span>Cancel anytime</span>
+			</div>
+
+			<div class="mt-3 text-[10px] sm:text-xs text-slate-500 text-center">
+				By subscribing you agree to our <a href="#" class="text-indigo-600 hover:underline">Terms</a> and <a href="#" class="text-indigo-600 hover:underline">Privacy Policy</a>.
+			</div>
+		</aside>
+
+		<!-- Current Plan Status - Full Width -->
+		<div class="lg:col-span-3 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div class="flex items-center gap-3 sm:gap-4">
+					<div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+						<i class="bi bi-patch-check text-indigo-500 fs-4"></i>
+					</div>
+					<div>
+						<div class="text-xs sm:text-sm text-slate-500">Current Plan</div>
+						<div class="text-base sm:text-lg font-semibold text-indigo-700" id="currentPlanName">{{ company.subscription_plan|default:"Professional Plan" }}</div>
+						<div class="text-xs sm:text-sm text-slate-500">Next billing: <span id="nextBillingDate" class="text-slate-700">{{ company.next_billing_date|date:"F d, Y"|default:"January 22, 2026" }}</span></div>
+					</div>
+				</div>
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+					<button id="managePlanBtn" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition text-xs sm:text-sm font-medium text-center text-slate-700">
+						<i class="bi bi-gear me-1"></i> Manage Plan
+					</button>
+					<button id="viewInvoicesBtn" class="px-4 py-2 rounded-lg border border-slate-300 hover:border-slate-400 transition text-xs sm:text-sm font-medium text-center text-slate-700">
+						<i class="bi bi-receipt me-1"></i> View Invoices
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Payment Modal - Paystack -->
+<div id="billingPaymentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4" style="display: none;">
+	<div class="w-full max-w-lg rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl transform transition-all max-h-[90vh] overflow-y-auto">
+		<div class="flex items-start justify-between mb-6">
+			<div>
+				<h3 class="text-xl font-semibold text-slate-800">Complete Payment</h3>
+				<p class="text-sm text-slate-500 mt-1">Secure payment via Paystack</p>
+			</div>
+			<button id="closePaymentModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+				<i class="bi bi-x-lg fs-5"></i>
+			</button>
+		</div>
+
+		<div class="bg-slate-50 rounded-xl p-4 mb-6">
+			<div class="flex items-center justify-between mb-3">
+				<span class="text-slate-500">Plan</span>
+				<span id="modalPlan" class="font-medium text-slate-700">Professional</span>
+			</div>
+			<div class="flex items-center justify-between mb-3">
+				<span class="text-slate-500">Billing</span>
+				<span id="modalBilling" class="font-medium text-slate-700">Monthly</span>
+			</div>
+			<div class="flex items-center justify-between pt-3 border-t border-slate-200">
+				<span class="font-semibold text-slate-700">Total Amount</span>
+				<span id="modalTotal" class="font-bold text-xl text-indigo-600">₦100,000</span>
+			</div>
+		</div>
+
+		<form id="billingPaymentForm" class="space-y-4">
+			<div>
+				<label class="text-sm text-slate-600 block mb-1">Email Address</label>
+				<input id="payEmail" type="email" value="{{ company.email|default:'' }}" required class="w-full p-3 rounded-lg bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 placeholder-slate-400" placeholder="your@email.com" />
+			</div>
+
+			<div>
+				<label class="text-sm text-slate-600 block mb-1">Phone Number (Optional)</label>
+				<input id="payPhone" type="tel" class="w-full p-3 rounded-lg bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 placeholder-slate-400" placeholder="+234 800 000 0000" />
+			</div>
+
+			<div class="flex items-center gap-3 pt-2">
+				<button type="submit" id="payNowBtn" class="flex-1 px-5 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:from-emerald-600 hover:to-teal-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+					<span class="flex items-center justify-center gap-2">
+						<i class="bi bi-check-circle"></i>
+						Pay Now
+					</span>
+				</button>
+				<button type="button" id="cancelPayment" class="px-5 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Cancel</button>
+			</div>
+
+			<p id="paymentFeedback" class="text-sm text-center hidden"></p>
+		</form>
+
+		<div class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+			<i class="bi bi-lock-fill"></i>
+			<span>256-bit SSL Encrypted • PCI DSS Compliant</span>
+		</div>
+	</div>
+</div>
+
+<!-- Bank Transfer Modal -->
+<div id="bankTransferModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4" style="display: none;">
+	<div class="w-full max-w-lg rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl max-h-[90vh] overflow-y-auto">
+		<div class="flex items-start justify-between mb-6">
+			<div>
+				<h3 class="text-xl font-semibold text-slate-800">Bank Transfer Details</h3>
+				<p class="text-sm text-slate-500 mt-1">Transfer to complete your subscription</p>
+			</div>
+			<button id="closeBankModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+				<i class="bi bi-x-lg fs-5"></i>
+			</button>
+		</div>
+
+		<div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 mb-6 border border-indigo-200">
+			<div class="text-sm text-slate-500 mb-1">Amount to Pay</div>
+			<div id="bankAmount" class="text-3xl font-bold text-indigo-600">₦100,000</div>
+			<div id="bankPlanInfo" class="text-sm text-slate-500 mt-1">Professional Plan • Monthly</div>
+		</div>
+
+		<div class="space-y-4 mb-6">
+			<div class="bg-slate-50 rounded-lg p-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<div class="text-xs text-slate-500 uppercase tracking-wide">Bank Name</div>
+						<div class="text-lg font-medium text-slate-700 mt-1">First Bank of Nigeria</div>
+					</div>
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="First Bank of Nigeria">
+						<i class="bi bi-copy fs-5"></i>
+					</button>
+				</div>
+			</div>
+
+			<div class="bg-slate-50 rounded-lg p-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<div class="text-xs text-slate-500 uppercase tracking-wide">Account Number</div>
+						<div class="text-lg font-mono font-medium text-slate-700 mt-1">3124567890</div>
+					</div>
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="3124567890">
+						<i class="bi bi-copy fs-5"></i>
+					</button>
+				</div>
+			</div>
+
+			<div class="bg-slate-50 rounded-lg p-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<div class="text-xs text-slate-500 uppercase tracking-wide">Account Name</div>
+						<div class="text-lg font-medium text-slate-700 mt-1">Real Estate MS Limited</div>
+					</div>
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="Real Estate MS Limited">
+						<i class="bi bi-copy fs-5"></i>
+					</button>
+				</div>
+			</div>
+
+			<div class="bg-amber-50 rounded-lg p-4 border border-amber-200">
+				<div class="flex items-center justify-between">
+					<div>
+						<div class="text-xs text-amber-600 uppercase tracking-wide">Payment Reference</div>
+						<div id="paymentRef" class="text-lg font-mono font-medium text-amber-700 mt-1 break-anywhere">SUB-LAMBA-XYZ123</div>
+					</div>
+					<button class="copy-btn text-amber-600 hover:text-amber-500 transition" data-copy="SUB-LAMBA-XYZ123">
+						<i class="bi bi-copy fs-5"></i>
+					</button>
+				</div>
+				<p class="text-xs text-amber-600 mt-2"><i class="bi bi-exclamation-triangle me-1"></i> Use this reference when making your transfer</p>
+			</div>
+		</div>
+
+		<div class="flex items-center gap-3">
+			<button id="confirmTransfer" class="flex-1 px-5 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:from-emerald-600 hover:to-teal-700 transition">
+				I've Made the Transfer
+			</button>
+			<button id="cancelBankTransfer" class="px-5 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Cancel</button>
+		</div>      
+		<p class="text-xs text-slate-500 text-center mt-4">
+			Your subscription will be activated within 24 hours after payment confirmation
+		</p>
+	</div>
+</div>
+
+<!-- Success Modal -->
+<div id="billingSuccessModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4" style="display: none;">
+	<div class="w-full max-w-md rounded-2xl bg-white p-8 border border-gray-200 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
+		<div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+			<i class="bi bi-check-lg text-emerald-600 display-4"></i>
+		</div>
+		<h3 class="text-2xl font-bold text-slate-800 mb-2">Payment Successful!</h3>
+		<p class="text-slate-500 mb-6">Your subscription has been activated. You now have access to all <span id="successPlan" class="text-indigo-600 font-medium">Professional</span> features.</p>
+		<button id="closeSuccessModal" class="w-full px-5 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition">
+			Start Using Features
+		</button>
+	</div>
+</div>
+
+<!-- Bank Transfer Pending Modal -->
+<div id="transferPendingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4" style="display: none;">
+	<div class="w-full max-w-md rounded-2xl bg-white p-8 border border-gray-200 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
+		<div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+			<i class="bi bi-clock-history text-amber-600 display-4"></i>
+		</div>
+		<h3 class="text-2xl font-bold text-slate-800 mb-2">Payment Pending</h3>
+		<p class="text-slate-500 mb-4">Thank you! Your payment is being verified.</p>
+		<div class="bg-slate-50 rounded-lg p-4 mb-6 text-left">
+			<div class="flex items-center gap-2 text-sm text-slate-600 mb-2">
+				<i class="bi bi-envelope-check text-emerald-600"></i>
+				<span>Confirmation email will be sent within 24 hours</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm text-slate-600">
+				<i class="bi bi-check-circle text-emerald-600"></i>
+				<span>Subscription activates after verification</span>
+			</div>
+		</div>
+		<button id="closeTransferPendingModal" class="w-full px-5 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition">
+			Got it, Thanks!
+		</button>
+	</div>
+</div>
+
+<!-- Invoices / Billing History Modal -->
+<div id="invoicesModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto" style="display: none;">
+	<div class="w-full max-w-3xl rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+		<div class="flex items-start justify-between mb-6">
+			<div>
+				<h3 class="text-xl font-semibold text-slate-800">Billing History</h3>
+				<p class="text-sm text-slate-500 mt-1">View and download your invoices</p>
+			</div>
+			<button id="closeInvoicesModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+				<i class="bi bi-x-lg fs-5"></i>
+			</button>
+		</div>
+
+		<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="w-full">
+					<thead>
+						<tr class="border-b border-slate-200 bg-slate-50">
+							<th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Invoice</th>
+							<th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Date</th>
+							<th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Plan</th>
+							<th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Amount</th>
+							<th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Status</th>
+							<th class="text-right text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Action</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-100" id="invoicesTableBody">
+						{% if billing_history %}
+							{% for transaction in billing_history %}
+							<tr class="hover:bg-slate-50 transition">
+								<td class="px-4 py-3">
+									<span class="font-mono text-sm text-slate-700">{{ transaction.invoice_number|default:"INV-2025-001" }}</span>
+								</td>
+								<td class="px-4 py-3 text-sm text-slate-500">{{ transaction.created_at|date:"M d, Y" }}</td>
+								<td class="px-4 py-3 text-sm text-slate-700">{{ transaction.plan_name|default:"Professional" }}</td>
+								<td class="px-4 py-3 text-sm font-medium text-slate-800">₦{{ transaction.amount|floatformat:0|intcomma }}</td>
+								<td class="px-4 py-3">
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+										<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+										{{ transaction.status|default:"Paid" }}
+									</span>
+								</td>
+								<td class="px-4 py-3 text-right">
+									<button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
+								</td>
+							</tr>
+							{% endfor %}
+						{% else %}
+							<tr>
+								<td colspan="6" class="px-4 py-12 text-center">
+									<div class="flex flex-col items-center gap-2">
+										<i class="bi bi-receipt text-slate-300 display-4"></i>
+										<p class="text-slate-500 font-medium">No billing history yet</p>
+										<p class="text-xs text-slate-400">Your invoices will appear here after your first payment</p>
+									</div>
+								</td>
+							</tr>
+						{% endif %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+			<p class="text-xs text-slate-500">Showing {{ billing_history|length|default:0 }} invoices</p>
+			<div class="flex items-center gap-2">
+				<button id="closeInvoicesBtn" class="px-6 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Close</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const plans = [
+		{
+			id: 'starter',
+			name: 'Starter',
+			monthly: 70000,
+			annual: 700000,
+			desc: 'Perfect for small real estate companies getting started',
+			features: [
+				'2 Estate Properties',
+				'30 Allocations',
+				'30 Clients',
+                '20 Affiliates',
+				'Email support'
+			],
+			popular: false,
+			badge: ''
+		},
+		{
+			id: 'professional',
+			name: 'Professional',
+			monthly: 100000,
+			annual: 1000000,
+			desc: 'For growing companies scaling their operations',
+			features: [
+				'5 Estate Properties',
+				'80 Allocations',
+				'80 Clients', 
+                '30 Affiliates',
+				'Priority email support'
+			],
+			popular: true,
+			badge: 'Most Popular'
+		},
+		{
+			id: 'enterprise',
+			name: 'Enterprise',
+			monthly: 150000,
+			annual: 1500000,
+			desc: 'For large companies with unlimited needs',
+			features: [
+				'Unlimited Estate Properties',
+				'Unlimited Allocations',
+				'Unlimited Clients',
+				'Unlimited Affiliates',
+                'Priority email support',
+				'Dedicated account manager'
+			],
+			popular: false,
+			badge: 'Preferred Plan'
+		}
+	];
+
+	const promoCodes = {
+		'WELCOME20': { discount: 0.20, label: '20% off' },
+		'NEWYEAR25': { discount: 0.25, label: '25% off' },
+		'REALESTATE10': { discount: 0.10, label: '10% off' }
+	};
+
+	let billingAnnual = false;
+	let selectedPlan = 'professional';
+	let selectedPaymentMethod = 'paystack';
+	let appliedCoupon = null;
+
+	function formatCurrency(n) {
+		return '₦' + Number(n).toLocaleString('en-NG');
+	}
+
+	function calculateTotal() {
+		const plan = plans.find(p => p.id === selectedPlan);
+		const base = billingAnnual ? plan.annual : plan.monthly;
+		let discount = 0;
+		let savings = 0;
+
+		if (appliedCoupon && promoCodes[appliedCoupon]) {
+			discount = base * promoCodes[appliedCoupon].discount;
+		}
+
+		if (billingAnnual) {
+			savings = plan.monthly * 2;
+		}
+
+		return {
+			base,
+			discount,
+			savings,
+			total: base - discount
+		};
+	}
+
+	function generatePaymentReference() {
+		const timestamp = Date.now().toString(36).toUpperCase();
+		const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+		return `SUB-${selectedPlan.toUpperCase().substring(0, 4)}-${timestamp}${random}`;
+	}
+
+	function renderPlans() {
+		const grid = document.getElementById('plansGrid');
+		if (!grid) return;
+		grid.innerHTML = '';
+
+		plans.forEach(p => {
+			const el = document.createElement('div');
+			el.className = `rounded-xl p-4 sm:p-5 border-2 transition-all cursor-pointer plan-card bg-white ${
+				p.id === selectedPlan ? 'selected border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-400'
+			}`;
+
+			const price = billingAnnual ? p.annual : p.monthly;
+			const period = billingAnnual ? 'year' : 'month';
+			const annualEquiv = billingAnnual ? `<div class="text-[10px] sm:text-xs text-slate-500 mt-1">${formatCurrency(p.annual / 12)}/mo equivalent</div>` : '';
+			const savingsNote = billingAnnual ? `<div class="text-[10px] sm:text-xs text-emerald-600 mt-1">~ Save ${formatCurrency(p.monthly * 2)}</div>` : '';
+
+			let badgeHtml = '';
+			if (p.badge) {
+				const badgeColor = p.popular ? 'bg-indigo-500 text-white badge-popular' : 'bg-amber-100 text-amber-700';
+				badgeHtml = `<div class="price-badge ${badgeColor} px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">${p.badge}</div>`;
+			}
+
+			el.innerHTML = `
+				<div class="flex items-start justify-between gap-2 mb-3">
+					<div class="text-base sm:text-lg font-semibold text-slate-800">${p.name}</div>
+					${badgeHtml}
+				</div>
+				<div class="mb-3">
+					<span class="text-2xl sm:text-3xl font-bold text-slate-800">${formatCurrency(price)}</span>
+					<span class="text-slate-500 text-sm">/${period}</span>
+					${annualEquiv}
+					${savingsNote}
+				</div>
+				<p class="text-slate-500 text-xs sm:text-sm mb-4">${p.desc}</p>
+				<ul class="text-slate-600 text-xs sm:text-sm space-y-1.5 sm:space-y-2">
+					${p.features.map(f => `
+						<li class="flex items-start gap-2">
+							<i class="bi bi-check-circle-fill text-emerald-600 mt-0.5 flex-shrink-0"></i>
+							<span>${f}</span>
+						</li>
+					`).join('')}
+				</ul>
+				${p.id === selectedPlan ? `
+					<div class="mt-3 sm:mt-4 pt-3 border-t border-indigo-300">
+						<span class="text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1">
+							<i class="bi bi-check-circle-fill"></i>
+							Selected
+						</span>
+					</div>
+				` : ''}
+			`;
+
+			el.addEventListener('click', () => {
+				selectedPlan = p.id;
+				renderAll();
+			});
+
+			grid.appendChild(el);
+		});
+	}
+
+	function renderSummary() {
+		const summaryPlan = document.getElementById('summaryPlan');
+		const summaryBilling = document.getElementById('summaryBilling');
+		const summaryPayment = document.getElementById('summaryPayment');
+		const summarySubtotal = document.getElementById('summarySubtotal');
+		const summaryTotal = document.getElementById('summaryTotal');
+		const discountRow = document.getElementById('discountRow');
+		const summaryDiscount = document.getElementById('summaryDiscount');
+		const savingsRow = document.getElementById('savingsRow');
+		const summarySavings = document.getElementById('summarySavings');
+
+		const plan = plans.find(p => p.id === selectedPlan);
+		const calc = calculateTotal();
+
+		if (summaryPlan) summaryPlan.textContent = plan.name;
+		if (summaryBilling) summaryBilling.textContent = billingAnnual ? 'Annually' : 'Monthly';
+		if (summaryPayment) summaryPayment.textContent = selectedPaymentMethod === 'paystack' ? 'Paystack' : 'Bank Transfer';
+		if (summarySubtotal) summarySubtotal.textContent = formatCurrency(calc.base);
+		if (summaryTotal) summaryTotal.textContent = formatCurrency(calc.total);
+
+		if (discountRow && summaryDiscount) {
+			if (calc.discount > 0) {
+				discountRow.classList.remove('hidden');
+				summaryDiscount.textContent = '-' + formatCurrency(calc.discount);
+			} else {
+				discountRow.classList.add('hidden');
+			}
+		}
+
+		if (savingsRow && summarySavings) {
+			if (billingAnnual) {
+				savingsRow.classList.remove('hidden');
+				summarySavings.textContent = formatCurrency(calc.savings);
+			} else {
+				savingsRow.classList.add('hidden');
+			}
+		}
+
+		const modalTotal = document.getElementById('modalTotal');
+		const modalPlan = document.getElementById('modalPlan');
+		const modalBilling = document.getElementById('modalBilling');
+		const bankAmount = document.getElementById('bankAmount');
+		const bankPlanInfo = document.getElementById('bankPlanInfo');
+		const successPlan = document.getElementById('successPlan');
+
+		if (modalTotal) modalTotal.textContent = formatCurrency(calc.total);
+		if (modalPlan) modalPlan.textContent = plan.name;
+		if (modalBilling) modalBilling.textContent = billingAnnual ? 'Annually' : 'Monthly';
+		if (bankAmount) bankAmount.textContent = formatCurrency(calc.total);
+		if (bankPlanInfo) bankPlanInfo.textContent = `${plan.name} Plan • ${billingAnnual ? 'Annually' : 'Monthly'}`;
+		if (successPlan) successPlan.textContent = plan.name;
+	}
+
+	function updateBillingToggleLabels() {
+		const monthlyLabel = document.getElementById('monthlyLabel');
+		const annualLabel = document.getElementById('annualLabel');
+
+		if (!monthlyLabel || !annualLabel) return;
+
+		if (billingAnnual) {
+			monthlyLabel.className = 'text-xs sm:text-sm text-slate-500';
+			annualLabel.className = 'text-xs sm:text-sm font-medium text-indigo-600';
+		} else {
+			monthlyLabel.className = 'text-xs sm:text-sm font-medium text-indigo-600';
+			annualLabel.className = 'text-xs sm:text-sm text-slate-500';
+		}
+	}
+
+	function renderAll() {
+		renderPlans();
+		renderSummary();
+		updateBillingToggleLabels();
+	}
+
+	function openModal(modalId) {
+		const modal = document.getElementById(modalId);
+		if (!modal) return;
+		modal.style.display = 'flex';
+		modal.classList.remove('hidden');
+		modal.classList.add('flex');
+	}
+
+	function closeModal(modalId) {
+		const modal = document.getElementById(modalId);
+		if (!modal) return;
+		modal.style.display = 'none';
+		modal.classList.add('hidden');
+		modal.classList.remove('flex');
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		renderAll();
+
+		const billingToggle = document.getElementById('billingToggle');
+		if (billingToggle) {
+			billingToggle.addEventListener('change', (e) => {
+				billingAnnual = e.target.checked;
+				renderAll();
+			});
+		}
+
+		document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+			radio.addEventListener('change', (e) => {
+				selectedPaymentMethod = e.target.value;
+				renderSummary();
+			});
+		});
+
+		const applyCouponBtn = document.getElementById('applyCoupon');
+		if (applyCouponBtn) {
+			applyCouponBtn.addEventListener('click', () => {
+				const input = document.getElementById('couponInput');
+				const feedback = document.getElementById('couponFeedback');
+				if (!input || !feedback) return;
+
+				const code = input.value.trim().toUpperCase();
+
+				if (!code) {
+					appliedCoupon = null;
+					feedback.classList.add('hidden');
+					renderSummary();
+					return;
+				}
+
+				if (promoCodes[code]) {
+					appliedCoupon = code;
+					feedback.textContent = `✓ Coupon applied: ${promoCodes[code].label}`;
+					feedback.className = 'text-sm mt-2 text-emerald-600';
+					feedback.classList.remove('hidden');
+				} else {
+					appliedCoupon = null;
+					feedback.textContent = '✕ Invalid or expired coupon code';
+					feedback.className = 'text-sm mt-2 text-rose-500';
+					feedback.classList.remove('hidden');
+				}
+				renderSummary();
+			});
+		}
+
+		const subscribeBtn = document.getElementById('subscribeBtn');
+		if (subscribeBtn) {
+			subscribeBtn.addEventListener('click', () => {
+				if (selectedPaymentMethod === 'paystack') {
+					openModal('billingPaymentModal');
+				} else {
+					const ref = generatePaymentReference();
+					const paymentRef = document.getElementById('paymentRef');
+					if (paymentRef) paymentRef.textContent = ref;
+
+					document.querySelectorAll('.copy-btn').forEach(btn => {
+						if (btn.dataset.copy === 'SUB-LAMBA-XYZ123') {
+							btn.dataset.copy = ref;
+						}
+					});
+					openModal('bankTransferModal');
+				}
+			});
+		}
+
+		const closePaymentModalBtn = document.getElementById('closePaymentModal');
+		if (closePaymentModalBtn) closePaymentModalBtn.addEventListener('click', () => closeModal('billingPaymentModal'));
+		const cancelPaymentBtn = document.getElementById('cancelPayment');
+		if (cancelPaymentBtn) cancelPaymentBtn.addEventListener('click', () => closeModal('billingPaymentModal'));
+		const closeBankModalBtn = document.getElementById('closeBankModal');
+		if (closeBankModalBtn) closeBankModalBtn.addEventListener('click', () => closeModal('bankTransferModal'));
+		const cancelBankTransferBtn = document.getElementById('cancelBankTransfer');
+		if (cancelBankTransferBtn) cancelBankTransferBtn.addEventListener('click', () => closeModal('bankTransferModal'));
+		const closeSuccessModalBtn = document.getElementById('closeSuccessModal');
+		if (closeSuccessModalBtn) closeSuccessModalBtn.addEventListener('click', () => closeModal('billingSuccessModal'));
+
+		const paymentForm = document.getElementById('billingPaymentForm');
+		if (paymentForm) {
+			paymentForm.addEventListener('submit', (e) => {
+				e.preventDefault();
+				const feedback = document.getElementById('paymentFeedback');
+				const emailEl = document.getElementById('payEmail');
+				const btn = document.getElementById('payNowBtn');
+				if (!feedback || !emailEl || !btn) return;
+
+				const email = emailEl.value.trim();
+
+				if (!email || !email.includes('@')) {
+					feedback.textContent = 'Please enter a valid email address';
+					feedback.className = 'text-sm text-center text-rose-500';
+					feedback.classList.remove('hidden');
+					return;
+				}
+
+				feedback.classList.add('hidden');
+				btn.disabled = true;
+				btn.innerHTML = `
+					<span class="flex items-center justify-center gap-2">
+						<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+						Processing...
+					</span>
+				`;
+
+				setTimeout(() => {
+					btn.disabled = false;
+					btn.innerHTML = `
+						<span class="flex items-center justify-center gap-2">
+							<i class="bi bi-check-circle"></i>
+							Pay Now
+						</span>
+					`;
+					closeModal('billingPaymentModal');
+					openModal('billingSuccessModal');
+				}, 1200);
+			});
+		}
+
+		const confirmTransferBtn = document.getElementById('confirmTransfer');
+		if (confirmTransferBtn) {
+			confirmTransferBtn.addEventListener('click', () => {
+				closeModal('bankTransferModal');
+				openModal('transferPendingModal');
+			});
+		}
+
+		const closeTransferPendingModalBtn = document.getElementById('closeTransferPendingModal');
+		if (closeTransferPendingModalBtn) closeTransferPendingModalBtn.addEventListener('click', () => closeModal('transferPendingModal'));
+
+		document.querySelectorAll('.copy-btn').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const text = btn.dataset.copy || '';
+				if (!text) return;
+				navigator.clipboard.writeText(text).then(() => {
+					const originalHtml = btn.innerHTML;
+					btn.innerHTML = '<i class="bi bi-check-lg text-emerald-600"></i>';
+					setTimeout(() => { btn.innerHTML = originalHtml; }, 1200);
+				});
+			});
+		});
+
+		const managePlanBtn = document.getElementById('managePlanBtn');
+		if (managePlanBtn) {
+			managePlanBtn.addEventListener('click', () => {
+				const plansGrid = document.getElementById('plansGrid');
+				if (plansGrid) plansGrid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			});
+		}
+
+		const viewInvoicesBtn = document.getElementById('viewInvoicesBtn');
+		if (viewInvoicesBtn) viewInvoicesBtn.addEventListener('click', () => openModal('invoicesModal'));
+		const closeInvoicesModalBtn = document.getElementById('closeInvoicesModal');
+		if (closeInvoicesModalBtn) closeInvoicesModalBtn.addEventListener('click', () => closeModal('invoicesModal'));
+		const closeInvoicesBtn = document.getElementById('closeInvoicesBtn');
+		if (closeInvoicesBtn) closeInvoicesBtn.addEventListener('click', () => closeModal('invoicesModal'));
+
+		['billingPaymentModal', 'bankTransferModal', 'billingSuccessModal', 'transferPendingModal', 'invoicesModal'].forEach(modalId => {
+			const modal = document.getElementById(modalId);
+			if (!modal) return;
+			modal.addEventListener('click', (e) => {
+				if (e.target && e.target.id === modalId) closeModal(modalId);
+			});
+		});
+	});
+</script>

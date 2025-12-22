@@ -1,0 +1,233 @@
+{% load humanize %}
+
+<!-- Historical Records Tab Content -->
+
+<!-- Historical Records Header -->
+<div class="historical-header mb-4 p-4 rounded-4" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h3 class="text-white mb-2 fw-bold">
+                <i class="bi bi-archive me-2"></i>Historical Records & Data Export
+            </h3>
+            <p class="text-white-50 mb-0">Access, filter, and download your company's complete historical performance data</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group">
+                <button class="btn btn-light btn-sm" id="bulkExportBtn">
+                    <i class="bi bi-file-earmark-arrow-down me-1"></i>Bulk Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Filters -->
+<div class="card border-0 shadow-sm mb-4 historical-filter-card">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small">FROM YEAR</label>
+                <select class="form-select" id="historyFromYear">
+                    <!-- Populated by JavaScript -->
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small">TO YEAR</label>
+                <select class="form-select" id="historyToYear">
+                    <!-- Populated by JavaScript -->
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small">PERIOD TYPE</label>
+                <select class="form-select" id="historyPeriodType">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annual">Annual</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small">MARKETER</label>
+                <select class="form-select" id="historyMarketer">
+                    <option value="all">All Marketers</option>
+                    <!-- Populated by JavaScript -->
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small">STATUS</label>
+                <select class="form-select" id="historyStatus">
+                    <option value="all">All Records</option>
+                    <option value="above_target">Above Target</option>
+                    <option value="on_track">On Track</option>
+                    <option value="below_target">Below Target</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn w-100" id="historyApplyBtn" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                    <i class="bi bi-search me-1"></i>Search
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="historical-summary-card" style="--accent: #667eea;">
+            <div class="summary-icon"><i class="bi bi-folder2-open"></i></div>
+            <div class="summary-content">
+                <span class="summary-label">Total Records</span>
+                <h3 class="summary-value" id="totalRecordsCount">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="historical-summary-card" style="--accent: #28a745;">
+            <div class="summary-icon"><i class="bi bi-calendar-range"></i></div>
+            <div class="summary-content">
+                <span class="summary-label">Date Range</span>
+                <h3 class="summary-value" id="dateRangeDisplay">--</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="historical-summary-card" style="--accent: #ffc107;">
+            <div class="summary-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="summary-content">
+                <span class="summary-label">Period Revenue</span>
+                <h3 class="summary-value" id="periodRevenueDisplay">₦0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="historical-summary-card" style="--accent: #dc3545;">
+            <div class="summary-icon"><i class="bi bi-percent"></i></div>
+            <div class="summary-content">
+                <span class="summary-label">Avg Commission</span>
+                <h3 class="summary-value" id="avgCommissionDisplay">0%</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Year-over-Year Comparison Toggle -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">
+            <i class="bi bi-bar-chart-steps text-primary me-2"></i>Year-over-Year Comparison
+        </h5>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="yoyComparisonToggle" checked>
+            <label class="form-check-label" for="yoyComparisonToggle">Show Comparison</label>
+        </div>
+    </div>
+    <div class="card-body" id="yoyComparisonContainer">
+        <div class="chart-container" style="position: relative; height: 250px; width: 100%;">
+            <canvas id="yoyComparisonChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Historical Records Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">
+            <i class="bi bi-table text-success me-2"></i>Performance Records
+        </h5>
+        <div class="btn-group">
+            <button class="btn btn-sm btn-outline-primary" id="exportCsvBtn">
+                <i class="bi bi-filetype-csv me-1"></i>CSV
+            </button>
+            <button class="btn btn-sm btn-outline-success" id="exportExcelBtn">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </button>
+            <button class="btn btn-sm btn-outline-danger" id="exportPdfBtn">
+                <i class="bi bi-filetype-pdf me-1"></i>PDF
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="historicalRecordsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th class="sortable" data-sort="period">Period <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th class="sortable" data-sort="marketer">Marketer <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th class="sortable" data-sort="deals">Closed Deals <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th class="sortable" data-sort="sales">Total Sales <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th class="sortable" data-sort="commission_rate">Commission % <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th class="sortable" data-sort="commission">Commission Earned <i class="bi bi-arrow-down-up ms-1"></i></th>
+                        <th>Target Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="historicalRecordsBody">
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted mb-0">Loading historical records...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Pagination -->
+    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
+        <span class="text-muted" id="recordsPagination">Showing 0-0 of 0 records</span>
+        <nav>
+            <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                <!-- Populated by JavaScript -->
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Historical Tab Styles -->
+<style>
+    .historical-summary-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        border-left: 4px solid var(--accent);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .historical-summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .historical-summary-card .summary-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+    }
+    .historical-summary-card .summary-label {
+        color: #6c757d;
+        font-size: 0.85rem;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .historical-summary-card .summary-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+    .sortable:hover {
+        background: #e9ecef;
+    }
+</style>

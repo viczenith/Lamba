@@ -1,0 +1,621 @@
+{% load humanize %}
+
+<!-- Users Tab - ADVANCED USER MANAGEMENT DASHBOARD -->
+<style>
+    .users-tab-gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .users-tab-gradient-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .users-tab-gradient-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .users-tab-gradient-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .users-tab-gradient-dark { background: linear-gradient(135deg, #434343 0%, #000000 100%); }
+    .users-tab-stat-card {
+        border-radius: 16px;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .users-tab-stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
+    }
+    .users-tab-icon-circle {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    .users-tab-progress-ring {
+        width: 120px;
+        height: 120px;
+    }
+    .users-tab-team-card {
+        border-radius: 12px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    .users-tab-team-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .users-tab-role-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .users-tab-search-input {
+        border-radius: 25px;
+        padding-left: 45px;
+        border: 2px solid #e9ecef;
+        transition: border-color 0.3s ease;
+    }
+    .users-tab-search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .users-tab-filter-btn {
+        border-radius: 20px;
+        padding: 8px 20px;
+        font-size: 0.85rem;
+        border: 2px solid #e9ecef;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    .users-tab-filter-btn:hover, .users-tab-filter-btn.active {
+        border-color: #667eea;
+        background: #667eea;
+        color: white;
+    }
+    .users-tab-table-modern {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .users-tab-table-modern thead th {
+        background: #f8f9fa;
+        border: none;
+        padding: 16px;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+    }
+    .users-tab-table-modern tbody td {
+        padding: 16px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    .users-tab-table-modern tbody tr:hover {
+        background: #f8f9ff;
+    }
+    .users-tab-user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .users-tab-pulse-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .users-tab-pulse-dot.active { background: #10b981; animation: pulse 2s infinite; }
+    .users-tab-pulse-dot.idle { background: #f59e0b; }
+    .users-tab-pulse-dot.inactive { background: #ef4444; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+
+<!-- Section Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1 fw-bold" style="color: #1a1a2e;">
+            <i class="bi bi-people-fill me-2" style="color: #667eea;"></i>Team Management
+        </h4>
+        <p class="text-muted mb-0">Comprehensive overview of your real estate team</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="window.location.reload();">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Team Composition Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="users-tab-icon-circle" style="background: rgba(16, 185, 129, 0.1);">
+                        <i class="bi bi-people" style="color: #10b981;"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Clients</div>
+                        <h3 class="mb-0 fw-bold">{{ total_clients|default:0|intcomma }}</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <div class="progress" style="height: 4px; border-radius: 2px;">
+                        <div class="progress-bar" style="width: {% widthratio total_clients registered_users_total_count 100 %}%; background: #10b981;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="users-tab-icon-circle" style="background: rgba(99, 102, 241, 0.1);">
+                        <i class="bi bi-person-badge" style="color: #6366f1;"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Marketers</div>
+                        <h3 class="mb-0 fw-bold">{{ total_marketers|default:0|intcomma }}</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <div class="progress" style="height: 4px; border-radius: 2px;">
+                        <div class="progress-bar" style="width: {% widthratio total_marketers registered_users_total_count 100 %}%; background: #6366f1;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="users-tab-icon-circle" style="background: rgba(249, 115, 22, 0.1);">
+                        <i class="bi bi-shield-check" style="color: #f97316;"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Admins</div>
+                        <h3 class="mb-0 fw-bold">{{ admin_users|length|intcomma }}</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <div class="progress" style="height: 4px; border-radius: 2px;">
+                        <div class="progress-bar" style="width: {% widthratio admin_users|length registered_users_total_count 100 %}%; background: #f97316;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="users-tab-icon-circle" style="background: rgba(236, 72, 153, 0.1);">
+                        <i class="bi bi-headset" style="color: #ec4899;"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Support</div>
+                        <h3 class="mb-0 fw-bold">{{ support_users|length|intcomma }}</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <div class="progress" style="height: 4px; border-radius: 2px;">
+                        <div class="progress-bar" style="width: {% widthratio support_users|length registered_users_total_count 100 %}%; background: #ec4899;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Engagement Metrics Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow users-tab-gradient-primary text-white">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="mb-1 opacity-75" style="font-size: 0.85rem;">Active Users</p>
+                        <h2 class="mb-0 fw-bold">{{ active_users_30d|intcomma }}</h2>
+                        <small class="opacity-75">Last 30 days</small>
+                    </div>
+                    <div class="users-tab-icon-circle" style="background: rgba(255,255,255,0.2);">
+                        <i class="bi bi-activity text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow users-tab-gradient-success text-white">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="mb-1 opacity-75" style="font-size: 0.85rem;">Recently Active</p>
+                        <h2 class="mb-0 fw-bold">{{ recently_active_7d|intcomma }}</h2>
+                        <small class="opacity-75">Last 7 days</small>
+                    </div>
+                    <div class="users-tab-icon-circle" style="background: rgba(255,255,255,0.2);">
+                        <i class="bi bi-lightning-charge text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow users-tab-gradient-warning text-white">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="mb-1 opacity-75" style="font-size: 0.85rem;">Needs Attention</p>
+                        <h2 class="mb-0 fw-bold">{{ at_risk_users|intcomma }}</h2>
+                        <small class="opacity-75">At-risk users</small>
+                    </div>
+                    <div class="users-tab-icon-circle" style="background: rgba(255,255,255,0.2);">
+                        <i class="bi bi-exclamation-diamond text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card users-tab-stat-card border-0 shadow users-tab-gradient-info text-white">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="mb-1 opacity-75" style="font-size: 0.85rem;">Engagement</p>
+                        <h2 class="mb-0 fw-bold">{{ engagement_score }}%</h2>
+                        <small class="opacity-75">Overall score</small>
+                    </div>
+                    <div class="users-tab-icon-circle" style="background: rgba(255,255,255,0.2);">
+                        <i class="bi bi-speedometer2 text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- User Status Distribution -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px;">
+            <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-pie-chart me-2 text-primary"></i>User Status
+                </h6>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 220px; position: relative;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+                <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+                    <small><span class="users-tab-pulse-dot active"></span>Active</small>
+                    <small><span class="users-tab-pulse-dot idle"></span>Idle</small>
+                    <small><span class="users-tab-pulse-dot inactive"></span>At-Risk</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Activity Pattern -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px;">
+            <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-bar-chart me-2 text-success"></i>Weekly Activity
+                </h6>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 220px; position: relative;">
+                    <canvas id="frequencyChart"></canvas>
+                </div>
+                <p class="text-muted text-center small mt-3 mb-0">Login activity by day of week</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Ratio -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px;">
+            <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-diagram-3 me-2 text-info"></i>Team Ratio
+                </h6>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 220px; position: relative;">
+                    <canvas id="teamRatioChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">
+                        {% if total_marketers > 0 %}
+                            1 Marketer : {% widthratio total_clients total_marketers 1 %} Clients
+                        {% else %}
+                            No marketers yet
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Smart Recommendations -->
+{% if at_risk_users > 0 or dormant_users > 0 or engagement_score < 50 %}
+<div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+    <div class="card-body p-4">
+        <div class="d-flex align-items-center mb-3">
+            <div class="users-tab-icon-circle me-3" style="background: rgba(245, 158, 11, 0.2);">
+                <i class="bi bi-lightbulb" style="color: #f59e0b;"></i>
+            </div>
+            <h6 class="fw-bold mb-0" style="color: #92400e;">Smart Recommendations</h6>
+        </div>
+        <div class="row g-3">
+            {% if at_risk_users > 0 %}
+            <div class="col-md-6">
+                <div class="bg-white rounded-3 p-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong class="text-dark">{{ at_risk_users }} users</strong>
+                        <span class="text-muted"> haven't logged in for 30+ days</span>
+                    </div>
+                    <button class="btn btn-sm btn-warning rounded-pill send-engagement-btn" data-email-type="reengagement">
+                        <i class="bi bi-send me-1"></i>Re-engage
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% if dormant_users > 0 %}
+            <div class="col-md-6">
+                <div class="bg-white rounded-3 p-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong class="text-dark">{{ dormant_users }} users</strong>
+                        <span class="text-muted"> have never logged in</span>
+                    </div>
+                    <button class="btn btn-sm btn-danger rounded-pill send-engagement-btn" data-email-type="onboarding">
+                        <i class="bi bi-envelope me-1"></i>Onboard
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% if engagement_score < 50 %}
+            <div class="col-12">
+                <div class="bg-white rounded-3 p-3">
+                    <i class="bi bi-info-circle text-primary me-2"></i>
+                    <span class="text-muted">Engagement score is at {{ engagement_score }}%. Consider adding new features or improving onboarding to boost user activity.</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Users Table with Search & Filter -->
+<div class="card border-0 shadow-sm" style="border-radius: 16px;">
+    <div class="card-header bg-white border-0 p-4">
+        <div class="row align-items-center g-3">
+            <div class="col-lg-6">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-list-ul me-2 text-primary"></i>All Team Members
+                    <span class="badge rounded-pill ms-2" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">{{ registered_users_total_count|intcomma }}</span>
+                </h6>
+            </div>
+            <div class="col-lg-6">
+                <div class="d-flex gap-2 justify-content-lg-end flex-wrap">
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                        <input type="text" id="userSearchInput" class="form-control users-tab-search-input" placeholder="Search users..." style="width: 220px;">
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="users-tab-filter-btn active" data-filter="all">All</button>
+                        <button type="button" class="users-tab-filter-btn" data-filter="client">Clients</button>
+                        <button type="button" class="users-tab-filter-btn" data-filter="marketer">Marketers</button>
+                        <button type="button" class="users-tab-filter-btn" data-filter="admin">Admins</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table users-tab-table-modern mb-0" id="usersTable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Last Activity</th>
+                    <th>Joined</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in registered_users %}
+                <tr data-role="{{ u.role|default:'other'|lower }}" {% if u.status_info.at_risk %}style="background: rgba(239, 68, 68, 0.05);"{% endif %}>
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="users-tab-user-avatar" style="background: {% if u.role == 'client' %}rgba(16, 185, 129, 0.1); color: #10b981;{% elif u.role == 'marketer' %}rgba(99, 102, 241, 0.1); color: #6366f1;{% elif u.role == 'admin' %}rgba(249, 115, 22, 0.1); color: #f97316;{% else %}rgba(236, 72, 153, 0.1); color: #ec4899;{% endif %}">
+                                {{ u.full_name|slice:":1"|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ u.full_name }}</div>
+                                <small class="text-muted">{{ u.email }}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="users-tab-role-badge" style="{% if u.role == 'client' %}background: rgba(16, 185, 129, 0.1); color: #10b981;{% elif u.role == 'marketer' %}background: rgba(99, 102, 241, 0.1); color: #6366f1;{% elif u.role == 'admin' %}background: rgba(249, 115, 22, 0.1); color: #f97316;{% else %}background: rgba(236, 72, 153, 0.1); color: #ec4899;{% endif %}">
+                            {{ u.role|default:'User' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if u.status_info %}
+                            {% if u.status_info.status == 'Active' %}
+                                <span><span class="users-tab-pulse-dot active"></span>Active</span>
+                            {% elif u.status_info.status == 'Idle' %}
+                                <span><span class="users-tab-pulse-dot idle"></span>Idle</span>
+                            {% else %}
+                                <span><span class="users-tab-pulse-dot inactive"></span>{{ u.status_info.status }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.status_info.days_since %}
+                            <span class="text-muted">{{ u.status_info.days_since }}d ago</span>
+                        {% else %}
+                            <span class="text-muted"><i class="bi bi-dash"></i> Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="text-muted">{{ u.date_joined|date:'M d, Y' }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p class="mt-3 mb-0">No team members yet</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Pagination -->
+    {% if registered_users_page.has_other_pages %}
+    <div class="card-footer bg-white border-0 d-flex justify-content-center py-4">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if registered_users_page.has_previous %}
+                <li class="page-item">
+                    <a class="page-link rounded-circle me-1" href="?users_page=1" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">«</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link rounded-pill px-3" href="?users_page={{ registered_users_page.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                <li class="page-item disabled mx-2">
+                    <span class="page-link border-0 bg-transparent">
+                        <span class="fw-bold text-primary">{{ registered_users_page.number }}</span>
+                        <span class="text-muted"> / {{ registered_users_page.paginator.num_pages }}</span>
+                    </span>
+                </li>
+                {% if registered_users_page.has_next %}
+                <li class="page-item">
+                    <a class="page-link rounded-pill px-3" href="?users_page={{ registered_users_page.next_page_number }}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link rounded-circle ms-1" href="?users_page={{ registered_users_page.paginator.num_pages }}" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">»</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chart.js Scripts for Users Tab -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // User Status Doughnut Chart
+    var statusCtx = document.getElementById('statusChart');
+    if (statusCtx) {
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ chart_data.status_labels|safe }},
+                datasets: [{
+                    data: {{ chart_data.status_values|safe }},
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6b7280'],
+                    borderWidth: 0,
+                    cutout: '70%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // Weekly Activity Bar Chart
+    var frequencyCtx = document.getElementById('frequencyChart');
+    if (frequencyCtx) {
+        new Chart(frequencyCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_data.login_days|safe }},
+                datasets: [{
+                    data: {{ chart_data.login_frequency|safe }},
+                    backgroundColor: '#10b981',
+                    borderRadius: 8,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false }, ticks: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Team Ratio Doughnut
+    var ratioCtx = document.getElementById('teamRatioChart');
+    if (ratioCtx) {
+        new Chart(ratioCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Clients', 'Marketers', 'Admins', 'Support'],
+                datasets: [{
+                    data: [{{ total_clients|default:0 }}, {{ total_marketers|default:0 }}, {{ admin_users|length }}, {{ support_users|length }}],
+                    backgroundColor: ['#10b981', '#6366f1', '#f97316', '#ec4899'],
+                    borderWidth: 0,
+                    cutout: '65%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // Search & Filter Functionality
+    document.getElementById('userSearchInput')?.addEventListener('input', function(e) {
+        const search = e.target.value.toLowerCase();
+        document.querySelectorAll('#usersTable tbody tr').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(search) ? '' : 'none';
+        });
+    });
+
+    document.querySelectorAll('.users-tab-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.users-tab-filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const filter = this.dataset.filter;
+            document.querySelectorAll('#usersTable tbody tr').forEach(row => {
+                const role = row.dataset.role;
+                row.style.display = (filter === 'all' || role === filter) ? '' : 'none';
+            });
+        });
+    });
+</script>

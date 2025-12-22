@@ -1,0 +1,269 @@
+{% load humanize %}
+
+<!-- Register Admins Tab Content -->
+<style>
+    .admin-reg-card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .admin-reg-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 16px 16px 0 0;
+        padding: 1.5rem;
+    }
+    .admin-reg-form .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    .admin-reg-form .form-control {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    .admin-reg-form .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .admin-reg-role-card {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.25rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+    .admin-reg-role-card:hover {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+    }
+    .admin-reg-role-card.selected {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.1);
+    }
+    .admin-reg-role-card i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .admin-reg-role-card.admin-type i { color: #f97316; }
+    .admin-reg-role-card.support-type i { color: #ec4899; }
+    .admin-reg-submit-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 0.875rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .admin-reg-submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card admin-reg-card">
+            <div class="admin-reg-header">
+                <h5 class="mb-1"><i class="bi bi-person-plus-fill me-2"></i>Register Company Admin / Support</h5>
+                <p class="mb-0 opacity-75 small">Add new administrators or support staff to your company</p>
+            </div>
+            <div class="card-body p-4">
+                <!-- Success/Error Messages -->
+                <div id="adminRegMessages"></div>
+
+                <form id="adminRegistrationForm" class="admin-reg-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="source" value="company_profile">
+
+                    <!-- Role Selection -->
+                    <div class="mb-4">
+                        <label class="form-label"><i class="bi bi-person-badge me-1"></i>Select Role</label>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="admin-reg-role-card admin-type" data-role="admin" onclick="selectAdminRole(this, 'admin')">
+                                    <i class="bi bi-shield-check"></i>
+                                    <div class="fw-bold">Company Admin</div>
+                                    <small class="text-muted">Full management access</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="admin-reg-role-card support-type" data-role="support" onclick="selectAdminRole(this, 'support')">
+                                    <i class="bi bi-headset"></i>
+                                    <div class="fw-bold">Support Staff</div>
+                                    <small class="text-muted">Customer support access</small>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" name="role" id="adminRoleInput" required>
+                    </div>
+
+                    <!-- Full Name -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-person me-1"></i>Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="name" id="adminFullName" placeholder="Enter full name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-envelope me-1"></i>Email Address <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" name="email" id="adminEmail" placeholder="Enter email address" required>
+                        </div>
+                    </div>
+
+                    <!-- Phone & Country -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-telephone me-1"></i>Phone Number</label>
+                            <input type="tel" class="form-control" name="phone" id="adminPhone" placeholder="Enter phone number">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-globe me-1"></i>Country</label>
+                            <input type="text" class="form-control" name="country" id="adminCountry" placeholder="Enter country">
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-geo-alt me-1"></i>Address</label>
+                        <input type="text" class="form-control" name="address" id="adminAddress" placeholder="Enter address">
+                    </div>
+
+                    <!-- Date of Birth -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-calendar me-1"></i>Date of Birth</label>
+                            <input type="date" class="form-control" name="date_of_birth" id="adminDOB">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-key me-1"></i>Password <small class="text-muted">(auto-generated if empty)</small></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="adminPassword" placeholder="Leave empty to auto-generate">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleAdminPassword()">
+                                    <i class="bi bi-eye" id="adminPasswordToggleIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetAdminForm()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                        </button>
+                        <button type="submit" class="btn btn-primary admin-reg-submit-btn" id="adminSubmitBtn">
+                            <i class="bi bi-person-plus me-1"></i>Register User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Info Card -->
+        <div class="card border-0 mt-4" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px;">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-start gap-3">
+                    <i class="bi bi-info-circle-fill" style="color: #f59e0b; font-size: 1.25rem;"></i>
+                    <div>
+                        <strong style="color: #92400e;">Registration Notes:</strong>
+                        <ul class="mb-0 mt-2 small" style="color: #78350f;">
+                            <li><strong>Company Admins</strong> can manage all aspects of the company including users, estates, and settings.</li>
+                            <li><strong>Support Staff</strong> can assist with customer queries and view limited data.</li>
+                            <li>If no password is provided, a temporary password will be auto-generated.</li>
+                            <li>New users will receive an email notification with login credentials.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function selectAdminRole(element, role) {
+        document.querySelectorAll('.admin-reg-role-card').forEach(card => card.classList.remove('selected'));
+        element.classList.add('selected');
+        document.getElementById('adminRoleInput').value = role;
+    }
+
+    function toggleAdminPassword() {
+        const input = document.getElementById('adminPassword');
+        const icon = document.getElementById('adminPasswordToggleIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+
+    function resetAdminForm() {
+        document.getElementById('adminRegistrationForm').reset();
+        document.querySelectorAll('.admin-reg-role-card').forEach(card => card.classList.remove('selected'));
+        document.getElementById('adminRoleInput').value = '';
+        document.getElementById('adminRegMessages').innerHTML = '';
+    }
+
+    document.getElementById('adminRegistrationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const form = this;
+        const submitBtn = document.getElementById('adminSubmitBtn');
+        const messagesDiv = document.getElementById('adminRegMessages');
+        
+        // Validate role selection
+        const role = document.getElementById('adminRoleInput').value;
+        if (!role) {
+            messagesDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-circle me-2"></i>Please select a role (Admin or Support).<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            return;
+        }
+
+        // Validate required fields
+        const fullName = document.getElementById('adminFullName').value.trim();
+        const email = document.getElementById('adminEmail').value.trim();
+        if (!fullName || !email) {
+            messagesDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-circle me-2"></i>Full name and email are required.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            return;
+        }
+
+        // Disable button and show loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registering...';
+        messagesDiv.innerHTML = '';
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch('{% url "user-registration" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                let successMsg = data.message || 'User registered successfully!';
+                if (data.temporary_password) {
+                    successMsg += '<br><strong>Temporary Password:</strong> <code class="user-select-all">' + data.temporary_password + '</code>';
+                }
+                messagesDiv.innerHTML = '<div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-check-circle me-2"></i>' + successMsg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+                resetAdminForm();
+                // Optionally reload page after 2 seconds to show new user in tables
+                setTimeout(() => { window.location.reload(); }, 2500);
+            } else {
+                messagesDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-circle me-2"></i>' + (data.message || 'Registration failed. Please try again.') + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            }
+        } catch (error) {
+            messagesDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-circle me-2"></i>An error occurred. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-person-plus me-1"></i>Register User';
+        }
+    });
+</script>

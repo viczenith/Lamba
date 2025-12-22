@@ -1,218 +1,946 @@
-{% load static %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Payment Receipt</title>
-    <style>
-        @page { size: A4; margin: 20mm; }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Billing & Subscription — Real Estate Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Light theme styles matching project */
+    .glass { background: rgba(255,255,255,0.95); backdrop-filter: blur(6px); }
+    .card-shadow { box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    /* Animated price badge */
+    .price-badge { transition: transform .22s ease, background-color .22s ease; }
+    .price-badge:active { transform: translateY(2px); }
+    /* Simple focus ring improvement */
+    .focus-ring:focus { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+    /* Plan card selection */
+    .plan-card.selected { border-color: #6366f1 !important; box-shadow: 0 0 0 2px rgba(99,102,241,0.4); }
+    .plan-card:hover { border-color: #818cf8; }
+    /* Popular badge animation */
+    @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .badge-popular { animation: pulse-badge 2s ease-in-out infinite; }
+    /* Savings highlight */
+    .savings-text { color: #10b981; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-[#f5f5f7] text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
+  <main class="max-w-7xl mx-auto w-full space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-8">
 
-        html, body { font-family: 'Poppins', sans-serif !important; font-size: 12px; margin: 0; padding: 0; background: #fff; width: 100%; }
+    <!-- Left / Hero -->
+    <section class="lg:col-span-2 p-4 sm:p-6 rounded-2xl bg-white card-shadow border border-gray-200">
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-semibold text-slate-800">Billing & Subscription</h1>
+          <p class="text-slate-500 mt-1 text-sm sm:text-base">Choose the perfect plan for your real estate business</p>
+        </div>
+        <div class="sm:text-right">
+          <div class="inline-flex items-center gap-3 bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            <div class="text-left sm:text-right">
+              <div class="text-xs text-slate-500">Company</div>
+              <div class="text-sm font-medium text-slate-700 truncate max-w-[180px] sm:max-w-none">Lamba Property Limited</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        .receipt-main-container { width: 100%; max-width: 800px;  margin: 0 auto; padding: 20px; box-sizing: border-box; position: relative; background: #fff; }
+      <!-- Billing Cycle Toggle + Plans -->
+      <div class="space-y-6">
+        <div class="rounded-xl p-4 sm:p-5 bg-slate-50 border border-slate-200">
+          <!-- Billing Toggle Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+              <div class="text-sm text-slate-500">Billing cycle</div>
+              <div class="text-base sm:text-lg font-semibold mt-1 text-slate-800">Choose your plan frequency</div>
+            </div>
+            <div class="flex items-center gap-3 sm:gap-4 bg-white px-3 sm:px-4 py-2 rounded-lg w-fit border border-slate-200 shadow-sm">
+              <span id="monthlyLabel" class="text-xs sm:text-sm font-medium text-indigo-600">Monthly</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="billingToggle" type="checkbox" class="sr-only peer" aria-label="Toggle billing cycle">
+                <div class="w-12 sm:w-14 h-6 sm:h-7 bg-slate-300 rounded-full peer peer-checked:bg-indigo-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 sm:after:h-6 sm:after:w-6 after:transition-all peer-checked:after:translate-x-6 sm:peer-checked:after:translate-x-7 after:shadow-sm"></div>
+              </label>
+              <div class="flex flex-col">
+                <span id="annualLabel" class="text-xs sm:text-sm text-slate-500">Annually</span>
+                <span class="text-[10px] sm:text-xs text-emerald-600 font-medium">Save 2 months!</span>
+              </div>
+            </div>
+          </div>
 
-        .receipt-watermark-overlay { position: fixed; width: 100%; text-align: center; font-size: 150px; font-weight: 800; color: rgba(25, 118, 210, 0.05); top: 40%; left: 0; transform: rotate(-30deg); z-index: 0; pointer-events: none; }
+          <!-- Plan Cards Grid -->
+          <div id="plansGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Plan Cards rendered by JS -->
+          </div>
+        </div>
 
-        .receipt-info-section, .receipt-property-details, .receipt-payment-table, .receipt-amount-box, .receipt-signature-area, .receipt-footer-section {
-            page-break-inside: avoid;
+        <!-- Payment Method Selection -->
+        <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="text-sm text-slate-500 mb-3">Payment Method</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="payment-method-card cursor-pointer">
+                <input type="radio" name="paymentMethod" value="paystack" class="sr-only peer" checked>
+                <div class="p-4 rounded-lg border-2 border-slate-200 bg-white peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="font-medium text-slate-700">Paystack</div>
+                      <div class="text-xs text-slate-500">Card, Bank, USSD</div>
+                    </div>
+                  </div>
+                </div>
+              </label>
+              <label class="payment-method-card cursor-pointer">
+                <input type="radio" name="paymentMethod" value="bank_transfer" class="sr-only peer">
+                <div class="p-4 rounded-lg border-2 border-slate-200 bg-white peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <svg class="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="font-medium text-slate-700">Bank Transfer</div>
+                      <div class="text-xs text-slate-500">Direct deposit</div>
+                    </div>
+                  </div>
+                </div>
+              </label>
+          </div>
+        </div>
+
+        <!-- Coupon Code -->
+        <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="text-sm text-slate-500 mb-3">Have a promo code?</div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+              <input id="couponInput" placeholder="Enter promo code" class="w-full rounded-lg p-3 bg-white border border-slate-300 focus-ring text-slate-800 placeholder-slate-400" />
+            </div>
+            <button id="applyCoupon" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-500 text-white font-semibold hover:bg-indigo-600 transition">Apply</button>
+          </div>
+          <p id="couponFeedback" class="text-sm mt-2 hidden"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Order Summary Sidebar -->
+    <aside class="lg:col-span-1 bg-white rounded-xl p-4 sm:p-5 border border-gray-200 h-fit lg:sticky lg:top-6 card-shadow">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-sm text-slate-500">Order Summary</div>
+          <div class="text-base sm:text-lg font-semibold mt-1 text-slate-800">Subscription Details</div>
+        </div>
+        <div class="flex items-center gap-1 text-emerald-600 text-xs sm:text-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <span>Secure</span>
+        </div>
+      </div>
+
+      <div class="space-y-3 border-b border-slate-200 pb-4">
+        <div class="flex items-center justify-between text-slate-600 text-sm">
+          <div class="text-slate-500">Selected Plan</div>
+          <div id="summaryPlan" class="font-medium text-slate-700">Professional</div>
+        </div>
+        <div class="flex items-center justify-between text-slate-600 text-sm">
+          <div class="text-slate-500">Billing Cycle</div>
+          <div id="summaryBilling" class="font-medium text-slate-700">Monthly</div>
+        </div>
+        <div class="flex items-center justify-between text-slate-600 text-sm">
+          <div class="text-slate-500">Payment Method</div>
+          <div id="summaryPayment" class="font-medium text-slate-700">Paystack</div>
+        </div>
+      </div>
+
+      <div class="space-y-2 py-4 border-b border-slate-200">
+        <div class="flex items-center justify-between text-slate-600 text-sm">
+          <div class="text-slate-500">Subtotal</div>
+          <div id="summarySubtotal" class="text-slate-700">₦100,000</div>
+        </div>
+        <div id="discountRow" class="flex items-center justify-between text-emerald-600 text-sm hidden">
+          <div>Discount</div>
+          <div id="summaryDiscount">-₦0</div>
+        </div>
+        <div id="savingsRow" class="flex items-center justify-between text-emerald-600 text-sm hidden">
+          <div>Annual Savings</div>
+          <div id="summarySavings">₦200,000</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between text-slate-800 font-bold text-lg sm:text-xl py-4">
+        <div>Total</div>
+        <div id="summaryTotal">₦100,000</div>
+      </div>
+
+      <button id="subscribeBtn" class="w-full px-4 py-3 sm:py-4 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg text-sm sm:text-base">
+        <span class="flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          Proceed to Payment
+        </span>
+      </button>
+
+      <div class="mt-4 flex items-center justify-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-slate-500 flex-wrap">
+        <span class="flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          SSL Encrypted
+        </span>
+        <span>•</span>
+        <span>Cancel anytime</span>
+      </div>
+
+      <div class="mt-3 text-[10px] sm:text-xs text-slate-500 text-center">
+        By subscribing you agree to our <a href="#" class="text-indigo-600 hover:underline">Terms</a> and <a href="#" class="text-indigo-600 hover:underline">Privacy Policy</a>.
+      </div>
+    </aside>
+
+    <!-- Current Plan Status - Full Width -->
+    <div class="lg:col-span-3 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-3 sm:gap-4">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+          </div>
+          <div>
+            <div class="text-xs sm:text-sm text-slate-500">Current Plan</div>
+            <div class="text-base sm:text-lg font-semibold text-indigo-700" id="currentPlanName">Professional Plan</div>
+            <div class="text-xs sm:text-sm text-slate-500">Next billing: <span id="nextBillingDate" class="text-slate-700">January 22, 2026</span></div>
+          </div>
+        </div>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <button id="managePlanBtn" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition text-xs sm:text-sm font-medium text-center text-slate-700">Manage Plan</button>
+          <button id="viewInvoicesBtn" class="px-4 py-2 rounded-lg border border-slate-300 hover:border-slate-400 transition text-xs sm:text-sm font-medium text-center text-slate-700">View Invoices</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="lg:col-span-3 text-xs text-slate-500 text-center py-4">
+      Real Estate Management System • Secure payment powered by Paystack
+    </footer>
+  </main>
+
+  <!-- Payment Modal - Paystack -->
+  <div id="paymentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl transform transition-all">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h3 class="text-xl font-semibold text-slate-800">Complete Payment</h3>
+          <p class="text-sm text-slate-500 mt-1">Secure payment via Paystack</p>
+        </div>
+        <button id="closeModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Payment Summary in Modal -->
+      <div class="bg-slate-50 rounded-xl p-4 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-500">Plan</span>
+          <span id="modalPlan" class="font-medium text-slate-700">Professional</span>
+        </div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-500">Billing</span>
+          <span id="modalBilling" class="font-medium text-slate-700">Monthly</span>
+        </div>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+          <span class="font-semibold text-slate-700">Total Amount</span>
+          <span id="modalTotal" class="font-bold text-xl text-indigo-600">₦100,000</span>
+        </div>
+      </div>
+
+      <form id="paymentForm" class="space-y-4">
+        <div>
+          <label class="text-sm text-slate-600 block mb-1">Email Address</label>
+          <input id="payEmail" type="email" value="admin@lambaproperty.com" required class="w-full p-3 rounded-lg bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 placeholder-slate-400" placeholder="your@email.com" />
+        </div>
+
+        <div>
+          <label class="text-sm text-slate-600 block mb-1">Phone Number (Optional)</label>
+          <input id="payPhone" type="tel" class="w-full p-3 rounded-lg bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 placeholder-slate-400" placeholder="+234 800 000 0000" />
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit" id="payNowBtn" class="flex-1 px-5 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:from-emerald-600 hover:to-teal-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+            <span class="flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Pay Now
+            </span>
+          </button>
+          <button type="button" id="cancelPayment" class="px-5 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Cancel</button>
+        </div>
+
+        <p id="paymentFeedback" class="text-sm text-center hidden"></p>
+      </form>
+
+      <div class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>256-bit SSL Encrypted • PCI DSS Compliant</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bank Transfer Modal -->
+  <div id="bankTransferModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h3 class="text-xl font-semibold text-slate-800">Bank Transfer Details</h3>
+          <p class="text-sm text-slate-500 mt-1">Transfer to complete your subscription</p>
+        </div>
+        <button id="closeBankModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Amount to Pay -->
+      <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 mb-6 border border-indigo-200">
+        <div class="text-sm text-slate-500 mb-1">Amount to Pay</div>
+        <div id="bankAmount" class="text-3xl font-bold text-indigo-600">₦100,000</div>
+        <div id="bankPlanInfo" class="text-sm text-slate-500 mt-1">Professional Plan • Monthly</div>
+      </div>
+
+      <!-- Bank Details -->
+      <div class="space-y-4 mb-6">
+        <div class="bg-slate-50 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-500 uppercase tracking-wide">Bank Name</div>
+              <div class="text-lg font-medium text-slate-700 mt-1">First Bank of Nigeria</div>
+            </div>
+            <button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="First Bank of Nigeria">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-500 uppercase tracking-wide">Account Number</div>
+              <div class="text-lg font-mono font-medium text-slate-700 mt-1">3124567890</div>
+            </div>
+            <button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="3124567890">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-500 uppercase tracking-wide">Account Name</div>
+              <div class="text-lg font-medium text-slate-700 mt-1">Real Estate MS Limited</div>
+            </div>
+            <button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="Real Estate MS Limited">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 rounded-lg p-4 border border-amber-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs text-amber-600 uppercase tracking-wide">Payment Reference</div>
+              <div id="paymentRef" class="text-lg font-mono font-medium text-amber-700 mt-1">SUB-LAMBA-XYZ123</div>
+            </div>
+            <button class="copy-btn text-amber-600 hover:text-amber-500 transition" data-copy="SUB-LAMBA-XYZ123">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </button>
+          </div>
+          <p class="text-xs text-amber-600 mt-2">⚠️ Use this reference when making your transfer</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="confirmTransfer" class="flex-1 px-5 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:from-emerald-600 hover:to-teal-700 transition">
+          I've Made the Transfer
+        </button>
+        <button id="cancelBankTransfer" class="px-5 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Cancel</button>
+      </div>
+
+      <p class="text-xs text-slate-500 text-center mt-4">
+        Your subscription will be activated within 24 hours after payment confirmation
+      </p>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div id="successModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white p-8 border border-gray-200 shadow-2xl text-center">
+      <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h3 class="text-2xl font-bold text-slate-800 mb-2">Payment Successful!</h3>
+      <p class="text-slate-500 mb-6">Your subscription has been activated. You now have access to all <span id="successPlan" class="text-indigo-600 font-medium">Professional</span> features.</p>
+      <button id="closeSuccessModal" class="w-full px-5 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition">
+        Start Using Features
+      </button>
+    </div>
+  </div>
+
+  <!-- Bank Transfer Pending Modal -->
+  <div id="transferPendingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white p-8 border border-gray-200 shadow-2xl text-center">
+      <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h3 class="text-2xl font-bold text-slate-800 mb-2">Payment Pending</h3>
+      <p class="text-slate-500 mb-4">Thank you! Your payment is being verified.</p>
+      <div class="bg-slate-50 rounded-lg p-4 mb-6 text-left">
+        <div class="flex items-center gap-2 text-sm text-slate-600 mb-2">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span>Confirmation email will be sent within 24 hours</span>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-slate-600">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Subscription activates after verification</span>
+        </div>
+      </div>
+      <button id="closeTransferPendingModal" class="w-full px-5 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:from-indigo-600 hover:to-purple-700 transition">
+        Got it, Thanks!
+      </button>
+    </div>
+  </div>
+
+  <!-- Invoices / Billing History Modal -->
+  <div id="invoicesModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="w-full max-w-3xl rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl my-8">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h3 class="text-xl font-semibold text-slate-800">Billing History</h3>
+          <p class="text-sm text-slate-500 mt-1">View and download your invoices</p>
+        </div>
+        <button id="closeInvoicesModal" class="text-slate-400 hover:text-slate-600 transition p-1">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <div class="text-sm text-slate-500 mb-1">Total Spent</div>
+          <div class="text-2xl font-bold text-slate-800">₦400,000</div>
+          <div class="text-xs text-slate-500 mt-1">Lifetime</div>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <div class="text-sm text-slate-500 mb-1">This Year</div>
+          <div class="text-2xl font-bold text-emerald-600">₦200,000</div>
+          <div class="text-xs text-slate-500 mt-1">2025</div>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <div class="text-sm text-slate-500 mb-1">Invoices</div>
+          <div class="text-2xl font-bold text-indigo-600">4</div>
+          <div class="text-xs text-slate-500 mt-1">Total</div>
+        </div>
+      </div>
+
+      <!-- Invoices Table -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50">
+                <th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Invoice</th>
+                <th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Date</th>
+                <th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Plan</th>
+                <th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Amount</th>
+                <th class="text-left text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Status</th>
+                <th class="text-right text-xs font-medium text-slate-500 uppercase tracking-wide px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-4 py-3">
+                  <span class="font-mono text-sm text-slate-700">INV-2025-004</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500">Dec 22, 2025</td>
+                <td class="px-4 py-3 text-sm text-slate-700">Professional</td>
+                <td class="px-4 py-3 text-sm font-medium text-slate-800">₦100,000</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    Paid
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
+                </td>
+              </tr>
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-4 py-3">
+                  <span class="font-mono text-sm text-slate-700">INV-2025-003</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500">Nov 22, 2025</td>
+                <td class="px-4 py-3 text-sm text-slate-700">Professional</td>
+                <td class="px-4 py-3 text-sm font-medium text-slate-800">₦100,000</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    Paid
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
+                </td>
+              </tr>
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-4 py-3">
+                  <span class="font-mono text-sm text-slate-700">INV-2025-002</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500">Oct 22, 2025</td>
+                <td class="px-4 py-3 text-sm text-slate-700">Starter</td>
+                <td class="px-4 py-3 text-sm font-medium text-slate-800">₦70,000</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    Paid
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
+                </td>
+              </tr>
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-4 py-3">
+                  <span class="font-mono text-sm text-slate-700">INV-2025-001</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-500">Sep 22, 2025</td>
+                <td class="px-4 py-3 text-sm text-slate-700">Starter</td>
+                <td class="px-4 py-3 text-sm font-medium text-slate-800">₦70,000</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    Paid
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-xs text-slate-500">Showing 4 of 4 invoices</p>
+        <div class="flex items-center gap-2">
+          <button class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition text-sm font-medium flex items-center gap-2 text-slate-700">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download All
+          </button>
+          <button id="closeInvoicesBtn" class="px-6 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    // -------------------- Data & State --------------------
+    const plans = [
+      { 
+        id: 'starter', 
+        name: 'Starter', 
+        monthly: 70000, 
+        annual: 700000, 
+        desc: 'Perfect for small real estate companies getting started',
+        features: [
+          '2 Estate Properties',
+          '30 Allocations per month',
+          '30 Clients & 20 Affiliates',
+          'Email support'
+        ],
+        popular: false,
+        badge: ''
+      },
+      { 
+        id: 'professional', 
+        name: 'Professional', 
+        monthly: 100000, 
+        annual: 1000000, 
+        desc: 'For growing companies scaling their operations',
+        features: [
+          '5 Estate Properties',
+          '80 Allocations per month',
+          '80 Clients & 30 Affiliates',
+          'Priority email support'
+        ],
+        popular: true,
+        badge: 'Most Popular'
+      },
+      { 
+        id: 'enterprise', 
+        name: 'Enterprise', 
+        monthly: 150000, 
+        annual: 1500000, 
+        desc: 'For large companies with unlimited needs',
+        features: [
+          'Unlimited Estate Properties',
+          'Unlimited Allocations',
+          'Unlimited Clients & Affiliates',
+          'Dedicated account manager'
+        ],
+        popular: false,
+        badge: 'Preferred Plan'
+      }
+    ];
+
+    // Promo codes (mock data)
+    const promoCodes = {
+      'WELCOME20': { discount: 0.20, label: '20% off' },
+      'NEWYEAR25': { discount: 0.25, label: '25% off' },
+      'REALESTATE10': { discount: 0.10, label: '10% off' }
+    };
+
+    let billingAnnual = false;
+    let selectedPlan = 'professional';
+    let selectedPaymentMethod = 'paystack';
+    let appliedCoupon = null;
+
+    // -------------------- Utils --------------------
+    function formatCurrency(n) {
+      return '₦' + n.toLocaleString('en-NG');
+    }
+
+    function calculateTotal() {
+      const plan = plans.find(p => p.id === selectedPlan);
+      const base = billingAnnual ? plan.annual : plan.monthly;
+      let discount = 0;
+      let savings = 0;
+
+      if (appliedCoupon && promoCodes[appliedCoupon]) {
+        discount = base * promoCodes[appliedCoupon].discount;
+      }
+
+      if (billingAnnual) {
+        // Annual savings = 2 months worth
+        savings = plan.monthly * 2;
+      }
+
+      return { 
+        base, 
+        discount, 
+        savings,
+        total: base - discount 
+      };
+    }
+
+    function generatePaymentReference() {
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `SUB-${selectedPlan.toUpperCase().substring(0, 4)}-${timestamp}${random}`;
+    }
+
+    // -------------------- Rendering --------------------
+    function renderPlans() {
+      const grid = document.getElementById('plansGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      plans.forEach(p => {
+        const el = document.createElement('div');
+        el.className = `rounded-xl p-4 sm:p-5 border-2 transition-all cursor-pointer plan-card bg-white ${
+          p.id === selectedPlan ? 'selected border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-400'
+        }`;
+        
+        const price = billingAnnual ? p.annual : p.monthly;
+        const period = billingAnnual ? 'year' : 'month';
+        const annualEquiv = billingAnnual ? `<div class="text-[10px] sm:text-xs text-slate-500 mt-1">${formatCurrency(p.annual / 12)}/mo equivalent</div>` : '';
+        const savingsNote = billingAnnual ? `<div class="text-[10px] sm:text-xs text-emerald-600 mt-1">Save ${formatCurrency(p.monthly * 2)}</div>` : '';
+        
+        let badgeHtml = '';
+        if (p.badge) {
+          const badgeColor = p.popular ? 'bg-indigo-500 text-white badge-popular' : 'bg-amber-100 text-amber-700';
+          badgeHtml = `<div class="price-badge ${badgeColor} px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">${p.badge}</div>`;
         }
 
-        .receipt-header-section { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-        .receipt-header-section .receipt-logo-area { flex: 0 0 120px; }
-        .receipt-header-section .receipt-logo-area img { max-height: 80px; }
-        .receipt-header-section .receipt-company-info { text-align: center; flex: 1; }
-        .receipt-header-section .receipt-company-info .receipt-company-name { margin: 0; font-size: 24px; font-weight: bold; }
-        .receipt-header-section .receipt-company-info .receipt-company-tagline { margin: 2px 0; font-style: italic; }
-        .receipt-header-section .receipt-contact-info { flex: 0 0 200px; text-align: right; font-size: 10px; line-height: 1.2; }
-        .receipt-company-name { font-size: 20px; font-weight: bold; margin: 0; }
-        .receipt-company-tagline { margin: 5px 0; font-size: 11px; }
-        .receipt-title-heading { font-size: 20px; text-align: center; margin: 20px 0; }
-        .receipt-info-section { margin-bottom: 20px; }
-        .receipt-info-section h3 { background-color: #f0f0f0; padding: 5px; margin: 0 0 10px 0; }
-        .receipt-info-row { margin-bottom: 5px; }
-        .receipt-info-label { font-weight: bold; display: inline-block; width: 150px; }
-        .receipt-property-details { background-color: #e0e0e0; padding: 10px; margin-bottom: 20px; }
-        .receipt-property-details h2 { text-align: center; margin-top: 0; }
-        .receipt-payment-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .receipt-payment-table th { background-color: #333; color: white; text-align: left; padding: 8px; box-sizing: border-box; margin: 0 auto 20px; }
-        .receipt-payment-table td { padding: 8px; border-bottom: 1px solid #ddd; }
-        .receipt-payment-table tr:nth-child(even) { background-color: #f2f2f2; }
-        .receipt-total-row { background-color: #333; color: white; font-weight: bold; }
-        .receipt-amount-box { background-color: #28a745; color: white; text-align: center; padding: 20px; margin: 20px 0; }
-        .receipt-amount-label { font-size: 18px; }
-        .receipt-amount-value { font-size: 36px; font-weight: bold; }
-        .receipt-signature-area { display: flex; justify-content: space-between; margin-top: 40px; }
-        .receipt-signature-box { width: 45%; text-align: center; }
-        .receipt-signature-line { border-bottom: 1px solid #000; height: 1px; margin: 0; }
-        .receipt-signature-line-client { border-bottom: 1px solid #000; height: 1px; margin: 40px 0 10px; }
-        .receipt-signature-box img { max-width: 100%; height: auto; }
-        .receipt-signature-caption { margin-top: 5px; font-size: 11px; color: #333; }
-        .receipt-footer-section { text-align: center; margin-top: 40px; font-size: 10px; color: #666; }
-    </style>
-</head>
-<body>
-    <div class="receipt-main-container">
-        <div class="receipt-watermark-overlay">NEURALENS</div>
-        <div class="receipt-header-section">
-            <div class="receipt-logo-area">
-                <img src="{% static 'assets/img/logo.png' %}" width="70" alt="Company Logo">
+        el.innerHTML = `
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div class="text-base sm:text-lg font-semibold text-slate-800">${p.name}</div>
+            ${badgeHtml}
+          </div>
+          <div class="mb-3">
+            <span class="text-2xl sm:text-3xl font-bold text-slate-800">${formatCurrency(price)}</span>
+            <span class="text-slate-500 text-sm">/${period}</span>
+            ${annualEquiv}
+            ${savingsNote}
+          </div>
+          <p class="text-slate-500 text-xs sm:text-sm mb-4 line-clamp-2">${p.desc}</p>
+          <ul class="text-slate-600 text-xs sm:text-sm space-y-1.5 sm:space-y-2">
+            ${p.features.map(f => `
+              <li class="flex items-start gap-2">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span>${f}</span>
+              </li>
+            `).join('')}
+          </ul>
+          ${p.id === selectedPlan ? `
+            <div class="mt-3 sm:mt-4 pt-3 border-t border-indigo-300">
+              <span class="text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Selected
+              </span>
             </div>
-            <div class="receipt-company-info">
-                <h1 class="receipt-company-name">NEURALENS PROPERTIES</h1>
-                <div class="receipt-company-tagline">Modern Technology Homes</div>
-            </div>
-            <div class="receipt-contact-info">
-                123 NeuraLens, Wuse Zone 4, Abuja<br>
-                +234 812 345 6789<br>
-                info@neuralensproperties.com
-            </div>
-        </div>
+          ` : ''}
+        `;
 
-        <h2 class="receipt-title-heading">OFFICIAL PAYMENT RECEIPT</h2>
+        el.addEventListener('click', () => {
+          selectedPlan = p.id;
+          renderAll();
+        });
+        
+        grid.appendChild(el);
+      });
+    }
 
-        <div class="receipt-info-section">
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Reference Number:</span>
-                {% if payment %}
-                    {{ payment.reference_code }}
-                {% else %}
-                    {{ transaction.reference_code }}
-                {% endif %}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Issue Date:</span>
-                {% if payment and payment.receipt_date %}
-                    {{ payment.receipt_date|date:"d M Y" }}
-                {% else %}
-                    {{ transaction.transaction_date|date:"d M Y" }}
-                {% endif %}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Payment Method:</span>
-                {% if payment %}
-                    {{ payment.get_payment_method_display }}
-                {% else %}
-                    {{ transaction.get_payment_method_display }}
-                {% endif %}
-            </div>
-        </div>
+    function renderSummary() {
+      const summaryPlan = document.getElementById('summaryPlan');
+      const summaryBilling = document.getElementById('summaryBilling');
+      const summaryPayment = document.getElementById('summaryPayment');
+      const summarySubtotal = document.getElementById('summarySubtotal');
+      const summaryTotal = document.getElementById('summaryTotal');
+      const discountRow = document.getElementById('discountRow');
+      const summaryDiscount = document.getElementById('summaryDiscount');
+      const savingsRow = document.getElementById('savingsRow');
+      const summarySavings = document.getElementById('summarySavings');
 
-        <div class="receipt-info-section">
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Client Name:</span>
-                {{ transaction.client.full_name }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Client ID:</span>
-                CLT{{ transaction.client.pk|stringformat:"04d" }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Contact:</span>
-                {{ transaction.client.phone|default:"N/A" }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Email:</span>
-                {{ transaction.client.email|default:"N/A" }}
-            </div>
-        </div>
+      const plan = plans.find(p => p.id === selectedPlan);
+      const calc = calculateTotal();
 
-        <div class="receipt-property-details">
-            <h2>PROPERTY DETAILS</h2>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Estate:</span>
-                {{ transaction.allocation.estate.name }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Plot Size:</span>
-                {{ transaction.allocation.plot_size }}
-            </div>
-            <!-- <div class="receipt-info-row">
-                <span class="receipt-info-label">Allocation ID:</span>
-                {{ transaction.allocation.allocation_number }}
-            </div> -->
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Location:</span>
-                {{ transaction.allocation.estate.location }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Total Value:</span>
-                ₦{{ transaction.total_amount|floatformat:2 }}
-            </div>
-            <div class="receipt-info-row">
-                <span class="receipt-info-label">Payment Type:</span>
-                {% if transaction.allocation.payment_type == 'full' %}
-                    Full Payment
-                {% else %}
-                    Installment ({{ transaction.installment_plan }})
-                {% endif %}
-            </div>
-        </div>
+      summaryPlan.textContent = plan.name;
+      summaryBilling.textContent = billingAnnual ? 'Annually' : 'Monthly';
+      summaryPayment.textContent = selectedPaymentMethod === 'paystack' ? 'Paystack' : 'Bank Transfer';
+      summarySubtotal.textContent = formatCurrency(calc.base);
+      summaryTotal.textContent = formatCurrency(calc.total);
 
-        <h3>PAYMENT DETAILS</h3>
-        <table class="receipt-payment-table">
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th>Date</th>
-                    <th>Payment</th>
-                    <th>Amount (₦)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if payment %}
-                    {% for p in payments %}
-                    <tr>
-                        <td>Payment towards property acquisition</td>
-                        <td>{{ p.payment_date|date:"d M Y" }}</td>
-                        <td>{{ p.get_installment_display }} Installment</td>
-                        <td>{{ p.amount_paid|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td>Full property payment</td>
-                        <td>{{ transaction.transaction_date|date:"d M Y" }}</td>
-                        <td>Full Payment</td>
-                        <td>{{ transaction.total_amount|floatformat:2 }}</td>
-                    </tr>
-                {% endif %}
-                <tr class="receipt-total-row">
-                    <td colspan="3" style="text-align: right;">TOTAL PAID:</td>
-                    <td>
-                        {% if payment %}
-                            {{ payments_total|floatformat:2 }}
-                        {% else %}
-                            {{ transaction.total_amount|floatformat:2 }}
-                        {% endif %}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+      // Show discount row if coupon applied
+      if (calc.discount > 0) {
+        discountRow.classList.remove('hidden');
+        summaryDiscount.textContent = '-' + formatCurrency(calc.discount);
+      } else {
+        discountRow.classList.add('hidden');
+      }
 
-        <div class="receipt-amount-box">
-            <div class="receipt-amount-label">AMOUNT RECEIVED</div>
-            <div class="receipt-amount-value">
-                ₦{% if payment %}{{ payments_total|floatformat:2 }}{% else %}{{ transaction.total_amount|floatformat:2 }}{% endif %}
-            </div>
-        </div>
+      // Show savings row if annual
+      if (billingAnnual) {
+        savingsRow.classList.remove('hidden');
+        summarySavings.textContent = formatCurrency(calc.savings);
+      } else {
+        savingsRow.classList.add('hidden');
+      }
 
-        <div class="receipt-signature-area">
-            <div class="receipt-signature-box">
-                <img src="{% static 'assets/img/signature.png' %}" width="100" alt="Authorized Signature">
-                <div class="receipt-signature-line"></div>
-                <div class="receipt-signature-caption">Authorized Signature</div>
-            </div>
-            <div class="receipt-signature-box">
-                <div class="receipt-signature-line-client"></div>
-                <div class="receipt-signature-caption">Client Signature</div>
-            </div>
-        </div>
+      // Update modal totals
+      document.getElementById('modalTotal').textContent = formatCurrency(calc.total);
+      document.getElementById('modalPlan').textContent = plan.name;
+      document.getElementById('modalBilling').textContent = billingAnnual ? 'Annually' : 'Monthly';
+      document.getElementById('bankAmount').textContent = formatCurrency(calc.total);
+      document.getElementById('bankPlanInfo').textContent = `${plan.name} Plan • ${billingAnnual ? 'Annually' : 'Monthly'}`;
+      document.getElementById('successPlan').textContent = plan.name;
+    }
 
-        <div class="receipt-footer-section">
-            This is an official receipt from NeuraLens Properties. <br>
-            Please retain this document for your records.<br>
-            &copy; {% now "Y" %} NeuraLens Properties. All rights reserved.
-        </div>
-    </div>
+    function updateBillingToggleLabels() {
+      const monthlyLabel = document.getElementById('monthlyLabel');
+      const annualLabel = document.getElementById('annualLabel');
+      
+      if (billingAnnual) {
+        monthlyLabel.className = 'text-xs sm:text-sm text-slate-500';
+        annualLabel.className = 'text-xs sm:text-sm font-medium text-indigo-600';
+      } else {
+        monthlyLabel.className = 'text-xs sm:text-sm font-medium text-indigo-600';
+        annualLabel.className = 'text-xs sm:text-sm text-slate-500';
+      }
+    }
+
+    function renderAll() {
+      renderPlans();
+      renderSummary();
+      updateBillingToggleLabels();
+    }
+
+    // -------------------- Event Handlers --------------------
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // -------------------- Init --------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+
+      // Billing toggle
+      const billingToggle = document.getElementById('billingToggle');
+      billingToggle.addEventListener('change', (e) => {
+        billingAnnual = e.target.checked;
+        renderAll();
+      });
+
+      // Payment method selection
+      document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          selectedPaymentMethod = e.target.value;
+          renderSummary();
+        });
+      });
+
+      // Coupon handling
+      document.getElementById('applyCoupon').addEventListener('click', () => {
+        const input = document.getElementById('couponInput');
+        const feedback = document.getElementById('couponFeedback');
+        const code = input.value.trim().toUpperCase();
+
+        if (!code) {
+          appliedCoupon = null;
+          feedback.classList.add('hidden');
+          renderSummary();
+          return;
+        }
+
+        if (promoCodes[code]) {
+          appliedCoupon = code;
+          feedback.textContent = `✓ Coupon applied: ${promoCodes[code].label}`;
+          feedback.className = 'text-sm mt-2 text-emerald-400';
+          feedback.classList.remove('hidden');
+        } else {
+          appliedCoupon = null;
+          feedback.textContent = '✕ Invalid or expired coupon code';
+          feedback.className = 'text-sm mt-2 text-rose-400';
+          feedback.classList.remove('hidden');
+        }
+        renderSummary();
+      });
+
+      // Subscribe button
+      document.getElementById('subscribeBtn').addEventListener('click', () => {
+        if (selectedPaymentMethod === 'paystack') {
+          openModal('paymentModal');
+        } else {
+          // Generate unique reference for bank transfer
+          const ref = generatePaymentReference();
+          document.getElementById('paymentRef').textContent = ref;
+          document.querySelectorAll('.copy-btn').forEach(btn => {
+            if (btn.dataset.copy === 'SUB-LAMBA-XYZ123') {
+              btn.dataset.copy = ref;
+            }
+          });
+          openModal('bankTransferModal');
+        }
+      });
+
+      // Close modals
+      document.getElementById('closeModal').addEventListener('click', () => closeModal('paymentModal'));
+      document.getElementById('cancelPayment').addEventListener('click', () => closeModal('paymentModal'));
+      document.getElementById('closeBankModal').addEventListener('click', () => closeModal('bankTransferModal'));
+      document.getElementById('cancelBankTransfer').addEventListener('click', () => closeModal('bankTransferModal'));
+      document.getElementById('closeSuccessModal').addEventListener('click', () => closeModal('successModal'));
+
+      // Paystack payment form
+      document.getElementById('paymentForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const feedback = document.getElementById('paymentFeedback');
+        const email = document.getElementById('payEmail').value.trim();
+        const btn = document.getElementById('payNowBtn');
+
+        if (!email || !email.includes('@')) {
+          feedback.textContent = 'Please enter a valid email address';
+          feedback.className = 'text-sm text-center text-rose-400';
+          feedback.classList.remove('hidden');
+          return;
+        }
+
+        feedback.classList.add('hidden');
+        btn.disabled = true;
+        btn.innerHTML = `
+          <span class="flex items-center justify-center gap-2">
+            <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
+          </span>
+        `;
+
+        // Simulate Paystack payment
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = `
+            <span class="flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Pay Now
+            </span>
+          `;
+          closeModal('paymentModal');
+          openModal('successModal');
+        }, 2000);
+      });
+
+      // Bank transfer confirmation
+      document.getElementById('confirmTransfer').addEventListener('click', () => {
+        closeModal('bankTransferModal');
+        openModal('transferPendingModal');
+      });
+
+      // Close transfer pending modal
+      document.getElementById('closeTransferPendingModal').addEventListener('click', () => {
+        closeModal('transferPendingModal');
+      });
+
+      // Copy buttons
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const text = btn.dataset.copy;
+          navigator.clipboard.writeText(text).then(() => {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+            setTimeout(() => {
+              btn.innerHTML = originalHtml;
+            }, 1500);
+          });
+        });
+      });
+
+      // Manage Plan Button (redirect to billing tab instead of modal since modal was removed)
+      document.getElementById('managePlanBtn').addEventListener('click', () => {
+        // Scroll to plans section or redirect to billing page
+        document.querySelector('.billing-plans-section')?.scrollIntoView({ behavior: 'smooth' });
+      });
+
+      // Invoices Modal
+      document.getElementById('viewInvoicesBtn').addEventListener('click', () => {
+        openModal('invoicesModal');
+      });
+
+      // Close Invoices Modal
+      document.getElementById('closeInvoicesModal').addEventListener('click', () => {
+        closeModal('invoicesModal');
+      });
+      document.getElementById('closeInvoicesBtn').addEventListener('click', () => {
+        closeModal('invoicesModal');
+      });
+
+      // Close modals on backdrop click
+      ['paymentModal', 'bankTransferModal', 'successModal', 'transferPendingModal', 'invoicesModal'].forEach(modalId => {
+        document.getElementById(modalId).addEventListener('click', (e) => {
+          if (e.target.id === modalId) {
+            closeModal(modalId);
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

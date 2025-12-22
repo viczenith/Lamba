@@ -576,15 +576,6 @@
       observer.observe(document.documentElement, {
         attributes: true
       });
-
-      // Ensure sidebar toggle works on desktop as well
-      const toggleBtn = document.querySelector('.toggle-sidebar-btn');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          document.body.classList.toggle('toggle-sidebar');
-        });
-      }
     });
 
     // Chat badge polling function

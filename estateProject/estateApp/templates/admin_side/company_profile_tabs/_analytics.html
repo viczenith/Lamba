@@ -1,0 +1,597 @@
+{% load humanize %}
+
+<!-- Analytics Tab Content -->
+
+<!-- Analytics Header with Gradient -->
+<div class="analytics-header mb-4 p-4 rounded-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h3 class="text-white mb-2 fw-bold">
+                <i class="bi bi-graph-up-arrow me-2"></i>Business Analytics Dashboard
+            </h3>
+            <p class="text-white-50 mb-0">Gain insights into your company's performance with descriptive, predictive, and prescriptive analytics</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group">
+                <button class="btn btn-light btn-sm" id="analyticsRefreshBtn">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                </button>
+                <button class="btn btn-light btn-sm" id="analyticsExportBtn">
+                    <i class="bi bi-download me-1"></i>Export Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Period Selector -->
+<div class="card border-0 shadow-sm mb-4 analytics-filter-card">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-muted small">ANALYSIS PERIOD</label>
+                <select class="form-select" id="analyticsPeriodType">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annual" selected>Annual</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-muted small">SELECT YEAR</label>
+                <select class="form-select" id="analyticsYear">
+                    <!-- Populated by JavaScript -->
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-muted small">COMPARE WITH</label>
+                <select class="form-select" id="analyticsCompareYear">
+                    <option value="">No Comparison</option>
+                    <!-- Populated by JavaScript -->
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn w-100" id="analyticsApplyBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <i class="bi bi-funnel me-1"></i>Apply Filters
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Cards with Animation -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="analytics-kpi-card" style="--delay: 0.1s;">
+            <div class="kpi-icon bg-primary">
+                <i class="bi bi-currency-exchange"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Total Revenue</span>
+                <h3 class="kpi-value" id="totalRevenueKPI">₦0</h3>
+                <span class="kpi-change positive" id="revenueChange">
+                    <i class="bi bi-arrow-up"></i> +0%
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="analytics-kpi-card" style="--delay: 0.2s;">
+            <div class="kpi-icon bg-success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Closed Deals</span>
+                <h3 class="kpi-value" id="closedDealsKPI">0</h3>
+                <span class="kpi-change positive" id="dealsChange">
+                    <i class="bi bi-arrow-up"></i> +0%
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="analytics-kpi-card" style="--delay: 0.3s;">
+            <div class="kpi-icon bg-warning">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Active Marketers</span>
+                <h3 class="kpi-value" id="activeMarketersKPI">0</h3>
+                <span class="kpi-change neutral" id="marketersChange">
+                    <i class="bi bi-dash"></i> 0%
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="analytics-kpi-card" style="--delay: 0.4s;">
+            <div class="kpi-icon bg-info">
+                <i class="bi bi-bullseye"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Target Achievement</span>
+                <h3 class="kpi-value" id="targetAchievementKPI">0%</h3>
+                <span class="kpi-change" id="targetChange">
+                    <i class="bi bi-dash"></i> --
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Revenue Trend Chart -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100 analytics-chart-card">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-graph-up text-primary me-2"></i>Revenue Trend
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary active" data-chart-view="line">Line</button>
+                    <button class="btn btn-outline-primary" data-chart-view="bar">Bar</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="revenueTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Performance Distribution -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100 analytics-chart-card">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-pie-chart text-success me-2"></i>Performance Distribution
+                </h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <div class="chart-container" style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="performanceDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Descriptive Analytics Section -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm analytics-section-card">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-bar-chart-line text-primary me-2"></i>Descriptive Analytics
+                    <span class="badge bg-primary ms-2">What Happened?</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- Monthly Breakdown -->
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-2"></i>Monthly Breakdown</h6>
+                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="monthlyBreakdownChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Top Performers -->
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3"><i class="bi bi-trophy me-2"></i>Top Performers</h6>
+                        <div id="topPerformersContainer">
+                            <!-- Populated by JavaScript -->
+                            <div class="text-center py-4 text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p class="mt-2 mb-0">Loading top performers...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Predictive Analytics Section -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm analytics-section-card predictive-card">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-lightning-charge text-warning me-2"></i>Predictive Analytics
+                    <span class="badge bg-warning text-dark ms-2">What Will Happen?</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- Forecast Chart -->
+                    <div class="col-md-8">
+                        <h6 class="text-muted mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Sales Forecast (Next 6 Months)</h6>
+                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="forecastChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Forecast Cards -->
+                    <div class="col-md-4">
+                        <div class="forecast-scenario-card optimistic mb-3">
+                            <div class="scenario-header">
+                                <i class="bi bi-emoji-smile"></i>
+                                <span>Optimistic</span>
+                            </div>
+                            <h4 class="scenario-value" id="forecastOptimistic">₦0</h4>
+                            <span class="scenario-growth">+25% growth</span>
+                        </div>
+                        <div class="forecast-scenario-card realistic mb-3">
+                            <div class="scenario-header">
+                                <i class="bi bi-emoji-neutral"></i>
+                                <span>Realistic</span>
+                            </div>
+                            <h4 class="scenario-value" id="forecastRealistic">₦0</h4>
+                            <span class="scenario-growth">+15% growth</span>
+                        </div>
+                        <div class="forecast-scenario-card conservative">
+                            <div class="scenario-header">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Conservative</span>
+                            </div>
+                            <h4 class="scenario-value" id="forecastConservative">₦0</h4>
+                            <span class="scenario-growth">+5% growth</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prescriptive Analytics Section -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm analytics-section-card prescriptive-card">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-lightbulb text-success me-2"></i>Prescriptive Analytics
+                    <span class="badge bg-success ms-2">What Should We Do?</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4" id="recommendationsContainer">
+                    <!-- AI Recommendations will be loaded here -->
+                    <div class="col-12 text-center py-4 text-muted">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p class="mt-2 mb-0">Generating recommendations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Growth Insights -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-speedometer2 text-info me-2"></i>Growth Velocity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                    <canvas id="growthVelocityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-calendar-week text-danger me-2"></i>Seasonal Patterns
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                    <canvas id="seasonalPatternChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collections & Payment Health Section -->
+<div class="row g-4 mt-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm analytics-section-card">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-cash-coin text-success me-2"></i>Collections & Payment Health
+                    <span class="badge bg-success ms-2">Financial Insights</span>
+                </h5>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'marketer_export_api' %}?format=excel" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Download All Marketers
+                    </a>
+                    <a href="{% url 'client_export_api' %}?format=excel" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Download All Clients
+                    </a>
+                    <button class="btn btn-sm btn-outline-success" id="refreshPaymentHealthBtn">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Payment Health KPIs -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="payment-health-card bg-gradient-primary text-white rounded-4 p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                    <i class="bi bi-currency-exchange fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="small opacity-75">Total Sales Value</div>
+                                    <div class="fs-5 fw-bold" id="phTotalSales">₦0</div>
+                                    <div class="small" id="phTotalCount">0 transactions</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="payment-health-card bg-gradient-success text-white rounded-4 p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                    <i class="bi bi-check-circle fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="small opacity-75">Collected Amount</div>
+                                    <div class="fs-5 fw-bold" id="phCollected">₦0</div>
+                                    <div class="small" id="phCollectionRate">0% collection rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="payment-health-card bg-gradient-warning text-white rounded-4 p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                    <i class="bi bi-hourglass-split fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="small opacity-75">Outstanding Balance</div>
+                                    <div class="fs-5 fw-bold" id="phOutstanding">₦0</div>
+                                    <div class="small" id="phPendingCount">0 pending payments</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="payment-health-card bg-gradient-danger text-white rounded-4 p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-circle bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                                    <i class="bi bi-exclamation-triangle fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="small opacity-75">Overdue Amount</div>
+                                    <div class="fs-5 fw-bold" id="phOverdue">₦0</div>
+                                    <div class="small" id="phOverdueCount">0 overdue</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Payment Status Distribution -->
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-3"><i class="bi bi-pie-chart me-2"></i>Payment Status Distribution</h6>
+                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="paymentStatusChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Collection Trend -->
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-3"><i class="bi bi-graph-up me-2"></i>Monthly Collection Trend</h6>
+                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="collectionTrendChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Estate Performance -->
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-3"><i class="bi bi-building me-2"></i>Sales by Estate</h6>
+                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
+                            <canvas id="estatePerformanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Health Insights -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="alert alert-light border-0 shadow-sm" id="paymentHealthInsights">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-lightbulb text-warning fs-4 me-3"></i>
+                                <div>
+                                    <strong>Collection Insights:</strong>
+                                    <span id="phInsightText">Loading payment health analysis...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overdue Clients List (Collapsible) -->
+                <div class="accordion mt-3" id="overdueAccordion">
+                    <div class="accordion-item border-0 shadow-sm">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#overdueClientsList">
+                                <i class="bi bi-people text-danger me-2"></i>
+                                <span>Overdue Clients Requiring Attention</span>
+                                <span class="badge bg-danger ms-2" id="overdueClientsBadge">0</span>
+                            </button>
+                        </h2>
+                        <div id="overdueClientsList" class="accordion-collapse collapse" data-bs-parent="#overdueAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Client</th>
+                                                <th>Estate</th>
+                                                <th>Outstanding</th>
+                                                <th>Days Overdue</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="overdueClientsTableBody">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted py-3">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Export Section -->
+                <div class="accordion mt-3" id="transactionExportAccordion">
+                    <div class="accordion-item border-0 shadow-sm">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#transactionExportPanel">
+                                <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>
+                                <span>Export All Transactions</span>
+                                <span class="badge bg-success ms-2">Since Inception</span>
+                            </button>
+                        </h2>
+                        <div id="transactionExportPanel" class="accordion-collapse collapse" data-bs-parent="#transactionExportAccordion">
+                            <div class="accordion-body">
+                                <!-- Export Filters -->
+                                <div class="row g-3 mb-4 align-items-end">
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">FROM DATE</label>
+                                        <input type="date" class="form-control form-control-sm txn-filter-input w-100" id="txnExportFromDate" placeholder="Start date">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">TO DATE</label>
+                                        <input type="date" class="form-control form-control-sm txn-filter-input w-100" id="txnExportToDate" placeholder="End date">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">ESTATE</label>
+                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportEstate">
+                                            <option value="">All Estates</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">STATUS</label>
+                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportStatus">
+                                            <option value="">All Statuses</option>
+                                            <option value="Fully Paid">Fully Paid</option>
+                                            <option value="Paid Complete">Paid Complete</option>
+                                            <option value="Part Payment">Part Payment</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Overdue">Overdue</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">MARKETER</label>
+                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportMarketer">
+                                            <option value="">All Marketers</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted fw-semibold mb-2 d-block">FORMAT</label>
+                                        <select class="form-control form-control-sm txn-filter-input w-100" id="txnExportFormat">
+                                            <option value="excel">Excel (.xlsx)</option>
+                                            <option value="csv">CSV</option>
+                                            <option value="pdf">PDF</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <style>
+                                    .txn-filter-input {
+                                        border: 1px solid #dee2e6;
+                                        border-radius: 6px;
+                                        padding: 0.5rem 0.75rem;
+                                        font-size: 0.875rem;
+                                        background-color: #fff;
+                                        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+                                        height: 38px;
+                                        display: flex;
+                                        align-items: center;
+                                    }
+                                    .txn-filter-input:focus {
+                                        border-color: #667eea;
+                                        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+                                        outline: none;
+                                    }
+                                    .txn-filter-input:hover {
+                                        border-color: #adb5bd;
+                                    }
+                                    select.txn-filter-input {
+                                        cursor: pointer;
+                                        appearance: none;
+                                        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+                                        background-repeat: no-repeat;
+                                        background-position: right 0.75rem center;
+                                        background-size: 12px;
+                                        padding-right: 2.25rem;
+                                    }
+                                </style>
+
+                                <!-- Export Summary & Actions -->
+                                <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3">
+                                    <div>
+                                        <span class="text-muted">Transactions matching filters:</span>
+                                        <strong class="ms-2" id="txnExportCount">Loading...</strong>
+                                        <span class="text-muted ms-3">|</span>
+                                        <span class="text-muted ms-3">Total Value:</span>
+                                        <strong class="text-success ms-2" id="txnExportValue">₦0</strong>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm" id="txnPreviewBtn">
+                                            <i class="bi bi-eye me-1"></i>Preview
+                                        </button>
+                                        <button class="btn btn-success btn-sm" id="txnExportBtn">
+                                            <i class="bi bi-download me-1"></i>Export
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Preview Table (hidden by default) -->
+                                <div id="txnPreviewContainer" class="mt-3" style="display: none;">
+                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Client</th>
+                                                    <th>Estate</th>
+                                                    <th>Plot Size</th>
+                                                    <th>Marketer</th>
+                                                    <th>Total Amount</th>
+                                                    <th>Paid</th>
+                                                    <th>Balance</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="txnPreviewTableBody">
+                                                <tr>
+                                                    <td colspan="9" class="text-center text-muted py-3">Click Preview to load data...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="text-muted small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i>Showing first 50 records. Export to see all records.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

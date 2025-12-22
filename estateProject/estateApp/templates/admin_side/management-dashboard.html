@@ -1460,4 +1460,61 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const tabList = document.getElementById('salesTabs');
+    if (!tabList) return;
+    if (typeof bootstrap === 'undefined' || !bootstrap.Tab) return;
+
+    const storageKey = 'activeTab:' + window.location.pathname + ':salesTabs';
+    const tabButtons = Array.from(tabList.querySelectorAll('[data-bs-toggle="tab"]'));
+    if (!tabButtons.length) return;
+
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('shown.bs.tab', (event) => {
+        if (event && event.target && event.target.id) {
+          try {
+            localStorage.setItem(storageKey, event.target.id);
+          } catch (_) {}
+        }
+      });
+    });
+
+    function findButtonFromValue(value) {
+      if (!value) return null;
+      const raw = String(value).trim();
+      if (!raw) return null;
+
+      // If the value is a button id (e.g. "evaluation-tab")
+      const byId = document.getElementById(raw);
+      if (byId && byId.matches && byId.matches('[data-bs-toggle="tab"]')) return byId;
+
+      // If the value is a pane id (e.g. "evaluation" or "#evaluation")
+      const paneSelector = raw.startsWith('#') ? raw : `#${raw}`;
+      const byTarget = tabButtons.find((btn) => btn.getAttribute('data-bs-target') === paneSelector);
+      if (byTarget) return byTarget;
+
+      return null;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const hashValue = window.location.hash ? window.location.hash : null;
+
+    let savedId = null;
+    try {
+      savedId = localStorage.getItem(storageKey);
+    } catch (_) {}
+
+    const preferred =
+      findButtonFromValue(tabParam) ||
+      findButtonFromValue(hashValue) ||
+      findButtonFromValue(savedId);
+
+    if (preferred && !preferred.classList.contains('active')) {
+      bootstrap.Tab.getOrCreateInstance(preferred).show();
+    }
+  });
+</script>
+
 {% endblock %}

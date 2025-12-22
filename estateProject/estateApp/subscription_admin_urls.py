@@ -46,6 +46,10 @@ urlpatterns = [
     path('api/billing/history/', 
          subscription_views.get_billing_history, 
          name='get_billing_history'),
+
+    path('api/billing/payment-method/',
+         subscription_views.update_payment_method,
+         name='update_payment_method'),
     
     path('subscription/billing/invoice/<int:invoice_id>/download/', 
          subscription_views.download_invoice, 
