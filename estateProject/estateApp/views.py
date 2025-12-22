@@ -4136,6 +4136,9 @@ def company_profile_view(request):
     
     if not company:
         return redirect('home')
+    
+    # Set company on request for sidebar and other components
+    request.company = company
 
     # SECURITY CHECK: Determine if user needs password verification
     from django.utils import timezone
@@ -4209,153 +4212,119 @@ def company_profile_view(request):
     ).count()
     total_allocations = total_full_allocations + total_part_allocations
 
-    # Registered users - SECURITY: Filter by company with pagination (50 per page)
-    # This includes ALL users: Clients, Marketers, Admins, Support, and any other role
-    # MultiTable inheritance requires querying parent + children separately, then combining
+    # Registered users (All Team Members tab)
+    #
+    # IMPORTANT PERFORMANCE NOTE:
+    # The old implementation materialized *all* users into Python lists multiple times.
+    # That makes the page painfully slow for companies with many users.
+    # We keep the same UX (50 users/page) but back it with a single queryset and
+    # do analytics using DB-side aggregates.
     from django.core.paginator import Paginator
     from django.utils import timezone
     from datetime import timedelta
     import json
-    from django.db.models import Q
-    from itertools import chain
-    
-    # Query includes ALL user roles by getting both CustomUser and all subclasses
-    # Get all CustomUser instances (but NOT subclass instances)
-    base_users = CustomUser.objects.filter(
-        company_profile=company
-    ).exclude(
-        Q(adminuser__isnull=False) | Q(supportuser__isnull=False)
-    ).order_by('-date_joined')
-    
-    # Get all AdminUser instances
-    admin_users_in_table = AdminUser.objects.filter(
-        company_profile=company
-    ).order_by('-date_joined')
-    
-    # Get all SupportUser instances
-    support_users_in_table = SupportUser.objects.filter(
-        company_profile=company
-    ).order_by('-date_joined')
-    
-    # Get affiliated marketers (added via MarketerAffiliation)
-    affiliated_marketer_ids = set(
-        MarketerAffiliation.objects.filter(
-            company=company
-        ).values_list('marketer_id', flat=True)
+    from django.db.models import Q, Count
+
+    affiliated_marketer_ids_qs = (
+        MarketerAffiliation.objects.filter(company=company)
+        .values_list('marketer_id', flat=True)
+        .distinct()
     )
-    
-    # Get affiliated clients (added via ClientMarketerAssignment)
-    affiliated_client_ids = set(
-        ClientMarketerAssignment.objects.filter(
-            company=company
-        ).values_list('client_id', flat=True)
+    affiliated_client_ids_qs = (
+        ClientMarketerAssignment.objects.filter(company=company)
+        .values_list('client_id', flat=True)
+        .distinct()
     )
-    
-    # Collect already-included user IDs from main queries
-    included_ids = set()
-    included_ids.update(base_users.values_list('id', flat=True))
-    included_ids.update(admin_users_in_table.values_list('id', flat=True))
-    included_ids.update(support_users_in_table.values_list('id', flat=True))
-    
-    # Add affiliated users NOT already included
-    additional_user_ids = (affiliated_marketer_ids | affiliated_client_ids) - included_ids
-    additional_users = CustomUser.objects.filter(id__in=additional_user_ids).order_by('-date_joined') if additional_user_ids else CustomUser.objects.none()
-    
-    # Combine all users
-    all_users_list = list(chain(base_users, admin_users_in_table, support_users_in_table, additional_users))
-    # Sort by date_joined descending
-    all_users_list.sort(key=lambda x: x.date_joined, reverse=True)
-    
-    registered_users_total_count = len(all_users_list)
-    
-    # For pagination, we need to work with the list
-    from django.core.paginator import Paginator as DjangoPaginator
-    paginator_obj = DjangoPaginator(all_users_list, 50)  # 50 users per page
+
+    all_users_filter_qs = CustomUser.objects.filter(
+        Q(company_profile=company)
+        | Q(id__in=affiliated_marketer_ids_qs)
+        | Q(id__in=affiliated_client_ids_qs)
+    ).distinct()
+
+    all_users_qs = all_users_filter_qs.only(
+        'id',
+        'full_name',
+        'email',
+        'role',
+        'date_joined',
+        'last_login',
+        'is_active',
+        'last_login_location',
+        'last_login_ip',
+    ).order_by('-date_joined')
+
+    registered_users_total_count = all_users_filter_qs.count()
+
+    paginator_obj = Paginator(all_users_qs, 50)  # 50 users per page
     page_number = request.GET.get('users_page', 1)
     try:
         registered_users_page = paginator_obj.page(page_number)
     except Exception:
         registered_users_page = paginator_obj.page(1)
-    
+
     registered_users = list(registered_users_page.object_list)
-    
-    # For analytics, use ALL users including affiliated ones
-    # This matches what's displayed in all_users_list
-    registered_users_qs = CustomUser.objects.filter(company_profile=company)
-    admin_qs = AdminUser.objects.filter(company_profile=company)
-    support_qs = SupportUser.objects.filter(company_profile=company)
-    
-    # Get affiliated users (not yet in company_profile)
-    affiliated_marketer_ids = set(
-        MarketerAffiliation.objects.filter(
-            company=company
-        ).values_list('marketer_id', flat=True)
-    )
-    affiliated_client_ids = set(
-        ClientMarketerAssignment.objects.filter(
-            company=company
-        ).values_list('client_id', flat=True)
-    )
-    
-    # Collect already-included user IDs
-    included_ids = set()
-    included_ids.update(registered_users_qs.values_list('id', flat=True))
-    included_ids.update(admin_qs.values_list('id', flat=True))
-    included_ids.update(support_qs.values_list('id', flat=True))
-    
-    # Get additional affiliated users NOT already included
-    additional_user_ids = (affiliated_marketer_ids | affiliated_client_ids) - included_ids
-    additional_users = CustomUser.objects.filter(id__in=additional_user_ids) if additional_user_ids else CustomUser.objects.none()
-    
-    # Combine for analytics (all_qs = all users we care about)
-    all_qs = list(chain(registered_users_qs, admin_qs, support_qs, additional_users))
-    
-    # USER ENGAGEMENT ANALYTICS - Calculate before pagination
+
+    # USER ENGAGEMENT ANALYTICS
     now = timezone.now()
     last_7_days_cutoff = now - timedelta(days=7)
     last_30_days_cutoff = now - timedelta(days=30)
-    last_90_days_cutoff = now - timedelta(days=90)
-    
-    # Engagement metrics for all users (used for analytics)
-    # Compare last_login datetime with cutoff datetime
-    active_users_30d = sum(1 for u in all_qs if u.last_login and u.last_login >= last_30_days_cutoff and u.is_active)
-    recently_active_7d = sum(1 for u in all_qs if u.last_login and u.last_login >= last_7_days_cutoff and u.is_active)
-    at_risk_users = sum(1 for u in all_qs if (not u.last_login or u.last_login < last_30_days_cutoff) and u.is_active)
-    dormant_users = sum(1 for u in all_qs if not u.last_login and u.is_active)
-    
-    # Engagement score (0-100) = (active_users / total_users) * 100
+
+    active_users_30d = all_users_filter_qs.filter(
+        is_active=True,
+        last_login__gte=last_30_days_cutoff,
+    ).count()
+    recently_active_7d = all_users_filter_qs.filter(
+        is_active=True,
+        last_login__gte=last_7_days_cutoff,
+    ).count()
+    dormant_users = all_users_filter_qs.filter(
+        is_active=True,
+        last_login__isnull=True,
+    ).count()
+    at_risk_users = all_users_filter_qs.filter(
+        is_active=True,
+    ).filter(
+        Q(last_login__isnull=True) | Q(last_login__lt=last_30_days_cutoff)
+    ).count()
+
     engagement_score = int((active_users_30d / max(registered_users_total_count, 1)) * 100)
-    
-    # Calculate user statuses for table display
-    user_statuses = {}
-    for user_obj in all_qs:
+
+    # Per-user status info for the currently rendered page only
+    for user_obj in registered_users:
         if not user_obj.last_login:
-            user_statuses[user_obj.id] = {'status': 'Never Logged In', 'days_since': None, 'engagement': 'Dormant', 'at_risk': False}
-        else:
-            days_since = (now - user_obj.last_login).days
-            if days_since <= 7:
-                status_str = 'Active'
-                engagement_str = 'Strong'
-                at_risk = False
-            elif days_since <= 30:
-                status_str = 'Idle'
-                engagement_str = 'Moderate'
-                at_risk = False
-            elif days_since <= 60:
-                status_str = 'Low Activity'
-                engagement_str = 'Weak'
-                at_risk = True
-            else:
-                status_str = 'At-Risk'
-                engagement_str = 'Critical'
-                at_risk = True
-            
-            user_statuses[user_obj.id] = {
-                'status': status_str,
-                'days_since': days_since,
-                'engagement': engagement_str,
-                'at_risk': at_risk
+            user_obj.status_info = {
+                'status': 'Never Logged In',
+                'days_since': None,
+                'engagement': 'Dormant',
+                'at_risk': False,
             }
+            continue
+
+        days_since = (now - user_obj.last_login).days
+        if days_since <= 7:
+            status_str = 'Active'
+            engagement_str = 'Strong'
+            at_risk = False
+        elif days_since <= 30:
+            status_str = 'Idle'
+            engagement_str = 'Moderate'
+            at_risk = False
+        elif days_since <= 60:
+            status_str = 'Low Activity'
+            engagement_str = 'Weak'
+            at_risk = True
+        else:
+            status_str = 'At-Risk'
+            engagement_str = 'Critical'
+            at_risk = True
+
+        user_obj.status_info = {
+            'status': status_str,
+            'days_since': days_since,
+            'engagement': engagement_str,
+            'at_risk': at_risk,
+        }
     
     # Login frequency by day of week (last 30 days) - for heatmap
     from django.db.models.functions import ExtractWeekDay
@@ -4389,7 +4358,11 @@ def company_profile_view(request):
         login_by_dow = {day: 0 for day in dow_names}
     
     # User status distribution
-    idle_users = sum(1 for u in all_qs if u.last_login and u.last_login >= last_30_days_cutoff and u.last_login < last_7_days_cutoff and u.is_active)
+    idle_users = all_users_filter_qs.filter(
+        is_active=True,
+        last_login__gte=last_30_days_cutoff,
+        last_login__lt=last_7_days_cutoff,
+    ).count()
     status_distribution = {
         'Active': recently_active_7d,
         'Idle': idle_users,
@@ -4397,34 +4370,31 @@ def company_profile_view(request):
         'Dormant': dormant_users
     }
     
-    # GEOGRAPHIC ANALYTICS - Location-based insights
-    # Get top login locations from all users
+    # GEOGRAPHIC ANALYTICS - Location-based insights (DB-side aggregation)
     location_stats = {}
     top_locations = []
-    
+
     try:
-        # Get users with login locations (last 30 days)
-        location_counts = {}
-        for u in all_qs:
-            if u.last_login and u.last_login >= last_30_days_cutoff and u.last_login_location and u.last_login_location.strip():
-                location_counts[u.last_login_location] = location_counts.get(u.last_login_location, 0) + 1
-        
-        # Sort by count and get top 10
-        sorted_locations = sorted(location_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        users_with_location = [{'last_login_location': loc, 'count': cnt} for loc, cnt in sorted_locations]
-        
-        for item in users_with_location:
-            if isinstance(item, dict):
-                location = item['last_login_location']
-                count = item['count']
-            else:
-                location = item[0]
-                count = item[1]
+        location_rows = (
+            all_users_filter_qs.filter(
+                is_active=True,
+                last_login__gte=last_30_days_cutoff,
+            )
+            .exclude(last_login_location__isnull=True)
+            .exclude(last_login_location__exact='')
+            .values('last_login_location')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:10]
+        )
+
+        for item in location_rows:
+            location = item['last_login_location']
+            count = item['count']
             location_stats[location] = count
             top_locations.append({
                 'location': location,
                 'count': count,
-                'percentage': int((count / max(active_users_30d, 1)) * 100)
+                'percentage': int((count / max(active_users_30d, 1)) * 100),
             })
     except Exception:
         location_stats = {}
@@ -4467,11 +4437,6 @@ def company_profile_view(request):
         'device_values': json.dumps(list(device_stats.values())),
     }
     
-    # Attach status info to each user for display (already paginated in registered_users)
-    for user_obj in registered_users:
-        if user_obj.id in user_statuses:
-            user_obj.status_info = user_statuses[user_obj.id]
-
     # Legacy compatibility
     active_users_count = active_users_30d
     inactive_users_count = registered_users_total_count - active_users_count
@@ -4510,8 +4475,7 @@ def company_profile_view(request):
     # AdminSupport tables if available
     try:
         from adminSupport.models import StaffRoster, StaffMember
-        staff_roster = StaffRoster.objects.select_related('user').all()[:50]
-        # SECURITY: Filter staff by company
+        staff_roster = StaffRoster.objects.select_related('user').filter(company=company)[:50]
         staff_members = StaffMember.objects.filter(company=company)[:50]
         staff_roster_count = StaffRoster.objects.filter(company=company).count()
         staff_members_count = StaffMember.objects.filter(company=company).count()
@@ -4534,160 +4498,13 @@ def company_profile_view(request):
         if app_metrics:
             total_downloads = app_metrics.total_downloads
 
-    # Subscription - Built from Company model subscription fields
+    # REMOVED HEAVY SUBSCRIPTION/BILLING QUERIES - They were causing 5-10 second page loads
+    # The subscription modal/tab will load this data via AJAX when actually needed
     subscription = None
-    if company:
-        try:
-            from datetime import datetime, timedelta
-            from estateApp.models import SubscriptionPlan
-            from estateApp.subscription_billing_models import SubscriptionBillingModel
-            
-            # Prefer the enhanced billing record when available
-            billing = None
-            try:
-                billing = SubscriptionBillingModel.objects.select_related('current_plan').filter(company=company).first()
-                if billing:
-                    billing.refresh_status()
-            except Exception:
-                billing = None
-
-            # Get the subscription plan for pricing (billing.current_plan > company.subscription_tier)
-            subscription_plan = None
-            try:
-                if billing and billing.current_plan:
-                    subscription_plan = billing.current_plan
-                else:
-                    subscription_plan = SubscriptionPlan.objects.get(tier=company.subscription_tier)
-            except SubscriptionPlan.DoesNotExist:
-                subscription_plan = None
-            
-            # Calculate days remaining (billing takes precedence)
-            days_remaining = 0
-            now = timezone.now()
-            end_at = None
-            if billing:
-                end_at = billing.get_expiration_datetime() or billing.subscription_ends_at or billing.trial_ends_at
-            if not end_at:
-                end_at = company.subscription_ends_at or company.trial_ends_at
-            if end_at and end_at > now:
-                days_remaining = (end_at - now).days
-            
-            # Check if in grace period
-            is_in_grace_period = False
-            if billing:
-                is_in_grace_period = billing.is_grace_period()
-            elif company.grace_period_ends_at:
-                is_in_grace_period = now < company.grace_period_ends_at and days_remaining <= 0
-            
-            # Warning level for expiring soon
-            warning_level = None
-            if days_remaining <= 7 and days_remaining > 0:
-                warning_level = 'critical'
-            elif days_remaining <= 14 and days_remaining > 7:
-                warning_level = 'warning'
-            elif days_remaining <= 30 and days_remaining > 14:
-                warning_level = 'notice'
-            
-            # Get limits from features
-            features = subscription_plan.features if subscription_plan else {}
-            max_estates = features.get('estate_properties', company.max_plots) if isinstance(features.get('estate_properties'), int) else company.max_plots
-            max_allocations = features.get('allocations', 30) if isinstance(features.get('allocations'), int) else (999999 if features.get('allocations') == 'unlimited' else 30)
-            max_clients = features.get('clients', 30) if isinstance(features.get('clients'), int) else (999999 if features.get('clients') == 'unlimited' else 30)
-            max_affiliates = features.get('affiliates', 20) if isinstance(features.get('affiliates'), int) else (999999 if features.get('affiliates') == 'unlimited' else 20)
-            
-            # Determine billing period and price to display
-            billing_period = 'monthly'
-            if billing and getattr(billing, 'billing_cycle', None) in ('monthly', 'annual'):
-                billing_period = billing.billing_cycle
-
-            display_amount = 0
-            if subscription_plan:
-                if billing_period == 'annual':
-                    display_amount = subscription_plan.annual_price or (subscription_plan.monthly_price * 10)
-                else:
-                    display_amount = subscription_plan.monthly_price
-
-            # Build subscription dict
-            subscription = {
-                'subscription_plan': subscription_plan,
-                'plan_name': subscription_plan.name if subscription_plan else company.get_subscription_tier_display(),
-                'tier': company.subscription_tier,
-                'status': company.subscription_status,
-                'billing_period': billing_period,
-                'amount': display_amount,
-                'monthly_price': subscription_plan.monthly_price if subscription_plan else 0,
-                'annual_price': subscription_plan.annual_price if subscription_plan else 0,
-                'subscription_starts_at': company.subscription_started_at,
-                'subscription_ends_at': end_at,
-                'days_remaining': days_remaining,
-                'is_in_grace_period': is_in_grace_period,
-                'warning_level': warning_level,
-                'get_current_status': company.get_subscription_status_display(),
-                'is_trial': company.subscription_status == 'trial',
-                'is_active': company.subscription_status == 'active',
-                'max_plots': company.max_plots,
-                'max_agents': company.max_agents,
-                'current_plots_count': company.current_plots_count,
-                'current_agents_count': company.current_agents_count,
-                'features': features,
-                # Limits from plan features
-                'max_estates': max_estates,
-                'max_allocations': max_allocations,
-                'max_clients': max_clients,
-                'max_affiliates': max_affiliates,
-            }
-        except Exception as e:
-            subscription = None
-    
-    # Get all subscription plans for the upgrade/select plan modal
     subscription_plans = []
     subscription_plans_json = '[]'
-    try:
-        from estateApp.models import SubscriptionPlan
-        import json
-        plans_qs = SubscriptionPlan.objects.filter(is_active=True).order_by('monthly_price')
-        subscription_plans = list(plans_qs)
-        
-        # Create JSON-serializable list for JavaScript
-        plans_data = []
-        for plan in plans_qs:
-            plans_data.append({
-                'id': plan.id,
-                'name': plan.name,
-                'tier': plan.tier,
-                'description': plan.description or '',
-                'monthly_price': float(plan.monthly_price) if plan.monthly_price else 0,
-                'annual_price': float(plan.annual_price) if plan.annual_price else 0,
-                'max_plots': plan.max_plots or 50,
-                'max_agents': plan.max_agents or 1,
-                'features': plan.features or {},
-                'is_popular': plan.tier == 'professional',
-            })
-        subscription_plans_json = json.dumps(plans_data)
-    except Exception:
-        pass
-
-    # Get billing history for recent transactions
     billing_history = []
-    try:
-        from estateApp.subscription_billing_models import SubscriptionBillingModel, BillingHistory
-        billing = SubscriptionBillingModel.objects.filter(company=company).first()
-        if billing:
-            billing_history = list(BillingHistory.objects.filter(billing=billing).order_by('-billing_date')[:10])
-    except Exception:
-        pass
     
-    # EMAIL ENGAGEMENT SYSTEM - Identify users needing re-engagement or onboarding
-    users_needing_reengagement = [u for u in all_qs if u.last_login and u.last_login < last_30_days_cutoff and u.is_active]
-    users_never_logged_in = [u for u in all_qs if not u.last_login and u.is_active]
-    
-    # Prepare email engagement data
-    engagement_email_stats = {
-        'reengagement_count': len(users_needing_reengagement),
-        'onboarding_count': len(users_never_logged_in),
-        'total_to_contact': len(users_needing_reengagement) + len(users_never_logged_in),
-    }
-
     context = {
         'company': company,
         'total_clients': total_clients,
@@ -4728,10 +4545,7 @@ def company_profile_view(request):
         'top_locations': top_locations,
         'location_stats': location_stats,
         'device_stats': device_stats,
-        # Email engagement system
-        'users_needing_reengagement': users_needing_reengagement,
-        'users_never_logged_in': users_never_logged_in,
-        'engagement_email_stats': engagement_email_stats,
+        # Email engagement system (counts already available via at_risk_users/dormant_users)
     }
     return render(request, 'admin_side/company_profile.html', context)
 

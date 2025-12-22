@@ -1293,7 +1293,7 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                 'status_code': response.status_code,
                 'path': request.path
             })
-        
+            
         # Track if this was a bot request
         if getattr(request, '_is_bot', False):
             response['X-Bot-Detected'] = 'true'
