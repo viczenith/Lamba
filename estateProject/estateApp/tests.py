@@ -3,7 +3,7 @@ from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
 from estateApp.models import Estate
-from estateApp.serializers.estate_serializers import EstateSerializer
+from DRF.company_admin.serializers.estate_serializers import EstateSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

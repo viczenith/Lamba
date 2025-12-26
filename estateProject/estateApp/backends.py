@@ -15,27 +15,40 @@ class MultipleUserMatch:
 
 
 class EmailBackend:
-    def authenticate(self, request, username=None, password=None):
+    def authenticate(self, request, username=None, password=None, email=None, company=None, **kwargs):
+        """Authenticate by email address.
+
+        Supports both `username` and `email` credential keys (to work with
+        Django forms + DRF token auth), and supports optional `company` for
+        tenant-scoped authentication.
+        """
         try:
+            identifier = username or email
+            if not identifier or not password:
+                return None
+
             # Find all users with this email (handles multi-role scenario)
-            users = CustomUser.objects.filter(email=username)
+            users = CustomUser.objects.filter(email=identifier)
+
+            # Optional tenant scoping
+            if company is not None:
+                users = users.filter(company_profile=company)
 
             # Check which users have the correct password
-            matching_users = []
-            for user in users:
-                if user.check_password(password):
-                    matching_users.append(user)
+            matching_users = [u for u in users if u.check_password(password)]
 
             # If only one user matches, return that user
             if len(matching_users) == 1:
                 return matching_users[0]
 
             # If multiple users match (multiple roles), return special object for role selection
-            elif len(matching_users) > 1:
-                # Verify they have distinct roles (should always be true due to constraints)
-                roles = set(user.role for user in matching_users)
+            if len(matching_users) > 1:
+                roles = {u.role for u in matching_users}
                 if len(roles) > 1:
                     return MultipleUserMatch(matching_users)
+
+                # Same-role duplicates are unexpected; fall back to first match.
+                return matching_users[0]
 
             # No user with matching password found
             return None

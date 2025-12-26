@@ -132,14 +132,89 @@ class _LoginScreenState extends State<LoginScreen>
           if (data.containsKey('detail')) return data['detail'].toString();
           final parts = <String>[];
           data.forEach((k, v) {
-            if (v is List) parts.addAll(v.map((e) => e.toString()));
-            else parts.add(v.toString());
+            if (v is List)
+              parts.addAll(v.map((e) => e.toString()));
+            else
+              parts.add(v.toString());
           });
           if (parts.isNotEmpty) return parts.join(' ');
         }
       }
     } catch (_) {}
     return error.toString();
+  }
+
+  Future<int?> _showRoleSelectionDialog(List<dynamic> users) async {
+    int? selectedUserId;
+    return showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Select role'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final u = users[index];
+                    if (u is! Map) return const SizedBox.shrink();
+
+                    final id = u['id'];
+                    final role = (u['role'] ?? '').toString();
+                    final fullName = (u['full_name'] ?? '').toString();
+                    final company = u['company'];
+                    String companyLabel = '';
+                    if (company is Map) {
+                      final name = (company['name'] ?? '').toString();
+                      final slug = (company['slug'] ?? '').toString();
+                      companyLabel = name.isNotEmpty
+                          ? (slug.isNotEmpty ? '$name ($slug)' : name)
+                          : '';
+                    }
+
+                    final subtitleParts = <String>[];
+                    if (fullName.isNotEmpty) subtitleParts.add(fullName);
+                    if (companyLabel.isNotEmpty)
+                      subtitleParts.add(companyLabel);
+
+                    return RadioListTile<int>(
+                      value:
+                          (id is int) ? id : int.tryParse(id.toString()) ?? -1,
+                      groupValue: selectedUserId,
+                      onChanged: (val) {
+                        setStateDialog(() {
+                          selectedUserId = val;
+                        });
+                      },
+                      title: Text(role.isEmpty ? 'User' : role),
+                      subtitle: subtitleParts.isEmpty
+                          ? null
+                          : Text(subtitleParts.join(' • ')),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedUserId == null
+                      ? null
+                      : () => Navigator.pop(context, selectedUserId),
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _handleLogin() async {
@@ -159,9 +234,44 @@ class _LoginScreenState extends State<LoginScreen>
     await _saveRemembered();
 
     try {
-      final token = await ApiService()
-          .login(_emailController.text.trim(), _passwordController.text);
-      final profile = await ApiService().getUserProfile(token);
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      Map<String, dynamic> loginResp =
+          await ApiService().loginUnified(email, password);
+
+      if (loginResp['requires_role_selection'] == true) {
+        final multipleUsers = loginResp['multiple_users'];
+        if (multipleUsers is List && multipleUsers.isNotEmpty) {
+          final selectedUserId = await _showRoleSelectionDialog(multipleUsers);
+          if (selectedUserId == null) {
+            setState(() {
+              _generalError = 'Login cancelled.';
+            });
+            return;
+          }
+          loginResp = await ApiService().loginUnified(
+            email,
+            password,
+            selectedUserId: selectedUserId,
+          );
+        } else {
+          throw Exception('Multiple roles detected but no users returned.');
+        }
+      }
+
+      final token = (loginResp['token'] ?? '').toString();
+      if (token.isEmpty) {
+        throw Exception('Login failed: missing token.');
+      }
+
+      Map<String, dynamic> profile;
+      final respUser = loginResp['user'];
+      if (respUser is Map<String, dynamic>) {
+        profile = respUser;
+      } else {
+        profile = await ApiService().getUserProfile(token);
+      }
 
       await NavigationService.storeUserToken(token);
       await PushNotificationService().syncTokenWithBackend();
@@ -169,7 +279,8 @@ class _LoginScreenState extends State<LoginScreen>
       final role = (profile['role'] ?? '').toString().toLowerCase();
 
       if (role == 'admin_support' || role == 'support') {
-        Navigator.pushReplacementNamed(context, '/admin-support-dashboard', arguments: token);
+        Navigator.pushReplacementNamed(context, '/admin-support-dashboard',
+            arguments: token);
       } else if (role == 'admin') {
         Navigator.pushReplacement(
           context,
@@ -623,16 +734,16 @@ class _LoginScreenState extends State<LoginScreen>
                                             width: double.infinity,
                                             padding: const EdgeInsets.symmetric(
                                                 vertical: 10, horizontal: 12),
-                                            margin:
-                                                const EdgeInsets.only(bottom: 12),
+                                            margin: const EdgeInsets.only(
+                                                bottom: 12),
                                             decoration: BoxDecoration(
                                               color: Colors.redAccent
                                                   .withOpacity(0.12),
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               border: Border.all(
-                                                color:
-                                                    Colors.redAccent.withOpacity(0.2),
+                                                color: Colors.redAccent
+                                                    .withOpacity(0.2),
                                               ),
                                             ),
                                             child: Text(
@@ -742,8 +853,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                   _rememberMe = val ?? false;
                                                 });
                                               },
-                                              activeColor:
-                                                  Color(0xFF5E35B1),
+                                              activeColor: Color(0xFF5E35B1),
                                             ),
                                             const SizedBox(width: 6),
                                             GestureDetector(

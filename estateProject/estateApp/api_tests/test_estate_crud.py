@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
 
 from estateApp.models import Estate
-from estateApp.serializers.estate_serializers import EstateSerializer
+from DRF.company_admin.serializers.estate_serializers import EstateSerializer
 
 User = get_user_model()
 

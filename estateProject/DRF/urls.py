@@ -5,6 +5,8 @@ Includes all authentication, property management, and subscription endpoints.
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
+from DRF.shared_drf.auth_urls import urlpatterns as shared_auth_urlpatterns
+
 # Import ViewSets - Phase 3 Endpoints (Admin module)
 from DRF.admin.api_views.auth_views import (
     AuthenticationViewSet, CompanyViewSet, UserManagementViewSet
@@ -141,6 +143,10 @@ app_name = 'drf'
 urlpatterns = [
     # Include all router URLs
     path('', include(router.urls)),
+
+    # Unified token auth (supports multi-role selection)
+    path('', include(shared_auth_urlpatterns)),
+    
     # SHARED HEADER
     path('header-data/', HeaderDataAPIView.as_view(), name='api-header-data'),
     path('chat-unread-count/', ChatUnreadCountAPIView.as_view(), name='chat_unread_count'),

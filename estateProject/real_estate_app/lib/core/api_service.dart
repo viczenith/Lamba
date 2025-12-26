@@ -73,6 +73,50 @@ class ApiService {
     }
   }
 
+  /// Unified login to support multi-role selection.
+  ///
+  /// Returns:
+  /// - HTTP 200: {token: string, user: {...}}
+  /// - HTTP 409: {requires_role_selection: true, multiple_users: [...]}
+  Future<Map<String, dynamic>> loginUnified(
+    String email,
+    String password, {
+    int? selectedUserId,
+    String? loginSlug,
+  }) async {
+    final url = '$baseUrl/api-token-auth/';
+
+    final body = <String, dynamic>{
+      'email': email,
+      'password': password,
+    };
+    if (selectedUserId != null) body['selected_user_id'] = selectedUserId;
+    if (loginSlug != null && loginSlug.trim().isNotEmpty) {
+      body['login_slug'] = loginSlug.trim();
+    }
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException(
+              'Login request timed out after 30 seconds. Render backend may be slow to respond.'),
+        );
+
+    if (response.statusCode == 200 || response.statusCode == 409) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw Exception('Unexpected login response: ${response.body}');
+    }
+
+    throw Exception(
+        'Login failed with status ${response.statusCode}: ${response.body}');
+  }
+
   Future<Map<String, dynamic>> fetchSupportBirthdaySummary(String token) async {
     final uri = Uri.parse('$baseUrl/admin-support/birthdays/summary/');
 

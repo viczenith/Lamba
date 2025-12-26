@@ -32,7 +32,7 @@ urlpatterns = [
     path('api/admin-support/custom-special-days/<uuid:day_id>/', admin_support_views.api_custom_special_day_detail, name='adminsupport_custom_special_day_detail'),
     
     # API Routes
-    path('api/', include('estateApp.api_urls.api_urls')),
+    path('api/', include('DRF.company_admin.api_urls.api_urls')),
     path('api/', include('DRF.urls', namespace='drf')),
 ]
 
