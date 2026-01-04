@@ -638,16 +638,15 @@
                             </label>
                             <div class="plot-numbers-container">
                                 {% for plot in plot_numbers %}
-                                <div class="plot-number-item {% if plot.id in allocated_plot_ids %}disabled{% endif %}" data-plot-id="{{ plot.id }}">
-                                    <input class="plot-number-checkbox" type="checkbox" name="plot_numbers[]" value="{{ plot.id }}" id="plot-{{ plot.id }}"
-                                        {% if plot.id in allocated_plot_ids %} checked disabled {% endif %}>
+                                <div class="plot-number-item" data-plot-id="{{ plot.id }}">
+                                    <input class="plot-number-checkbox" type="checkbox" name="plot_numbers[]" value="{{ plot.id }}" id="plot-{{ plot.id }}">
                                     <label class="plot-number-label" for="plot-{{ plot.id }}">{{ plot.number }}</label>
                                 </div>
                                 {% endfor %}
                             </div>
                             <div class="info-badge">
                                 <i class="fas fa-check-double"></i>
-                                Select available plot numbers (disabled items are already allocated)
+                                Select plot numbers for this estate
                             </div>
                         </div>
                         
@@ -943,9 +942,8 @@
                     <script>
                         document.addEventListener('DOMContentLoaded', function() {
                             const estateSelect = document.getElementById('estateSelect');
-                            // Global variables to store current estate plot numbers and other estates’ plot numbers.
+                            // Global variable to store current estate plot numbers.
                             let currentEstatePlots = new Set();
-                            let otherEstatePlots = new Set();
 
                             // Initialize Select2 on estate dropdown with search
                             $('#estateSelect').select2({
@@ -1025,7 +1023,6 @@
 
                                         // Store current estate's plot numbers and other allocated plot numbers.
                                         currentEstatePlots = new Set(data.plot_numbers.map(Number));
-                                        otherEstatePlots = new Set(data.allocated_plot_ids.map(Number));
 
                                         // Populate plot sizes and unit values for the current estate.
                                         data.plot_sizes.forEach(ps => {
@@ -1041,24 +1038,15 @@
                                         });
 
                                         // Handle plot number checkboxes:
-                                        // Enable checkboxes for numbers already assigned to this estate.
                                         document.querySelectorAll('.plot-number-checkbox').forEach(cb => {
                                             const plotId = parseInt(cb.value);
                                             const item = cb.closest('.plot-number-item');
                                             if (currentEstatePlots.has(plotId)) {
                                                 cb.checked = true;
-                                                cb.disabled = false;
                                                 item.classList.add('active');
-                                                item.classList.remove('disabled');
-                                            } else if (otherEstatePlots.has(plotId)) {
-                                                // Disable if assigned to another estate.
-                                                cb.disabled = true;
-                                                item.classList.add('disabled');
-                                                item.classList.remove('active');
                                             } else {
-                                                cb.disabled = false;
+                                                cb.checked = false;
                                                 item.classList.remove('active');
-                                                item.classList.remove('disabled');
                                             }
                                         });
                                     })

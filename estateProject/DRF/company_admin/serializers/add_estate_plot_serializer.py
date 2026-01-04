@@ -10,18 +10,6 @@ class AddEstatePlotSerializer(serializers.Serializer):
         estate = data['estate']
         new_plot_numbers = data['plot_numbers']
         
-        # Check for conflicts with plot numbers that belong to other estates
-        conflicts = EstatePlot.objects.exclude(estate=estate)\
-            .filter(plot_numbers__id__in=new_plot_numbers)\
-            .values_list('plot_numbers__number', flat=True).distinct()
-            
-        if conflicts.exists():
-            friendly_message = (
-                "The following plot numbers are already in use: "
-                f"{', '.join(map(str, list(conflicts)))}. Please choose different plot numbers."
-            )
-            raise serializers.ValidationError({'non_field_errors': [friendly_message]})
-        
         # Validate that the total number of units equals the number of selected plot numbers.
         total_units = sum(item['units'] for item in data['plot_sizes'])
         if total_units != len(new_plot_numbers):

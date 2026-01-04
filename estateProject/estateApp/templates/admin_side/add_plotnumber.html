@@ -1,7 +1,7 @@
 {% extends 'admin_base.html' %}
 {% load static %}
 {% block content %}
-
+ 
 <style>
     .form-container {
         background: #fff;
@@ -187,6 +187,13 @@
     .allocation-item {
         display: block;
         margin-bottom: 4px;
+    }
+
+    .estate-names {
+        font-size: 11px;
+        color: #666;
+        font-style: italic;
+        line-height: 1.4;
     }
 
     .modal-content {
@@ -518,6 +525,7 @@
                                     <th>#</th>
                                     <th>Plot Number</th>
                                     <th>Status</th>
+                                    <th>Estates Using</th>
                                     <th>Allocated To</th>
                                     <th class="text-center">Action</th>
                                 </tr>
@@ -536,6 +544,15 @@
                                         <span class="status-badge status-not-assigned">
                                             <i class="fas fa-circle me-1"></i>Not Assigned
                                         </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if plot_number.estate_names %}
+                                        <div class="estate-names">
+                                            {{ plot_number.estate_names|join:", " }}
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
                                     <td>

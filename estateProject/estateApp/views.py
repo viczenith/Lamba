@@ -326,9 +326,17 @@ def add_plotnumber(request):
                 except Exception as e:
                     return JsonResponse({'success': False, 'message': str(e)})
     
-    # SECURITY: Annotate plot numbers with allocation data - ONLY for THIS company
+    # SECURITY: Annotate plot numbers with allocation + estate usage data - ONLY for THIS company
     plot_numbers_data = []
     for plot_number in PlotNumber.objects.filter(company=company).order_by('number'):
+        # Estates using this plot number via EstatePlot configuration
+        estate_names = list(
+            plot_number.estates.filter(estate__company=company)
+            .values_list('estate__name', flat=True)
+            .distinct()
+        )
+        estate_count = len(estate_names)
+
         # Get all allocations for this plot number that belong to this company
         allocations = PlotAllocation.objects.filter(
             plot_number=plot_number,
@@ -348,6 +356,8 @@ def add_plotnumber(request):
         plot_numbers_data.append({
             'id': plot_number.id,
             'number': plot_number.number,
+            'estate_count': estate_count,
+            'estate_names': estate_names,
             'allocation_count': allocation_count,
             'allocation_details': allocation_details,
             'is_assigned': allocation_count > 0
@@ -2013,15 +2023,6 @@ def add_estate_plot(request):
             new_plot_numbers = request.POST.getlist('plot_numbers[]', [])
             new_selected_plot_sizes = request.POST.getlist('plot_sizes[]', [])
 
-            # Check for plot numbers already assigned to other estates
-            conflict_plots = EstatePlot.objects.exclude(estate=estate)\
-                .filter(plot_numbers__id__in=new_plot_numbers)\
-                .values_list('plot_numbers__number', flat=True)
-            if conflict_plots.exists():
-                return JsonResponse({
-                    'error': f'Plot numbers {list(conflict_plots)} already assigned to other estates'
-                }, status=400)
-
             # Get or create the EstatePlot for this estate
             estate_plot, created = EstatePlot.objects.get_or_create(estate=estate)
 
@@ -2078,22 +2079,18 @@ def add_estate_plot(request):
             # Check for allocated plot numbers that shouldn't be removed
             allocated_plot_numbers = set()
             for pn in estate_plot.plot_numbers.all():
-                if pn.plotallocation_set.exists():
+                if pn.plotallocation_set.filter(estate=estate).exists():
                     allocated_plot_numbers.add(str(pn.id))
             
             for allocated_id in allocated_plot_numbers:
                 if allocated_id not in new_plot_numbers:
-                    # SECURITY: Only get plot numbers from this company
-                    company = getattr(request, 'company', None)
                     allocated_plot = PlotNumber.objects.get(id=allocated_id, company=company)
                     return JsonResponse({
                         'error': f'PLOT NUMBER {allocated_plot.number} IS ALREADY ALLOCATED AND CANNOT BE REMOVED'
                     }, status=400)
 
             # Update plot numbers - SECURITY: Only add plot numbers from this company
-            estate_plot.plot_numbers.clear()
-            company = getattr(request, 'company', None)
-            estate_plot.plot_numbers.add(*PlotNumber.objects.filter(id__in=new_plot_numbers, company=company))
+            estate_plot.plot_numbers.set(PlotNumber.objects.filter(id__in=new_plot_numbers, company=company))
 
             # Update or create plot size units
             for size_id, new_units in new_plot_size_units.items():
@@ -2136,9 +2133,8 @@ def add_estate_plot(request):
     # GET request handling
     # SECURITY: Get company context
     company = getattr(request, 'company', None)
-    
-    allocated_plot_ids = list(EstatePlot.objects.exclude(plot_numbers=None)
-                              .values_list('plot_numbers', flat=True).distinct())
+
+    allocated_plot_ids = []
     return render(request, 'admin_side/estate-plot.html', {
         'estates': Estate.objects.filter(company=company),
         'plot_sizes': PlotSize.objects.filter(company=company),
@@ -2161,9 +2157,7 @@ def get_estate_details(request, estate_id):
         plot_sizes_units = []
         current_plot_numbers = []
 
-    # Get plot numbers allocated to OTHER estates
-    allocated_plot_ids = list(EstatePlot.objects.exclude(estate=estate)
-                              .values_list('plot_numbers', flat=True).distinct())
+    allocated_plot_ids = []
 
     return JsonResponse({
         'plot_sizes': plot_sizes_units,

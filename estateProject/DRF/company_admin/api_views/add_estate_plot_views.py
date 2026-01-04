@@ -14,9 +14,7 @@ def get_add_estate_plot_details(request, estate_id):
         all_sizes = PlotSize.objects.all().values('id', 'size')
         all_numbers = PlotNumberModel.objects.all().values('id', 'number')
         
-        # Get plot numbers allocated to other estates.
-        allocated_ids = EstatePlot.objects.exclude(estate_id=estate_id)\
-            .values_list('plot_numbers__id', flat=True).distinct()
+        allocated_ids = []
             
         # Get current estate configuration if it exists.
         current_plot_data = {'sizes': [], 'numbers': []}

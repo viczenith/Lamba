@@ -331,8 +331,17 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <input type="text" class="form-control" id="clientSearch" placeholder="Search client...">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="clientSearch" placeholder="Search client...">
+                                    <button class="btn btn-outline-secondary" type="button" id="clientSearchClear" style="display:none;">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+
+                        <div class="mb-2" id="salesSearchResultsInfo" style="display:none;">
+                            <small class="text-muted"><span id="salesSearchResultsCount">0</span> results found</small>
                         </div>
 
                         <!-- Main Sales Table -->
@@ -465,6 +474,33 @@
                                 </tbody>
 
                             </table>
+                        </div>
+
+                        <!-- Pagination Controls (Transactions) -->
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3" id="salesPaginationContainer" style="display:none;">
+                            <div class="small text-muted">
+                                Showing <span id="salesShowingStart">0</span>-<span id="salesShowingEnd">0</span> of <span id="salesTotalItems">0</span>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" id="salesPrevPage" type="button" disabled>
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <div class="d-flex align-items-center gap-1" id="salesPaginationPages"></div>
+                                <button class="btn btn-sm btn-outline-secondary" id="salesNextPage" type="button">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="small text-muted">Per page:</span>
+                                <select id="salesPageSize" class="form-select form-select-sm" style="width:auto;">
+                                    <option value="5" selected>5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1291,31 +1327,177 @@
         });
         
 
-        // Table Filters
-        function applyFilters() {
+        // Table Filters + Pagination (Transactions)
+        const salesPagination = {
+            currentPage: 1,
+            pageSize: parseInt($('#salesPageSize').val(), 10) || 5,
+        };
+
+        function getSalesRows() {
+            return $('#salesTable tbody tr').toArray();
+        }
+
+        function buildSalesPageButton(page, isActive) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline-secondary'}`;
+            btn.textContent = String(page);
+            btn.addEventListener('click', () => {
+                salesPagination.currentPage = page;
+                applyFiltersAndPaginate();
+            });
+            return btn;
+        }
+
+        function renderSalesPaginationPages(totalPages) {
+            const container = document.getElementById('salesPaginationPages');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const current = salesPagination.currentPage;
+            const maxVisible = 5;
+
+            const addEllipsis = () => {
+                const span = document.createElement('span');
+                span.className = 'px-1 text-muted';
+                span.textContent = '…';
+                container.appendChild(span);
+            };
+
+            if (totalPages <= maxVisible + 2) {
+                for (let i = 1; i <= totalPages; i++) {
+                    container.appendChild(buildSalesPageButton(i, i === current));
+                }
+                return;
+            }
+
+            // Always show first and last, and a window around current
+            container.appendChild(buildSalesPageButton(1, current === 1));
+
+            const windowStart = Math.max(2, current - 1);
+            const windowEnd = Math.min(totalPages - 1, current + 1);
+
+            if (windowStart > 2) addEllipsis();
+            for (let i = windowStart; i <= windowEnd; i++) {
+                container.appendChild(buildSalesPageButton(i, i === current));
+            }
+            if (windowEnd < totalPages - 1) addEllipsis();
+
+            container.appendChild(buildSalesPageButton(totalPages, current === totalPages));
+        }
+
+        function applyFiltersAndPaginate() {
             const e = $('#estateFilter').val();
             const s = $('#statusFilter').val();
             const m = $('#marketerFilter').val();
             const q = $('#clientSearch').val().trim().toLowerCase();
 
-            $('#salesTable tbody tr').each(function() {
-                const re = $(this).data('estate');
-                const rs = $(this).data('status');
-                const rm = $(this).data('marketer');
-                const rc = $(this).data('client');
+            const allRows = getSalesRows();
 
-                const show =
+            // Compute filtered rows
+            const filteredRows = allRows.filter((row) => {
+                const $row = $(row);
+                const re = $row.data('estate');
+                const rs = $row.data('status');
+                const rm = $row.data('marketer');
+                const rc = ($row.data('client') || '').toString();
+
+                return (
                     (!e || re === e) &&
                     (!s || rs === s) &&
                     (!m || rm === m) &&
-                    (!q || rc.includes(q));
-
-                $(this).toggle(show);
+                    (!q || rc.includes(q))
+                );
             });
+
+            // Search UI helpers
+            const clearBtn = document.getElementById('clientSearchClear');
+            if (clearBtn) {
+                clearBtn.style.display = q ? 'inline-flex' : 'none';
+            }
+
+            const resultsInfo = document.getElementById('salesSearchResultsInfo');
+            const resultsCount = document.getElementById('salesSearchResultsCount');
+            if (resultsInfo && resultsCount) {
+                resultsCount.textContent = String(filteredRows.length);
+                resultsInfo.style.display = (e || s || m || q) ? 'block' : 'none';
+            }
+
+            // Pagination calculations
+            const pageSize = salesPagination.pageSize;
+            const totalItems = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            salesPagination.currentPage = Math.min(salesPagination.currentPage, totalPages);
+
+            const startIndex = (salesPagination.currentPage - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const pageRows = filteredRows.slice(startIndex, endIndex);
+
+            // Hide all rows, then show just the current page
+            allRows.forEach(r => { r.style.display = 'none'; });
+            pageRows.forEach(r => { r.style.display = ''; });
+
+            // Update controls
+            const paginationContainer = document.getElementById('salesPaginationContainer');
+            const showingStart = document.getElementById('salesShowingStart');
+            const showingEnd = document.getElementById('salesShowingEnd');
+            const totalItemsEl = document.getElementById('salesTotalItems');
+            const prevBtn = document.getElementById('salesPrevPage');
+            const nextBtn = document.getElementById('salesNextPage');
+
+            if (totalItemsEl) totalItemsEl.textContent = String(totalItems);
+            if (showingStart) showingStart.textContent = totalItems === 0 ? '0' : String(startIndex + 1);
+            if (showingEnd) showingEnd.textContent = totalItems === 0 ? '0' : String(Math.min(endIndex, totalItems));
+
+            if (prevBtn) prevBtn.disabled = salesPagination.currentPage <= 1;
+            if (nextBtn) nextBtn.disabled = salesPagination.currentPage >= totalPages;
+
+            renderSalesPaginationPages(totalPages);
+
+            if (paginationContainer) {
+                paginationContainer.style.display = (totalItems > 0) ? 'flex' : 'none';
+            }
         }
 
-        $('#estateFilter, #statusFilter, #marketerFilter').on('change', applyFilters);
-        $('#clientSearch').on('input', applyFilters);
+        // Hook up controls
+        $('#estateFilter, #statusFilter, #marketerFilter').on('change', function() {
+            salesPagination.currentPage = 1;
+            applyFiltersAndPaginate();
+        });
+
+        $('#clientSearch').on('input', function() {
+            salesPagination.currentPage = 1;
+            applyFiltersAndPaginate();
+        });
+
+        $('#salesPageSize').on('change', function() {
+            salesPagination.pageSize = parseInt(this.value, 10) || 5;
+            salesPagination.currentPage = 1;
+            applyFiltersAndPaginate();
+        });
+
+        $('#salesPrevPage').on('click', function() {
+            if (salesPagination.currentPage > 1) {
+                salesPagination.currentPage -= 1;
+                applyFiltersAndPaginate();
+            }
+        });
+
+        $('#salesNextPage').on('click', function() {
+            salesPagination.currentPage += 1;
+            applyFiltersAndPaginate();
+        });
+
+        $('#clientSearchClear').on('click', function() {
+            $('#clientSearch').val('');
+            salesPagination.currentPage = 1;
+            applyFiltersAndPaginate();
+        });
+
+        // Initial render
+        applyFiltersAndPaginate();
 
         // Record Payment Modal - Modern Implementation
         $('#recordPaymentModal').on('show.bs.modal', function(e) {

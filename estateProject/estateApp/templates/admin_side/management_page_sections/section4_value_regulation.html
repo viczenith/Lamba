@@ -1636,6 +1636,26 @@
             </div>
         </div>
         <div class="card-body p-0">
+            <!-- Search Box (Property Value Table) -->
+            <div class="p-3 border-bottom">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="prmPropertySearchInput" placeholder="Search property values...">
+                            <button class="btn btn-outline-secondary" type="button" id="prmPropertyClearSearch" style="display:none;">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <small class="text-muted" id="prmPropertySearchResultsInfo" style="display:none;">
+                            <span id="prmPropertySearchResultsCount">0</span> results found
+                        </small>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead>
@@ -1788,6 +1808,33 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Pagination Controls (Property Value Table) -->
+            <div class="p-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2" id="prmPropertyPaginationContainer" style="display:none;">
+                <div class="small text-muted">
+                    Showing <span id="prmPropertyShowingStart">0</span>-<span id="prmPropertyShowingEnd">0</span> of <span id="prmPropertyTotalItems">0</span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" id="prmPropertyPrevPage" type="button" disabled>
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <div class="d-flex align-items-center gap-1" id="prmPropertyPaginationPages"></div>
+                    <button class="btn btn-sm btn-outline-secondary" id="prmPropertyNextPage" type="button">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted">Per page:</span>
+                    <select id="prmPropertyPageSize" class="form-select form-select-sm" style="width:auto;">
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -2893,6 +2940,145 @@
         let currentBulkEstateId = null;
         let bulkFetchController = null;
         let bulkLoading = false;
+
+        // Property table pagination state
+        const prmPropertyPagination = {
+            currentPage: 1,
+            pageSize: 5,
+        };
+
+        function getPrmPropertyRows() {
+            const tbody = document.getElementById('prmPropertyTable');
+            if (!tbody) return [];
+            return Array.from(tbody.querySelectorAll('tr'));
+        }
+
+        function renderPrmPropertyPaginationPages(totalPages) {
+            const container = document.getElementById('prmPropertyPaginationPages');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const current = prmPropertyPagination.currentPage;
+            const addPageBtn = (page, active) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`;
+                btn.textContent = String(page);
+                btn.addEventListener('click', () => {
+                    prmPropertyPagination.currentPage = page;
+                    applyPrmPropertyPagination();
+                });
+                container.appendChild(btn);
+            };
+            const addEllipsis = () => {
+                const span = document.createElement('span');
+                span.className = 'px-1 text-muted';
+                span.textContent = '…';
+                container.appendChild(span);
+            };
+
+            const maxVisible = 5;
+            if (totalPages <= maxVisible + 2) {
+                for (let i = 1; i <= totalPages; i++) addPageBtn(i, i === current);
+                return;
+            }
+
+            addPageBtn(1, current === 1);
+            const windowStart = Math.max(2, current - 1);
+            const windowEnd = Math.min(totalPages - 1, current + 1);
+            if (windowStart > 2) addEllipsis();
+            for (let i = windowStart; i <= windowEnd; i++) addPageBtn(i, i === current);
+            if (windowEnd < totalPages - 1) addEllipsis();
+            addPageBtn(totalPages, current === totalPages);
+        }
+
+        function applyPrmPropertyPagination() {
+            const tbody = document.getElementById('prmPropertyTable');
+            if (!tbody) return;
+
+            const searchInput = document.getElementById('prmPropertySearchInput');
+            const query = (searchInput?.value || '').trim().toLowerCase();
+
+            const clearBtn = document.getElementById('prmPropertyClearSearch');
+            if (clearBtn) clearBtn.style.display = query ? 'inline-flex' : 'none';
+
+            const allRows = getPrmPropertyRows();
+            const filteredRows = query
+                ? allRows.filter(r => (r.textContent || '').toLowerCase().includes(query))
+                : allRows;
+
+            const resultsInfo = document.getElementById('prmPropertySearchResultsInfo');
+            const resultsCount = document.getElementById('prmPropertySearchResultsCount');
+            if (resultsInfo && resultsCount) {
+                resultsCount.textContent = String(filteredRows.length);
+                resultsInfo.style.display = query ? 'inline' : 'none';
+            }
+
+            prmPropertyPagination.pageSize = parseInt(document.getElementById('prmPropertyPageSize')?.value || '5', 10) || 5;
+
+            const totalItems = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / prmPropertyPagination.pageSize));
+            prmPropertyPagination.currentPage = Math.min(prmPropertyPagination.currentPage, totalPages);
+
+            const startIndex = (prmPropertyPagination.currentPage - 1) * prmPropertyPagination.pageSize;
+            const endIndex = startIndex + prmPropertyPagination.pageSize;
+            const pageRows = filteredRows.slice(startIndex, endIndex);
+
+            // Hide all rows, then show current page
+            allRows.forEach(r => { r.style.display = 'none'; });
+            pageRows.forEach(r => { r.style.display = ''; });
+
+            // Update summary + controls
+            const paginationContainer = document.getElementById('prmPropertyPaginationContainer');
+            const showingStart = document.getElementById('prmPropertyShowingStart');
+            const showingEnd = document.getElementById('prmPropertyShowingEnd');
+            const totalItemsEl = document.getElementById('prmPropertyTotalItems');
+            const prevBtn = document.getElementById('prmPropertyPrevPage');
+            const nextBtn = document.getElementById('prmPropertyNextPage');
+
+            if (totalItemsEl) totalItemsEl.textContent = String(totalItems);
+            if (showingStart) showingStart.textContent = totalItems === 0 ? '0' : String(startIndex + 1);
+            if (showingEnd) showingEnd.textContent = totalItems === 0 ? '0' : String(Math.min(endIndex, totalItems));
+
+            if (prevBtn) prevBtn.disabled = prmPropertyPagination.currentPage <= 1;
+            if (nextBtn) nextBtn.disabled = prmPropertyPagination.currentPage >= totalPages;
+            renderPrmPropertyPaginationPages(totalPages);
+
+            if (paginationContainer) {
+                paginationContainer.style.display = totalItems > 0 ? 'flex' : 'none';
+            }
+        }
+
+        // Expose for internal helpers that may refresh/append rows
+        window.applyPrmPropertyPagination = applyPrmPropertyPagination;
+
+        // Wire up property table pagination controls
+        addListener('prmPropertySearchInput', 'input', () => {
+            prmPropertyPagination.currentPage = 1;
+            applyPrmPropertyPagination();
+        });
+        addListener('prmPropertyClearSearch', 'click', () => {
+            const input = document.getElementById('prmPropertySearchInput');
+            if (input) input.value = '';
+            prmPropertyPagination.currentPage = 1;
+            applyPrmPropertyPagination();
+        });
+        addListener('prmPropertyPageSize', 'change', () => {
+            prmPropertyPagination.currentPage = 1;
+            applyPrmPropertyPagination();
+        });
+        addListener('prmPropertyPrevPage', 'click', () => {
+            if (prmPropertyPagination.currentPage > 1) {
+                prmPropertyPagination.currentPage -= 1;
+                applyPrmPropertyPagination();
+            }
+        });
+        addListener('prmPropertyNextPage', 'click', () => {
+            prmPropertyPagination.currentPage += 1;
+            applyPrmPropertyPagination();
+        });
 
         // Bootstrap modal instances (guard optional ones to avoid interference)
         const prmValueModal   = new bootstrap.Modal(document.getElementById('prmValueModal'));
@@ -4344,6 +4530,9 @@
                 } else {
                     document.getElementById('prmPropertyTable').appendChild(newRow);
                 }
+
+                // Re-apply pagination/search after DOM changes
+                applyPrmPropertyPagination();
             });
         }
 

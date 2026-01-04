@@ -746,7 +746,7 @@
                                     <div>
                                         <strong>Plan limit reached:</strong>
                                         You have used {{ plan_usage.limits.estate_properties.used }}/{{ plan_usage.limits.estate_properties.limit }} estate properties.
-                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">Upgrade to add more</a>.
+                                        <a href="{% url 'company-profile' %}?tab=billing" class="alert-link">Upgrade to add more</a>.
                                     </div>
                                 </div>
                             {% elif plan_usage.limits.estate_properties.is_near_limit %}
@@ -755,7 +755,7 @@
                                     <div>
                                         <strong>Approaching limit:</strong>
                                         {{ plan_usage.limits.estate_properties.used }}/{{ plan_usage.limits.estate_properties.limit }} estate properties used.
-                                        <a href="{{ plan_usage.subscription_dashboard_url }}" class="alert-link">View plans</a>.
+                                        <a href="{% url 'company-profile' %}?tab=billing" class="alert-link">View plans</a>.
                                     </div>
                                 </div>
                             {% endif %}
