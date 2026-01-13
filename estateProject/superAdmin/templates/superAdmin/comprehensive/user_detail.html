@@ -1,0 +1,742 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user.get_full_name|default:user.phone }} - User Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-gray-50">
+    
+    {% include 'superadmin/comprehensive/nav.html' %}
+
+    <div class="max-w-full mx-auto px-6 py-8">
+        
+        <!-- Page Header -->
+        <div class="mb-8">
+            <a href="{% url 'superadmin:user_management' %}" class="text-indigo-600 hover:text-indigo-800 mb-2 inline-flex items-center">
+                <i class="bi bi-arrow-left mr-2"></i> Back to Users
+            </a>
+            <div class="flex items-center justify-between mt-4">
+                <div class="flex items-center">
+                    <div class="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
+                        {% if user.profile_image %}
+                        <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" class="w-16 h-16 rounded-lg object-cover">
+                        {% else %}
+                        <i class="bi bi-person text-3xl text-indigo-600"></i>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">{{ user.get_full_name|default:user.phone }}</h2>
+                        <p class="text-gray-600 mt-1">{{ user.email }}</p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                {% if user.role == 'marketer' %}bg-yellow-100 text-yellow-800
+                                {% elif user.role == 'client' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ user.role|title }}
+                            </span>
+                            {% if user.is_active %}
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="userAction({{ user.id }}, 'activate')" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        <i class="bi bi-check-circle"></i> Activate
+                    </button>
+                    <button onclick="userAction({{ user.id }}, 'deactivate')" 
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+                        <i class="bi bi-pause-circle"></i> Suspend
+                    </button>
+                    <button onclick="userAction({{ user.id }}, 'delete')" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Account Age</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ account_age_days }} days</p>
+                    </div>
+                    <i class="bi bi-calendar text-2xl text-indigo-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Joined: {{ user.date_joined|date:"M d, Y" }}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Last Login</p>
+                        <p class="text-xl font-bold text-gray-900">
+                            {% if user.last_login %}
+                            {{ user.last_login|date:"M d, Y" }}
+                            {% else %}
+                            Never
+                            {% endif %}
+                        </p>
+                    </div>
+                    <i class="bi bi-clock-history text-2xl text-blue-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    {% if user.last_login %}
+                    {{ user.last_login|timesince }} ago
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if user.role == 'client' %}
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Properties Owned</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ properties_owned|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-building text-2xl text-green-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Active allocations
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Investment</p>
+                        <p class="text-2xl font-bold text-gray-900">₦{{ total_investment|floatformat:0|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-currency-dollar text-2xl text-purple-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    {{ total_transactions }} transaction{{ total_transactions|pluralize }}
+                </div>
+            </div>
+            {% elif user.role == 'marketer' %}
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Clients Referred</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ total_clients_referred|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-people text-2xl text-orange-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Total referrals
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Status</p>
+                        <p class="text-xl font-bold text-green-600">Active</p>
+                    </div>
+                    <i class="bi bi-check-circle text-2xl text-green-600"></i>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column - User Information -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Personal Information -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="bi bi-person-badge mr-2 text-indigo-600"></i>
+                        Personal Information
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600">Full Name</p>
+                            <p class="font-semibold text-gray-900">{{ user.first_name }} {{ user.last_name }}</p>
+                        </div>
+                        {% if user.username %}
+                        <div>
+                            <p class="text-sm text-gray-600">Username</p>
+                            <p class="font-semibold text-gray-900">{{ user.username }}</p>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <p class="text-sm text-gray-600">Email</p>
+                            <p class="font-semibold text-gray-900">{{ user.email }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Phone</p>
+                            <p class="font-semibold text-gray-900">{{ user.phone|default:"Not provided" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Role</p>
+                            <p class="font-semibold text-gray-900">{{ user.role|title }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Creation Info -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="bi bi-info-circle mr-2 text-indigo-600"></i>
+                        Account Creation
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600">Creation Method</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                {% if creation_method == 'self' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <i class="bi bi-person-plus"></i> Self-Registered
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    <i class="bi bi-building"></i> Company Created
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Source</p>
+                            <p class="font-semibold text-gray-900">{{ creation_source }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Registration Date</p>
+                            <p class="font-semibold text-gray-900">{{ user.date_registered|date:"M d, Y H:i" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Account Created</p>
+                            <p class="font-semibold text-gray-900">{{ user.date_joined|date:"M d, Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Company Affiliations Accordion -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                            <i class="bi bi-building mr-2 text-indigo-600"></i>
+                            Company Affiliations
+                            <span class="ml-2 px-2 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 rounded-full">
+                                {{ affiliated_companies|length|add:1 }} {% if company %}{% else %}0{% endif %}
+                            </span>
+                        </h3>
+                        <p class="text-sm text-gray-600 mt-1">Companies this user is connected to</p>
+                    </div>
+
+                    <div class="divide-y divide-gray-200">
+                        {% if company %}
+                        <!-- Company Affiliation -->
+                        <div class="accordion-item">
+                            <button onclick="toggleAccordion('primary-company')" 
+                                class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+                                <div class="flex items-center">
+                                    {% if company.logo %}
+                                    <img src="{{ company.logo.url }}" alt="{{ company.company_name }}" class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-indigo-200">
+                                    {% else %}
+                                    <i class="bi bi-building-fill text-indigo-600 text-xl mr-3"></i>
+                                    {% endif %}
+                                    <div class="text-left">
+                                        <p class="font-semibold text-gray-900">{{ company.company_name }}</p>
+                                        <p class="text-sm text-gray-500">Company Affiliation</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <i class="bi bi-chevron-down transition-transform" id="primary-company-icon"></i>
+                                </div>
+                            </button>
+                            <div id="primary-company" class="hidden px-6 py-4 bg-gray-50">
+                                {% if user.role == 'marketer' and primary_company_data %}
+                                <!-- Marketer Performance Data -->
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commission Rate</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.commission_rate|floatformat:2 }}%</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Properties Sold</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.properties_sold|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Total Sales Value</p>
+                                        <p class="text-sm font-semibold text-gray-900">₦{{ primary_company_data.total_sales|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commissions Earned</p>
+                                        <p class="text-sm font-semibold text-green-600">₦{{ primary_company_data.commissions_earned|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commissions Paid</p>
+                                        <p class="text-sm font-semibold text-blue-600">₦{{ primary_company_data.commissions_paid|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Joined</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.date_joined|date:"M d, Y" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Company Status</p>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if company.subscription_status == 'active' %}bg-green-100 text-green-800
+                                            {% elif company.subscription_status == 'trial' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ company.subscription_status|title }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% elif user.role == 'client' and primary_company_data %}
+                                <!-- Client Transaction Data for Primary Company -->
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs text-gray-600">Total Investment</p>
+                                        <p class="text-sm font-semibold text-gray-900">₦{{ primary_company_data.total_investment|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Transactions</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.transactions_count|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Properties Owned</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.properties_owned|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Joined</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.date_joined|date:"M d, Y" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Client UID</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ primary_company_data.client_uid }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Company Status</p>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if company.subscription_status == 'active' %}bg-green-100 text-green-800
+                                            {% elif company.subscription_status == 'trial' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ company.subscription_status|title }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <!-- Basic Company Info for Non-Marketers -->
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs text-gray-600">Company Email</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ company.email }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Phone</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ company.phone_number|default:"N/A" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Status</p>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if company.subscription_status == 'active' %}bg-green-100 text-green-800
+                                            {% elif company.subscription_status == 'trial' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ company.subscription_status|title }}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Joined</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ company.created_at|date:"M d, Y" }}</p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                <div class="mt-4 pt-4 border-t border-gray-200">
+                                    <a href="{% url 'superadmin:company_detail' company.slug %}" 
+                                        class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                        View Full Company Details <i class="bi bi-arrow-right ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if user.role == 'marketer' and affiliated_companies %}
+                        <!-- Affiliated Companies (for Marketers) -->
+                        {% for affiliation in affiliated_companies %}
+                        <div class="accordion-item">
+                            <button onclick="toggleAccordion('affiliation-{{ affiliation.id }}')" 
+                                class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+                                <div class="flex items-center">
+                                    {% if affiliation.company.logo %}
+                                    <img src="{{ affiliation.company.logo.url }}" alt="{{ affiliation.company.company_name }}" class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-blue-200">
+                                    {% else %}
+                                    <i class="bi bi-building text-blue-600 text-xl mr-3"></i>
+                                    {% endif %}
+                                    <div class="text-left">
+                                        <p class="font-semibold text-gray-900">{{ affiliation.company.company_name }}</p>
+                                        <p class="text-sm text-gray-500">Affiliate Company</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if affiliation.status == 'active' %}bg-green-100 text-green-800
+                                        {% elif affiliation.status == 'suspended' %}bg-yellow-100 text-yellow-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ affiliation.status|title }}
+                                    </span>
+                                    <i class="bi bi-chevron-down transition-transform" id="affiliation-{{ affiliation.id }}-icon"></i>
+                                </div>
+                            </button>
+                            <div id="affiliation-{{ affiliation.id }}" class="hidden px-6 py-4 bg-gray-50">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commission Rate</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.calculated_commission_rate|floatformat:2 }}%</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Properties Sold</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.calculated_properties_sold|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Total Sales Value</p>
+                                        <p class="text-sm font-semibold text-gray-900">₦{{ affiliation.calculated_total_sales|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commissions Earned</p>
+                                        <p class="text-sm font-semibold text-green-600">₦{{ affiliation.calculated_commissions_earned|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Commissions Paid</p>
+                                        <p class="text-sm font-semibold text-blue-600">₦{{ affiliation.total_commissions_paid|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Joined</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.date_affiliated|date:"M d, Y" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Last Activity</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.approval_date|default:affiliation.date_affiliated|date:"M d, Y" }}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-gray-200">
+                                    <a href="{% url 'superadmin:company_detail' affiliation.company.slug %}" 
+                                        class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                        View Company Details <i class="bi bi-arrow-right ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if user.role == 'client' and client_affiliated_companies %}
+                        <!-- Affiliated Companies (for Clients) -->
+                        {% for affiliation in client_affiliated_companies %}
+                        <div class="accordion-item">
+                            <button onclick="toggleAccordion('client-affiliation-{{ affiliation.id }}')" 
+                                class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+                                <div class="flex items-center">
+                                    {% if affiliation.company.logo %}
+                                    <img src="{{ affiliation.company.logo.url }}" alt="{{ affiliation.company.company_name }}" class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-purple-200">
+                                    {% else %}
+                                    <i class="bi bi-building text-purple-600 text-xl mr-3"></i>
+                                    {% endif %}
+                                    <div class="text-left">
+                                        <p class="font-semibold text-gray-900">{{ affiliation.company.company_name }}</p>
+                                        <p class="text-sm text-gray-500">Affiliate Company</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <i class="bi bi-chevron-down transition-transform" id="client-affiliation-{{ affiliation.id }}-icon"></i>
+                                </div>
+                            </button>
+                            <div id="client-affiliation-{{ affiliation.id }}" class="hidden px-6 py-4 bg-gray-50">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-xs text-gray-600">Total Investment</p>
+                                        <p class="text-sm font-semibold text-gray-900">₦{{ affiliation.calculated_total_investment|floatformat:0|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Transactions</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.calculated_transactions_count|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Properties Owned</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.calculated_properties_owned|intcomma }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Joined</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.created_at|date:"M d, Y" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Client UID</p>
+                                        <p class="text-sm font-semibold text-gray-900">{{ affiliation.company_client_uid }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-gray-600">Company Status</p>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if affiliation.company.subscription_status == 'active' %}bg-green-100 text-green-800
+                                            {% elif affiliation.company.subscription_status == 'trial' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ affiliation.company.subscription_status|title }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-gray-200">
+                                    <a href="{% url 'superadmin:company_detail' affiliation.company.slug %}" 
+                                        class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                        View Company Details <i class="bi bi-arrow-right ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if not company and not affiliated_companies and not client_affiliated_companies %}
+                        <!-- No Affiliations -->
+                        <div class="px-6 py-8 text-center">
+                            <i class="bi bi-building text-5xl text-gray-300"></i>
+                            <p class="mt-4 text-gray-500">No company affiliations found</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if user.role == 'marketer' and marketer_profile %}
+                <!-- Marketer Profile -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="bi bi-megaphone mr-2 text-yellow-600"></i>
+                        Marketer Profile
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600">Referral Code</p>
+                            <p class="font-mono font-semibold text-gray-900">{{ marketer_profile.referral_code|default:"N/A" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Total Clients</p>
+                            <p class="font-semibold text-gray-900">{{ total_clients_referred }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Right Column - Activity & Details -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                {% if user.role == 'client' %}
+                <!-- Recent Transactions -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                            <i class="bi bi-receipt mr-2 text-indigo-600"></i>
+                            Recent Transactions
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for transaction in recent_transactions %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ transaction.created_at|date:"M d, Y" }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        {% if transaction.allocation.plot_number %}
+                                        {{ transaction.allocation.plot_number.plot_number }}
+                                        {% elif transaction.allocation.estate %}
+                                        {{ transaction.allocation.estate.name }}
+                                        {% else %}
+                                        N/A
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                        ₦{{ transaction.total_amount|floatformat:0|intcomma }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                            Completed
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="px-6 py-12 text-center">
+                                        <i class="bi bi-inbox text-5xl text-gray-300"></i>
+                                        <p class="mt-4 text-gray-500">No transactions found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Property Allocations -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                            <i class="bi bi-house-door mr-2 text-green-600"></i>
+                            Property Allocations
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plot</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Allocated</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for allocation in recent_allocations %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        {{ allocation.estate.name }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {% if allocation.plot_number %}
+                                        {{ allocation.plot_size.size }}, {{ allocation.plot_number.number }}
+                                        {% else %}
+                                        {{ allocation.plot_size.size }}, Not Assigned
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ allocation.date_allocated|date:"M d, Y" }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                            {% if allocation.plot_number %}bg-green-100 text-green-800
+                                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                            {% if allocation.plot_number %}Allocated{% else %}Pending{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="px-6 py-12 text-center">
+                                        <i class="bi bi-inbox text-5xl text-gray-300"></i>
+                                        <p class="mt-4 text-gray-500">No allocations found</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Account Activity -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="bi bi-activity mr-2 text-indigo-600"></i>
+                        Account Activity
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Account Created</span>
+                            <span class="font-semibold text-gray-900">{{ user.date_joined|date:"M d, Y H:i" }}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Last Login</span>
+                            <span class="font-semibold text-gray-900">
+                                {% if user.last_login %}
+                                {{ user.last_login|date:"M d, Y H:i" }}
+                                {% else %}
+                                Never
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Email Verified</span>
+                            <span class="font-semibold {% if user.email_verified %}text-green-600{% else %}text-red-600{% endif %}">
+                                {% if user.email_verified %}Yes{% else %}No{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600">Account Status</span>
+                            <span class="font-semibold {% if user.is_active %}text-green-600{% else %}text-red-600{% endif %}">
+                                {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Accordion toggle function
+        function toggleAccordion(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            } else {
+                content.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        function userAction(userId, action) {
+            const actionNames = {
+                'activate': 'activate',
+                'deactivate': 'deactivate',
+                'delete': 'delete'
+            };
+
+            if (!confirm(`Are you sure you want to ${actionNames[action]} this user?`)) {
+                return;
+            }
+
+            fetch(`/super-admin/users/${userId}/${action}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        }
+    </script>
+</body>
+</html>

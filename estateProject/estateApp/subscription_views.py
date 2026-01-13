@@ -77,14 +77,14 @@ def get_subscription_status(request):
         company = getattr(request, 'company', None)
         if not company:
             company_profile = getattr(request.user, 'company_profile', None)
-            company = getattr(company_profile, 'company', None) if company_profile else None
+            company = company_profile
         if not company:
             company = getattr(request.user, 'company', None)
         if not company:
             return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
 
         company_profile = getattr(request.user, 'company_profile', None)
-        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        profile_company = company_profile
         if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
             return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
         
@@ -149,13 +149,33 @@ def get_subscription_status(request):
 
 @login_required
 @require_http_methods(["GET"])
-@subscription_required
 def subscription_dashboard(request):
     """
     Full subscription dashboard view
     Shows subscription status, usage metrics, billing history
     """
-    company = get_object_or_404(Company, admin=request.user)
+    company = getattr(request, 'company', None)
+    if not company:
+        company_profile = getattr(request.user, 'company_profile', None)
+        company = company_profile
+    if not company:
+        company = getattr(request.user, 'company', None)
+    if not company:
+        return render(
+            request,
+            'admin_side/company_profile.html',
+            {
+                'company': None,
+                'subscription': None,
+                'billing_history': [],
+                'total_properties': 0,
+                'total_clients': 0,
+                'total_marketers': 0,
+                'total_allocations': 0,
+                'error': 'Company not found',
+            },
+            status=404,
+        )
     
     try:
         subscription = SubscriptionBillingModel.objects.get(company=company)
@@ -164,14 +184,14 @@ def subscription_dashboard(request):
     
     # Get billing history
     billing_history = BillingHistory.objects.filter(
-        subscription=subscription
-    ).order_by('-created_at')[:10] if subscription else []
+        billing=subscription
+    ).order_by('-billing_date')[:10] if subscription else []
     
     # Get usage metrics
-    from .models import ClientUser, MarketingExecutive, Estate
+    from .models import ClientUser, MarketerUser, Estate
     total_properties = Estate.objects.filter(company=company).count()
     total_clients = ClientUser.objects.filter(company=company).count()
-    total_marketers = MarketingExecutive.objects.filter(company=company).count()
+    total_marketers = MarketerUser.objects.filter(company_profile=company).count()
     total_allocations = 0  # Assuming there's an allocation model
     
     context = {
@@ -196,7 +216,14 @@ def renew_subscription(request):
     Validates renewal request and prepares payment
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None)
+        if not company:
+            company_profile = getattr(request.user, 'company_profile', None)
+            company = company_profile
+        if not company:
+            company = getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'Company not found'}, status=404)
         data = json.loads(request.body)
         payment_method = data.get('payment_method')
         
@@ -208,13 +235,24 @@ def renew_subscription(request):
         except SubscriptionBillingModel.DoesNotExist:
             return JsonResponse({'ok': False, 'error': 'No active subscription'}, status=400)
         
-        # Create renewal billing history entry
-        BillingHistory.objects.create(
-            subscription=subscription,
-            transaction_type='renewal',
-            amount=subscription.amount,
-            description=f'Renewal initiated for {subscription.subscription_plan.name} plan'
-        )
+        # Create renewal billing history entry (best-effort; do not break flow)
+        try:
+            import uuid
+            now = timezone.now()
+            BillingHistory.objects.create(
+                billing=subscription,
+                transaction_type='charge',
+                state='pending',
+                amount=getattr(subscription, 'monthly_amount', 0) or 0,
+                currency='NGN',
+                description='Renewal initiated',
+                transaction_id=f"renewal-{uuid.uuid4().hex}",
+                billing_date=now,
+                due_date=now.date(),
+                invoice_number=f"INV-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+            )
+        except Exception:
+            pass
         
         # Store payment method in session for next step
         request.session['pending_renewal'] = {
@@ -241,7 +279,9 @@ def upgrade_subscription(request):
     Handle subscription plan upgrade
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'Company not found'}, status=404)
         data = json.loads(request.body)
         new_plan_id = data.get('plan_id')
         
@@ -272,13 +312,24 @@ def upgrade_subscription(request):
             'proration_amount': str(proration_amount)
         }
         
-        # Log upgrade initiation
-        BillingHistory.objects.create(
-            subscription=current_subscription,
-            transaction_type='upgrade',
-            amount=proration_amount,
-            description=f'Upgrade initiated from {current_subscription.subscription_plan.name} to {new_plan.name}'
-        )
+        # Log upgrade initiation (best-effort; do not break flow)
+        try:
+            import uuid
+            now = timezone.now()
+            BillingHistory.objects.create(
+                billing=current_subscription,
+                transaction_type='proration',
+                state='pending',
+                amount=proration_amount,
+                currency='NGN',
+                description=f'Upgrade initiated to {new_plan.name}',
+                transaction_id=f"upgrade-{uuid.uuid4().hex}",
+                billing_date=now,
+                due_date=now.date(),
+                invoice_number=f"INV-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+            )
+        except Exception:
+            pass
         
         return JsonResponse({
             'ok': True,
@@ -303,7 +354,9 @@ def process_payment(request):
     Routes to Stripe or Paystack based on payment method
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'Company not found'}, status=404)
         data = json.loads(request.body)
         payment_method = data.get('payment_method', 'stripe')
         
@@ -350,12 +403,23 @@ def process_payment(request):
         
         except Exception as e:
             # Log payment error
-            BillingHistory.objects.create(
-                subscription=subscription,
-                transaction_type='payment_failed',
-                amount=Decimal(pending['amount']),
-                description=f'Payment initiation failed: {str(e)}'
-            )
+            try:
+                import uuid
+                now = timezone.now()
+                BillingHistory.objects.create(
+                    billing=subscription,
+                    transaction_type='adjustment',
+                    state='failed',
+                    amount=Decimal(pending['amount']),
+                    currency='NGN',
+                    description=f'Payment initiation failed: {str(e)}',
+                    transaction_id=f"payfail-{uuid.uuid4().hex}",
+                    billing_date=now,
+                    due_date=now.date(),
+                    invoice_number=f"INV-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+                )
+            except Exception:
+                pass
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
     
     except Exception as e:
@@ -371,7 +435,9 @@ def confirm_stripe_payment(request):
     Called after Stripe payment intent is confirmed on frontend
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'Company not found'}, status=404)
         data = json.loads(request.body)
         payment_intent_id = data.get('payment_intent_id')
         
@@ -399,13 +465,26 @@ def confirm_stripe_payment(request):
                 subscription.status = 'active'
                 subscription.save()
                 
-                # Log transaction
-                BillingHistory.objects.create(
-                    subscription=subscription,
-                    transaction_type='charge',
-                    amount=subscription.amount,
-                    description=f'Subscription payment processed via Stripe - {subscription.subscription_plan.name}'
-                )
+                # Log transaction (best-effort)
+                try:
+                    import uuid
+                    now = timezone.now()
+                    BillingHistory.objects.create(
+                        billing=subscription,
+                        transaction_type='charge',
+                        state='completed',
+                        amount=getattr(subscription, 'monthly_amount', 0) or 0,
+                        currency='NGN',
+                        description='Subscription payment processed via Stripe',
+                        transaction_id=payment_intent_id or f"stripe-{uuid.uuid4().hex}",
+                        billing_date=now,
+                        due_date=now.date(),
+                        paid_date=now,
+                        invoice_number=f"INV-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}",
+                        payment_method='stripe',
+                    )
+                except Exception:
+                    pass
                 
                 # Send confirmation email
                 SubscriptionEmailNotifications.send_subscription_renewed_email(
@@ -441,7 +520,9 @@ def confirm_paystack_payment(request):
     Called after user returns from Paystack payment page
     """
     try:
-        company = get_object_or_404(Company, admin=request.user)
+        company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
+        if not company:
+            return JsonResponse({'ok': False, 'error': 'Company not found'}, status=404)
         data = json.loads(request.body)
         reference = data.get('reference')
         
@@ -469,13 +550,26 @@ def confirm_paystack_payment(request):
                 subscription.status = 'active'
                 subscription.save()
                 
-                # Log transaction
-                BillingHistory.objects.create(
-                    subscription=subscription,
-                    transaction_type='charge',
-                    amount=subscription.amount,
-                    description=f'Subscription payment processed via Paystack - {subscription.subscription_plan.name}'
-                )
+                # Log transaction (best-effort)
+                try:
+                    import uuid
+                    now = timezone.now()
+                    BillingHistory.objects.create(
+                        billing=subscription,
+                        transaction_type='charge',
+                        state='completed',
+                        amount=getattr(subscription, 'monthly_amount', 0) or 0,
+                        currency='NGN',
+                        description='Subscription payment processed via Paystack',
+                        transaction_id=reference or f"paystack-{uuid.uuid4().hex}",
+                        billing_date=now,
+                        due_date=now.date(),
+                        paid_date=now,
+                        invoice_number=f"INV-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}",
+                        payment_method='paystack',
+                    )
+                except Exception:
+                    pass
                 
                 # Send confirmation email
                 SubscriptionEmailNotifications.send_subscription_renewed_email(
@@ -516,14 +610,14 @@ def get_billing_history(request):
         company = getattr(request, 'company', None)
         if not company:
             company_profile = getattr(request.user, 'company_profile', None)
-            company = getattr(company_profile, 'company', None) if company_profile else None
+            company = company_profile
         if not company:
             company = getattr(request.user, 'company', None)
         if not company:
             return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
 
         company_profile = getattr(request.user, 'company_profile', None)
-        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        profile_company = company_profile
         if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
             return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
 
@@ -566,14 +660,14 @@ def update_payment_method(request):
         company = getattr(request, 'company', None)
         if not company:
             company_profile = getattr(request.user, 'company_profile', None)
-            company = getattr(company_profile, 'company', None) if company_profile else None
+            company = company_profile
         if not company:
             company = getattr(request.user, 'company', None)
         if not company:
             return JsonResponse({'ok': False, 'error': 'No company context'}, status=400)
 
         company_profile = getattr(request.user, 'company_profile', None)
-        profile_company = getattr(company_profile, 'company', None) if company_profile else None
+        profile_company = company_profile
         if profile_company and company and getattr(profile_company, 'id', None) != getattr(company, 'id', None):
             return JsonResponse({'ok': False, 'error': 'Company context mismatch'}, status=403)
 
@@ -751,7 +845,7 @@ def generate_subscription_receipt(request, transaction_id):
         company = getattr(request, 'company', None)
         if not company:
             company_profile = getattr(request.user, 'company_profile', None)
-            company = getattr(company_profile, 'company', None) if company_profile else None
+            company = company_profile
         if not company:
             company = getattr(request.user, 'company', None)
         if not company:

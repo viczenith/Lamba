@@ -171,7 +171,9 @@
 <body>
   <!-- Sidebar -->
   {% include 'header.html' %}
-  {% include 'admin_component/admin_sidebar.html' %}
+  {% if request.company and request.company.slug %}
+    {% include 'admin_component/admin_sidebar.html' %}
+  {% endif %}
 
   {% if subscription_has_alerts %}
     {% include "alerts/alert_center.html" %}
@@ -202,103 +204,140 @@
 
   <script src="{% static 'js/alerts.js' %}"></script>
 
-  {# Floating subscription button + modal (does NOT affect layout/scroll). #}
-  {% if plan_usage %}
-    {% if plan_usage.any_exhausted or plan_usage.any_near_limit or plan_usage.subscription.is_read_only_mode or plan_usage.subscription.is_trial %}
-      <style>
-        #subscription-fab {
-          position: fixed;
-          top: 90px;
-          right: 22px;
-          z-index: 2147483000;
-          cursor: grab;
-          user-select: none;
-        }
+  {# Professional Unified Subscription Alert System #}
+  {% if request.subscription_expired or request.subscription_expiring_soon %}
+    <style>
+      #subscription-fab {
+        position: fixed;
+        top: 90px;
+        right: 22px;
+        z-index: 2147483000;
+        cursor: grab;
+        user-select: none;
+        animation: fadeInSlide 0.5s ease-out;
+      }
 
-        #subscription-fab.dragging {
-          cursor: grabbing;
-        }
+      @keyframes fadeInSlide {
+        from { opacity: 0; transform: translateX(50px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
 
-        #subscription-fab .fab-btn {
-          border-radius: 999px;
-          box-shadow: var(--card-shadow);
-          border: 1px solid rgba(0, 0, 0, 0.06);
-          padding: 10px 14px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          white-space: nowrap;
-        }
+      #subscription-fab.dragging { cursor: grabbing; }
 
-        #subscription-fab .fab-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          display: inline-block;
-          background: var(--badge-bg);
-        }
+      #subscription-fab .fab-btn {
+        border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        border: none;
+        padding: 12px 18px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        transition: all 0.3s ease;
+        animation: fabBounce 3s ease-in-out infinite;
+      }
 
-        #subscription-fab .fab-sub {
-          font-size: 12px;
-          opacity: 0.9;
-          font-weight: 600;
-        }
+      @keyframes fabBounce {
+        0%, 100% { transform: translateY(0); }
+        10% { transform: translateY(-8px); }
+        20% { transform: translateY(0); }
+        30% { transform: translateY(-4px); }
+        40% { transform: translateY(0); }
+      }
 
-        @media (max-width: 576px) {
-          #subscription-fab {
-            top: 80px;
-            right: 14px;
-          }
-        }
-      </style>
+      #subscription-fab .fab-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+        animation: none;
+      }
 
-      <div
-        id="subscription-fab"
-        data-company-id="{% if request.user.is_authenticated and request.user.company_profile %}{{ request.user.company_profile.id }}{% endif %}"
-      >
-        {% comment %}
-          Severity mapping:
-          - danger: exhausted OR read-only OR trial <= 1
-          - warning: near limit OR trial <= 3
-          - primary: trial <= 7 (info-ish)
-        {% endcomment %}
-        {% with d=plan_usage.subscription.trial_days_remaining %}
-          {% if plan_usage.any_exhausted or plan_usage.subscription.is_read_only_mode or d != None and d <= 1 %}
-            {% with btn_class="btn-danger" dot_class="bg-light" label="Action required" %}
-              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
-                <span class="fab-dot {{ dot_class }}"></span>
-                <span>Subscription</span>
-                <span class="fab-sub">{{ label }}</span>
-              </button>
-            {% endwith %}
-          {% elif plan_usage.any_near_limit or d != None and d <= 3 %}
-            {% with btn_class="btn-warning" dot_class="bg-dark" label="Near limit" %}
-              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
-                <span class="fab-dot {{ dot_class }}"></span>
-                <span>Subscription</span>
-                <span class="fab-sub">{{ label }}</span>
-              </button>
-            {% endwith %}
-          {% elif d != None and d <= 7 %}
-            {% with btn_class="btn-primary" dot_class="bg-light" label="Trial" %}
-              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
-                <span class="fab-dot {{ dot_class }}"></span>
-                <span>Subscription</span>
-                <span class="fab-sub">{{ label }}</span>
-              </button>
-            {% endwith %}
-          {% else %}
-            {% with btn_class="btn-primary" dot_class="bg-light" label="Details" %}
-              <button type="button" class="btn fab-btn {{ btn_class }}" id="subscriptionFabButton" aria-label="Subscription status" data-bs-toggle="modal" data-bs-target="#subscriptionUsageModal">
-                <span class="fab-dot {{ dot_class }}"></span>
-                <span>Subscription</span>
-                <span class="fab-sub">{{ label }}</span>
-              </button>
-            {% endwith %}
-          {% endif %}
-        {% endwith %}
-      </div>
+      #subscription-fab .fab-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.8; }
+      }
+
+      #subscription-fab .fab-sub {
+        font-size: 12px;
+        opacity: 0.95;
+        font-weight: 600;
+      }
+
+      #subscriptionAlertModal .modal-content {
+        border-radius: 20px;
+        overflow: hidden;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      }
+
+      #subscriptionAlertModal .modal-header {
+        background: white;
+        color: #1a1a1a;
+        border-bottom: 1px solid #e5e5e5;
+        padding: 24px 30px;
+      }
+
+      #subscriptionAlertModal .modal-body { padding: 30px; }
+
+      #subscriptionAlertModal .alert-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin: 0 auto 20px;
+        background: #f5f5f7;
+      }
+
+      #subscriptionAlertModal .countdown-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 14px;
+        margin: 10px 0;
+      }
+
+      @media (max-width: 576px) {
+        #subscription-fab { top: 80px; right: 14px; }
+        #subscription-fab .fab-btn { padding: 10px 14px; font-size: 14px; }
+      }
+    </style>
+
+    <div id="subscription-fab" data-company-id="{% if request.user.is_authenticated and request.user.company_profile %}{{ request.user.company_profile.id }}{% endif %}">
+      {% if request.subscription_grace_period_expired %}
+        <button type="button" class="btn fab-btn btn-danger" id="subscriptionFabButton" 
+                aria-label="Subscription expired" data-bs-toggle="modal" data-bs-target="#subscriptionAlertModal">
+          <span class="fab-dot bg-white"></span>
+          <span>Subscription</span>
+          <span class="fab-sub">Action Required</span>
+        </button>
+      {% elif request.subscription_expired %}
+        <button type="button" class="btn fab-btn btn-warning text-dark" id="subscriptionFabButton" 
+                aria-label="Subscription in grace period" data-bs-toggle="modal" data-bs-target="#subscriptionAlertModal">
+          <span class="fab-dot bg-dark"></span>
+          <span>Subscription</span>
+          <span class="fab-sub">Grace Period</span>
+        </button>
+      {% elif request.subscription_expiring_soon %}
+        <button type="button" class="btn fab-btn btn-primary" id="subscriptionFabButton" 
+                aria-label="Subscription expiring soon" data-bs-toggle="modal" data-bs-target="#subscriptionAlertModal">
+          <span class="fab-dot bg-white"></span>
+          <span>Subscription</span>
+          <span class="fab-sub">Expiring Soon</span>
+        </button>
+      {% endif %}
+    </div>
 
       <div class="modal fade" id="subscriptionUsageModal" tabindex="-1" aria-labelledby="subscriptionUsageModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -378,13 +417,135 @@
         </div>
       </div>
 
+      {# New Professional Subscription Alert Modal #}
+      <div class="modal fade" id="subscriptionAlertModal" tabindex="-1" aria-labelledby="subscriptionAlertModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <div class="w-100">
+                <h5 class="modal-title mb-1" id="subscriptionAlertModalLabel">
+                  {% if request.is_trial_expiration %}
+                    <i class="bi bi-hourglass-split me-2"></i>Trial Registration Required
+                  {% else %}
+                    <i class="bi bi-arrow-repeat me-2"></i>Subscription Renewal Required
+                  {% endif %}
+                </h5>
+                <div style="font-size: 14px; color: #666;">{{ request.company_name|default:"Your Company" }}</div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body text-center">
+              {% if request.subscription_grace_period_expired %}
+                <div class="alert-icon" style="color: #dc3545;">
+                  <i class="bi bi-lock-fill"></i>
+                </div>
+                <h4 class="mb-3">Features Locked</h4>
+                <p class="text-muted mb-3">
+                  {% if request.is_trial_expiration %}
+                    Your trial ended on <strong>{{ request.subscription_end_date|date:"M d, Y" }}</strong> and the 7-day grace period has expired.
+                    All creation features are now locked until you register for a paid subscription.
+                  {% else %}
+                    Your subscription ended on <strong>{{ request.subscription_end_date|date:"M d, Y" }}</strong> and the 7-day grace period has expired.
+                    All creation features are now locked until you renew your subscription.
+                  {% endif %}
+                </p>
+                <div class="countdown-badge bg-danger text-white">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  Grace period ended on {{ request.grace_period_end_date|date:"M d, Y" }}
+                </div>
+
+              {% elif request.subscription_expired %}
+                <div class="alert-icon" style="color: #ffc107;">
+                  <i class="bi bi-hourglass-bottom"></i>
+                </div>
+                <h4 class="mb-3">Grace Period Active</h4>
+                <p class="text-muted mb-3">
+                  {% if request.is_trial_expiration %}
+                    Your trial ended on <strong>{{ request.subscription_end_date|date:"M d, Y" }}</strong>.
+                    You have until <strong>{{ request.grace_period_end_date|date:"M d, Y" }}</strong> to register for a paid subscription.
+                    After this date, all creation features will be locked.
+                  {% else %}
+                    Your subscription ended on <strong>{{ request.subscription_end_date|date:"M d, Y" }}</strong>.
+                    You have until <strong>{{ request.grace_period_end_date|date:"M d, Y" }}</strong> to renew.
+                    After this date, all creation features will be locked.
+                  {% endif %}
+                </p>
+                <div class="countdown-badge bg-warning text-dark">
+                  <i class="bi bi-clock-fill me-2"></i>
+                  {% if request.days_until_grace_end %}{{ request.days_until_grace_end }} days remaining{% else %}Grace period ends {{ request.grace_period_end_date|date:"M d, Y" }}{% endif %}
+                </div>
+
+              {% elif request.subscription_expiring_soon %}
+                <div class="alert-icon" style="color: #0d6efd;">
+                  <i class="bi bi-calendar-check"></i>
+                </div>
+                <h4 class="mb-3">Renewal Reminder</h4>
+                <p class="text-muted mb-3">
+                  Your subscription expires on <strong>{{ request.subscription_end_date|date:"M d, Y" }}</strong>.
+                  Renew now to avoid any interruption to your service.
+                </p>
+                <div class="countdown-badge bg-primary text-white">
+                  <i class="bi bi-info-circle-fill me-2"></i>
+                  {{ request.days_until_expiration }} days remaining
+                </div>
+              {% endif %}
+
+              {% if plan_usage and plan_usage.limits %}
+                <div class="mt-4 pt-4 border-top">
+                  <h6 class="text-start mb-3">Current Plan Usage</h6>
+                  <div class="row g-2">
+                    {% for _k, v in plan_usage.limits.items %}
+                      <div class="col-6">
+                        <div class="p-2 rounded" style="border: 1px solid rgba(0,0,0,0.1); background: var(--card-bg);">
+                          <div class="d-flex align-items-center justify-content-between mb-1">
+                            <small class="fw-semibold" style="font-size: 12px;">{{ v.label }}</small>
+                            {% if v.is_unlimited %}
+                              <span class="badge bg-primary" style="font-size: 10px;">∞</span>
+                            {% elif v.is_exhausted %}
+                              <span class="badge bg-danger" style="font-size: 10px;">Full</span>
+                            {% elif v.is_near_limit %}
+                              <span class="badge bg-warning text-dark" style="font-size: 10px;">Near</span>
+                            {% else %}
+                              <span class="badge bg-success" style="font-size: 10px;">OK</span>
+                            {% endif %}
+                          </div>
+                          <div style="font-size: 11px; color: #666;">
+                            {% if v.is_unlimited %}{{ v.used }}{% else %}{{ v.used }}/{{ v.limit }}{% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+            
+            <div class="modal-footer" style="border-top: 1px solid rgba(0,0,0,0.1); padding: 20px 30px;">
+              {% if request.company and request.company.company_slug %}
+                <a class="btn btn-primary px-4" href="{% url 'subscription_dashboard' company_slug=request.company.company_slug %}">
+                  <i class="bi bi-{% if request.is_trial_expiration %}cart-plus{% else %}arrow-repeat{% endif %} me-2"></i>
+                  {% if request.is_trial_expiration %}Register Now{% else %}Renew Subscription{% endif %}
+                </a>
+              {% else %}
+                <a class="btn btn-primary px-4" href="{% url 'company-profile' %}?tab=billing">
+                  <i class="bi bi-{% if request.is_trial_expiration %}cart-plus{% else %}arrow-repeat{% endif %} me-2"></i>
+                  Manage Subscription
+                </a>
+              {% endif %}
+              <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Dismiss</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <script>
         document.addEventListener('DOMContentLoaded', function () {
           const fab = document.getElementById('subscription-fab');
           if (!fab) return;
 
           const fabButton = document.getElementById('subscriptionFabButton');
-          const modalEl = document.getElementById('subscriptionUsageModal');
+          const modalEl = document.getElementById('subscriptionAlertModal');
           const openModal = () => {
             if (!modalEl) return;
             // Bootstrap 5 preferred path
@@ -519,7 +680,6 @@
           }
         });
       </script>
-    {% endif %}
   {% endif %}
 
   <!-- Theme Switching Script -->

@@ -4,7 +4,7 @@
 
 {% block extra_css %}
     {{ block.super }}
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -13,7 +13,13 @@
         <h1>Company Console</h1>
         <nav>
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'tenant-dashboard' company_slug=request.user.company_profile.slug %}">Home</a></li>
+                <li class="breadcrumb-item">
+                    {% if request.user.company_profile and request.user.company_profile.slug %}
+                        <a href="{% url 'tenant-dashboard' company_slug=request.user.company_profile.slug %}">Home</a>
+                    {% else %}
+                        <a href="/">Home</a>
+                    {% endif %}
+                </li>
                 <li class="breadcrumb-item active">Console</li>
             </ol>
         </nav>

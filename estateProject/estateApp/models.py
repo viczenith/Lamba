@@ -160,6 +160,13 @@ class Company(models.Model):
         blank=True,
         verbose_name="Stripe Customer ID"
     )
+    paystack_customer_code = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="Paystack Customer Code"
+    )
     
     # Status
     is_active = models.BooleanField(default=True, verbose_name="Is Active")
@@ -175,6 +182,7 @@ class Company(models.Model):
             models.Index(fields=['api_key']),
             models.Index(fields=['custom_domain']),
             models.Index(fields=['stripe_customer_id']),
+            models.Index(fields=['paystack_customer_code']),
         ]
 
     def __str__(self):

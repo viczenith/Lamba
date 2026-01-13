@@ -1,0 +1,309 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ company.company_name }} - Company Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-gray-50">
+    
+    {% include 'superadmin/comprehensive/nav.html' %}
+
+    <div class="max-w-full mx-auto px-6 py-8">
+        
+        <!-- Page Header -->
+        <div class="mb-8">
+            <a href="{% url 'superadmin:company_management' %}" class="text-indigo-600 hover:text-indigo-800 mb-2 inline-flex items-center">
+                <i class="bi bi-arrow-left mr-2"></i> Back to Companies
+            </a>
+            <h2 class="text-3xl font-bold text-gray-900 mt-2">{{ company.company_name }}</h2>
+            <p class="text-gray-600 mt-1">Complete company information and analytics</p>
+        </div>
+
+        <!-- Company Info Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Users</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ total_users|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-people text-2xl text-indigo-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    <div>Admins: {{ admins }}</div>
+                    <div>Marketers: {{ marketers }}</div>
+                    <div>Clients: {{ clients }}</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Properties</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ total_properties|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-building text-2xl text-green-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Allocations: {{ total_allocations }}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Revenue</p>
+                        <p class="text-2xl font-bold text-gray-900">₦{{ total_revenue|floatformat:0|intcomma }}</p>
+                    </div>
+                    <i class="bi bi-currency-dollar text-2xl text-blue-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Pending: {{ pending_payments }}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Status</p>
+                        <p class="text-xl font-bold {% if company.is_active %}text-green-600{% else %}text-red-600{% endif %}">
+                            {% if company.is_active %}Active{% else %}Inactive{% endif %}
+                        </p>
+                    </div>
+                    <i class="bi bi-check-circle text-2xl text-green-600"></i>
+                </div>
+                <div class="mt-2 text-xs text-gray-600">
+                    Since: {{ company.created_at|date:"M d, Y" }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Company Details -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Main Info -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Company Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-600">Company Name</p>
+                        <p class="font-semibold text-gray-900">{{ company.company_name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Slug</p>
+                        <p class="font-semibold text-gray-900">{{ company.slug }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Registration Number</p>
+                        <p class="font-semibold text-gray-900">{{ company.registration_number|default:"N/A" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Created At</p>
+                        <p class="font-semibold text-gray-900">{{ company.created_at|date:"M d, Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Contact Email</p>
+                        <p class="font-semibold text-gray-900">{{ company.email|default:"N/A" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Phone Number</p>
+                        <p class="font-semibold text-gray-900">{{ company.phone_number|default:"N/A" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscription Info -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Subscription</h3>
+                {% if subscription %}
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-sm text-gray-600">Current Plan</p>
+                        <p class="font-semibold text-gray-900">{{ subscription.current_plan.name|default:"None" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Status</p>
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if subscription.subscription_status == 'active' %}bg-green-100 text-green-800
+                            {% elif subscription.subscription_status == 'trial' %}bg-blue-100 text-blue-800
+                            {% elif subscription.subscription_status == 'suspended' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ subscription.subscription_status|title }}
+                        </span>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Billing Cycle</p>
+                        <p class="font-semibold text-gray-900">{{ subscription.billing_cycle|title }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Next Billing</p>
+                        <p class="font-semibold text-gray-900">{{ subscription.next_billing_date|date:"M d, Y" }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-gray-500">No active subscription</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Activity Tabs -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="border-b border-gray-200">
+                <nav class="flex" role="tablist">
+                    <button class="tab-button active px-6 py-4 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="users">
+                        Recent Users
+                    </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium text-gray-600 hover:text-gray-900" data-tab="properties">
+                        Recent Properties
+                    </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium text-gray-600 hover:text-gray-900" data-tab="transactions">
+                        Recent Transactions
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content p-6">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            {% for user in recent_users %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">{{ user.get_full_name|default:user.email }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ user.email }}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if user.role == 'admin' %}bg-purple-100 text-purple-800
+                                        {% elif user.role == 'marketer' %}bg-blue-100 text-blue-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ user.role|title }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ user.date_joined|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">No users yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Properties Tab -->
+            <div id="properties-tab" class="tab-content p-6 hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Added</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            {% for property in recent_properties %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">{{ property.name }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ property.location|default:"N/A" }}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        Active
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ property.date_added|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">No properties yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div id="transactions-tab" class="tab-content p-6 hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            {% for transaction in recent_transactions %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">₦{{ transaction.amount|floatformat:0|intcomma }}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if transaction.state == 'completed' %}bg-green-100 text-green-800
+                                        {% elif transaction.state == 'pending' %}bg-yellow-100 text-yellow-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ transaction.state|title }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ transaction.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="px-4 py-8 text-center text-gray-500">No transactions yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab switching
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.tab;
+                
+                // Remove active class from all buttons
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('active', 'text-indigo-600', 'border-indigo-600', 'border-b-2');
+                    btn.classList.add('text-gray-600');
+                });
+                
+                // Add active class to clicked button
+                button.classList.add('active', 'text-indigo-600', 'border-indigo-600', 'border-b-2');
+                button.classList.remove('text-gray-600');
+                
+                // Hide all tab contents
+                tabContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Show selected tab content
+                document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+            });
+        });
+    });
+    </script>
+</body>
+</html>

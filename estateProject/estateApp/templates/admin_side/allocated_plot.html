@@ -52,6 +52,8 @@
   </style>
 
   <div class="container">
+    {% include 'components/subscription_banner.html' %}
+    
     <h2>{{ estate.name }} - Plot Allocation Dashboard</h2>
 
     <!-- Allocated Plots Section -->
@@ -120,5 +122,7 @@
     </table>
 
   </div>
+
+{% include 'components/subscription_muting.html' %}
 
 {% endblock %}

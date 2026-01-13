@@ -1,6 +1,3 @@
-# FACEBOOK-STYLE DYNAMIC TENANT ROUTING IMPLEMENTATION
-# File: estateApp/tenant_views.py
-
 """
 IMPLEMENTATION GUIDE:
 
@@ -211,11 +208,11 @@ def tenant_admin_dashboard(request, company_slug):
     context = {
         'company': company,
         'company_slug': company_slug,
-        'company_name': company.company_name,  # For URL context
+        'company_name': company.company_name,
         'chart_data': chart_data,
         'total_clients': total_clients,
         'total_marketers': total_marketers,
-        'estates': estates,
+        'estates': list(estates),  # Convert QuerySet to list to ensure all fields are available
         'total_allocations': total_allocations,
         'pending_allocations': pending_allocations,
         'global_message_count': global_message_count,

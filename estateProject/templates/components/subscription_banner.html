@@ -1,0 +1,243 @@
+{% comment %}
+SUBSCRIPTION EXPIRED BANNER
+Shows professional warning when company subscription has expired
+Differentiates between trial users (need to register) and existing customers (need to renew)
+Usage: {% include 'components/subscription_banner.html' %}
+{% endcomment %}
+
+{% if request.subscription_expired %}
+<div class="subscription-expired-banner" id="subscriptionBanner" style="overflow: hidden;">
+    <div class="banner-content">
+        <div class="banner-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="banner-text">
+            {% if request.is_trial_expiration %}
+                {# Trial users who need to register for paid subscription #}
+                <h4 class="banner-title">
+                    <i class="bi bi-hourglass-split"></i> Trial Period Ended - Registration Required
+                </h4>
+                <p class="banner-message">
+                    Your free trial for <strong>{{ request.company_name }}</strong> has ended
+                    {% if request.subscription_end_date %}
+                    on <strong>{{ request.subscription_end_date|date:"F d, Y" }}</strong>
+                    {% endif %}.
+                    {% if request.grace_period_end_date and not request.subscription_grace_period_expired %}
+                        <strong>You have until {{ request.grace_period_end_date|date:"F d, Y" }} to register for a paid subscription.</strong>
+                    {% else %}
+                        <strong>Please register for a paid subscription to continue using all features.</strong>
+                    {% endif %}
+                </p>
+            {% else %}
+                {# Existing customers who need to renew #}
+                <h4 class="banner-title">
+                    <i class="bi bi-hourglass-split"></i> Subscription Renewal Required
+                </h4>
+                <p class="banner-message">
+                    Your subscription for <strong>{{ request.company_name }}</strong> has expired
+                    {% if request.subscription_end_date %}
+                    on <strong>{{ request.subscription_end_date|date:"F d, Y" }}</strong>
+                    {% endif %}.
+                    {% if request.grace_period_end_date and not request.subscription_grace_period_expired %}
+                        <strong>You have until {{ request.grace_period_end_date|date:"F d, Y" }} to renew.</strong>
+                    {% else %}
+                        <strong>Please renew to continue enjoying full access and benefits.</strong>
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+        <div class="banner-actions">
+            <button type="button" class="btn btn-dismiss" onclick="dismissBanner()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .subscription-expired-banner {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        color: white;
+        padding: 0;
+        margin-bottom: 25px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(238, 90, 111, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .subscription-expired-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        animation: shimmer 3s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+    
+    .banner-content {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px 25px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .banner-icon {
+        flex-shrink: 0;
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+    }
+    
+    .banner-icon i {
+        font-size: 28px;
+        color: white;
+    }
+    
+    .banner-text {
+        flex: 1;
+    }
+    
+    .banner-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: white;
+    }
+    
+    .banner-title i {
+        font-size: 20px;
+    }
+    
+    .banner-message {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.95);
+    }
+    
+    .banner-message strong {
+        font-weight: 600;
+        color: white;
+    }
+    
+    .banner-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .btn-renew {
+        background: white;
+        color: #ff6b6b;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        border: none;
+    }
+    
+    .btn-renew:hover {
+        background: #fff;
+        color: #ff5252;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-renew i {
+        font-size: 16px;
+    }
+    
+    .btn-dismiss {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+    
+    .btn-dismiss:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+    }
+    
+    .btn-dismiss i {
+        font-size: 16px;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .banner-content {
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .banner-icon {
+            width: 50px;
+            height: 50px;
+        }
+        
+        .banner-icon i {
+            font-size: 24px;
+        }
+        
+        .banner-actions {
+            width: 100%;
+            flex-direction: column;
+        }
+        
+        .btn-renew {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    /* Dark mode support */
+    [data-theme="dark"] .subscription-expired-banner {
+        background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    }
+</style>
+
+<script>
+    function dismissBanner() {
+        const banner = document.getElementById('subscriptionBanner');
+        if (banner) {
+            banner.style.transition = 'opacity 0.3s ease-out, max-height 0.3s ease-out, margin-bottom 0.3s ease-out, padding 0.3s ease-out';
+            banner.style.opacity = '0';
+            banner.style.maxHeight = '0px';
+            banner.style.marginBottom = '0px';
+            banner.style.paddingTop = '0px';
+            banner.style.paddingBottom = '0px';
+            setTimeout(() => {
+                banner.remove();
+            }, 300);
+        }
+    }
+</script>
+{% endif %}

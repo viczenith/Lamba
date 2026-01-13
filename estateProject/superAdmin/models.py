@@ -12,6 +12,26 @@ import uuid
 User = get_user_model()
 
 
+class ConfigurationSettings(models.Model):
+    """
+    Key-value storage for platform configuration settings
+    Allows flexible storage of various config data like payment keys, settings, etc.
+    """
+    key = models.CharField(max_length=255, unique=True, db_index=True)
+    value = models.JSONField()
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Configuration Setting"
+        verbose_name_plural = "Configuration Settings"
+        ordering = ['key']
+    
+    def __str__(self):
+        return self.key
+
+
 class PlatformConfiguration(models.Model):
     """
     Global platform settings that affect all tenants
@@ -236,8 +256,36 @@ class CompanySubscription(models.Model):
         return f"{self.company.company_name} - {self.plan.name}"
     
     def is_active(self):
-        """Check if subscription is active"""
-        return self.payment_status == 'active' and self.current_period_end > timezone.now()
+        """Check if subscription is active.
+
+        Primary source of truth is this model's billing state, but we also
+        support legacy/parallel company-level subscription fields.
+        """
+        now = timezone.now()
+
+        if self.payment_status != 'active':
+            return False
+
+        # Billing-period based check (preferred)
+        period_end = getattr(self, 'current_period_end', None)
+        if period_end and period_end > now:
+            return True
+
+        # Fallback for deployments where Company.subscription_* is authoritative
+        # (or where current_period_end is stale/misaligned).
+        company = getattr(self, 'company', None)
+        company_status = getattr(company, 'subscription_status', None)
+        if company_status == 'active':
+            company_end = getattr(company, 'subscription_ends_at', None)
+            if company_end and company_end > now:
+                return True
+
+        if company_status == 'trial':
+            trial_end = getattr(company, 'trial_ends_at', None)
+            if trial_end and trial_end > now:
+                return True
+
+        return False
     
     def is_trial(self):
         """Check if in trial period"""

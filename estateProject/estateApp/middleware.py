@@ -156,6 +156,10 @@ class SessionExpirationMiddleware(MiddlewareMixin):
             '/api/auth/register',
             '/api/auth/logout',
             '/api/auth/password-reset',
+            '/subscription/',
+            '/static/',
+            '/media/',
+            '/favicon.ico',
         ]
         
         for path in public_paths:
@@ -218,7 +222,7 @@ class TenantIsolationMiddleware(MiddlewareMixin):
 
             # SECURITY: System Master Admin (super user) - no company filter
             # They can see all companies but must use super admin interface
-            if request.user.is_superuser:
+            if request.user.is_superuser or getattr(request.user, 'is_system_admin', False):
                 set_current_company(None)
                 request.company = None
                 request.is_system_master_admin = True
@@ -379,10 +383,14 @@ class TenantIsolationMiddleware(MiddlewareMixin):
             '/api/auth/logout',
             '/api/auth/password-reset',
             '/admin/login',
+            '/admin/',
+            '/super-admin/',  # Super admin is independent of tenant context
             '/health/',
             '/login/',
             '/logout/',
             '/register/',
+            '/static/',
+            '/media/',
         ]
 
         for path in public_paths:
@@ -669,7 +677,7 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/health/',
         '/admin/login/',           # Django admin login
         '/admin/',                 # Django admin (has its own auth)
-        '/super-admin/login/',     # Super admin login
+        '/super-admin/',           # Super admin (has its own auth & redirect)
         '/estates/',               # Public estate list
         '/promotions/',            # Public promotions
     ]
@@ -694,6 +702,7 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/api/token/',
         '/client/register/',
         '/marketer/register/',
+        '/super-admin/login/',  # Super admin login
     ]
     
     # URLs that should be monitored for IDOR attacks
@@ -830,6 +839,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/user-profile',           # User profile
         '/user_profile/',          # User profile alt
         '/security-verification/', # Security verification checkpoint
+        '/subscription/',          # Subscription management (any logged-in user)
+        '/company-profile/',       # Company profile management
     ]
     
     # ========================================================================
@@ -850,6 +861,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         'bio',               # Biography fields
         'comment',           # Comments
         'feedback',          # Feedback fields
+        'password',          # Password fields (login forms)
+        'email',             # Email fields (can contain special chars)
     ]
     
     # Endpoints where command injection checking should be lenient
@@ -859,6 +872,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/admin-support/api/staff/',
         '/company-console/',
         '/admin-dashboard/',
+        '/super-admin/login/',  # Super admin login (password field)
+        '/login/',  # Regular login (password field)
     ]
     
     # URLs that require EXACT match (not startswith) - Home page
@@ -1006,7 +1021,11 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             return HttpResponseForbidden("Security violation detected. This incident has been logged.")
         
         # ===== LAYER 5: SESSION SECURITY =====
-        if request.user.is_authenticated:
+        # Skip session security for subscription management (users must be able to access billing)
+        session_exempt_paths = ['/subscription/', '/login/', '/logout/', '/static/', '/media/']
+        skip_session_security = any(path.startswith(p) for p in session_exempt_paths)
+        
+        if request.user.is_authenticated and not skip_session_security:
             # Validate session integrity
             if not SecurityValidator.validate_session_integrity(request):
                 log_security_event('SESSION_HIJACK_ATTEMPT', request, {
@@ -1106,12 +1125,14 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
             
             # Tenant-scoped admin URL protection (/<company_slug>/dashboard/, etc.)
             # IMPORTANT: Skip this check if URL already matched marketer/client/admin/support URLs
-            # to avoid false positives on /m/dashboard/, /c/dashboard/, etc.
+            # or subscription/billing management URLs (any authenticated user can access)
+            # to avoid false positives on /m/dashboard/, /c/dashboard/, /subscription/dashboard/, etc.
             is_known_role_url = (
                 any(path.startswith(url) for url in self.MARKETER_URLS) or
                 any(path.startswith(url) for url in self.CLIENT_URLS) or
                 any(path.startswith(url) for url in self.ADMIN_URLS) or
-                any(path.startswith(url) for url in self.SUPPORT_URLS)
+                any(path.startswith(url) for url in self.SUPPORT_URLS) or
+                any(path.startswith(url) for url in self.AUTHENTICATED_URLS)
             )
             
             if not is_known_role_url:
@@ -1171,11 +1192,12 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
                 return redirect('login')
             
             # Block unauthenticated access to tenant-scoped admin URLs
-            # IMPORTANT: Skip if URL already matched known role URLs
+            # IMPORTANT: Skip if URL already matched known role URLs or shared authenticated URLs
             is_known_role_url = (
                 any(path.startswith(url) for url in self.MARKETER_URLS) or
                 any(path.startswith(url) for url in self.CLIENT_URLS) or
-                any(path.startswith(url) for url in self.ADMIN_URLS)
+                any(path.startswith(url) for url in self.ADMIN_URLS) or
+                any(path.startswith(url) for url in self.AUTHENTICATED_URLS)
             )
             
             if not is_known_role_url:
@@ -1407,9 +1429,30 @@ class SessionSecurityMiddleware(MiddlewareMixin):
     # Maximum session lifetime (24 hours)
     MAX_SESSION_AGE = 86400
     
+    # Paths exempt from session timeout (subscription management must always be reachable)
+    EXEMPT_PATHS = [
+        '/login/',
+        '/logout/',
+        '/subscription/',
+        '/static/',
+        '/media/',
+        '/favicon.ico',
+    ]
+    
+    def _is_exempt(self, request):
+        """Check if path is exempt from session security checks."""
+        for path in self.EXEMPT_PATHS:
+            if request.path.startswith(path):
+                return True
+        return False
+    
     def process_request(self, request):
         """Check session security."""
         if not request.user.is_authenticated:
+            return None
+        
+        # Exempt certain paths from session timeout
+        if self._is_exempt(request):
             return None
         
         now = time.time()

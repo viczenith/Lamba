@@ -740,7 +740,7 @@
                       </div>
                       <div>
                         <h6 class="mb-0 font-medium">{{ estate.name }}</h6>
-                        <small class="text-gray-500">{{ estate.location }} • {{ estate.estate_size }} plots</small>
+                        <small class="text-gray-500">{{ estate.location }} • {% if estate.estate_size %}{{ estate.estate_size }} plot{{ estate.estate_size|pluralize }}{% else %}N/A{% endif %}</small>
                       </div>
                     </div>
                   </button>

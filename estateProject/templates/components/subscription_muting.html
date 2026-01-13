@@ -1,0 +1,238 @@
+{% comment %}
+SUBSCRIPTION MUTING SCRIPT
+Disables form controls and shows tooltips when grace period has expired
+Include this at the bottom of pages that need muting functionality
+NOTE: Muting only happens AFTER grace period expires, not during grace period
+{% endcomment %}
+
+{% if request.subscription_grace_period_expired %}
+<script>
+(function() {
+    'use strict';
+    
+    // Configuration
+    const MUTED_MESSAGE = 'This feature requires an active subscription. Please renew to continue.';
+    const MUTED_OPACITY = 0.6;
+    
+    // Elements to mute
+    const SELECTORS_TO_MUTE = [
+        'button[type="submit"]',
+        '.btn-primary',
+        '.btn-submit',
+        '.btn-save-modern',
+        '.btn-custom',
+        'input[type="submit"]',
+        '.action-btn',
+        '.btn-action',
+        '.subscription-mutable'  // Management control action buttons
+    ];
+    
+    // Forms to disable
+    const FORM_SELECTORS = [
+        '#estateForm',
+        '#userRegistrationForm',
+        '#plotAllocationForm',
+        'form.needs-muting'
+    ];
+    
+    function muteElement(element) {
+        // Don't mute already muted elements or renewal buttons
+        if (element.classList.contains('subscription-muted') || 
+            element.classList.contains('btn-renew') ||
+            element.closest('.subscription-expired-banner')) {
+            return;
+        }
+        
+        // Mark as muted
+        element.classList.add('subscription-muted');
+        
+        // Disable the element
+        element.disabled = true;
+        element.style.opacity = MUTED_OPACITY;
+        element.style.cursor = 'not-allowed';
+        element.style.pointerEvents = 'none';
+        
+        // Add tooltip
+        element.setAttribute('title', MUTED_MESSAGE);
+        element.setAttribute('data-bs-toggle', 'tooltip');
+        element.setAttribute('data-bs-placement', 'top');
+        
+        // Add visual indicator
+        if (!element.querySelector('.subscription-lock-icon')) {
+            const lockIcon = document.createElement('i');
+            lockIcon.className = 'bi bi-lock-fill subscription-lock-icon';
+            lockIcon.style.marginLeft = '8px';
+            lockIcon.style.fontSize = '12px';
+            element.appendChild(lockIcon);
+        }
+    }
+    
+    function muteForm(form) {
+        if (!form || form.classList.contains('subscription-muted')) {
+            return;
+        }
+        
+        form.classList.add('subscription-muted');
+        
+        // Disable all form inputs
+        const inputs = form.querySelectorAll('input, select, textarea, button');
+        inputs.forEach(input => {
+            if (!input.closest('.subscription-expired-banner')) {
+                input.disabled = true;
+                input.style.opacity = MUTED_OPACITY;
+            }
+        });
+        
+        // Add overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'subscription-form-overlay';
+        overlay.innerHTML = `
+            <div class="overlay-content">
+                <i class="bi bi-lock-fill"></i>
+                <h4>Subscription Required</h4>
+                <p>${MUTED_MESSAGE}</p>
+                <a href="${subscriptionDashboardUrl}" class="btn btn-renew">
+                    <i class="bi bi-credit-card"></i> Renew Subscription
+                </a>
+            </div>
+        `;
+        
+        form.style.position = 'relative';
+        form.appendChild(overlay);
+    }
+    
+    function applyMuting() {
+        // Mute buttons
+        SELECTORS_TO_MUTE.forEach(selector => {
+            document.querySelectorAll(selector).forEach(muteElement);
+        });
+        
+        // Mute forms
+        FORM_SELECTORS.forEach(selector => {
+            document.querySelectorAll(selector).forEach(muteForm);
+        });
+        
+        // Initialize Bootstrap tooltips
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            const tooltipTriggerList = [].slice.call(
+                document.querySelectorAll('[data-bs-toggle="tooltip"]')
+            );
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+    }
+    
+    // Apply muting when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyMuting);
+    } else {
+        applyMuting();
+    }
+    
+    // Reapply muting when content is dynamically loaded
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                applyMuting();
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Store subscription dashboard URL for overlay
+    window.subscriptionDashboardUrl = '{% url "subscription_dashboard" %}';
+    
+})();
+</script>
+
+<style>
+    /* Muted elements styling */
+    .subscription-muted {
+        position: relative;
+    }
+    
+    .subscription-lock-icon {
+        color: #ff6b6b !important;
+        opacity: 1 !important;
+    }
+    
+    /* Form overlay styling */
+    .subscription-form-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(5px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 12px;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    [data-theme="dark"] .subscription-form-overlay {
+        background: rgba(26, 26, 46, 0.95);
+    }
+    
+    .subscription-form-overlay .overlay-content {
+        text-align: center;
+        padding: 40px;
+        max-width: 400px;
+    }
+    
+    .subscription-form-overlay i.bi-lock-fill {
+        font-size: 48px;
+        color: #ff6b6b;
+        margin-bottom: 20px;
+        animation: bounce 1s infinite;
+    }
+    
+    .subscription-form-overlay h4 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    [data-theme="dark"] .subscription-form-overlay h4 {
+        color: #e4e6eb;
+    }
+    
+    .subscription-form-overlay p {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+    
+    [data-theme="dark"] .subscription-form-overlay p {
+        color: #b0b3b8;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+</style>
+{% endif %}

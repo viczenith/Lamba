@@ -7,6 +7,7 @@ from django.utils.deprecation import MiddlewareMixin
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
+from datetime import timedelta
 from estateApp.models import Company
 from estateApp.isolation import set_current_tenant, clear_tenant_context, get_current_tenant
 import logging
@@ -43,6 +44,9 @@ class EnhancedTenantIsolationMiddleware(MiddlewareMixin):
         '/client-dashboard',
         '/marketer-dashboard',
         '/client-dashboard-cross-company/',
+        # Subscription/billing management (accessible without strict tenant context)
+        '/subscription/',
+        '/company-profile/',
     ]
     
     def should_exempt(self, path):
@@ -74,9 +78,10 @@ class EnhancedTenantIsolationMiddleware(MiddlewareMixin):
             return None
         
         # User must be authenticated (except exempt paths)
+        # DO NOT redirect here - let AdvancedSecurityMiddleware handle unauthenticated access
         if not request.user.is_authenticated:
-            logger.warning(f"Unauthenticated request to {request.path}")
-            return redirect('login')
+            logger.debug(f"Unauthenticated request to {request.path} - skipping tenant isolation")
+            return None
 
         # Allow cross-company access for client and marketer roles
         # Clients and marketers are intentionally not bound to a tenant
@@ -242,8 +247,9 @@ class TenantValidationMiddleware(MiddlewareMixin):
         """Validate request has proper tenant context"""
         
         # Skip exempt paths and unauthenticated users
-        exempt_paths = ['/admin/', '/static/', '/media/', '/login/', '/logout/', '/health/',
-                       '/client-dashboard', '/marketer-dashboard', '/client-dashboard-cross-company/']
+        exempt_paths = ['/admin/', '/super-admin/', '/static/', '/media/', '/login/', '/logout/', '/health/',
+                       '/client-dashboard', '/marketer-dashboard', '/client-dashboard-cross-company/',
+                       '/subscription/', '/company-profile/', '/api/subscription/', '/api/billing/']
         if any(request.path.startswith(p) for p in exempt_paths):
             return None
         
@@ -288,8 +294,25 @@ class SubscriptionEnforcementMiddleware(MiddlewareMixin):
     
     def process_request(self, request):
         """Check if request violates subscription limits"""
+
+        # Skip static assets and common public paths
+        path = getattr(request, 'path', '') or ''
+        if path.startswith(('/static/', '/media/')) or path == '/favicon.ico':
+            return None
+        if path.startswith(('/login/', '/logout/', '/admin/login/', '/super-admin/', '/tenant-admin/login/', '/tenant-admin/logout/')):
+            return None
+        # Allow redirect handlers (these are just routing, not actual pages)
+        if path in ('/admin_dashboard/', '/admin-dashboard/', '/management-dashboard/'):
+            return None
+        # Allow billing/subscription management pages even when inactive
+        if path.startswith(('/subscription/', '/api/subscription/', '/api/billing/', '/subscription/payment/', '/company-profile/')):
+            return None
+        # Allow polling/AJAX endpoints to not break page functionality
+        if path in ('/chat_unread_count/', '/estate-allocation-data/') or path.startswith('/api/alerts/'):
+            return None
         
-        if not hasattr(request, 'company'):
+        # Skip if no company context (clients/marketers work across companies)
+        if not hasattr(request, 'company') or request.company is None:
             return None
         
         company = request.company
@@ -306,16 +329,76 @@ class SubscriptionEnforcementMiddleware(MiddlewareMixin):
         
         # Check if subscription is active
         if not subscription.is_active():
-            logger.warning(
+            logger.info(
                 f"Subscription inactive for {company.company_name}: "
-                f"{subscription.payment_status}"
+                f"payment_status={getattr(subscription, 'payment_status', None)} "
+                f"period_end={getattr(subscription, 'current_period_end', None)} "
+                f"company_status={getattr(company, 'subscription_status', None)} "
+                f"- Allowing access with subscription banner"
             )
-            # Return 402 Payment Required
-            from django.http import JsonResponse
-            return JsonResponse(
-                {'error': 'Subscription inactive'},
-                status=402
-            )
+
+            # ✅ ALLOW ALL USERS TO ACCESS DASHBOARD REGARDLESS OF SUBSCRIPTION STATUS
+            # Set flags for templates to display subscription renewal banners
+            
+            # Calculate subscription state from available data
+            now = timezone.now()
+            
+            # Determine if in grace period or fully expired
+            # Grace period: 7 FULL days after subscription ends (not including the end day)
+            subscription_end = getattr(subscription, 'current_period_end', None) or getattr(company, 'subscription_ends_at', None)
+            grace_period_end = getattr(company, 'grace_period_ends_at', None)
+            
+            # Calculate grace period if not set: Add 8 days to ensure 7 FULL days
+            # Example: Sub ends Jan 5 → Grace period: Jan 6-12 (7 days) → Expires Jan 13
+            if subscription_end and not grace_period_end:
+                grace_period_end = subscription_end + timedelta(days=8)
+            
+            is_in_grace_period = grace_period_end and now < grace_period_end
+            is_fully_expired = grace_period_end and now >= grace_period_end
+            is_trial_user = subscription.is_trial() if hasattr(subscription, 'is_trial') and callable(subscription.is_trial) else (getattr(subscription, 'billing_cycle', None) == 'trial' or getattr(company, 'subscription_status', None) == 'trial')
+            
+            # Set base flags for banner display
+            request.subscription_expired = True
+            request.subscription_needs_renewal = True
+            request.subscription_status = getattr(company, 'subscription_status', 'expired')
+            
+            # Critical flag: Only mute features AFTER grace period expires
+            request.subscription_grace_period_expired = is_fully_expired
+            
+            # Distinguish between trial expiration and subscription renewal
+            # Trial users have never made a payment
+            has_payment_history = getattr(subscription, 'last_payment_at', None) is not None
+            request.is_trial_expiration = is_trial_user or not has_payment_history
+            
+            # Add subscription details to request for banner display
+            request.subscription_end_date = subscription_end
+            request.grace_period_end_date = grace_period_end
+            request.company_name = company.company_name
+            
+            # Calculate days until grace period ends (for display)
+            if grace_period_end:
+                days_remaining = (grace_period_end - now).days
+                request.days_until_grace_end = max(0, days_remaining)
+            
+            # Allow full access - banners shown, muting only after grace period
+            return None
+        
+        # ✅ CHECK FOR ACTIVE SUBSCRIPTIONS EXPIRING SOON (2 MONTHS OR LESS)
+        # This is for renewal companies to show early warnings
+        if subscription.is_active():
+            now = timezone.now()
+            subscription_end = getattr(subscription, 'current_period_end', None) or getattr(company, 'subscription_ends_at', None)
+            
+            if subscription_end:
+                days_until_expiration = (subscription_end - now).days
+                two_months_days = 60  # Approximately 2 months
+                
+                # Show alert if 2 months or less remaining
+                if 0 <= days_until_expiration <= two_months_days:
+                    request.subscription_expiring_soon = True
+                    request.days_until_expiration = days_until_expiration
+                    request.subscription_end_date = subscription_end
+                    request.company_name = company.company_name
         
         # TODO: Check specific quotas based on request path
         
@@ -341,7 +424,7 @@ class AuditLoggingMiddleware(MiddlewareMixin):
             return response
         
         # Skip admin, static, and health check
-        skip_paths = ['/admin/', '/static/', '/media/', '/health/', '/login/', '/logout/', '/register/',
+        skip_paths = ['/admin/', '/super-admin/', '/static/', '/media/', '/health/', '/login/', '/logout/', '/register/',
                      '/client-dashboard', '/marketer-dashboard', '/client-dashboard-cross-company/']
         if any(request.path.startswith(p) for p in skip_paths):
             return response

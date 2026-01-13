@@ -4120,10 +4120,9 @@ def company_profile_view(request):
     if getattr(user, 'role', None) not in ADMIN_ROLES:
         return redirect('home')
 
-    try:
-        company = get_user_company_from_slug(request)
-    except HttpResponseForbidden as e:
-        return e
+    company = get_user_company_from_slug(request)
+    if isinstance(company, HttpResponseForbidden):
+        return company
     
     if not company:
         company = getattr(user, 'company_profile', None)
@@ -4499,6 +4498,10 @@ def company_profile_view(request):
     subscription_plans_json = '[]'
     billing_history = []
     
+    # Get Paystack public key from settings
+    from django.conf import settings
+    paystack_public_key = getattr(settings, 'PAYSTACK_PUBLIC_KEY', '')
+    
     context = {
         'company': company,
         'total_clients': total_clients,
@@ -4527,6 +4530,7 @@ def company_profile_view(request):
         'subscription_plans': subscription_plans,
         'subscription_plans_json': subscription_plans_json,
         'billing_history': billing_history,
+        'PAYSTACK_PUBLIC_KEY': paystack_public_key,
         # User engagement analytics
         'active_users_30d': active_users_30d,
         'recently_active_7d': recently_active_7d,
@@ -9157,9 +9161,12 @@ class CustomLoginView(LoginView):
             except Exception:
                 pass
             
-            # Set session expiry
+            # Set session expiry for BOTH session middlewares
             import time
-            request.session['_session_expiry'] = time.time() + 300
+            current_time = time.time()
+            request.session['_session_expiry'] = current_time + 300  # SessionExpirationMiddleware
+            request.session['_security_last_activity'] = current_time  # SessionSecurityMiddleware
+            request.session['_security_session_created'] = current_time  # SessionSecurityMiddleware
             request.session.save()
             
             # Role-specific welcome messages
@@ -9267,9 +9274,12 @@ class CustomLoginView(LoginView):
         except Exception:
             pass
         
-        # Set session expiry for sliding expiration (5 minutes)
+        # Set session expiry for BOTH session middlewares
         import time
-        self.request.session['_session_expiry'] = time.time() + 300  # 5 minutes
+        current_time = time.time()
+        self.request.session['_session_expiry'] = current_time + 300  # SessionExpirationMiddleware (5 minutes)
+        self.request.session['_security_last_activity'] = current_time  # SessionSecurityMiddleware
+        self.request.session['_security_session_created'] = current_time  # SessionSecurityMiddleware
         self.request.session.save()
         
         # Role-specific welcome messages

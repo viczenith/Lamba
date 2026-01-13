@@ -1,0 +1,49 @@
+<nav class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-full mx-auto px-6 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-8">
+                <h1 class="text-2xl font-bold text-gray-900">
+                    <i class="bi bi-shield-check text-indigo-600"></i> SuperAdmin
+                </h1>
+                <div class="hidden md:flex space-x-4">
+                    <a href="{% url 'superadmin:dashboard' %}" 
+                        class="px-4 py-2 {% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg font-medium">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    <a href="{% url 'superadmin:company_management' %}" 
+                        class="px-4 py-2 {% if 'company' in request.resolver_match.url_name %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg">
+                        <i class="bi bi-building"></i> Companies
+                    </a>
+                    <a href="{% url 'superadmin:user_management' %}" 
+                        class="px-4 py-2 {% if 'user' in request.resolver_match.url_name %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg">
+                        <i class="bi bi-people"></i> Users
+                    </a>
+                    <a href="{% url 'superadmin:subscription_management' %}" 
+                        class="px-4 py-2 {% if 'subscription' in request.resolver_match.url_name %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg">
+                        <i class="bi bi-credit-card"></i> Subscriptions
+                    </a>
+                    <a href="{% url 'superadmin:billing_management' %}" 
+                        class="px-4 py-2 {% if 'billing' in request.resolver_match.url_name %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg">
+                        <i class="bi bi-receipt"></i> Billing
+                    </a>
+                    <a href="{% url 'superadmin:analytics' %}" 
+                        class="px-4 py-2 {% if 'analytics' in request.resolver_match.url_name %}bg-indigo-100 text-indigo-700{% else %}text-gray-600 hover:bg-gray-100{% endif %} rounded-lg">
+                        <i class="bi bi-graph-up"></i> Analytics
+                    </a>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="refreshStats" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh Statistics">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-900">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="text-xs text-gray-500">System Administrator</p>
+                </div>
+                <a href="{% url 'logout' %}" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Logout">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>

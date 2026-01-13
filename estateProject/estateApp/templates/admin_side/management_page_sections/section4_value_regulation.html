@@ -1599,6 +1599,8 @@
 </style>
 
 <div class="container py-4">
+    {% include 'components/subscription_banner.html' %}
+    
     <div class="promo-banner-prm mb-4">
         <i class="bi bi-megaphone"></i>
         {% if current_promos %}
@@ -1621,16 +1623,16 @@
         <div class="card-header d-flex justify-content-between align-items-center bg-light">
             <h5 class="mb-0">Property Value Management</h5>
             <div>
-                <button id="prmAddRegBtn" class="btn btn-primary btn-sm me-1">
+                <button id="prmAddRegBtn" class="btn btn-primary btn-sm me-1 subscription-mutable">
                     <i class="bi bi-plus-circle"></i> Set Presale Prize Only
                 </button>
-                <button id="prmBulkUpdateBtn" class="btn btn-success btn-sm me-1">
+                <button id="prmBulkUpdateBtn" class="btn btn-success btn-sm me-1 subscription-mutable">
                     <i class="bi bi-pencil-square"></i> Price Update
                 </button>
-                <button id="prmCreatePromoBtn" class="btn btn-promo-prm btn-sm me-1">
+                <button id="prmCreatePromoBtn" class="btn btn-promo-prm btn-sm me-1 subscription-mutable">
                     <i class="bi bi-tag"></i> Create Promo
                 </button>
-                <button id="prmNotifyClientsBtn" class="btn btn-info btn-sm">
+                <button id="prmNotifyClientsBtn" class="btn btn-info btn-sm subscription-mutable">
                     <i class="bi bi-megaphone"></i> Send Notification
                 </button>
             </div>

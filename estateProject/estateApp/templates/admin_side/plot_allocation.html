@@ -416,6 +416,9 @@
 </style>
 
 <main id="main" class="main">
+
+    {% include 'components/subscription_banner.html' %}
+
     <div class="pagetitle">
         <h1 class="text-color">
             <i class="fas fa-map-marked-alt me-2"></i>Plot Allocation
@@ -1089,6 +1092,8 @@
         }
     });
 </script>
+
+{% include 'components/subscription_muting.html' %}
 
 {% endblock %}
 

@@ -3,6 +3,7 @@ Super Admin URL Configuration
 """
 from django.urls import path
 from . import views
+from . import comprehensive_views as cv
 
 app_name = 'superadmin'
 
@@ -41,4 +42,13 @@ urlpatterns = [
     
     # Access Denied
     path('access-denied/', views.AccessDeniedView.as_view(), name='access_denied'),
+    
+    # Plan & Billing Management API
+    path('api/plans/<int:plan_id>/', cv.get_plan_details, name='get_plan_details'),
+    path('api/plans/create/', cv.create_plan, name='create_plan'),
+    path('api/plans/<int:plan_id>/update/', cv.update_plan, name='update_plan'),
+    path('api/plans/<int:plan_id>/toggle/', cv.toggle_plan_status, name='toggle_plan_status'),
+    path('api/plans/<int:plan_id>/delete/', cv.delete_plan, name='delete_plan'),
+    path('api/billing/settings/', cv.get_billing_settings, name='get_billing_settings'),
+    path('api/billing/settings/save/', cv.save_billing_settings, name='save_billing_settings'),
 ]

@@ -157,10 +157,14 @@ class SuperAdminLoginView(View):
             
             # Set custom session expiry for middleware
             import time
+            current_time = time.time()
             if not remember_me:
-                request.session['_session_expiry'] = time.time() + 300  # 5 minutes
+                request.session['_session_expiry'] = current_time + 300  # 5 minutes
             else:
-                request.session['_session_expiry'] = time.time() + 1209600  # 2 weeks
+                request.session['_session_expiry'] = current_time + 1209600  # 2 weeks
+            # Set security session variables for SessionSecurityMiddleware
+            request.session['_security_last_activity'] = current_time
+            request.session['_security_session_created'] = current_time
             request.session.save()
             
             # Log successful login

@@ -3,6 +3,9 @@
 <!-- Billing Tab Content - Modern Light Theme Design (Tailwind classes). -->
 <!-- Tailwind is loaded in admin_side/company_profile.html via the extra_css block. -->
 
+<!-- Paystack Inline JS -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
 <style>
 		.billing-wrapper { margin: 0 auto; width: 100%; min-width: 0; }
 		.billing-wrapper, .billing-wrapper * { box-sizing: border-box; }
@@ -362,9 +365,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<div class="text-xs text-slate-500 uppercase tracking-wide">Bank Name</div>
-						<div class="text-lg font-medium text-slate-700 mt-1">First Bank of Nigeria</div>
+						<div id="bankName" class="text-lg font-medium text-slate-700 mt-1">Wema Bank</div>
 					</div>
-					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="First Bank of Nigeria">
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="" data-copy-type="bank">
 						<i class="bi bi-copy fs-5"></i>
 					</button>
 				</div>
@@ -374,9 +377,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<div class="text-xs text-slate-500 uppercase tracking-wide">Account Number</div>
-						<div class="text-lg font-mono font-medium text-slate-700 mt-1">3124567890</div>
+						<div id="accountNumber" class="text-lg font-mono font-medium text-slate-700 mt-1">Generating...</div>
 					</div>
-					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="3124567890">
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="" data-copy-type="account">
 						<i class="bi bi-copy fs-5"></i>
 					</button>
 				</div>
@@ -386,9 +389,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<div class="text-xs text-slate-500 uppercase tracking-wide">Account Name</div>
-						<div class="text-lg font-medium text-slate-700 mt-1">Real Estate MS Limited</div>
+						<div id="accountName" class="text-lg font-medium text-slate-700 mt-1">{{ company.name }}</div>
 					</div>
-					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="Real Estate MS Limited">
+					<button class="copy-btn text-indigo-600 hover:text-indigo-500 transition" data-copy="{{ company.name }}" data-copy-type="name">
 						<i class="bi bi-copy fs-5"></i>
 					</button>
 				</div>
@@ -398,9 +401,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<div class="text-xs text-amber-600 uppercase tracking-wide">Payment Reference</div>
-						<div id="paymentRef" class="text-lg font-mono font-medium text-amber-700 mt-1 break-anywhere">SUB-LAMBA-XYZ123</div>
+						<div id="paymentRef" class="text-lg font-mono font-medium text-amber-700 mt-1 break-anywhere">Generating...</div>
 					</div>
-					<button class="copy-btn text-amber-600 hover:text-amber-500 transition" data-copy="SUB-LAMBA-XYZ123">
+					<button class="copy-btn text-amber-600 hover:text-amber-500 transition" data-copy="" data-copy-type="reference">
 						<i class="bi bi-copy fs-5"></i>
 					</button>
 				</div>
@@ -531,153 +534,155 @@
 </div>
 
 <script>
-	// Dynamic data loaded from backend
-	let currentSubscription = null;
-	let plans = [];
-	let billingHistory = [];
-	let paystackPublicKey = '';
-	
+	// Get current subscription from context
+	const currentSubscription = {
+		{% if subscription %}
+			plan: '{{ subscription.plan.name|lower }}',
+			planName: '{{ subscription.plan.name }}',
+			tier: '{{ subscription.plan.tier|lower }}',
+			isActive: {{ subscription.is_active|lower }},
+			endDate: '{{ subscription.end_date|date:"Y-m-d" }}',
+		{% else %}
+			plan: null,
+			planName: null,
+			tier: null,
+			isActive: false,
+			endDate: null,
+		{% endif %}
+	};
+
 	const planHierarchy = {
 		'starter': 1,
 		'professional': 2,
 		'enterprise': 3
 	};
 
-	
+	const plans = [
+		{
+			id: 'starter',
+			name: 'Starter',
+			monthly: 70000,
+			annual: 700000,
+			desc: 'Perfect for small real estate companies getting started',
+			features: [
+				'2 Estate Properties',
+				'30 Allocations',
+				'30 Clients',
+				'20 Affiliates',
+				'Email support'
+			],
+			popular: false,
+			badge: '',
+			tier: 1
+		},
+		{
+			id: 'professional',
+			name: 'Professional',
+			monthly: 100000,
+			annual: 1000000,
+			desc: 'For growing companies scaling their operations',
+			features: [
+				'5 Estate Properties',
+				'80 Allocations',
+				'80 Clients',
+				'30 Affiliates',
+				'Priority email support'
+			],
+			popular: true,
+			badge: 'Most Popular',
+			tier: 2
+		},
+		{
+			id: 'enterprise',
+			name: 'Enterprise',
+			monthly: 150000,
+			annual: 1500000,
+			desc: 'For large companies with unlimited needs',
+			features: [
+				'Unlimited Estate Properties',
+				'Unlimited Allocations',
+				'Unlimited Clients',
+				'Unlimited Affiliates',
+				'Priority email support',
+				'Dedicated account manager'
+			],
+			popular: false,
+			badge: 'Preferred Plan',
+			tier: 3
+		}
+	];
+
+	const promoCodes = {
+		'WELCOME20': { discount: 0.20, label: '20% off' },
+		'NEWYEAR25': { discount: 0.25, label: '25% off' },
+		'REALESTATE10': { discount: 0.10, label: '10% off' }
+	};
+
 	let billingAnnual = false;
-	let selectedPlan = null;
+	let selectedPlan = 'professional';
 	let selectedPaymentMethod = 'paystack';
 	let appliedCoupon = null;
-	
-	// API endpoints
-	const API = {
-		billingContext: '/api/billing/context/',
-		validatePlanChange: '/api/billing/validate-plan-change/',
-		initiatePayment: '/api/billing/initiate-payment/',
-		confirmBankTransfer: '/api/billing/confirm-bank-transfer/',
-		getInvoices: '/api/billing/invoices/'
-	};
-	
-	// CSRF token for POST requests
-	function getCSRFToken() {
-		const name = 'csrftoken';
-		let cookieValue = null;
-		if (document.cookie && document.cookie !== '') {
-			const cookies = document.cookie.split(';');
-			for (let i = 0; i < cookies.length; i++) {
-				const cookie = cookies[i].trim();
-				if (cookie.substring(0, name.length + 1) === (name + '=')) {
-					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-					break;
-				}
-			}
-		}
-		return cookieValue;
+
+	function formatCurrency(n) {
+		return '₦' + Number(n).toLocaleString('en-NG');
 	}
 
-	
-	// Load billing data from backend
-	async function loadBillingData() {
-		try {
-			const response = await fetch(API.billingContext);
-			const data = await response.json();
-			
-			if (data.success) {
-				currentSubscription = data.subscription;
-				plans = data.plans;
-				billingHistory = data.billing_history;
-				paystackPublicKey = data.paystack_public_key;
-				
-				// Set initial selected plan to current or first professional
-				if (currentSubscription && currentSubscription.plan_tier) {
-					selectedPlan = currentSubscription.plan_tier;
-				} else {
-					selectedPlan = 'professional';
-				}
-				
-				renderAll();
-				updateSubscriptionStatus();
-			} else {
-				console.error('Failed to load billing data:', data.error);
-			}
-		} catch (error) {
-			console.error('Error loading billing data:', error);
+	function calculateTotal() {
+		const plan = plans.find(p => p.id === selectedPlan);
+		const base = billingAnnual ? plan.annual : plan.monthly;
+		let discount = 0;
+		let savings = 0;
+
+		if (appliedCoupon && promoCodes[appliedCoupon]) {
+			discount = base * promoCodes[appliedCoupon].discount;
 		}
+
+		if (billingAnnual) {
+			savings = plan.monthly * 2;
+		}
+
+		return {
+			base,
+			discount,
+			savings,
+			total: base - discount
+		};
 	}
-	
-	function updateSubscriptionStatus() {
-		// Update status alerts based on subscription state
-		const sub = currentSubscription;
-		if (!sub) return;
-		
-		// Update current plan display
-		const currentPlanName = document.getElementById('currentPlanName');
-		if (currentPlanName) {
-			currentPlanName.textContent = sub.plan_name;
-		}
-		
-		const nextBillingDate = document.getElementById('nextBillingDate');
-		if (nextBillingDate && sub.subscription_end_date) {
-			const date = new Date(sub.subscription_end_date);
-			nextBillingDate.textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-		}
+
+	function generatePaymentReference() {
+		const timestamp = Date.now().toString(36).toUpperCase();
+		const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+		return `SUB-${selectedPlan.toUpperCase().substring(0, 4)}-${timestamp}${random}`;
 	}
-	
+
 	function renderPlans() {
 		const grid = document.getElementById('plansGrid');
-		if (!grid || !plans.length) return;
+		if (!grid) return;
 		grid.innerHTML = '';
 
 		plans.forEach(p => {
-			const el = document.createElement('div');
-			const isSelected = p.tier === selectedPlan;
-			const isCurrent = p.is_current;
+			const isCurrentPlan = currentSubscription.plan && 
+				(currentSubscription.plan === p.id || currentSubscription.tier === p.id);
+			const isSelected = p.id === selectedPlan;
 			
+			const el = document.createElement('div');
 			el.className = `rounded-xl p-4 sm:p-5 border-2 transition-all cursor-pointer plan-card bg-white ${
 				isSelected ? 'selected border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-400'
 			}`;
 
-			const price = billingAnnual ? p.annual_price : p.monthly_price;
+			const price = billingAnnual ? p.annual : p.monthly;
 			const period = billingAnnual ? 'year' : 'month';
-			const annualEquiv = billingAnnual ? `<div class="text-[10px] sm:text-xs text-slate-500 mt-1">${formatCurrency(p.annual_price / 12)}/mo equivalent</div>` : '';
-			const savingsNote = billingAnnual ? `<div class="text-[10px] sm:text-xs text-emerald-600 mt-1">~ Save ${formatCurrency(p.monthly_price * 2)}</div>` : '';
+			const annualEquiv = billingAnnual ? `<div class="text-[10px] sm:text-xs text-slate-500 mt-1">${formatCurrency(p.annual / 12)}/mo equivalent</div>` : '';
+			const savingsNote = billingAnnual ? `<div class="text-[10px] sm:text-xs text-emerald-600 mt-1">~ Save ${formatCurrency(p.monthly * 2)}</div>` : '';
 
 			let badgeHtml = '';
-			if (isCurrent && currentSubscription && currentSubscription.is_active) {
-				badgeHtml = `<div class="price-badge bg-emerald-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap"><i class="bi bi-check-circle-fill"></i> Subscribed</div>`;
-			} else if (p.tier === 'professional') {
-				badgeHtml = `<div class="price-badge bg-indigo-500 text-white badge-popular px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">Most Popular</div>`;
-			} else if (p.tier === 'enterprise') {
-				badgeHtml = `<div class="price-badge bg-amber-100 text-amber-700 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">Preferred Plan</div>`;
-			}
-			
-			// Build features list from plan.features object
-			let featuresHtml = '';
-			if (p.features) {
-				const featuresList = [];
-				if (p.features.estate_properties) {
-					featuresList.push(`${p.features.estate_properties} Estate Properties`);
-				}
-				if (p.features.allocations) {
-					featuresList.push(`${p.features.allocations} Allocations`);
-				}
-				if (p.features.clients) {
-					featuresList.push(`${p.features.clients} Clients`);
-				}
-				if (p.features.affiliates) {
-					featuresList.push(`${p.features.affiliates} Affiliates`);
-				}
-				featuresList.push('Email support');
-				if (p.tier === 'enterprise') {
-					featuresList.push('Dedicated account manager');
-				}
-				
-				featuresHtml = featuresList.map(f => `
-					<li class="flex items-start gap-2">
-						<i class="bi bi-check-circle-fill text-emerald-600 mt-0.5 flex-shrink-0"></i>
-						<span>${f}</span>
-					</li>
-				`).join('');
+			if (isCurrentPlan && currentSubscription.isActive) {
+				badgeHtml = `<div class="price-badge bg-emerald-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap flex items-center gap-1">
+					<i class="bi bi-check-circle-fill"></i> Subscribed
+				</div>`;
+			} else if (p.badge) {
+				const badgeColor = p.popular ? 'bg-indigo-500 text-white badge-popular' : 'bg-amber-100 text-amber-700';
+				badgeHtml = `<div class="price-badge ${badgeColor} px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">${p.badge}</div>`;
 			}
 
 			el.innerHTML = `
@@ -691,192 +696,291 @@
 					${annualEquiv}
 					${savingsNote}
 				</div>
-				<p class="text-slate-500 text-xs sm:text-sm mb-4">${p.description || ''}</p>
+				<p class="text-slate-500 text-xs sm:text-sm mb-4">${p.desc}</p>
 				<ul class="text-slate-600 text-xs sm:text-sm space-y-1.5 sm:space-y-2">
-					${featuresHtml}
+					${p.features.map(f => `
+						<li class="flex items-start gap-2">
+							<i class="bi bi-check-circle-fill text-emerald-600 mt-0.5 flex-shrink-0"></i>
+							<span>${f}</span>
+						</li>
+					`).join('')}
 				</ul>
 				${isSelected ? `
 					<div class="mt-3 sm:mt-4 pt-3 border-t border-indigo-300">
 						<span class="text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1">
 							<i class="bi bi-check-circle-fill"></i>
-							Selected
+							Selected Plan
 						</span>
 					</div>
 				` : ''}
 			`;
 
-			el.addEventListener('click', async () => {
-				// If clicking current subscribed plan, just select it
-				if (isCurrent && currentSubscription && currentSubscription.is_active) {
-					selectedPlan = p.tier;
-					renderAll();
-					return;
-				}
-				
-				// Validate plan change and show warnings if downgrading
-				await validateAndSelectPlan(p.tier);
+			el.addEventListener('click', () => {
+				selectedPlan = p.id;
+				checkDowngradeWarning(p);
+				renderAll();
 			});
 
 			grid.appendChild(el);
 		});
 	}
-	
-	async function validateAndSelectPlan(planTier) {
-		try {
-			const response = await fetch(API.validatePlanChange, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-CSRFToken': getCSRFToken()
-				},
-				body: JSON.stringify({ plan_tier: planTier })
-			});
-			
-			const data = await response.json();
-			
-			if (data.success) {
-				if (data.action === 'downgrade' && data.requires_confirmation) {
-					// Show downgrade warning modal
-					showDowngradeWarning(planTier, data);
-				} else {
-					// Allow plan selection
-					selectedPlan = planTier;
-					renderAll();
-				}
-			} else {
-				alert('Error validating plan change: ' + (data.error || 'Unknown error'));
-			}
-		} catch (error) {
-			console.error('Error validating plan change:', error);
-			// Still allow selection on error
-			selectedPlan = planTier;
-			renderAll();
+
+	function checkDowngradeWarning(newPlan) {
+		if (!currentSubscription.plan || !currentSubscription.isActive) return;
+		
+		const currentTier = planHierarchy[currentSubscription.tier] || planHierarchy[currentSubscription.plan] || 0;
+		const newTier = newPlan.tier;
+		
+		if (newTier < currentTier) {
+			// Downgrade detected - validate with backend
+			validateDowngradeWithBackend(newPlan);
 		}
 	}
-	
-	function showDowngradeWarning(planTier, validationData) {
-		const plan = plans.find(p => p.tier === planTier);
-		if (!plan) return;
+
+	function validateDowngradeWithBackend(newPlan) {
+		const currentPlanObj = plans.find(p => p.tier === (planHierarchy[currentSubscription.tier] || planHierarchy[currentSubscription.plan]));
 		
-		// Create warning modal dynamically
-		const modalHtml = `
-			<div id="downgradeWarningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-				<div class="w-full max-w-2xl rounded-2xl bg-white p-6 border border-gray-200 shadow-2xl max-h-[90vh] overflow-y-auto">
-					<div class="flex items-start justify-between mb-6">
-						<div class="flex items-center gap-3">
-							<div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-								<i class="bi bi-exclamation-triangle-fill text-amber-600 fs-4"></i>
-							</div>
-							<div>
-								<h3 class="text-xl font-semibold text-slate-800">Downgrade Warning</h3>
-								<p class="text-sm text-slate-500 mt-1">Please review these important limitations</p>
-							</div>
+		// Show loading state
+		const btn = document.getElementById('subscribeBtn');
+		if (btn) {
+			btn.disabled = true;
+			btn.innerHTML = `
+				<span class="flex items-center justify-center gap-2">
+					<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+					Validating...
+				</span>
+			`;
+		}
+
+		// Call backend validation
+		fetch('/api/subscription/validate-downgrade/', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+			},
+			body: JSON.stringify({
+				plan_id: newPlan.id
+			})
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (btn) {
+				btn.disabled = false;
+				btn.innerHTML = `
+					<span class="flex items-center justify-center gap-2">
+						<i class="bi bi-check-circle"></i>
+						Subscribe Now
+					</span>
+				`;
+			}
+
+			if (data.success) {
+				if (data.can_downgrade) {
+					// Usage within limits - show warning
+					showDowngradeWarning(currentPlanObj, newPlan);
+				} else {
+					// Usage exceeds limits - block downgrade
+					showDowngradeBlocked(currentPlanObj, newPlan, data.usage_comparison, data.exceeds);
+				}
+			} else {
+				alert(data.message || 'Failed to validate downgrade');
+			}
+		})
+		.catch(error => {
+			console.error('Downgrade validation error:', error);
+			if (btn) {
+				btn.disabled = false;
+				btn.innerHTML = `
+					<span class="flex items-center justify-center gap-2">
+						<i class="bi bi-check-circle"></i>
+						Subscribe Now
+					</span>
+				`;
+			}
+			alert('Network error. Please try again.');
+		});
+	}
+
+	function showDowngradeBlocked(fromPlan, toPlan, usageComparison, exceeds) {
+		const exceedsRows = exceeds.map(item => `
+			<tr class="border-b border-red-100">
+				<td class="py-2 text-sm font-medium text-slate-700">${item.resource}</td>
+				<td class="py-2 text-sm text-center font-semibold text-red-600">${item.current}</td>
+				<td class="py-2 text-sm text-center text-slate-600">${item.limit}</td>
+				<td class="py-2 text-sm text-center font-bold text-red-600">+${item.overage} <i class="bi bi-exclamation-circle-fill"></i></td>
+			</tr>
+		`).join('');
+
+		const reductionSteps = exceeds.map((item, index) => `
+			<li class="text-sm">
+				<span class="font-medium text-slate-700">${item.resource}:</span>
+				<span class="text-red-600">Delete/archive ${item.overage}</span>
+				<span class="text-slate-500">(reduce from ${item.current} to ${item.limit} max)</span>
+			</li>
+		`).join('');
+
+		const blockedHtml = `
+			<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" id="downgradeBlockedModal">
+				<div class="w-full max-w-2xl rounded-2xl bg-white p-6 border-2 border-red-300 shadow-2xl max-h-[90vh] overflow-y-auto">
+					<div class="flex items-start gap-3 mb-4">
+						<div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+							<i class="bi bi-x-circle-fill text-red-500 fs-4"></i>
 						</div>
-						<button onclick="closeDowngradeWarning()" class="text-slate-400 hover:text-slate-600 transition p-1">
-							<i class="bi bi-x-lg fs-5"></i>
-						</button>
+						<div>
+							<h3 class="text-xl font-bold text-red-600">Downgrade Blocked</h3>
+							<p class="text-sm text-slate-600 mt-1">Your current usage exceeds ${toPlan.name} plan limits</p>
+						</div>
 					</div>
-
-					<div class="bg-amber-50 rounded-xl p-4 mb-6 border border-amber-200">
-						<p class="text-amber-800 font-medium mb-2">
-							<i class="bi bi-info-circle-fill me-2"></i>
-							You are downgrading from <strong>${validationData.current_usage ? 'your current plan' : 'unlimited'}</strong> to <strong>${plan.name}</strong>
+					
+					<div class="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+						<div class="flex items-center gap-2 mb-3">
+							<i class="bi bi-exclamation-triangle-fill text-red-600"></i>
+							<p class="font-semibold text-red-700">Cannot proceed with downgrade</p>
+						</div>
+						<p class="text-sm text-red-700">
+							You are currently using more resources than the <strong>${toPlan.name}</strong> plan allows.
+							Please reduce your usage to fit within the plan limits before downgrading.
 						</p>
-						<p class="text-amber-700 text-sm">
-							${validationData.message || 'This may limit some features.'}
-						</p>
 					</div>
 
-					<div class="space-y-3 mb-6">
-						<h4 class="font-semibold text-slate-700">⚠️ Issues Detected:</h4>
-						${validationData.warnings.map(warning => `
-							<div class="flex items-start gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
-								<i class="bi bi-x-circle-fill text-red-500 mt-0.5 flex-shrink-0"></i>
-								<span class="text-sm text-red-700">${warning}</span>
-							</div>
-						`).join('')}
-					</div>
-
-					<div class="bg-slate-50 rounded-xl p-4 mb-6">
-						<h4 class="font-semibold text-slate-700 mb-3">Current Usage vs New Limits:</h4>
-						<div class="grid grid-cols-2 gap-4">
-							<div>
-								<div class="text-xs text-slate-500 mb-1">Current Usage</div>
-								<div class="space-y-1 text-sm">
-									<div>Estates: <strong>${validationData.current_usage.estates}</strong></div>
-									<div>Allocations: <strong>${validationData.current_usage.allocations}</strong></div>
-									<div>Clients: <strong>${validationData.current_usage.clients}</strong></div>
-									<div>Marketers: <strong>${validationData.current_usage.marketers}</strong></div>
-								</div>
-							</div>
-							<div>
-								<div class="text-xs text-slate-500 mb-1">${plan.name} Plan Limits</div>
-								<div class="space-y-1 text-sm">
-									<div>Estates: <strong>${validationData.new_limits.estates}</strong></div>
-									<div>Allocations: <strong>${validationData.new_limits.allocations}</strong></div>
-									<div>Clients: <strong>${validationData.new_limits.clients}</strong></div>
-									<div>Affiliates: <strong>${validationData.new_limits.affiliates}</strong></div>
-								</div>
-							</div>
+					<div class="mb-4">
+						<h4 class="font-semibold text-slate-800 mb-3">Usage Comparison:</h4>
+						<div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+							<table class="w-full">
+								<thead class="bg-slate-100">
+									<tr>
+										<th class="py-2 px-3 text-left text-xs font-semibold text-slate-600 uppercase">Resource</th>
+										<th class="py-2 px-3 text-center text-xs font-semibold text-slate-600 uppercase">Your Usage</th>
+										<th class="py-2 px-3 text-center text-xs font-semibold text-slate-600 uppercase">${toPlan.name} Max</th>
+										<th class="py-2 px-3 text-center text-xs font-semibold text-slate-600 uppercase">Overage</th>
+									</tr>
+								</thead>
+								<tbody>
+									${exceedsRows}
+								</tbody>
+							</table>
 						</div>
 					</div>
 
-					<div class="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
-						<p class="text-blue-800 text-sm">
-							<i class="bi bi-lightbulb-fill text-blue-600 me-2"></i>
-							<strong>Recommendation:</strong> Consider staying on your current plan or upgrading to maintain full functionality.
+					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+						<p class="font-semibold text-blue-800 mb-2"><i class="bi bi-lightbulb-fill me-1"></i> To downgrade to ${toPlan.name} plan:</p>
+						<ol class="space-y-2 list-decimal list-inside">
+							${reductionSteps}
+						</ol>
+						<p class="text-sm text-blue-700 mt-3 italic">
+							<strong>OR</strong> stay on your current <strong>${fromPlan.name}</strong> plan to keep unlimited access.
 						</p>
 					</div>
-
-					<div class="flex items-center gap-3">
-						<button onclick="closeDowngradeWarning()" class="flex-1 px-5 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">
-							Cancel - Keep Current Plan
+					
+					<div class="flex gap-3">
+						<button id="closeBlockedModal" class="flex-1 px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">
+							Close
 						</button>
-						<button onclick="confirmDowngrade('${planTier}')" class="flex-1 px-5 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold transition">
-							I Understand - Proceed
+						<button id="stayOnCurrentPlan" class="flex-1 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition font-medium text-white">
+							<i class="bi bi-shield-check me-1"></i> Stay on ${fromPlan.name}
 						</button>
 					</div>
 				</div>
 			</div>
 		`;
 		
-		document.body.insertAdjacentHTML('beforeend', modalHtml);
-	}
-	
-	window.closeDowngradeWarning = function() {
-		const modal = document.getElementById('downgradeWarningModal');
-		if (modal) modal.remove();
-	};
-	
-	window.confirmDowngrade = function(planTier) {
-		selectedPlan = planTier;
-		closeDowngradeWarning();
-		renderAll();
-	};
-
-	
-	function formatCurrency(n) {
-		return '₦' + Number(n).toLocaleString('en-NG');
+		document.body.insertAdjacentHTML('beforeend', blockedHtml);
+		
+		document.getElementById('closeBlockedModal').addEventListener('click', () => {
+			document.getElementById('downgradeBlockedModal').remove();
+			// Revert selection to current plan
+			selectedPlan = currentSubscription.plan || currentSubscription.tier;
+			renderAll();
+		});
+		
+		document.getElementById('stayOnCurrentPlan').addEventListener('click', () => {
+			document.getElementById('downgradeBlockedModal').remove();
+			// Revert selection to current plan
+			selectedPlan = currentSubscription.plan || currentSubscription.tier;
+			renderAll();
+		});
 	}
 
-	function calculateTotal() {
-		if (!selectedPlan || !plans.length) return { base: 0, total: 0, savings: 0 };
+	function showDowngradeWarning(fromPlan, toPlan) {
+		// This warning is only shown when usage is WITHIN target plan limits
+		// If usage exceeds limits, showDowngradeBlocked() is called instead
+		const warningHtml = `
+			<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" id="downgradeWarningModal">
+				<div class="w-full max-w-md rounded-2xl bg-white p-6 border border-orange-200 shadow-2xl">
+					<div class="flex items-start gap-3 mb-4">
+						<div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+							<i class="bi bi-exclamation-triangle-fill text-orange-500 fs-4"></i>
+						</div>
+						<div>
+							<h3 class="text-lg font-semibold text-slate-800">Downgrade Warning</h3>
+							<p class="text-sm text-slate-500 mt-1">You're about to downgrade your plan</p>
+						</div>
+					</div>
+					
+					<div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+						<div class="flex items-center justify-between mb-3">
+							<div class="text-sm">
+								<div class="text-slate-500">Current Plan</div>
+								<div class="font-semibold text-slate-800">${fromPlan.name}</div>
+							</div>
+							<i class="bi bi-arrow-right text-orange-500"></i>
+							<div class="text-sm">
+								<div class="text-slate-500">New Plan</div>
+								<div class="font-semibold text-slate-800">${toPlan.name}</div>
+							</div>
+						</div>
+						
+						<div class="text-sm text-orange-700 bg-white rounded p-3">
+							<p class="font-medium mb-2"><i class="bi bi-info-circle me-1"></i> Important:</p>
+							<ul class="space-y-1 text-xs">
+								<li>• You'll lose access to unlimited features</li>
+								<li>• Some existing data may become inaccessible</li>
+								<li>• Limited allocations, clients, and properties</li>
+								<li>• This change takes effect immediately</li>
+							</ul>
+						</div>
+					</div>
+					
+					<div class="flex gap-3">
+						<button id="cancelDowngrade" class="flex-1 px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition font-medium text-slate-700">
+							Cancel
+						</button>
+						<button id="confirmDowngrade" class="flex-1 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 transition font-medium text-white">
+							I Understand, Continue
+						</button>
+					</div>
+				</div>
+			</div>
+		`;
 		
-		const plan = plans.find(p => p.tier === selectedPlan);
-		if (!plan) return { base: 0, total: 0, savings: 0 };
+		document.body.insertAdjacentHTML('beforeend', warningHtml);
 		
-		const base = billingAnnual ? plan.annual_price : plan.monthly_price;
-		let savings = 0;
+		document.getElementById('cancelDowngrade').addEventListener('click', () => {
+			document.getElementById('downgradeWarningModal').remove();
+			// Revert selection to current plan
+			selectedPlan = currentSubscription.plan || currentSubscription.tier;
+			renderAll();
+		});
+		
+		document.getElementById('confirmDowngrade').addEventListener('click', () => {
+			document.getElementById('downgradeWarningModal').remove();
+			// Continue with the downgrade
+		});
+	}
+							Selected
+						</span>
+					</div>
+				` : ''}
+			`;
 
-		if (billingAnnual) {
-			savings = plan.monthly_price * 2;
-		}
+			el.addEventListener('click', () => {
+				selectedPlan = p.id;
+				renderAll();
+			});
 
-		return {
-			base,
-			savings,
-			total: base
-		};
+			grid.appendChild(el);
+		});
 	}
 
 	function renderSummary() {
@@ -885,12 +989,12 @@
 		const summaryPayment = document.getElementById('summaryPayment');
 		const summarySubtotal = document.getElementById('summarySubtotal');
 		const summaryTotal = document.getElementById('summaryTotal');
+		const discountRow = document.getElementById('discountRow');
+		const summaryDiscount = document.getElementById('summaryDiscount');
 		const savingsRow = document.getElementById('savingsRow');
 		const summarySavings = document.getElementById('summarySavings');
 
-		const plan = plans.find(p => p.tier === selectedPlan);
-		if (!plan) return;
-		
+		const plan = plans.find(p => p.id === selectedPlan);
 		const calc = calculateTotal();
 
 		if (summaryPlan) summaryPlan.textContent = plan.name;
@@ -899,8 +1003,17 @@
 		if (summarySubtotal) summarySubtotal.textContent = formatCurrency(calc.base);
 		if (summaryTotal) summaryTotal.textContent = formatCurrency(calc.total);
 
+		if (discountRow && summaryDiscount) {
+			if (calc.discount > 0) {
+				discountRow.classList.remove('hidden');
+				summaryDiscount.textContent = '-' + formatCurrency(calc.discount);
+			} else {
+				discountRow.classList.add('hidden');
+			}
+		}
+
 		if (savingsRow && summarySavings) {
-			if (billingAnnual && calc.savings > 0) {
+			if (billingAnnual) {
 				savingsRow.classList.remove('hidden');
 				summarySavings.textContent = formatCurrency(calc.savings);
 			} else {
@@ -908,7 +1021,6 @@
 			}
 		}
 
-		// Update modal values
 		const modalTotal = document.getElementById('modalTotal');
 		const modalPlan = document.getElementById('modalPlan');
 		const modalBilling = document.getElementById('modalBilling');
@@ -1012,68 +1124,93 @@
 
 		const subscribeBtn = document.getElementById('subscribeBtn');
 		if (subscribeBtn) {
-			subscribeBtn.addEventListener('click', async () => {
-				if (!selectedPlan) {
-					alert('Please select a plan');
-					return;
-				}
-				
+			subscribeBtn.addEventListener('click', () => {
 				if (selectedPaymentMethod === 'paystack') {
 					openModal('billingPaymentModal');
 				} else {
-					await initiateBankTransferPayment();
+					initiateBankTransfer();
 				}
 			});
 		}
-		
-		async function initiateBankTransferPayment() {
-			try {
-				const response = await fetch(API.initiatePayment, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRFToken': getCSRFToken()
-					},
-					body: JSON.stringify({
-						plan_tier: selectedPlan,
-						billing_cycle: billingAnnual ? 'annual' : 'monthly',
-						payment_method: 'bank_transfer'
-					})
-				});
-				
-				const data = await response.json();
-				
-				if (data.success) {
-					// Update bank details in modal
-					const bankDetails = data.bank_details;
+
+		function initiateBankTransfer() {
+			const plan = plans.find(p => p.id === selectedPlan);
+			const calc = calculateTotal();
+			const ref = generatePaymentReference();
+			
+			// Show loading state
+			const subscribeBtn = document.getElementById('subscribeBtn');
+			const originalBtnText = subscribeBtn ? subscribeBtn.innerHTML : '';
+			if (subscribeBtn) {
+				subscribeBtn.disabled = true;
+				subscribeBtn.innerHTML = `
+					<span class="flex items-center justify-center gap-2">
+						<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+						Generating Account...
+					</span>
+				`;
+			}
+
+			// Request dedicated virtual account from backend
+			fetch('/api/subscription/generate-virtual-account/', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+				},
+				body: JSON.stringify({
+					reference: ref,
+					plan_id: selectedPlan,
+					plan_name: plan.name,
+					billing_cycle: billingAnnual ? 'annual' : 'monthly',
+					amount: calc.total,
+					promo_code: appliedCoupon || '',
+					discount: calc.discount
+				})
+			})
+			.then(response => response.json())
+			.then(data => {
+				if (subscribeBtn) {
+					subscribeBtn.disabled = false;
+					subscribeBtn.innerHTML = originalBtnText;
+				}
+
+				if (data.success && data.account) {
+					// Update modal with virtual account details
+					const bankName = document.getElementById('bankName');
+					const accountNumber = document.getElementById('accountNumber');
+					const accountName = document.getElementById('accountName');
 					const paymentRef = document.getElementById('paymentRef');
-					if (paymentRef) paymentRef.textContent = bankDetails.payment_reference || data.reference;
-					
+					const bankAmount = document.getElementById('bankAmount');
+
+					if (bankName) bankName.textContent = data.account.bank_name || 'Wema Bank';
+					if (accountNumber) accountNumber.textContent = data.account.account_number || '';
+					if (accountName) accountName.textContent = data.account.account_name || '{{ company.name }}';
+					if (paymentRef) paymentRef.textContent = ref;
+					if (bankAmount) bankAmount.textContent = formatCurrency(calc.total);
+
 					// Update copy buttons
 					document.querySelectorAll('.copy-btn').forEach(btn => {
-						const copyType = btn.getAttribute('data-copy');
-						if (copyType === 'First Bank of Nigeria' && bankDetails.bank_name) {
-							btn.setAttribute('data-copy', bankDetails.bank_name);
-						} else if (copyType === '3124567890' && bankDetails.account_number) {
-							btn.setAttribute('data-copy', bankDetails.account_number);
-						} else if (copyType === 'Real Estate MS Limited' && bankDetails.account_name) {
-							btn.setAttribute('data-copy', bankDetails.account_name);
-						} else if (copyType.startsWith('SUB-')) {
-							btn.setAttribute('data-copy', bankDetails.payment_reference || data.reference);
+						if (btn.dataset.copyType === 'account') {
+							btn.dataset.copy = data.account.account_number || '';
+						} else if (btn.dataset.copyType === 'reference') {
+							btn.dataset.copy = ref;
 						}
 					});
-					
-					// Store reference for confirmation
-					window.currentBankTransferRef = data.reference;
-					
+
 					openModal('bankTransferModal');
 				} else {
-					alert('Failed to initiate payment: ' + (data.error || 'Unknown error'));
+					alert(data.message || 'Failed to generate virtual account. Please try Paystack payment instead.');
 				}
-			} catch (error) {
-				console.error('Error initiating bank transfer:', error);
-				alert('Error initiating payment. Please try again.');
-			}
+			})
+			.catch(error => {
+				console.error('Bank transfer error:', error);
+				if (subscribeBtn) {
+					subscribeBtn.disabled = false;
+					subscribeBtn.innerHTML = originalBtnText;
+				}
+				alert('Network error. Please check your connection and try again.');
+			});
 		}
 
 		const closePaymentModalBtn = document.getElementById('closePaymentModal');
@@ -1089,7 +1226,7 @@
 
 		const paymentForm = document.getElementById('billingPaymentForm');
 		if (paymentForm) {
-			paymentForm.addEventListener('submit', async (e) => {
+			paymentForm.addEventListener('submit', (e) => {
 				e.preventDefault();
 				const feedback = document.getElementById('paymentFeedback');
 				const emailEl = document.getElementById('payEmail');
@@ -1110,51 +1247,124 @@
 				btn.innerHTML = `
 					<span class="flex items-center justify-center gap-2">
 						<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-						Processing...
+						Initializing Payment...
 					</span>
 				`;
 
-				try {
-					// Initiate payment with backend
-					const response = await fetch(API.initiatePayment, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-CSRFToken': getCSRFToken()
+				processPaystackPayment(email);
+			});
+		}
+
+		function processPaystackPayment(email) {
+			const plan = plans.find(p => p.id === selectedPlan);
+			const calc = calculateTotal();
+			const ref = generatePaymentReference();
+			
+			const handler = PaystackPop.setup({
+				key: '{{ PAYSTACK_PUBLIC_KEY }}',
+				email: email,
+				amount: calc.total * 100, // Amount in kobo
+				currency: 'NGN',
+				ref: ref,
+				metadata: {
+					plan_id: selectedPlan,
+					plan_name: plan.name,
+					billing_cycle: billingAnnual ? 'annual' : 'monthly',
+					promo_code: appliedCoupon || '',
+					discount: calc.discount,
+					company_id: '{{ company.id }}',
+					custom_fields: [
+						{
+							display_name: "Plan",
+							variable_name: "plan",
+							value: plan.name
 						},
-						body: JSON.stringify({
-							plan_tier: selectedPlan,
-							billing_cycle: billingAnnual ? 'annual' : 'monthly',
-							payment_method: 'paystack'
-						})
-					});
-					
-					const data = await response.json();
-					
-					if (data.success) {
-						// Redirect to Paystack payment page
-						window.location.href = data.authorization_url;
-					} else {
-						feedback.textContent = data.error || 'Payment initialization failed';
-						feedback.className = 'text-sm text-center text-rose-500';
-						feedback.classList.remove('hidden');
+						{
+							display_name: "Billing",
+							variable_name: "billing",
+							value: billingAnnual ? 'Annual' : 'Monthly'
+						}
+					]
+				},
+				callback: function(response) {
+					// Payment successful
+					verifyPayment(response.reference);
+				},
+				onClose: function() {
+					// User closed the payment modal
+					const btn = document.getElementById('payNowBtn');
+					if (btn) {
 						btn.disabled = false;
 						btn.innerHTML = `
 							<span class="flex items-center justify-center gap-2">
-								<i class="bi bi-check-circle"></i>
+								<i class="bi bi-credit-card"></i>
 								Pay Now
 							</span>
 						`;
 					}
-				} catch (error) {
-					console.error('Payment error:', error);
-					feedback.textContent = 'An error occurred. Please try again.';
+				}
+			});
+			
+			handler.openIframe();
+		}
+
+		function verifyPayment(reference) {
+			// Send verification request to backend
+			fetch('/api/subscription/verify-payment/', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+				},
+				body: JSON.stringify({
+					reference: reference,
+					plan_id: selectedPlan,
+					billing_cycle: billingAnnual ? 'annual' : 'monthly',
+					promo_code: appliedCoupon || ''
+				})
+			})
+			.then(response => response.json())
+			.then(data => {
+				if (data.success) {
+					closeModal('billingPaymentModal');
+					openModal('billingSuccessModal');
+					// Reload page after 3 seconds to show updated subscription
+					setTimeout(() => {
+						window.location.reload();
+					}, 3000);
+				} else {
+					const feedback = document.getElementById('paymentFeedback');
+					if (feedback) {
+						feedback.textContent = data.message || 'Payment verification failed. Please contact support.';
+						feedback.className = 'text-sm text-center text-rose-500';
+						feedback.classList.remove('hidden');
+					}
+					const btn = document.getElementById('payNowBtn');
+					if (btn) {
+						btn.disabled = false;
+						btn.innerHTML = `
+							<span class="flex items-center justify-center gap-2">
+								<i class="bi bi-credit-card"></i>
+								Pay Now
+							</span>
+						`;
+					}
+				}
+			})
+			.catch(error => {
+				console.error('Payment verification error:', error);
+				const feedback = document.getElementById('paymentFeedback');
+				if (feedback) {
+					feedback.textContent = 'Network error. Please check your connection and try again.';
 					feedback.className = 'text-sm text-center text-rose-500';
 					feedback.classList.remove('hidden');
+				}
+				const btn = document.getElementById('payNowBtn');
+				if (btn) {
 					btn.disabled = false;
 					btn.innerHTML = `
 						<span class="flex items-center justify-center gap-2">
-							<i class="bi bi-check-circle"></i>
+							<i class="bi bi-credit-card"></i>
 							Pay Now
 						</span>
 					`;
@@ -1164,36 +1374,9 @@
 
 		const confirmTransferBtn = document.getElementById('confirmTransfer');
 		if (confirmTransferBtn) {
-			confirmTransferBtn.addEventListener('click', async () => {
-				if (!window.currentBankTransferRef) {
-					alert('No payment reference found');
-					return;
-				}
-				
-				try {
-					const response = await fetch(API.confirmBankTransfer, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-CSRFToken': getCSRFToken()
-						},
-						body: JSON.stringify({
-							reference: window.currentBankTransferRef
-						})
-					});
-					
-					const data = await response.json();
-					
-					if (data.success) {
-						closeModal('bankTransferModal');
-						openModal('transferPendingModal');
-					} else {
-						alert('Error confirming transfer: ' + (data.error || 'Unknown error'));
-					}
-				} catch (error) {
-					console.error('Error confirming transfer:', error);
-					alert('Error confirming transfer. Please try again.');
-				}
+			confirmTransferBtn.addEventListener('click', () => {
+				closeModal('bankTransferModal');
+				openModal('transferPendingModal');
 			});
 		}
 
@@ -1221,57 +1404,7 @@
 		}
 
 		const viewInvoicesBtn = document.getElementById('viewInvoicesBtn');
-		if (viewInvoicesBtn) {
-			viewInvoicesBtn.addEventListener('click', async () => {
-				await loadInvoices();
-				openModal('invoicesModal');
-			});
-		}
-		
-		async function loadInvoices() {
-			try {
-				const response = await fetch(API.getInvoices);
-				const data = await response.json();
-				
-				if (data.success && data.invoices && data.invoices.length > 0) {
-					const tbody = document.getElementById('invoicesTableBody');
-					if (!tbody) return;
-					
-					tbody.innerHTML = data.invoices.map(inv => {
-						const statusClass = inv.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
-											inv.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
-											'bg-slate-100 text-slate-700';
-						const statusIcon = inv.status === 'completed' ? 'check-circle-fill' : 'clock-fill';
-						
-						const date = new Date(inv.date);
-						const dateStr = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-						
-						return `
-							<tr class="hover:bg-slate-50 transition">
-								<td class="px-4 py-3">
-									<span class="font-mono text-sm text-slate-700">${inv.invoice_number || 'N/A'}</span>
-								</td>
-								<td class="px-4 py-3 text-sm text-slate-500">${dateStr}</td>
-								<td class="px-4 py-3 text-sm text-slate-700">${inv.description || 'Subscription'}</td>
-								<td class="px-4 py-3 text-sm font-medium text-slate-800">₦${Number(inv.amount).toLocaleString('en-NG')}</td>
-								<td class="px-4 py-3">
-									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-										<i class="bi bi-${statusIcon}"></i>
-										${inv.status || 'Pending'}
-									</span>
-								</td>
-								<td class="px-4 py-3 text-right">
-									<button class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">Download</button>
-								</td>
-							</tr>
-						`;
-					}).join('');
-				}
-			} catch (error) {
-				console.error('Error loading invoices:', error);
-			}
-		}
-		
+		if (viewInvoicesBtn) viewInvoicesBtn.addEventListener('click', () => openModal('invoicesModal'));
 		const closeInvoicesModalBtn = document.getElementById('closeInvoicesModal');
 		if (closeInvoicesModalBtn) closeInvoicesModalBtn.addEventListener('click', () => closeModal('invoicesModal'));
 		const closeInvoicesBtn = document.getElementById('closeInvoicesBtn');
@@ -1284,8 +1417,5 @@
 				if (e.target && e.target.id === modalId) closeModal(modalId);
 			});
 		});
-		
-		// Initialize the page
-		loadBillingData();
 	});
 </script>

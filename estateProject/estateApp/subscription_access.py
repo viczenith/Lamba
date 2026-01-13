@@ -30,7 +30,7 @@ def subscription_required(feature='general'):
             try:
                 company = getattr(request, 'company', None) or getattr(request.user, 'company_profile', None) or getattr(request.user, 'company', None)
                 if not company:
-                    return redirect('dashboard')
+                    return redirect('login')
 
                 billing = getattr(company, 'billing', None)
                 if billing:
@@ -44,7 +44,7 @@ def subscription_required(feature='general'):
                 return view_func(request, *args, **kwargs)
             except Exception as e:
                 logger.error(f"Subscription check failed: {str(e)}")
-                return redirect('dashboard')
+                return redirect('login')
         
         return wrapper
     return decorator

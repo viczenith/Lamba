@@ -13,7 +13,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Super Admin - Master Tenant Management
-    path('super-admin/', include('superAdmin.urls', namespace='superadmin')),
+    path('super-admin/', include('superAdmin.admin_urls', namespace='superadmin')),
     
     # Main App
     path('', include('estateApp.urls')),

@@ -16,8 +16,44 @@ from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, 
 # Import secure URL patterns
 from .secure_urls import secure_urlpatterns
 
+# Import Paystack payment views
+from .paystack_payment_views import (
+    verify_paystack_payment,
+    generate_virtual_account,
+    paystack_webhook,
+    validate_downgrade,
+)
+
+# Import billing views
+from .billing_views import (
+    get_billing_context,
+    validate_plan_change,
+    initiate_payment,
+    paystack_webhook_handler,
+    confirm_bank_transfer,
+    get_invoices,
+)
+
 
 urlpatterns = [
+    # ============================================
+    # PAYMENT API ENDPOINTS (Paystack Integration)
+    # ============================================
+    path('api/subscription/verify-payment/', verify_paystack_payment, name='verify-paystack-payment'),
+    path('api/subscription/generate-virtual-account/', generate_virtual_account, name='generate-virtual-account'),
+    path('api/subscription/validate-downgrade/', validate_downgrade, name='validate-downgrade'),
+    path('api/paystack/webhook/', paystack_webhook, name='paystack-webhook'),
+    
+    # ============================================
+    # BILLING API ENDPOINTS (Enhanced)
+    # ============================================
+    path('api/billing/context/', get_billing_context, name='billing-context'),
+    path('api/billing/validate-plan-change/', validate_plan_change, name='validate-plan-change'),
+    path('api/billing/initiate-payment/', initiate_payment, name='initiate-payment'),
+    path('api/billing/confirm-bank-transfer/', confirm_bank_transfer, name='confirm-bank-transfer'),
+    path('api/billing/invoices/', get_invoices, name='get-invoices'),
+    path('webhooks/paystack/', paystack_webhook_handler, name='paystack-webhook-enhanced'),
+    
     # ============================================
     # SECURE URL PATTERNS (Priority - checked first)
     # ============================================
@@ -411,13 +447,15 @@ tenant_patterns = [
     ),
 ]
 
-# Add tenant patterns to main urlpatterns
-urlpatterns += tenant_patterns
-
-# Include subscription admin URLs
+# Include subscription admin URLs BEFORE tenant catch-all patterns.
+# Otherwise, paths like /subscription/dashboard/ get treated as
+# /<company_slug>/dashboard/ with company_slug="subscription".
 urlpatterns += [
     path('', include('estateApp.subscription_admin_urls')),
 ]
+
+# Add tenant patterns to main urlpatterns
+urlpatterns += tenant_patterns
         
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
