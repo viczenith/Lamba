@@ -11,7 +11,8 @@ Usage:
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from datetime import timedelta
-from estateApp.models import Company, SubscriptionPlan
+from estateApp.models import Company
+from superAdmin.models import SubscriptionPlan
 import logging
 
 logger = logging.getLogger(__name__)

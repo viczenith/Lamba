@@ -142,49 +142,71 @@ class SuperAdminUser(models.Model):
 class SubscriptionPlan(models.Model):
     """
     Defines subscription tiers with features and limits
+    Managed by SuperAdmin
     """
-    PLAN_TIERS = [
-        ('trial', 'Trial'),
+    TIER_CHOICES = [
         ('starter', 'Starter'),
         ('professional', 'Professional'),
         ('enterprise', 'Enterprise'),
-        ('custom', 'Custom'),
     ]
     
-    name = models.CharField(max_length=100, unique=True)
-    tier = models.CharField(max_length=20, choices=PLAN_TIERS, unique=True)
-    description = models.TextField()
+    tier = models.CharField(
+        max_length=20,
+        choices=TIER_CHOICES,
+        unique=True,
+        verbose_name="Subscription Tier"
+    )
+    name = models.CharField(max_length=100, verbose_name="Plan Name")
+    description = models.TextField(blank=True, help_text="Marketing description for this plan", verbose_name="Plan Description")
     
     # Pricing
-    monthly_price = models.DecimalField(max_digits=10, decimal_places=2)
-    annual_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Annual price (usually 2 months free)")
-    setup_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monthly_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Price in Nigerian Naira",
+        verbose_name="Monthly Price (₦)"
+    )
+    annual_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional annual billing price with discount",
+        verbose_name="Annual Price (₦)"
+    )
     
     # Limits
-    max_plots = models.PositiveIntegerField(help_text="0 = unlimited")
-    max_agents = models.PositiveIntegerField(help_text="0 = unlimited")
-    max_admins = models.PositiveIntegerField(default=5)
-    max_api_calls_daily = models.PositiveIntegerField(default=10000)
-    max_storage_gb = models.PositiveIntegerField(default=10)
+    max_plots = models.IntegerField(default=50, help_text="Maximum number of property listings", verbose_name="Maximum Plots")
+    max_agents = models.IntegerField(default=1, help_text="Maximum number of team members", verbose_name="Maximum Agents")
+    max_api_calls_daily = models.IntegerField(default=1000, help_text="Maximum API calls per 24 hours", verbose_name="Daily API Calls")
     
-    # Features
-    features = models.JSONField(default=dict, help_text="JSON of enabled features")
+    # Additional Limits for comprehensive management
+    max_estates = models.IntegerField(null=True, blank=True, help_text="Maximum number of estates (null = unlimited)", verbose_name="Maximum Estates")
+    max_allocations = models.IntegerField(null=True, blank=True, help_text="Maximum number of allocations (null = unlimited)", verbose_name="Maximum Allocations")
+    max_clients = models.IntegerField(null=True, blank=True, help_text="Maximum number of clients (null = unlimited)", verbose_name="Maximum Clients")
+    max_affiliates = models.IntegerField(null=True, blank=True, help_text="Maximum number of affiliates (null = unlimited)", verbose_name="Maximum Affiliates")
+    
+    # Features JSON (e.g., {"advanced_analytics": true, "api_access": true})
+    features = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text="JSON object of feature names and descriptions",
+        verbose_name="Plan Features"
+    )
     
     # Status
-    is_active = models.BooleanField(default=True)
-    is_visible = models.BooleanField(default=True, help_text="Show on pricing page")
-    
-    # Timestamps
+    is_active = models.BooleanField(default=True, help_text="Can companies subscribe to this plan?", verbose_name="Is Active")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = "Subscription Plan"
         verbose_name_plural = "Subscription Plans"
-        ordering = ['monthly_price']
+        ordering = ['tier']
+        app_label = 'superAdmin'
     
     def __str__(self):
-        return f"{self.name} - ₦{self.monthly_price:,.0f}/month"
+        return f"{self.name} - ₦{self.monthly_price}/month"
 
 
 class CompanySubscription(models.Model):
@@ -211,9 +233,9 @@ class CompanySubscription(models.Model):
         related_name='subscription_details'
     )
     plan = models.ForeignKey(
-        SubscriptionPlan,
+        SubscriptionPlan,  # Use local model
         on_delete=models.PROTECT,
-        related_name='subscriptions'
+        related_name='company_subscriptions'
     )
     
     # Billing

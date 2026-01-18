@@ -245,7 +245,8 @@ class PaystackPaymentProcessor:
 @require_POST
 def create_stripe_payment(request, company_slug):
     """Create Stripe payment for subscription"""
-    from estateApp.models import Company, SubscriptionPlan
+    from estateApp.models import Company
+    from superAdmin.models import SubscriptionPlan
     from estateApp.subscription_billing_models import SubscriptionBillingModel
     
     try:
@@ -295,7 +296,8 @@ def create_stripe_payment(request, company_slug):
 @require_POST
 def create_paystack_payment(request, company_slug):
     """Create Paystack payment for subscription"""
-    from estateApp.models import Company, SubscriptionPlan
+    from estateApp.models import Company
+    from superAdmin.models import SubscriptionPlan
     from estateApp.subscription_billing_models import SubscriptionBillingModel
     
     try:

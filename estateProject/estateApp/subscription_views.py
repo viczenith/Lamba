@@ -14,7 +14,8 @@ from datetime import timedelta
 import json
 from decimal import Decimal
 
-from .models import Company, SubscriptionPlan
+from .models import Company
+from superAdmin.models import SubscriptionPlan
 from .subscription_billing_models import SubscriptionBillingModel, BillingHistory, SubscriptionFeatureAccess
 from .subscription_access import subscription_required, can_create_client_required
 from .payment_integration import StripePaymentProcessor, PaystackPaymentProcessor

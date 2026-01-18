@@ -20,13 +20,13 @@ import json
 
 from estateApp.models import (
     Company, CustomUser, Estate, PlotAllocation, 
-    ClientUser, MarketerUser, Transaction
+    ClientUser, MarketerUser, Transaction, PromoCode
 )
 from estateApp.subscription_billing_models import SubscriptionBillingModel, BillingHistory
-from estateApp.models import SubscriptionPlan
 from .models import (
     PlatformConfiguration, SuperAdminUser, CompanySubscription,
-    PlatformInvoice, PlatformAnalytics, SystemAuditLog, ConfigurationSettings
+    PlatformInvoice, PlatformAnalytics, SystemAuditLog, ConfigurationSettings,
+    SubscriptionPlan
 )
 
 
@@ -836,7 +836,8 @@ class SubscriptionManagementView(SystemAdminRequiredMixin, ListView):
         
         context['arr'] = context['mrr'] * 12
         
-        context['subscription_plans'] = SubscriptionPlan.objects.filter(is_active=True)
+        # Get all subscription plans (not just active) for management
+        context['subscription_plans'] = SubscriptionPlan.objects.all().order_by('-created_at')
         
         return context
 
@@ -900,7 +901,7 @@ class AnalyticsView(SystemAdminRequiredMixin, TemplateView):
     """
     Advanced analytics and reporting dashboard
     """
-    template_name = 'superadmin/analytics.html'
+    template_name = 'superadmin/comprehensive/analytics.html'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1115,10 +1116,10 @@ def calculate_growth_rate(old_value, new_value):
 @login_required
 def get_plan_details(request, plan_id):
     """Get details of a specific subscription plan"""
-    if not is_system_admin(request.user):
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    
     try:
+        if not is_system_admin(request.user):
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+        
         plan = SubscriptionPlan.objects.get(id=plan_id)
         return JsonResponse({
             'success': True,
@@ -1128,7 +1129,7 @@ def get_plan_details(request, plan_id):
                 'tier': plan.tier,
                 'description': plan.description,
                 'monthly_price': float(plan.monthly_price),
-                'annual_price': float(plan.annual_price),
+                'annual_price': float(plan.annual_price) if plan.annual_price else 0,
                 'max_estates': plan.max_estates,
                 'max_allocations': plan.max_allocations,
                 'max_clients': plan.max_clients,
@@ -1139,6 +1140,9 @@ def get_plan_details(request, plan_id):
     except SubscriptionPlan.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Plan not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(f"Error in get_plan_details: {str(e)}")
+        print(traceback.format_exc())
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
@@ -1164,8 +1168,16 @@ def create_plan(request):
         max_affiliates = request.POST.get('max_affiliates') or None
         
         # Validate required fields
-        if not all([name, tier, monthly_price, annual_price]):
+        if not all([name, tier, monthly_price]):
             return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+        
+        # Build features JSON for billing page
+        features = {
+            'estate_properties': f"{max_estates} estates" if max_estates else "Unlimited estates",
+            'allocations': f"{max_allocations} allocations" if max_allocations else "Unlimited allocations",
+            'clients': f"{max_clients} clients" if max_clients else "Unlimited clients",
+            'affiliates': f"{max_affiliates} affiliates" if max_affiliates else "Unlimited affiliates"
+        }
         
         # Create plan
         plan = SubscriptionPlan.objects.create(
@@ -1173,11 +1185,12 @@ def create_plan(request):
             tier=tier,
             description=description,
             monthly_price=Decimal(monthly_price),
-            annual_price=Decimal(annual_price),
+            annual_price=Decimal(annual_price) if annual_price else None,
             max_estates=int(max_estates) if max_estates else None,
             max_allocations=int(max_allocations) if max_allocations else None,
             max_clients=int(max_clients) if max_clients else None,
             max_affiliates=int(max_affiliates) if max_affiliates else None,
+            features=features,
             is_active=True
         )
         
@@ -1213,7 +1226,7 @@ def update_plan(request, plan_id):
         
         annual_price = request.POST.get('annual_price')
         if annual_price:
-            plan.annual_price = Decimal(annual_price)
+            plan.annual_price = Decimal(annual_price) if annual_price else None
         
         max_estates = request.POST.get('max_estates')
         plan.max_estates = int(max_estates) if max_estates else None
@@ -1226,6 +1239,14 @@ def update_plan(request, plan_id):
         
         max_affiliates = request.POST.get('max_affiliates')
         plan.max_affiliates = int(max_affiliates) if max_affiliates else None
+        
+        # Update features JSON for billing page
+        plan.features = {
+            'estate_properties': f"{plan.max_estates} estates" if plan.max_estates else "Unlimited estates",
+            'allocations': f"{plan.max_allocations} allocations" if plan.max_allocations else "Unlimited allocations",
+            'clients': f"{plan.max_clients} clients" if plan.max_clients else "Unlimited clients",
+            'affiliates': f"{plan.max_affiliates} affiliates" if plan.max_affiliates else "Unlimited affiliates"
+        }
         
         plan.save()
         
@@ -1369,3 +1390,257 @@ def save_billing_settings(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ============================================
+# PROMO CODE MANAGEMENT VIEWS
+# ============================================
+
+@login_required
+def get_promo_codes(request):
+    """Get all promo codes"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        promo_codes = PromoCode.objects.all().order_by('-created_at')
+        
+        promo_data = []
+        for promo in promo_codes:
+            promo_data.append({
+                'id': promo.id,
+                'code': promo.code,
+                'discount_type': promo.discount_type,
+                'discount_value': str(promo.discount_value),
+                'description': promo.description,
+                'valid_from': promo.valid_from.isoformat() if promo.valid_from else None,
+                'valid_until': promo.valid_until.isoformat() if promo.valid_until else None,
+                'max_uses': promo.max_uses,
+                'used_count': promo.used_count,
+                'max_uses_per_user': promo.max_uses_per_user,
+                'minimum_amount': str(promo.minimum_amount) if promo.minimum_amount else None,
+                'applicable_plans': promo.applicable_plans,
+                'is_active': promo.is_active,
+                'is_valid': promo.is_valid(),
+                'created_at': promo.created_at.isoformat()
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'promo_codes': promo_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def get_promo_code_detail(request, code_id):
+    """Get single promo code details"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        promo = PromoCode.objects.get(id=code_id)
+        
+        return JsonResponse({
+            'success': True,
+            'promo_code': {
+                'id': promo.id,
+                'code': promo.code,
+                'discount_type': promo.discount_type,
+                'discount_value': str(promo.discount_value),
+                'description': promo.description,
+                'valid_from': promo.valid_from.isoformat() if promo.valid_from else None,
+                'valid_until': promo.valid_until.isoformat() if promo.valid_until else None,
+                'max_uses': promo.max_uses,
+                'used_count': promo.used_count,
+                'max_uses_per_user': promo.max_uses_per_user,
+                'minimum_amount': str(promo.minimum_amount) if promo.minimum_amount else None,
+                'applicable_plans': promo.applicable_plans,
+                'is_active': promo.is_active,
+                'is_valid': promo.is_valid()
+            }
+        })
+    except PromoCode.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Promo code not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def create_promo_code(request):
+    """Create a new promo code"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        # Get form data
+        code = request.POST.get('code', '').strip().upper()
+        discount_type = request.POST.get('discount_type')
+        discount_value = request.POST.get('discount_value')
+        description = request.POST.get('description', '')
+        valid_from = request.POST.get('valid_from') or None
+        valid_until = request.POST.get('valid_until') or None
+        max_uses = request.POST.get('max_uses') or None
+        max_uses_per_user = request.POST.get('max_uses_per_user', 1)
+        minimum_amount = request.POST.get('minimum_amount') or None
+        applicable_plans = request.POST.getlist('applicable_plans')
+        is_active = request.POST.get('is_active') == 'on'
+        
+        # Validate required fields
+        if not all([code, discount_type, discount_value]):
+            return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+        
+        # Check if code already exists
+        if PromoCode.objects.filter(code=code).exists():
+            return JsonResponse({'success': False, 'error': 'Promo code already exists'}, status=400)
+        
+        # Filter out empty strings from applicable_plans
+        applicable_plans = [plan for plan in applicable_plans if plan]
+        
+        # Create promo code
+        promo = PromoCode.objects.create(
+            code=code,
+            discount_type=discount_type,
+            discount_value=Decimal(discount_value),
+            description=description,
+            valid_from=valid_from,
+            valid_until=valid_until,
+            max_uses=int(max_uses) if max_uses else None,
+            max_uses_per_user=int(max_uses_per_user),
+            minimum_amount=Decimal(minimum_amount) if minimum_amount else None,
+            applicable_plans=applicable_plans,
+            is_active=is_active,
+            created_by=request.user
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Promo code created successfully',
+            'promo_id': promo.id
+        })
+    except Exception as e:
+        import traceback
+        print(f"Error creating promo code: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def update_promo_code(request, code_id):
+    """Update an existing promo code"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        promo = PromoCode.objects.get(id=code_id)
+        
+        # Update fields
+        code = request.POST.get('code', '').strip().upper()
+        if code and code != promo.code:
+            # Check if new code already exists
+            if PromoCode.objects.filter(code=code).exclude(id=code_id).exists():
+                return JsonResponse({'success': False, 'error': 'Promo code already exists'}, status=400)
+            promo.code = code
+        
+        promo.discount_type = request.POST.get('discount_type', promo.discount_type)
+        
+        discount_value = request.POST.get('discount_value')
+        if discount_value:
+            promo.discount_value = Decimal(discount_value)
+        
+        promo.description = request.POST.get('description', promo.description)
+        
+        valid_from = request.POST.get('valid_from')
+        promo.valid_from = valid_from if valid_from else None
+        
+        valid_until = request.POST.get('valid_until')
+        promo.valid_until = valid_until if valid_until else None
+        
+        max_uses = request.POST.get('max_uses')
+        promo.max_uses = int(max_uses) if max_uses else None
+        
+        max_uses_per_user = request.POST.get('max_uses_per_user')
+        if max_uses_per_user:
+            promo.max_uses_per_user = int(max_uses_per_user)
+        
+        minimum_amount = request.POST.get('minimum_amount')
+        promo.minimum_amount = Decimal(minimum_amount) if minimum_amount else None
+        
+        applicable_plans = request.POST.getlist('applicable_plans')
+        applicable_plans = [plan for plan in applicable_plans if plan]
+        promo.applicable_plans = applicable_plans
+        
+        promo.is_active = request.POST.get('is_active') == 'on'
+        
+        promo.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Promo code updated successfully'
+        })
+    except PromoCode.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Promo code not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(f"Error updating promo code: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def toggle_promo_status(request, code_id):
+    """Toggle promo code active status"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        promo = PromoCode.objects.get(id=code_id)
+        
+        # Get is_active from JSON body
+        data = json.loads(request.body)
+        promo.is_active = data.get('is_active', not promo.is_active)
+        promo.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Promo code {"activated" if promo.is_active else "deactivated"} successfully',
+            'is_active': promo.is_active
+        })
+    except PromoCode.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Promo code not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def delete_promo_code(request, code_id):
+    """Delete a promo code"""
+    if not is_system_admin(request.user):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    
+    try:
+        promo = PromoCode.objects.get(id=code_id)
+        promo.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Promo code deleted successfully'
+        })
+    except PromoCode.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Promo code not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+

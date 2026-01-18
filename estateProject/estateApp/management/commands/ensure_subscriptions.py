@@ -5,7 +5,8 @@ Automatically creates 14-day free trial subscriptions for companies without plan
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from estateApp.models import Company, SubscriptionPlan
+from estateApp.models import Company
+from superAdmin.models import SubscriptionPlan
 from estateApp.subscription_billing_models import SubscriptionBillingModel
 from decimal import Decimal
 

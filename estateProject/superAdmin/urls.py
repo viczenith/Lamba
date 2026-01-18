@@ -26,7 +26,10 @@ urlpatterns = [
     path('analytics/', views.AnalyticsDashboardView.as_view(), name='analytics'),
     
     # Subscriptions
-    path('subscriptions/', views.SubscriptionManagementView.as_view(), name='subscriptions'),
+    path('subscriptions/', cv.SubscriptionManagementView.as_view(), name='subscriptions'),
+    
+    # Billing
+    path('billing/', cv.BillingManagementView.as_view(), name='billing'),
     
     # Invoices
     path('invoices/', views.InvoiceListView.as_view(), name='invoices'),

@@ -32,6 +32,7 @@ from .billing_views import (
     paystack_webhook_handler,
     confirm_bank_transfer,
     get_invoices,
+    validate_promo_code,
 )
 
 
@@ -52,7 +53,13 @@ urlpatterns = [
     path('api/billing/initiate-payment/', initiate_payment, name='initiate-payment'),
     path('api/billing/confirm-bank-transfer/', confirm_bank_transfer, name='confirm-bank-transfer'),
     path('api/billing/invoices/', get_invoices, name='get-invoices'),
+    path('api/subscription/validate-promo/', validate_promo_code, name='validate-promo-code'),
     path('webhooks/paystack/', paystack_webhook_handler, name='paystack-webhook-enhanced'),
+    
+    # ============================================
+    # ALERTS API ENDPOINTS
+    # ============================================
+    path('api/alerts/', include('DRF.company_admin.api_urls.alerts_urls')),
     
     # ============================================
     # SECURE URL PATTERNS (Priority - checked first)

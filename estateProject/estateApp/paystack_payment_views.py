@@ -17,7 +17,8 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 
-from estateApp.models import Company, SubscriptionPlan, Transaction, Estate, CustomUser, MarketerAffiliation, ClientMarketerAssignment
+from estateApp.models import Company, Transaction, Estate, CustomUser, MarketerAffiliation, ClientMarketerAssignment
+from superAdmin.models import SubscriptionPlan
 
 logger = logging.getLogger(__name__)
 

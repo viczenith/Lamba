@@ -2,7 +2,7 @@
 Management command to update subscription plans with correct pricing and limits.
 """
 from django.core.management.base import BaseCommand
-from estateApp.models import SubscriptionPlan
+from superAdmin.models import SubscriptionPlan
 
 
 class Command(BaseCommand):

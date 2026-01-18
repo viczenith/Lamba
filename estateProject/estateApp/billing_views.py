@@ -19,7 +19,8 @@ import requests
 import hashlib
 import hmac
 
-from .models import Company, SubscriptionPlan, CustomUser
+from .models import Company, CustomUser
+from superAdmin.models import SubscriptionPlan
 from .subscription_billing_models import SubscriptionBillingModel, BillingHistory
 from .payment_integration import PaystackPaymentProcessor
 
@@ -73,6 +74,8 @@ def get_billing_context(request):
         
         # Get all available plans
         plans = SubscriptionPlan.objects.filter(is_active=True).order_by('monthly_price')
+        logger.info(f"📊 Found {plans.count()} active subscription plans")
+        logger.info(f"📋 Plans: {[f'{p.name} ({p.tier})' for p in plans]}")
         plans_data = []
         
         plan_hierarchy = {'starter': 1, 'professional': 2, 'enterprise': 3}
@@ -87,7 +90,7 @@ def get_billing_context(request):
             # Determine if this is an upgrade, downgrade, or current
             relationship = 'current' if is_current else ('upgrade' if plan_tier_level > current_tier_level else 'downgrade')
             
-            plans_data.append({
+            plan_dict = {
                 'id': plan.id,
                 'name': plan.name,
                 'tier': plan.tier,
@@ -96,11 +99,20 @@ def get_billing_context(request):
                 'annual_price': float(plan.annual_price or plan.monthly_price * 10),
                 'max_plots': plan.max_plots,
                 'max_agents': plan.max_agents,
+                'max_estates': plan.max_estates if hasattr(plan, 'max_estates') else 999999,
+                'max_clients': plan.max_clients if hasattr(plan, 'max_clients') else 999999,
+                'max_allocations': plan.max_allocations if hasattr(plan, 'max_allocations') else 999999,
+                'max_affiliates': plan.max_affiliates if hasattr(plan, 'max_affiliates') else 999999,
                 'features': plan.features,
+                'is_active': plan.is_active,
                 'is_current': is_current,
                 'relationship': relationship,
                 'tier_level': plan_tier_level
-            })
+            }
+            logger.info(f"✅ Added plan: {plan.name} - ${plan.monthly_price}")
+            plans_data.append(plan_dict)
+        
+        logger.info(f"📦 Returning {len(plans_data)} plans to frontend")
         
         # Get billing history
         billing_history = BillingHistory.objects.filter(
@@ -693,3 +705,108 @@ def get_invoices(request):
     except Exception as e:
         logger.error(f"Error getting invoices: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_protect
+def validate_promo_code(request):
+    """
+    Validate a promo code and return discount details
+    """
+    from .models import PromoCode
+    from django.utils import timezone
+    
+    company = get_user_company(request)
+    if not company:
+        return JsonResponse({'error': 'Company not found'}, status=404)
+    
+    try:
+        data = json.loads(request.body)
+        code = data.get('code', '').strip().upper()
+        plan_id = data.get('plan_id')
+        amount = Decimal(str(data.get('amount', 0)))
+        
+        if not code:
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': 'Promo code is required'
+            })
+        
+        # Find the promo code
+        try:
+            promo = PromoCode.objects.get(code=code, is_active=True)
+        except PromoCode.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': 'Invalid promo code'
+            })
+        
+        # Check if promo code is valid
+        if not promo.is_valid():
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': 'This promo code has expired or reached its usage limit'
+            })
+        
+        # Check validity dates
+        now = timezone.now().date()
+        if promo.valid_from and now < promo.valid_from:
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': f'This promo code is not valid yet. Valid from {promo.valid_from}'
+            })
+        
+        if promo.valid_until and now > promo.valid_until:
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': 'This promo code has expired'
+            })
+        
+        # Check minimum amount
+        if promo.minimum_amount and amount < promo.minimum_amount:
+            return JsonResponse({
+                'success': False,
+                'valid': False,
+                'message': f'Minimum order amount of ₦{promo.minimum_amount:,.0f} required'
+            })
+        
+        # Check applicable plans
+        if promo.applicable_plans:
+            applicable_plan_ids = promo.applicable_plans if isinstance(promo.applicable_plans, list) else []
+            if plan_id and applicable_plan_ids and plan_id not in applicable_plan_ids:
+                return JsonResponse({
+                    'success': False,
+                    'valid': False,
+                    'message': 'This promo code is not applicable to the selected plan'
+                })
+        
+        # Calculate discount
+        discount_amount = promo.calculate_discount(amount)
+        
+        return JsonResponse({
+            'success': True,
+            'valid': True,
+            'message': 'Promo code applied successfully',
+            'promo_code': {
+                'id': promo.id,
+                'code': promo.code,
+                'discount_type': promo.discount_type,
+                'discount_value': float(promo.discount_value),
+                'discount_amount': float(discount_amount),
+                'description': promo.description,
+                'minimum_amount': float(promo.minimum_amount) if promo.minimum_amount else None,
+                'applicable_plans': promo.applicable_plans
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request data'}, status=400)
+    except Exception as e:
+        logger.error(f"Error validating promo code: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred'}, status=500)

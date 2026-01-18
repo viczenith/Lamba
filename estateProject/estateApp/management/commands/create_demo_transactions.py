@@ -7,7 +7,8 @@ from django.utils import timezone
 from datetime import timedelta
 import uuid
 
-from estateApp.models import Company, SubscriptionPlan
+from estateApp.models import Company
+from superAdmin.models import SubscriptionPlan
 from estateApp.subscription_billing_models import (
     SubscriptionBillingModel, BillingHistory
 )

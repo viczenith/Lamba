@@ -54,11 +54,11 @@ class SubscriptionBillingModel(models.Model):
     
     # Paid subscription
     current_plan = models.ForeignKey(
-        'estateApp.SubscriptionPlan',
+        'superAdmin.SubscriptionPlan',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='subscriptions'
+        related_name='billing_subscriptions'
     )
     subscription_started_at = models.DateTimeField(null=True, blank=True)
     subscription_ends_at = models.DateTimeField(null=True, blank=True)
@@ -548,7 +548,7 @@ class SubscriptionFeatureAccess(models.Model):
     """Track which features are accessible at each tier level"""
     
     plan = models.ForeignKey(
-        'estateApp.SubscriptionPlan',
+        'superAdmin.SubscriptionPlan',
         on_delete=models.CASCADE,
         related_name='feature_access'
     )

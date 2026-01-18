@@ -416,64 +416,142 @@ class CompanyCeo(models.Model):
         return f"{self.name} ({'Primary' if self.is_primary else 'Secondary'}) - {self.company.company_name}"
 
 
-class SubscriptionPlan(models.Model):
-    """Subscription plans for SaaS tier pricing"""
-    TIER_CHOICES = [
-        ('starter', 'Starter'),
-        ('professional', 'Professional'),
-        ('enterprise', 'Enterprise'),
+# NOTE: SubscriptionPlan model has been moved to superAdmin.models
+# Import it when needed: from superAdmin.models import SubscriptionPlan
+
+
+class PromoCode(models.Model):
+    """Promotional codes for subscription discounts"""
+    DISCOUNT_TYPE_CHOICES = [
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
     ]
     
-    tier = models.CharField(
-        max_length=20,
-        choices=TIER_CHOICES,
+    code = models.CharField(
+        max_length=50,
         unique=True,
-        verbose_name="Subscription Tier"
+        help_text="Unique promotional code (e.g., WELCOME20, NEWYEAR25)",
+        verbose_name="Promo Code"
     )
-    name = models.CharField(max_length=100, verbose_name="Plan Name")
-    description = models.TextField(blank=True, help_text="Marketing description for this plan", verbose_name="Plan Description")
-    
-    # Pricing
-    monthly_price = models.DecimalField(
-        max_digits=12,
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DISCOUNT_TYPE_CHOICES,
+        default='percentage',
+        verbose_name="Discount Type"
+    )
+    discount_value = models.DecimalField(
+        max_digits=10,
         decimal_places=2,
-        help_text="Price in Nigerian Naira",
-        verbose_name="Monthly Price (₦)"
+        help_text="Percentage (e.g., 20 for 20%) or Fixed amount in Naira",
+        verbose_name="Discount Value"
     )
-    annual_price = models.DecimalField(
+    description = models.TextField(
+        blank=True,
+        help_text="Internal description for this promo code",
+        verbose_name="Description"
+    )
+    
+    # Validity period
+    valid_from = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Start date for promo code validity",
+        verbose_name="Valid From"
+    )
+    valid_until = models.DateField(
+        null=True,
+        blank=True,
+        help_text="End date for promo code validity",
+        verbose_name="Valid Until"
+    )
+    
+    # Usage limits
+    max_uses = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum total uses (null = unlimited)",
+        verbose_name="Maximum Uses"
+    )
+    used_count = models.IntegerField(
+        default=0,
+        help_text="Number of times this code has been used",
+        verbose_name="Used Count"
+    )
+    max_uses_per_user = models.IntegerField(
+        default=1,
+        help_text="Maximum uses per user",
+        verbose_name="Max Uses Per User"
+    )
+    
+    # Restrictions
+    minimum_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Optional annual billing price with discount",
-        verbose_name="Annual Price (₦)"
+        help_text="Minimum subscription amount required",
+        verbose_name="Minimum Amount (₦)"
     )
-    
-    # Limits
-    max_plots = models.IntegerField(default=50, help_text="Maximum number of property listings", verbose_name="Maximum Plots")
-    max_agents = models.IntegerField(default=1, help_text="Maximum number of team members", verbose_name="Maximum Agents")
-    max_api_calls_daily = models.IntegerField(default=1000, help_text="Maximum API calls per 24 hours", verbose_name="Daily API Calls")
-    
-    # Features JSON (e.g., {"advanced_analytics": true, "api_access": true})
-    features = models.JSONField(
+    applicable_plans = models.JSONField(
         blank=True,
-        default=dict,
-        help_text="JSON object of feature names and descriptions",
-        verbose_name="Plan Features"
+        default=list,
+        help_text="List of plan tiers this code applies to (empty = all plans)",
+        verbose_name="Applicable Plans"
     )
     
     # Status
-    is_active = models.BooleanField(default=True, help_text="Can companies subscribe to this plan?", verbose_name="Is Active")
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this promo code is currently active",
+        verbose_name="Is Active"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_promo_codes',
+        verbose_name="Created By"
+    )
     
     class Meta:
-        verbose_name = "Subscription Plan"
-        verbose_name_plural = "Subscription Plans"
-        ordering = ['tier']
+        verbose_name = "Promo Code"
+        verbose_name_plural = "Promo Codes"
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.name} - ₦{self.monthly_price}/month"
+        return f"{self.code} - {self.discount_value}{'%' if self.discount_type == 'percentage' else '₦'}"
+    
+    def is_valid(self):
+        """Check if promo code is currently valid"""
+        if not self.is_active:
+            return False
+        
+        today = timezone.now().date()
+        
+        # Check validity period
+        if self.valid_from and today < self.valid_from:
+            return False
+        if self.valid_until and today > self.valid_until:
+            return False
+        
+        # Check usage limits
+        if self.max_uses and self.used_count >= self.max_uses:
+            return False
+        
+        return True
+    
+    def calculate_discount(self, amount):
+        """Calculate discount amount for a given subscription amount"""
+        if self.discount_type == 'percentage':
+            discount = amount * (self.discount_value / 100)
+        else:
+            discount = self.discount_value
+        
+        # Discount cannot exceed the total amount
+        return min(discount, amount)
 
 
 class SubscriptionTier(models.Model):

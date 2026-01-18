@@ -6,7 +6,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Sum, Count
 from .models import (
-    PlatformConfiguration, SuperAdminUser, SubscriptionPlan, 
+    PlatformConfiguration, SuperAdminUser, SubscriptionPlan,
     CompanySubscription, PlatformInvoice, PlatformAnalytics, SystemAuditLog,
     CompanyOnboarding, FeatureFlag, SystemNotification
 )
@@ -69,8 +69,8 @@ class SuperAdminUserAdmin(admin.ModelAdmin):
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'tier', 'monthly_price_display', 'annual_price_display', 
-                   'max_plots', 'max_agents', 'is_active', 'is_visible')
-    list_filter = ('tier', 'is_active', 'is_visible')
+                   'max_plots', 'max_agents', 'is_active')
+    list_filter = ('tier', 'is_active')
     search_fields = ('name', 'description')
     readonly_fields = ('created_at', 'updated_at')
     
@@ -79,16 +79,17 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
             'fields': ('name', 'tier', 'description')
         }),
         ('Pricing', {
-            'fields': ('monthly_price', 'annual_price', 'setup_fee')
+            'fields': ('monthly_price', 'annual_price')
         }),
         ('Limits', {
-            'fields': ('max_plots', 'max_agents', 'max_admins', 'max_api_calls_daily', 'max_storage_gb')
+            'fields': ('max_plots', 'max_agents', 'max_api_calls_daily', 
+                      'max_estates', 'max_allocations', 'max_clients', 'max_affiliates')
         }),
         ('Features', {
             'fields': ('features',)
         }),
         ('Status', {
-            'fields': ('is_active', 'is_visible', 'created_at', 'updated_at')
+            'fields': ('is_active', 'created_at', 'updated_at')
         }),
     )
     
