@@ -8,8 +8,9 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from DRF.clients.serializers.chat_serializers import MessageListSerializer
+from DRF.shared_drf import APIResponse
 
 from DRF.marketers.serializers.marketer_chat_serializers import (
     MarketerMessageCreateSerializer,
@@ -59,6 +60,14 @@ class MarketerChatListAPIView(ListAPIView):
             except (TypeError, ValueError):
                 pass
 
+        # Filter by company if provided
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            try:
+                queryset = queryset.filter(company_id=int(company_id))
+            except (TypeError, ValueError):
+                pass
+
         return queryset
 
     def list(self, request, *args, **kwargs):
@@ -72,12 +81,13 @@ class MarketerChatListAPIView(ListAPIView):
                 'request': request,
             })
 
-        return Response(
-            {
+        return APIResponse.success(
+            data={
                 'count': queryset.count(),
                 'messages': serializer.data,
                 'messages_html': messages_html,
-            }
+            },
+            message='Messages retrieved'
         )
 
 
@@ -94,13 +104,16 @@ class MarketerChatDetailAPIView(APIView):
                 pk=pk,
             )
         except Message.DoesNotExist:
-            return Response(
-                {'error': 'Message not found or access denied.'},
-                status=status.HTTP_404_NOT_FOUND,
+            return APIResponse.not_found(
+                message='Message not found or access denied.',
+                error_code='MESSAGE_NOT_FOUND'
             )
 
         serializer = MarketerMessageSerializer(message, context={'request': request})
-        return Response(serializer.data)
+        return APIResponse.success(
+            data=serializer.data,
+            message='Message retrieved'
+        )
 
 
 class MarketerChatSendAPIView(CreateAPIView):
@@ -114,9 +127,9 @@ class MarketerChatSendAPIView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
-            return Response(
-                {'success': False, 'errors': serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST,
+            return APIResponse.validation_error(
+                errors=serializer.errors,
+                error_code='VALIDATION_FAILED'
             )
 
         message = serializer.save()
@@ -127,13 +140,12 @@ class MarketerChatSendAPIView(CreateAPIView):
             'request': request,
         })
 
-        return Response(
-            {
-                'success': True,
+        return APIResponse.created(
+            data={
                 'message': response_serializer.data,
                 'message_html': message_html,
             },
-            status=status.HTTP_201_CREATED,
+            message='Message sent'
         )
 
 
@@ -150,16 +162,16 @@ class MarketerChatDeleteAPIView(DestroyAPIView):
         try:
             message = self.get_queryset().get(pk=kwargs['pk'])
         except Message.DoesNotExist:
-            return Response(
-                {'success': False, 'error': 'Message not found or access denied.'},
-                status=status.HTTP_404_NOT_FOUND,
+            return APIResponse.not_found(
+                message='Message not found or access denied.',
+                error_code='MESSAGE_NOT_FOUND'
             )
 
         time_limit = timezone.now() - timedelta(minutes=30)
         if message.date_sent < time_limit:
-            return Response(
-                {'success': False, 'error': 'Messages can only be deleted within 30 minutes.'},
-                status=status.HTTP_403_FORBIDDEN,
+            return APIResponse.forbidden(
+                message='Messages can only be deleted within 30 minutes.',
+                error_code='DELETE_TIME_EXPIRED'
             )
 
         message.deleted_for_everyone = True
@@ -174,7 +186,10 @@ class MarketerChatDeleteAPIView(DestroyAPIView):
         send_chat_message_deleted_push(message)
 
         serializer = MarketerMessageSerializer(message, context={'request': request})
-        return Response({'success': True, 'message': serializer.data})
+        return APIResponse.success(
+            data=serializer.data,
+            message='Message deleted'
+        )
 
 
 class MarketerChatDeleteForEveryoneAPIView(APIView):
@@ -187,45 +202,45 @@ class MarketerChatDeleteForEveryoneAPIView(APIView):
         message_id = request.data.get('message_id')
 
         if not message_id:
-            return Response(
-                {'success': False, 'error': 'message_id is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
+            return APIResponse.validation_error(
+                errors={'message_id': ['message_id is required']},
+                error_code='MISSING_FIELD'
             )
 
         try:
             message_id = int(message_id)
         except (TypeError, ValueError):
-            return Response(
-                {'success': False, 'error': 'Invalid message_id supplied.'},
-                status=status.HTTP_400_BAD_REQUEST,
+            return APIResponse.validation_error(
+                errors={'message_id': ['Invalid message_id supplied']},
+                error_code='INVALID_FORMAT'
             )
 
         try:
             message = Message.objects.select_related('sender').get(pk=message_id)
         except Message.DoesNotExist:
-            return Response(
-                {'success': False, 'error': 'Message not found.'},
-                status=status.HTTP_404_NOT_FOUND,
+            return APIResponse.not_found(
+                message='Message not found',
+                error_code='MESSAGE_NOT_FOUND'
             )
 
         if message.sender != request.user:
-            return Response(
-                {'success': False, 'error': 'You can only delete your own messages.'},
-                status=status.HTTP_403_FORBIDDEN,
+            return APIResponse.forbidden(
+                message='You can only delete your own messages.',
+                error_code='PERMISSION_DENIED'
             )
 
         if message.deleted_for_everyone:
             serializer = MarketerMessageSerializer(message, context={'request': request})
-            return Response({'success': True, 'message': serializer.data})
+            return APIResponse.success(
+                data=serializer.data,
+                message='Message already deleted for everyone'
+            )
 
         time_limit = timezone.now() - timedelta(hours=24)
         if message.date_sent < time_limit:
-            return Response(
-                {
-                    'success': False,
-                    'error': 'You can only delete messages within 24 hours of sending.',
-                },
-                status=status.HTTP_403_FORBIDDEN,
+            return APIResponse.forbidden(
+                message='You can only delete messages within 24 hours of sending.',
+                error_code='DELETE_TIME_EXPIRED'
             )
 
         message.deleted_for_everyone = True
@@ -240,7 +255,10 @@ class MarketerChatDeleteForEveryoneAPIView(APIView):
         send_chat_message_deleted_push(message)
 
         serializer = MarketerMessageSerializer(message, context={'request': request})
-        return Response({'success': True, 'message': serializer.data})
+        return APIResponse.success(
+            data=serializer.data,
+            message='Message deleted for everyone'
+        )
 
 
 class MarketerChatUnreadCountAPIView(APIView):
@@ -272,7 +290,10 @@ class MarketerChatUnreadCountAPIView(APIView):
             ),
         }
 
-        return Response(data)
+        return APIResponse.success(
+            data=data,
+            message='Unread count retrieved'
+        )
 
 
 class MarketerChatMarkAsReadAPIView(APIView):
@@ -293,7 +314,10 @@ class MarketerChatMarkAsReadAPIView(APIView):
                 is_read=False,
             ).update(is_read=True, status='read')
 
-            return Response({'success': True, 'message': f'{updated} message(s) marked as read.'})
+            return APIResponse.success(
+                data={'marked_count': updated},
+                message=f'{updated} message(s) marked as read.'
+            )
 
         if message_ids:
             updated = Message.objects.filter(
@@ -303,11 +327,14 @@ class MarketerChatMarkAsReadAPIView(APIView):
                 is_read=False,
             ).update(is_read=True, status='read')
 
-            return Response({'success': True, 'message': f'{updated} message(s) marked as read.'})
+            return APIResponse.success(
+                data={'marked_count': updated},
+                message=f'{updated} message(s) marked as read.'
+            )
 
-        return Response(
-            {'success': False, 'error': 'Provide message_ids or set mark_all to true.'},
-            status=status.HTTP_400_BAD_REQUEST,
+        return APIResponse.validation_error(
+            errors={'request': ['Provide message_ids or set mark_all to true']},
+            error_code='MISSING_PARAMETER'
         )
 
 
@@ -320,6 +347,7 @@ class MarketerChatPollAPIView(APIView):
     def get(self, request):
         user = request.user
         last_msg_id = request.query_params.get('last_msg_id', 0)
+        company_id = request.query_params.get('company_id')
 
         try:
             last_msg_id = int(last_msg_id)
@@ -331,6 +359,13 @@ class MarketerChatPollAPIView(APIView):
             Q(sender__role__in=SUPPORT_ROLES, recipient=user),
             id__gt=last_msg_id,
         ).select_related('sender').order_by('date_sent')
+
+        # Filter by company if provided
+        if company_id:
+            try:
+                new_messages = new_messages.filter(company_id=int(company_id))
+            except (TypeError, ValueError):
+                pass
 
         Message.objects.filter(
             id__in=[msg.id for msg in new_messages],
@@ -356,11 +391,12 @@ class MarketerChatPollAPIView(APIView):
             ).values('id', 'status')
             updated_statuses = list(user_messages)
 
-        return Response(
-            {
+        return APIResponse.success(
+            data={
                 'new_messages': serializer.data,
                 'count': new_messages.count(),
                 'updated_statuses': updated_statuses,
                 'new_messages_html': new_messages_html,
-            }
+            },
+            message='Poll completed'
         )

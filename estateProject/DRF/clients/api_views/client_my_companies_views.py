@@ -16,7 +16,6 @@ SECURITY FEATURES:
 """
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.throttling import UserRateThrottle
@@ -26,6 +25,7 @@ from django.db.models.functions import Coalesce
 from decimal import Decimal
 import logging
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_my_companies_serializers import (
     MyCompaniesListResponseSerializer,
     CompanyCardSerializer,
@@ -210,4 +210,7 @@ class ClientMyCompaniesAPIView(APIView):
         }
         
         serializer = MyCompaniesListResponseSerializer(response_data, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=serializer.data,
+            message="Companies list retrieved successfully"
+        )

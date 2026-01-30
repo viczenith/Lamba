@@ -20,10 +20,10 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_notification_list_serializers import (
     ClientUserNotificationSerializer,
     NotificationListResponseSerializer,
@@ -134,13 +134,16 @@ class ClientNotificationListPageAPIView(APIView):
                 f"unread={len(unread_list)}, read={len(read_list)}"
             )
             
-            return Response(response_data, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data=response_data,
+                message="Notifications retrieved successfully"
+            )
             
         except Exception as e:
             logger.error(f"Error fetching notifications: {str(e)}")
-            return Response(
-                {'error': 'Failed to fetch notifications'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to fetch notifications",
+                error_code="NOTIFICATION_FETCH_ERROR"
             )
 
 
@@ -223,16 +226,19 @@ class ClientUnreadCountAPIView(APIView):
             unread = UserNotification.objects.filter(user=user, read=False).count()
             total = UserNotification.objects.filter(user=user).count()
             
-            return Response({
-                'unread': unread,
-                'total': total
-            }, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data={
+                    'unread': unread,
+                    'total': total
+                },
+                message="Unread count retrieved"
+            )
             
         except Exception as e:
             logger.error(f"Error fetching unread count: {str(e)}")
-            return Response(
-                {'error': 'Failed to fetch count'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to fetch count",
+                error_code="COUNT_FETCH_ERROR"
             )
 
 
@@ -262,9 +268,9 @@ class ClientMarkReadAPIView(APIView):
                 notification_id = int(str(pk).strip())
             except (ValueError, TypeError):
                 logger.warning(f"Invalid notification ID: {pk}")
-                return Response(
-                    {'error': 'Invalid notification ID'},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'id': ['Invalid notification ID']},
+                    error_code="INVALID_ID"
                 )
             
             # SECURITY: Only fetch if belongs to user (IDOR protection)
@@ -278,9 +284,9 @@ class ClientMarkReadAPIView(APIView):
                     f"Unauthorized mark-read attempt: user={user.email}, "
                     f"notification_id={notification_id}"
                 )
-                return Response(
-                    {'error': 'Notification not found'},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Notification not found",
+                    error_code="NOTIFICATION_NOT_FOUND"
                 )
             
             if not notification.read:
@@ -288,19 +294,19 @@ class ClientMarkReadAPIView(APIView):
                 notification.save(update_fields=['read'])
                 logger.info(f"Notification marked read: id={notification_id}, user={user.email}")
             
-            return Response(
-                ClientUserNotificationSerializer(
+            return APIResponse.success(
+                data=ClientUserNotificationSerializer(
                     notification,
                     context={'request': request}
                 ).data,
-                status=status.HTTP_200_OK
+                message="Notification marked as read"
             )
             
         except Exception as e:
             logger.error(f"Error marking notification read: {str(e)}")
-            return Response(
-                {'error': 'Failed to update notification'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to update notification",
+                error_code="UPDATE_ERROR"
             )
 
 
@@ -353,19 +359,19 @@ class ClientMarkUnreadAPIView(APIView):
                 notification.save(update_fields=['read'])
                 logger.info(f"Notification marked unread: id={notification_id}, user={user.email}")
             
-            return Response(
-                ClientUserNotificationSerializer(
+            return APIResponse.success(
+                data=ClientUserNotificationSerializer(
                     notification,
                     context={'request': request}
                 ).data,
-                status=status.HTTP_200_OK
+                message="Notification marked as unread"
             )
             
         except Exception as e:
             logger.error(f"Error marking notification unread: {str(e)}")
-            return Response(
-                {'error': 'Failed to update notification'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to update notification",
+                error_code="UPDATE_ERROR"
             )
 
 
@@ -396,11 +402,14 @@ class ClientMarkAllReadAPIView(APIView):
             
             logger.info(f"All notifications marked read: user={user.email}, count={updated}")
             
-            return Response({'marked': updated}, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data={'marked': updated},
+                message="All notifications marked as read"
+            )
             
         except Exception as e:
             logger.error(f"Error marking all notifications read: {str(e)}")
-            return Response(
-                {'error': 'Failed to update notifications'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to update notifications",
+                error_code="BULK_UPDATE_ERROR"
             )

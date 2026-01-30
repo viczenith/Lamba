@@ -26,7 +26,6 @@ Last Updated: December 2024
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.throttling import UserRateThrottle
@@ -34,6 +33,7 @@ from django.utils import timezone
 import logging
 
 from estateApp.models import UserDeviceToken
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.device_token_serializers import (
     DeviceTokenSerializer, 
     DeviceTokenListSerializer
@@ -153,9 +153,9 @@ class DeviceTokenRegisterView(APIView):
             if not serializer.is_valid():
                 log_access(user, 'register_token', 'device_token', 
                           success=False, details=str(serializer.errors))
-                return Response(
-                    {"errors": serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors=serializer.errors,
+                    error_code="VALIDATION_FAILED"
                 )
             
             instance = serializer.save()
@@ -168,13 +168,16 @@ class DeviceTokenRegisterView(APIView):
                 instance, 
                 context={"request": request}
             )
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            return APIResponse.created(
+                data=response_serializer.data,
+                message="Device token registered successfully"
+            )
             
         except Exception as e:
             logger.exception(f"Device token registration error: {e}")
-            return Response(
-                {"error": "Failed to register device token"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to register device token",
+                error_code="REGISTRATION_ERROR"
             )
 
     def delete(self, request, *args, **kwargs):
@@ -194,9 +197,9 @@ class DeviceTokenRegisterView(APIView):
             # Validate token
             token = validate_token_param(token)
             if not token:
-                return Response(
-                    {"detail": "Valid token is required to delete a device registration."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                return APIResponse.validation_error(
+                    errors={'token': ['Valid token is required to delete a device registration']},
+                    error_code="INVALID_TOKEN"
                 )
 
             # Only delete tokens belonging to this user (SECURITY)
@@ -208,21 +211,21 @@ class DeviceTokenRegisterView(APIView):
             if deleted_count == 0:
                 log_access(user, 'delete_token', 'device_token', 
                           success=False, details=f"Token not found: {token[:20]}...")
-                return Response(
-                    {"detail": "Specified token was not found for this user."},
-                    status=status.HTTP_404_NOT_FOUND,
+                return APIResponse.not_found(
+                    message="Specified token was not found for this user",
+                    error_code="TOKEN_NOT_FOUND"
                 )
 
             log_access(user, 'delete_token', 'device_token', 
                       details=f"Deleted token: {token[:20]}...")
             
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return APIResponse.no_content()
             
         except Exception as e:
             logger.exception(f"Device token deletion error: {e}")
-            return Response(
-                {"error": "Failed to delete device token"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to delete device token",
+                error_code="DELETION_ERROR"
             )
 
 
@@ -266,11 +269,14 @@ class DeviceTokenListView(APIView):
                 many=True, 
                 context={"request": request}
             )
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data=serializer.data,
+                message="Device tokens retrieved successfully"
+            )
             
         except Exception as e:
             logger.exception(f"Device token list error: {e}")
-            return Response(
-                {"error": "Failed to retrieve device tokens"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to retrieve device tokens",
+                error_code="LIST_ERROR"
             )

@@ -1,32 +1,8 @@
-"""
-Client Dashboard Serializers
-=============================
-DRF Serializers for the client dashboard page (client_side.html)
-
-This module provides secure serializers for:
-- Dashboard statistics (properties purchased, payment status)
-- Active promotional offers with company grouping
-- Price history/increments organized by company
-- Estate and company information
-
-SECURITY IMPLEMENTATIONS:
-1. Read-only fields to prevent data modification
-2. XSS prevention through HTML escaping
-3. Minimal data exposure - only necessary fields
-4. Input validation and sanitization
-5. Decimal precision handling for financial data
-6. No sensitive business data exposed (internal IDs, etc.)
-7. Company-scoped data isolation
-
-Author: System
-Version: 2.0
-Last Updated: December 2024
-"""
-
 from rest_framework import serializers
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 from django.utils.html import escape
+from django.urls import reverse
 import logging
 
 from estateApp.models import (
@@ -195,12 +171,26 @@ class EstateDetailSerializer(serializers.ModelSerializer):
         return sanitize_string(getattr(obj, 'location', None))
 
     def get_company(self, obj):
-        """Return sanitized company info."""
+        """Return sanitized company info including a safe logo URL when available."""
         company = getattr(obj, 'company', None)
         if company:
+            request = self.context.get('request') if isinstance(self.context, dict) else None
+            logo_url = None
+            try:
+                # Prefer a URL only if the company has a logo set; build absolute URL when request is available
+                if getattr(company, 'logo', None):
+                    if request:
+                        logo_url = request.build_absolute_uri(reverse('secure-company-logo', kwargs={'company_id': company.id}))
+                    else:
+                        # fallback to the logo field (may be a relative path or storage URL)
+                        logo_url = getattr(company, 'logo', None)
+            except Exception:
+                logo_url = getattr(company, 'logo', None)
+
             return {
                 "id": company.id,
-                "name": sanitize_string(getattr(company, 'company_name', str(company)))
+                "name": sanitize_string(getattr(company, 'company_name', str(company))),
+                "company_logo": logo_url
             }
         return None
 
@@ -590,11 +580,23 @@ class PromotionDetailSerializer(serializers.ModelSerializer):
                 
                 company_data = None
                 if hasattr(estate, 'company') and estate.company:
+                    request = self.context.get('request') if isinstance(self.context, dict) else None
+                    logo_url = None
+                    try:
+                        if getattr(estate.company, 'logo', None):
+                            if request:
+                                logo_url = request.build_absolute_uri(reverse('secure-company-logo', kwargs={'company_id': estate.company.id}))
+                            else:
+                                logo_url = getattr(estate.company, 'logo', None)
+                    except Exception:
+                        logo_url = getattr(estate.company, 'logo', None)
+
                     company_data = {
                         "id": estate.company.id,
-                        "name": sanitize_string(getattr(estate.company, 'company_name', str(estate.company)))
+                        "name": sanitize_string(getattr(estate.company, 'company_name', str(estate.company))),
+                        "company_logo": logo_url
                     }
-                
+
                 estates_out.append({
                     "id": estate.id,
                     "name": sanitize_string(estate.name),

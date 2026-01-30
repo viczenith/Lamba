@@ -217,8 +217,8 @@ class _ClientBottomNavState extends State<ClientBottomNav>
   }
 
   void _navigateToIndex(int i) {
-    // Special handling for chat navigation (index 2) to match header behavior
-    if (i == 2) {
+    // Special handling for chat navigation (index 3) to match header behavior
+    if (i == 3) {
       _navigateToChat();
       return;
     }
@@ -234,8 +234,14 @@ class _ClientBottomNavState extends State<ClientBottomNav>
         routeName = '/client-dashboard';
         break;
       case 1:
-      default:
         routeName = '/client-profile';
+        break;
+      case 2:
+        routeName = '/client-my-companies';
+        break;
+      case 3:
+      default:
+        routeName = '/client-chat-admin';
         break;
     }
 
@@ -388,16 +394,40 @@ class _ClientBottomNavState extends State<ClientBottomNav>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    _buildIconWithBadge(Icons.business, 'My Companies',
+                        active: _index == 2),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Companies',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            _index == 2 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 2
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: () => _navigateToIndex(3),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     _buildIconWithBadge(Icons.chat, 'Chat Admin',
-                        badge: _realTimeUnreadCount, active: _index == 2),
+                        badge: _realTimeUnreadCount, active: _index == 3),
                     const SizedBox(height: 4),
                     Text(
                       'Chat',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight:
-                            _index == 2 ? FontWeight.bold : FontWeight.w500,
-                        color: _index == 2
+                            _index == 3 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 3
                             ? Theme.of(context).colorScheme.primary
                             : Colors.grey[600],
                       ),
@@ -426,6 +456,10 @@ class _ClientBottomNavState extends State<ClientBottomNav>
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: Text('Profile')),
+        const NavigationRailDestination(
+            icon: Icon(Icons.business_outlined),
+            selectedIcon: Icon(Icons.business),
+            label: Text('Companies')),
         NavigationRailDestination(
           icon: Stack(
             clipBehavior: Clip.none,

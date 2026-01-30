@@ -1,6 +1,6 @@
 from django.db.models import Count, Prefetch, Q
-from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework import generics
+from DRF.shared_drf.api_response import APIResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.pagination import PageNumberPagination
@@ -80,7 +80,30 @@ class MarketerClientListAPIView(generics.ListAPIView):
             cid = item['id']
             item['recent_transactions'] = recent_by_client.get(cid, [])
 
-        return self.get_paginated_response(results)
+        # Build pagination metadata
+        paginator = self.paginator
+        page_obj = page
+        page_number = getattr(page_obj, 'number', int(request.query_params.get('page', 1)))
+        try:
+            page_size = paginator.get_page_size(request) or paginator.page_size
+        except Exception:
+            page_size = getattr(paginator, 'page_size', 12)
+
+        if hasattr(page_obj, 'paginator'):
+            total_count = page_obj.paginator.count
+            total_pages = page_obj.paginator.num_pages
+        else:
+            total_count = len(results)
+            total_pages = 1
+
+        return APIResponse.paginated_response(
+            data=results,
+            page_number=page_number,
+            page_size=page_size,
+            total_count=total_count,
+            total_pages=total_pages,
+            message='Clients list retrieved',
+        )
 
 
 class MarketerClientDetailAPIView(generics.RetrieveAPIView):
@@ -112,4 +135,7 @@ class MarketerClientDetailAPIView(generics.RetrieveAPIView):
                  .select_related('allocation__estate', 'allocation__plot_size', 'allocation__plot_number')
                  .order_by('-transaction_date'))
         serializer = self.get_serializer(client, context={'transactions_qs': tx_qs, 'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=serializer.data,
+            message='Client details retrieved',
+        )

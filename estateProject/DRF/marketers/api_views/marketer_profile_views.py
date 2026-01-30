@@ -1,5 +1,4 @@
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -10,6 +9,7 @@ from decimal import Decimal
 from datetime import date
 
 from DRF.marketers.serializers.marketer_profile_serializers import MarketerProfileSerializer, SmallMarketerSerializer
+from DRF.shared_drf import APIResponse
 from estateApp.models import *
 
 
@@ -35,10 +35,16 @@ class MarketerProfileView(APIView):
         try:
             marketer = MarketerUser.objects.get(pk=user.id)
         except MarketerUser.DoesNotExist:
-            return Response({'detail': 'Marketer profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            return APIResponse.not_found(
+                message='Marketer profile not found',
+                error_code='MARKETER_NOT_FOUND'
+            )
 
         serializer = MarketerProfileSerializer(marketer, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=serializer.data,
+            message='Marketer profile retrieved'
+        )
 
 
 class MarketerProfileUpdateView(APIView):
@@ -54,7 +60,10 @@ class MarketerProfileUpdateView(APIView):
         try:
             marketer = MarketerUser.objects.get(pk=user.id)
         except MarketerUser.DoesNotExist:
-            return Response({'detail': 'Marketer not found'}, status=status.HTTP_404_NOT_FOUND)
+            return APIResponse.not_found(
+                message='Marketer not found',
+                error_code='MARKETER_NOT_FOUND'
+            )
 
         updatable = ['about', 'company', 'job', 'country']
         for f in updatable:
@@ -66,7 +75,10 @@ class MarketerProfileUpdateView(APIView):
 
         marketer.save()
         serializer = MarketerProfileSerializer(marketer, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=serializer.data,
+            message='Marketer profile updated'
+        )
 
 
 class ChangePasswordSerializer(drf_serializers.Serializer):
@@ -80,18 +92,27 @@ class MarketerChangePasswordView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = ChangePasswordSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors=serializer.errors,
+                error_code='VALIDATION_FAILED'
+            )
 
         user = request.user
         current = serializer.validated_data['current_password']
         new = serializer.validated_data['new_password']
 
         if not user.check_password(current):
-            return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'current_password': ['Current password is incorrect.']},
+                error_code='INVALID_CREDENTIALS'
+            )
 
         user.set_password(new)
         user.save()
-        return Response({'detail': 'Password updated successfully.'}, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=None,
+            message='Password updated successfully'
+        )
 
 
 class MarketerTransactionsView(APIView):
@@ -109,5 +130,8 @@ class MarketerTransactionsView(APIView):
         # import here to avoid circular imports:
         from DRF.clients.serializers.client_profile_serializer import TransactionSerializer
         serializer = TransactionSerializer(qs, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data=serializer.data,
+            message='Transactions retrieved'
+        )
 

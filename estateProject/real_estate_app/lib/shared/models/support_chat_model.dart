@@ -47,18 +47,24 @@ class Chat {
       parsedTimestamp = DateTime.tryParse(tsString);
     }
 
+    // Prefer company-related display values when available
+    final resolvedAvatar =
+        (json['company_logo'] ?? json['profile_image'])?.toString();
+    final resolvedClientName =
+        (json['company_name']?.toString() ?? resolvedName?.toString())
+            .toString()
+            .trim();
+
     return Chat(
       id: json['id']?.toString() ?? '',
-      clientName:
-          resolvedName.trim().isEmpty ? 'Unnamed' : resolvedName.trim(),
+      clientName: resolvedClientName.isEmpty ? 'Unnamed' : resolvedClientName,
       lastMessage:
           json['last_message']?.toString() ?? json['last_content']?.toString(),
       lastAttachmentName: json['last_file']?.toString(),
-      unreadCount: unread is int
-          ? unread
-          : int.tryParse(unread?.toString() ?? '0') ?? 0,
+      unreadCount:
+          unread is int ? unread : int.tryParse(unread?.toString() ?? '0') ?? 0,
       timestamp: parsedTimestamp,
-      avatarUrl: json['profile_image']?.toString(),
+      avatarUrl: resolvedAvatar,
       hasConversation: (json['has_conversation'] as bool?) ?? true,
     );
   }

@@ -6,8 +6,9 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from DRF.shared_drf import APIResponse
 
 from DRF.marketers.serializers.marketer_notifications_serializers import (
     MarketerUserNotificationSerializer,
@@ -81,7 +82,10 @@ class MarketerUnreadCountAPI(APIView):
         user = request.user
         unread = UserNotification.objects.filter(user=user, read=False).count()
         total = UserNotification.objects.filter(user=user).count()
-        return Response({"unread": unread, "total": total}, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={"unread": unread, "total": total},
+            message="Unread count retrieved"
+        )
 
 
 class MarketerMarkReadAPI(APIView):
@@ -96,9 +100,9 @@ class MarketerMarkReadAPI(APIView):
         if not un.read:
             un.read = True
             un.save(update_fields=["read"])
-        return Response(
-            MarketerUserNotificationSerializer(un, context={"request": request}).data,
-            status=status.HTTP_200_OK,
+        return APIResponse.success(
+            data=MarketerUserNotificationSerializer(un, context={"request": request}).data,
+            message="Notification marked read"
         )
 
 
@@ -114,9 +118,9 @@ class MarketerMarkUnreadAPI(APIView):
         if un.read:
             un.read = False
             un.save(update_fields=["read"])
-        return Response(
-            MarketerUserNotificationSerializer(un, context={"request": request}).data,
-            status=status.HTTP_200_OK,
+        return APIResponse.success(
+            data=MarketerUserNotificationSerializer(un, context={"request": request}).data,
+            message="Notification marked unread"
         )
 
 
@@ -129,4 +133,7 @@ class MarketerMarkAllReadAPI(APIView):
     def post(self, request, *args, **kwargs):
         user = request.user
         updated = UserNotification.objects.filter(user=user, read=False).update(read=True)
-        return Response({"marked": updated}, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={"marked": updated},
+            message="All notifications marked read"
+        )

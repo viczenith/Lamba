@@ -30,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen>
   String? _generalError;
   String? _emailError;
   String? _passwordError;
+  // Role selection state for multi-role accounts
+  List<dynamic>? _roleSelectionUsers;
+  int? _selectedUserId;
 
   // Animations
   late final AnimationController _cardController;
@@ -240,21 +243,19 @@ class _LoginScreenState extends State<LoginScreen>
       Map<String, dynamic> loginResp =
           await ApiService().loginUnified(email, password);
 
+      // Handle server asking for role selection. Instead of forcing a dialog,
+      // present an inline selection UI so mobile users can choose without
+      // leaving the page. Keep dialog fallback for older flows.
       if (loginResp['requires_role_selection'] == true) {
         final multipleUsers = loginResp['multiple_users'];
         if (multipleUsers is List && multipleUsers.isNotEmpty) {
-          final selectedUserId = await _showRoleSelectionDialog(multipleUsers);
-          if (selectedUserId == null) {
-            setState(() {
-              _generalError = 'Login cancelled.';
-            });
-            return;
-          }
-          loginResp = await ApiService().loginUnified(
-            email,
-            password,
-            selectedUserId: selectedUserId,
-          );
+          setState(() {
+            _roleSelectionUsers = multipleUsers;
+            _selectedUserId = null;
+            _loading = false; // stop spinner while selecting
+          });
+          // Wait for user to pick and continue (UI will show Continue button)
+          return;
         } else {
           throw Exception('Multiple roles detected but no users returned.');
         }
@@ -354,6 +355,84 @@ class _LoginScreenState extends State<LoginScreen>
           _loading = false;
         });
       }
+    }
+  }
+
+  // Submit selected role when inline role-selection UI is shown
+  Future<void> _continueWithSelectedRole() async {
+    if (_selectedUserId == null) return;
+
+    setState(() {
+      _loading = true;
+      _generalError = null;
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      final loginResp = await ApiService().loginUnified(
+        email,
+        password,
+        selectedUserId: _selectedUserId,
+      );
+
+      final token = (loginResp['token'] ?? '').toString();
+      if (token.isEmpty) throw Exception('Login failed: missing token.');
+
+      Map<String, dynamic> profile;
+      final respUser = loginResp['user'];
+      if (respUser is Map<String, dynamic>) {
+        profile = respUser;
+      } else {
+        profile = await ApiService().getUserProfile(token);
+      }
+
+      await NavigationService.storeUserToken(token);
+      await PushNotificationService().syncTokenWithBackend();
+
+      setState(() {
+        _roleSelectionUsers = null;
+        _selectedUserId = null;
+      });
+
+      final role = (profile['role'] ?? '').toString().toLowerCase();
+      if (role == 'admin_support' || role == 'support') {
+        Navigator.pushReplacementNamed(context, '/admin-support-dashboard',
+            arguments: token);
+      } else if (role == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => AdminDashboard(token: token)),
+        );
+      } else if (role == 'client') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => ClientDashboard(token: token)),
+        );
+      } else if (role == 'marketer') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MarketerDashboard(token: token)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User role is not defined.')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _generalError = _parseErrorMessage(e);
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_generalError ?? e.toString())));
+    } finally {
+      if (mounted)
+        setState(() {
+          _loading = false;
+        });
     }
   }
 
@@ -728,36 +807,142 @@ class _LoginScreenState extends State<LoginScreen>
 
                                         const SizedBox(height: 12),
 
-                                        // General error banner
-                                        if (_generalError != null)
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 10, horizontal: 12),
-                                            margin: const EdgeInsets.only(
-                                                bottom: 12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.redAccent
-                                                  .withOpacity(0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: Colors.redAccent
-                                                    .withOpacity(0.2),
+                                        // If the server returned multiple user roles,
+                                        // show an inline role-selection UI.
+                                        if (_roleSelectionUsers != null) ...[
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              const Text(
+                                                'Multiple accounts found — select a role to continue',
+                                                style: TextStyle(
+                                                    color: Colors.white70,
+                                                    fontWeight:
+                                                        FontWeight.w700),
                                               ),
-                                            ),
-                                            child: Text(
-                                              _generalError!,
-                                              style: const TextStyle(
-                                                color: Colors.redAccent,
-                                                fontWeight: FontWeight.w600,
+                                              const SizedBox(height: 10),
+                                              ..._roleSelectionUsers!.map((u) {
+                                                final id = u['id'];
+                                                final role = (u['role'] ?? '')
+                                                    .toString();
+                                                final name = (u['full_name'] ?? '')
+                                                    .toString();
+                                                final company = u['company'];
+                                                String companyLabel = '';
+                                                if (company is Map) {
+                                                  final cname = (company['name'] ?? '')
+                                                      .toString();
+                                                  final slug = (company['slug'] ?? '')
+                                                      .toString();
+                                                  companyLabel = cname.isNotEmpty
+                                                      ? (slug.isNotEmpty
+                                                          ? '$cname ($slug)'
+                                                          : cname)
+                                                      : '';
+                                                }
+
+                                                return Card(
+                                                  color:
+                                                      _selectedUserId == id
+                                                          ? Colors.white.withOpacity(0.09)
+                                                          : Colors.white.withOpacity(0.03),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    side: BorderSide(
+                                                      color: _selectedUserId == id
+                                                          ? Colors.cyan
+                                                          : Colors.transparent,
+                                                    ),
+                                                  ),
+                                                  child: RadioListTile<int>(
+                                                    value: (id is int)
+                                                        ? id
+                                                        : int.tryParse(id.toString()) ?? -1,
+                                                    groupValue: _selectedUserId,
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        _selectedUserId = val;
+                                                      });
+                                                    },
+                                                    title: Text(
+                                                      role.isEmpty ? 'User' : role,
+                                                      style: const TextStyle(
+                                                          color: Colors.white),
+                                                    ),
+                                                    subtitle: Text(
+                                                      [name, companyLabel]
+                                                          .where((s) => s.isNotEmpty)
+                                                          .join(' • '),
+                                                      style: const TextStyle(
+                                                          color: Colors.white70,
+                                                          fontSize: 12),
+                                                    ),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: ElevatedButton(
+                                                      onPressed: _selectedUserId == null
+                                                          ? null
+                                                          : _continueWithSelectedRole,
+                                                      child: const Text('Continue'),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        _roleSelectionUsers = null;
+                                                        _selectedUserId = null;
+                                                        _generalError = 'Login cancelled.';
+                                                      });
+                                                    },
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
+                                              const SizedBox(height: 12),
+                                            ],
                                           ),
+                                        ],
+                                        if (_roleSelectionUsers == null) ...[
+                                          const SizedBox(height: 12),
 
-                                        const SizedBox(height: 10),
+                                          // General error banner
+                                          if (_generalError != null)
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.symmetric(
+                                                  vertical: 10, horizontal: 12),
+                                              margin: const EdgeInsets.only(
+                                                  bottom: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.redAccent
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                border: Border.all(
+                                                  color: Colors.redAccent
+                                                      .withOpacity(0.2),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                _generalError!,
+                                                style: const TextStyle(
+                                                  color: Colors.redAccent,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
 
-                                        TextFormField(
+                                          const SizedBox(height: 10),
+
+                                          TextFormField(
                                           controller: _emailController,
                                           keyboardType:
                                               TextInputType.emailAddress,
@@ -890,7 +1075,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                                         const SizedBox(height: 8),
                                       ],
-                                    ),
+                    ]),
                                   ),
                                 ),
                               ),

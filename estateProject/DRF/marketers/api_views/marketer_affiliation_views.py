@@ -6,9 +6,8 @@ and companies to approve/reject these requests
 from django.db.models import Q, Count, Sum
 from django.db import transaction
 from django.utils import timezone
-from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework.response import Response
+from DRF.shared_drf.api_response import APIResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from django.shortcuts import get_object_or_404
@@ -62,10 +61,13 @@ class AvailableCompaniesAPIView(APIView):
                 'marketers_count': company['marketers_count'] or 0,
             })
         
-        return Response({
-            'companies': companies_list,
-            'total_companies': len(companies_list)
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={
+                'companies': companies_list,
+                'total_companies': len(companies_list),
+            },
+            message='Available companies retrieved',
+        )
 
 
 class RequestAffiliationAPIView(APIView):
@@ -81,9 +83,7 @@ class RequestAffiliationAPIView(APIView):
         company_id = request.data.get('company_id')
         
         if not company_id:
-            return Response({
-                'error': 'Company ID is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error({'company_id': ['Company ID is required']})
         
         # Verify company exists
         company = get_object_or_404(Company, id=company_id, is_active=True)
@@ -95,9 +95,11 @@ class RequestAffiliationAPIView(APIView):
         ).first()
         
         if existing:
-            return Response({
-                'error': f'You already have an affiliation with {company.company_name} (Status: {existing.get_status_display()})'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.error(
+                message=f'You already have an affiliation with {company.company_name} (Status: {existing.get_status_display()})',
+                status_code=400,
+                error_code='ALREADY_AFFILIATED',
+            )
         
         # Create affiliation (active immediately since companies add marketers directly)
         with transaction.atomic():
@@ -131,16 +133,17 @@ class RequestAffiliationAPIView(APIView):
                     notification=notification
                 )
         
-        return Response({
-            'success': True,
-            'message': f'Affiliation request sent to {company.company_name}. You will be notified once they review your request.',
-            'affiliation': {
-                'id': affiliation.id,
-                'company_name': company.company_name,
-                'status': affiliation.status,
-                'date_requested': affiliation.date_affiliated.isoformat()
-            }
-        }, status=status.HTTP_201_CREATED)
+        return APIResponse.created(
+            data={
+                'affiliation': {
+                    'id': affiliation.id,
+                    'company_name': company.company_name,
+                    'status': affiliation.status,
+                    'date_requested': affiliation.date_affiliated.isoformat(),
+                }
+            },
+            message=f'Affiliation request sent to {company.company_name}. You will be notified once they review your request.',
+        )
 
 
 class MarketerAffiliationsAPIView(APIView):
@@ -189,22 +192,25 @@ class MarketerAffiliationsAPIView(APIView):
         suspended = [a for a in affiliations_list if a['status'] == 'suspended']
         terminated = [a for a in affiliations_list if a['status'] == 'terminated']
         
-        return Response({
-            'affiliations': affiliations_list,
-            'summary': {
-                'total': len(affiliations_list),
-                'active': len(active),
-                'pending': len(pending),
-                'suspended': len(suspended),
-                'terminated': len(terminated),
+        return APIResponse.success(
+            data={
+                'affiliations': affiliations_list,
+                'summary': {
+                    'total': len(affiliations_list),
+                    'active': len(active),
+                    'pending': len(pending),
+                    'suspended': len(suspended),
+                    'terminated': len(terminated),
+                },
+                'grouped': {
+                    'active': active,
+                    'pending': pending,
+                    'suspended': suspended,
+                    'terminated': terminated,
+                },
             },
-            'grouped': {
-                'active': active,
-                'pending': pending,
-                'suspended': suspended,
-                'terminated': terminated,
-            }
-        }, status=status.HTTP_200_OK)
+            message='Affiliations retrieved',
+        )
 
 
 class CancelAffiliationRequestAPIView(APIView):
@@ -227,17 +233,15 @@ class CancelAffiliationRequestAPIView(APIView):
         
         # Only pending requests can be cancelled
         if affiliation.status != 'pending_approval':
-            return Response({
-                'error': 'Only pending affiliation requests can be cancelled'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('Only pending affiliation requests can be cancelled')
         
         company_name = affiliation.company.company_name
         affiliation.delete()
         
-        return Response({
-            'success': True,
-            'message': f'Affiliation request with {company_name} has been cancelled'
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={'company_name': company_name},
+            message=f'Affiliation request with {company_name} has been cancelled',
+        )
 
 
 # ============================================================================
@@ -257,16 +261,12 @@ class PendingAffiliationRequestsAPIView(APIView):
         
         # Verify user is admin
         if user.role != 'admin':
-            return Response({
-                'error': 'Only company administrators can access this endpoint'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return APIResponse.forbidden('Only company administrators can access this endpoint')
         
         # Get user's company
         company = user.company_profile
         if not company:
-            return Response({
-                'error': 'No company associated with your account'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('No company associated with your account')
         
         # Get pending affiliations
         pending_requests = MarketerAffiliation.objects.filter(
@@ -289,10 +289,10 @@ class PendingAffiliationRequestsAPIView(APIView):
                 'days_pending': (timezone.now() - affiliation.date_affiliated).days,
             })
         
-        return Response({
-            'requests': requests_list,
-            'total_pending': len(requests_list)
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={'requests': requests_list, 'total_pending': len(requests_list)},
+            message='Pending affiliation requests retrieved',
+        )
 
 
 class ApproveAffiliationRequestAPIView(APIView):
@@ -308,15 +308,11 @@ class ApproveAffiliationRequestAPIView(APIView):
         
         # Verify user is admin
         if user.role != 'admin':
-            return Response({
-                'error': 'Only company administrators can approve affiliations'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return APIResponse.forbidden('Only company administrators can approve affiliations')
         
         company = user.company_profile
         if not company:
-            return Response({
-                'error': 'No company associated with your account'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('No company associated with your account')
         
         # Get affiliation
         affiliation = get_object_or_404(
@@ -326,9 +322,7 @@ class ApproveAffiliationRequestAPIView(APIView):
         )
         
         if affiliation.status != 'pending_approval':
-            return Response({
-                'error': 'This affiliation request has already been processed'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('This affiliation request has already been processed')
         
         # Optional: Set commission tier and rate from request
         commission_tier = request.data.get('commission_tier', 'bronze')
@@ -361,18 +355,19 @@ class ApproveAffiliationRequestAPIView(APIView):
                 notification=notification
             )
         
-        return Response({
-            'success': True,
-            'message': f'{affiliation.marketer.full_name} has been approved as an affiliate marketer',
-            'affiliation': {
-                'id': affiliation.id,
-                'marketer_name': affiliation.marketer.full_name,
-                'status': affiliation.status,
-                'commission_tier': affiliation.get_commission_tier_display(),
-                'commission_rate': str(affiliation.commission_rate),
-                'approval_date': affiliation.approval_date.isoformat()
-            }
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={
+                'affiliation': {
+                    'id': affiliation.id,
+                    'marketer_name': affiliation.marketer.full_name,
+                    'status': affiliation.status,
+                    'commission_tier': affiliation.get_commission_tier_display(),
+                    'commission_rate': str(affiliation.commission_rate),
+                    'approval_date': affiliation.approval_date.isoformat(),
+                }
+            },
+            message=f'{affiliation.marketer.full_name} has been approved as an affiliate marketer',
+        )
 
 
 class RejectAffiliationRequestAPIView(APIView):
@@ -388,15 +383,11 @@ class RejectAffiliationRequestAPIView(APIView):
         
         # Verify user is admin
         if user.role != 'admin':
-            return Response({
-                'error': 'Only company administrators can reject affiliations'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return APIResponse.forbidden('Only company administrators can reject affiliations')
         
         company = user.company_profile
         if not company:
-            return Response({
-                'error': 'No company associated with your account'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('No company associated with your account')
         
         # Get affiliation
         affiliation = get_object_or_404(
@@ -406,9 +397,7 @@ class RejectAffiliationRequestAPIView(APIView):
         )
         
         if affiliation.status != 'pending_approval':
-            return Response({
-                'error': 'This affiliation request has already been processed'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('This affiliation request has already been processed')
         
         marketer_name = affiliation.marketer.full_name
         marketer = affiliation.marketer
@@ -431,10 +420,10 @@ class RejectAffiliationRequestAPIView(APIView):
                 notification=notification
             )
         
-        return Response({
-            'success': True,
-            'message': f'Affiliation request from {marketer_name} has been rejected'
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={'marketer_name': marketer_name},
+            message=f'Affiliation request from {marketer_name} has been rejected',
+        )
 
 
 class CompanyAffiliatedMarketersAPIView(APIView):
@@ -450,15 +439,11 @@ class CompanyAffiliatedMarketersAPIView(APIView):
         
         # Verify user is admin
         if user.role != 'admin':
-            return Response({
-                'error': 'Only company administrators can access this endpoint'
-            }, status=status.HTTP_403_FORBIDDEN)
+            return APIResponse.forbidden('Only company administrators can access this endpoint')
         
         company = user.company_profile
         if not company:
-            return Response({
-                'error': 'No company associated with your account'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.bad_request('No company associated with your account')
         
         # Get active affiliations
         affiliations = MarketerAffiliation.objects.filter(
@@ -486,9 +471,12 @@ class CompanyAffiliatedMarketersAPIView(APIView):
                 'approval_date': affiliation.approval_date.isoformat() if affiliation.approval_date else None,
             })
         
-        return Response({
-            'marketers': marketers_list,
-            'total_marketers': len(marketers_list),
-            'total_sales': str(sum(Decimal(m['total_sales_value']) for m in marketers_list)),
-            'total_commissions': str(sum(Decimal(m['total_commissions_earned']) for m in marketers_list)),
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={
+                'marketers': marketers_list,
+                'total_marketers': len(marketers_list),
+                'total_sales': str(sum(Decimal(m['total_sales_value']) for m in marketers_list)),
+                'total_commissions': str(sum(Decimal(m['total_commissions_earned']) for m in marketers_list)),
+            },
+            message='Affiliated marketers retrieved',
+        )

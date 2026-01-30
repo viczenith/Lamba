@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from estateApp.models import Message, CustomUser
+from estateApp.models import Message, CustomUser, Company
 from django.utils.timesince import timesince
 
 
@@ -17,6 +17,9 @@ class MessageSenderSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     """Full message serializer with sender details"""
+    company_id = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+    company_logo = serializers.SerializerMethodField()
     sender = MessageSenderSerializer(read_only=True)
     recipient = MessageSenderSerializer(read_only=True)
     file_url = serializers.SerializerMethodField()
@@ -35,7 +38,8 @@ class MessageSerializer(serializers.ModelSerializer):
             'file', 'file_url', 'file_name', 'file_size', 'file_type',
             'date_sent', 'formatted_date', 'time_ago', 'is_read',
             'status', 'reply_to', 'is_sender', 'deleted_for_everyone',
-            'deleted_for_everyone_at', 'sender_avatar'
+            'deleted_for_everyone_at', 'sender_avatar', 'company_id',
+            'company_name', 'company_logo'
         ]
         read_only_fields = ['id', 'date_sent', 'sender', 'recipient']
 
@@ -57,6 +61,24 @@ class MessageSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
+        return None
+
+    def get_company_id(self, obj):
+        return obj.company.id if obj.company else None
+
+    def get_company_name(self, obj):
+        return obj.company.company_name if obj.company else None
+
+    def get_company_logo(self, obj):
+        if obj.company and obj.company.logo:
+            request = self.context.get('request')
+            try:
+                url = obj.company.logo.url
+                if request and not url.startswith('http'):
+                    return request.build_absolute_uri(url)
+                return url
+            except Exception:
+                return None
         return None
     
     def get_file_name(self, obj):
@@ -128,10 +150,10 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class MessageCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new messages"""
-    
+    company_id = serializers.IntegerField(write_only=True, required=False)
     class Meta:
         model = Message
-        fields = ['content', 'file', 'message_type', 'reply_to']
+        fields = ['content', 'file', 'message_type', 'reply_to', 'company_id']
     
     def validate(self, data):
         content = data.get('content', '').strip()
@@ -153,17 +175,11 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         if not admin_user:
             raise serializers.ValidationError("No admin user found to send message to.")
         
-        # Optional company scoping from request data
+        # Optional company scoping from validated data
         company = None
-        company_id = None
-        try:
-            company_id = request.data.get('company_id') if request and hasattr(request, 'data') else None
-        except Exception:
-            company_id = None
-
+        company_id = validated_data.pop('company_id', None)
         if company_id:
             try:
-                from estateApp.models import Company
                 company = Company.objects.get(id=int(company_id))
             except Exception:
                 company = None
@@ -184,10 +200,16 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
 class MessageListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for message lists"""
+    sender = MessageSenderSerializer(read_only=True)
+    recipient = MessageSenderSerializer(read_only=True)
+    company_id = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+    company_logo = serializers.SerializerMethodField()
     sender_name = serializers.SerializerMethodField()
     sender_role = serializers.CharField(source='sender.role', read_only=True)
     is_sender = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
     file_type = serializers.SerializerMethodField()
     time_ago = serializers.SerializerMethodField()
     sender_avatar = serializers.SerializerMethodField()
@@ -195,14 +217,32 @@ class MessageListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id', 'sender_name', 'sender_role', 'content', 'file_url',
-            'file_type', 'date_sent', 'time_ago', 'is_read', 'status',
+            'id', 'sender', 'recipient', 'sender_name', 'sender_role', 'content', 'file_url',
+            'file_name', 'file_type', 'date_sent', 'time_ago', 'is_read', 'status',
             'is_sender', 'deleted_for_everyone', 'deleted_for_everyone_at',
-            'sender_avatar'
+            'sender_avatar', 'company_id', 'company_name', 'company_logo'
         ]
     
     def get_sender_name(self, obj):
         return obj.sender.get_full_name() if obj.sender else 'Unknown'
+    
+    def get_company_id(self, obj):
+        return obj.company.id if obj.company else None
+
+    def get_company_name(self, obj):
+        return obj.company.company_name if obj.company else None
+
+    def get_company_logo(self, obj):
+        if obj.company and obj.company.logo:
+            request = self.context.get('request')
+            try:
+                url = obj.company.logo.url
+                if request and not url.startswith('http'):
+                    return request.build_absolute_uri(url)
+                return url
+            except Exception:
+                return None
+        return None
     
     def get_is_sender(self, obj):
         request = self.context.get('request')
@@ -216,6 +256,11 @@ class MessageListSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
+        return None
+    
+    def get_file_name(self, obj):
+        if obj.file:
+            return obj.file.name.split('/')[-1]
         return None
     
     def get_file_type(self, obj):

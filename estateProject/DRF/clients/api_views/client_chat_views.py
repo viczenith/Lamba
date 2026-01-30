@@ -1,6 +1,5 @@
 from rest_framework import status, permissions
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
-from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -11,7 +10,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.template.loader import render_to_string
 
-from estateApp.models import Message, CustomUser
+from estateApp.models import Message, CustomUser, Company
+from DRF.shared_drf import APIResponse
 from DRF.shared_drf.push_service import send_chat_message_deleted_push
 from DRF.clients.serializers.chat_serializers import (
     MessageSerializer,
@@ -69,6 +69,15 @@ class ClientChatListAPIView(ListAPIView):
                 queryset = queryset.filter(id__gt=last_msg_id)
             except (ValueError, TypeError):
                 pass
+
+        # If a specific company is provided, scope the conversation to that company
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            try:
+                company_id = int(company_id)
+                queryset = queryset.filter(company_id=company_id)
+            except (ValueError, TypeError):
+                pass
         
         return queryset
     
@@ -88,11 +97,75 @@ class ClientChatListAPIView(ListAPIView):
             })
         
         # Return consistent structure expected by Flutter client
-        return Response({
-            'count': queryset.count(),
-            'messages': serializer.data,  # Flutter expects 'messages' key
-            'messages_html': messages_html
-        })
+        return APIResponse.success(
+            data={
+                'count': queryset.count(),
+                'messages': serializer.data,  # Flutter expects 'messages' key
+                'messages_html': messages_html
+            },
+            message="Messages retrieved successfully"
+        )
+
+
+class ClientChatCompaniesAPIView(APIView):
+    """
+    GET: Return list of companies for the client explorer, each with
+    last message snippet, unread count and logo URL. This powers the
+    left-hand explorer in `chat_interface.html`.
+
+    Response structure:
+    - companies: [ { id, company_name, logo_url, last_message, last_message_date, unread_count } ]
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Get company IDs that have messages involving this user
+        company_ids = Message.objects.filter(
+            Q(sender=user) | Q(recipient=user)
+        ).values_list('company', flat=True).distinct()
+
+        companies = Company.objects.filter(id__in=[c for c in company_ids if c])
+
+        result = []
+        for comp in companies:
+            last_msg = Message.objects.filter(
+                company=comp
+            ).filter(
+                Q(sender=user) | Q(recipient=user)
+            ).select_related('sender').order_by('-date_sent').first()
+
+            last_msg_data = MessageListSerializer(last_msg, context={'request': request}).data if last_msg else None
+
+            unread_count = Message.objects.filter(
+                company=comp,
+                sender__role__in=SUPPORT_ROLES,
+                recipient=user,
+                is_read=False
+            ).count()
+
+            logo_url = None
+            try:
+                if comp.logo:
+                    logo_url = request.build_absolute_uri(comp.logo.url)
+            except Exception:
+                logo_url = None
+
+            result.append({
+                'id': comp.id,
+                'company_name': comp.company_name,
+                'logo_url': logo_url,
+                'last_message': last_msg_data,
+                'last_message_date': last_msg.date_sent.isoformat() if last_msg else None,
+                'unread_count': unread_count,
+            })
+
+        return APIResponse.success(
+            data={'companies': result},
+            message='Client companies retrieved'
+        )
 
 
 class ClientChatDetailAPIView(APIView):
@@ -109,13 +182,16 @@ class ClientChatDetailAPIView(APIView):
                 pk=pk
             )
         except Message.DoesNotExist:
-            return Response(
-                {'error': 'Message not found or you do not have permission to view it.'},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message="Message not found or you do not have permission to view it",
+                error_code="MESSAGE_NOT_FOUND"
             )
         
         serializer = MessageSerializer(message, context={'request': request})
-        return Response(serializer.data)
+        return APIResponse.success(
+            data=serializer.data,
+            message="Message retrieved successfully"
+        )
 
 
 class ClientChatSendAPIView(CreateAPIView):
@@ -137,9 +213,9 @@ class ClientChatSendAPIView(CreateAPIView):
         serializer = self.get_serializer(data=request.data, context={'request': request})
         
         if not serializer.is_valid():
-            return Response(
-                {'success': False, 'errors': serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
+            return APIResponse.validation_error(
+                errors=serializer.errors,
+                error_code="VALIDATION_FAILED"
             )
         
         # Create the message
@@ -154,11 +230,13 @@ class ClientChatSendAPIView(CreateAPIView):
             'request': request,
         })
         
-        return Response({
-            'success': True,
-            'message': response_serializer.data,
-            'message_html': message_html
-        }, status=status.HTTP_201_CREATED)
+        return APIResponse.created(
+            data={
+                'message': response_serializer.data,
+                'message_html': message_html
+            },
+            message="Message sent successfully"
+        )
 
 
 class ClientChatDeleteAPIView(DestroyAPIView):
@@ -175,24 +253,24 @@ class ClientChatDeleteAPIView(DestroyAPIView):
         try:
             message = self.get_queryset().get(pk=kwargs['pk'])
         except Message.DoesNotExist:
-            return Response(
-                {'success': False, 'error': 'Message not found or you do not have permission to delete it.'},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message="Message not found or you do not have permission to delete it",
+                error_code="MESSAGE_NOT_FOUND"
             )
         
         # Check if message is older than 30 minutes
         time_limit = timezone.now() - timedelta(minutes=30)
         if message.date_sent < time_limit:
-            return Response(
-                {'success': False, 'error': 'You can only delete messages within 30 minutes of sending.'},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message="You can only delete messages within 30 minutes of sending",
+                error_code="DELETE_TIME_EXPIRED"
             )
         
         message.delete()
-        return Response({
-            'success': True,
-            'message': 'Message deleted successfully.'
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={'id': message.id},
+            message="Message deleted successfully"
+        )
 
 
 class ClientChatDeleteForEveryoneAPIView(APIView):
@@ -205,45 +283,45 @@ class ClientChatDeleteForEveryoneAPIView(APIView):
         message_id = request.data.get('message_id')
 
         if not message_id:
-            return Response(
-                {'success': False, 'error': 'message_id is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
+            return APIResponse.validation_error(
+                errors={'message_id': ['message_id is required']},
+                error_code="MISSING_FIELD"
             )
 
         try:
             message_id = int(message_id)
         except (TypeError, ValueError):
-            return Response(
-                {'success': False, 'error': 'Invalid message_id supplied.'},
-                status=status.HTTP_400_BAD_REQUEST,
+            return APIResponse.validation_error(
+                errors={'message_id': ['Invalid message_id supplied']},
+                error_code="INVALID_FORMAT"
             )
 
         try:
             message = Message.objects.select_related('sender').get(pk=message_id)
         except Message.DoesNotExist:
-            return Response(
-                {'success': False, 'error': 'Message not found.'},
-                status=status.HTTP_404_NOT_FOUND,
+            return APIResponse.not_found(
+                message="Message not found",
+                error_code="MESSAGE_NOT_FOUND"
             )
 
         if message.sender != request.user:
-            return Response(
-                {'success': False, 'error': 'You can only delete your own messages.'},
-                status=status.HTTP_403_FORBIDDEN,
+            return APIResponse.forbidden(
+                message="You can only delete your own messages",
+                error_code="PERMISSION_DENIED"
             )
 
         if message.deleted_for_everyone:
             serializer = MessageSerializer(message, context={'request': request})
-            return Response({'success': True, 'message': serializer.data})
+            return APIResponse.success(
+                data=serializer.data,
+                message="Message already deleted for everyone"
+            )
 
         time_limit = timezone.now() - timedelta(hours=24)
         if message.date_sent < time_limit:
-            return Response(
-                {
-                    'success': False,
-                    'error': 'You can only delete messages within 24 hours of sending.',
-                },
-                status=status.HTTP_403_FORBIDDEN,
+            return APIResponse.forbidden(
+                message="You can only delete messages within 24 hours of sending",
+                error_code="DELETE_TIME_EXPIRED"
             )
 
         message.deleted_for_everyone = True
@@ -259,7 +337,10 @@ class ClientChatDeleteForEveryoneAPIView(APIView):
         send_chat_message_deleted_push(message)
 
         serializer = MessageSerializer(message, context={'request': request})
-        return Response({'success': True, 'message': serializer.data})
+        return APIResponse.success(
+            data=serializer.data,
+            message="Message deleted for everyone"
+        )
 
 
 class ClientChatUnreadCountAPIView(APIView):
@@ -293,7 +374,10 @@ class ClientChatUnreadCountAPIView(APIView):
             ).data if last_message else None
         }
         
-        return Response(data)
+        return APIResponse.success(
+            data=data,
+            message="Unread count retrieved"
+        )
 
 
 class ClientChatMarkAsReadAPIView(APIView):
@@ -320,10 +404,10 @@ class ClientChatMarkAsReadAPIView(APIView):
                 is_read=False
             ).update(is_read=True, status='read')
             
-            return Response({
-                'success': True,
-                'message': f'{updated_count} message(s) marked as read.'
-            })
+            return APIResponse.success(
+                data={'marked_count': updated_count},
+                message=f"{updated_count} message(s) marked as read"
+            )
         
         elif message_ids:
             # Mark specific messages as read
@@ -334,15 +418,15 @@ class ClientChatMarkAsReadAPIView(APIView):
                 is_read=False
             ).update(is_read=True, status='read')
             
-            return Response({
-                'success': True,
-                'message': f'{updated_count} message(s) marked as read.'
-            })
+            return APIResponse.success(
+                data={'marked_count': updated_count},
+                message=f"{updated_count} message(s) marked as read"
+            )
         
         else:
-            return Response(
-                {'success': False, 'error': 'Please provide message_ids or set mark_all to true.'},
-                status=status.HTTP_400_BAD_REQUEST
+            return APIResponse.validation_error(
+                errors={'request': ['Please provide message_ids or set mark_all to true']},
+                error_code="MISSING_PARAMETER"
             )
 
 
@@ -403,9 +487,12 @@ class ClientChatPollAPIView(APIView):
             ).values('id', 'status')
             updated_statuses = list(user_messages)
         
-        return Response({
-            'new_messages': serializer.data,
-            'count': new_messages.count(),
-            'updated_statuses': updated_statuses,
-            'new_messages_html': new_messages_html
-        })
+        return APIResponse.success(
+            data={
+                'new_messages': serializer.data,
+                'count': new_messages.count(),
+                'updated_statuses': updated_statuses,
+                'new_messages_html': new_messages_html
+            },
+            message="Poll completed successfully"
+        )

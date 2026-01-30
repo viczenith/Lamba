@@ -18,10 +18,10 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_notification_detail_serializers import (
     ClientNotificationDetailSerializer,
     NotificationDetailResponseSerializer,
@@ -84,9 +84,9 @@ def validate_notification_ownership(user, notification_id):
         sanitized_id = int(str(notification_id).strip())
     except (ValueError, TypeError):
         logger.warning(f"Invalid notification ID format: {notification_id}")
-        return None, Response(
-            {'error': 'Invalid notification ID'},
-            status=status.HTTP_400_BAD_REQUEST
+        return None, APIResponse.validation_error(
+            errors={'id': ['Invalid notification ID']},
+            error_code="INVALID_ID"
         )
     
     # Fetch with ownership check
@@ -103,9 +103,9 @@ def validate_notification_ownership(user, notification_id):
             f"Unauthorized notification access attempt: user={user.email}, "
             f"notification_id={sanitized_id}"
         )
-        return None, Response(
-            {'error': 'Notification not found'},
-            status=status.HTTP_404_NOT_FOUND
+        return None, APIResponse.not_found(
+            message="Notification not found",
+            error_code="NOTIFICATION_NOT_FOUND"
         )
     
     return notification, None
@@ -162,13 +162,16 @@ class ClientNotificationDetailPageAPIView(APIView):
             
             logger.info(f"Notification detail returned: user={user.email}, pk={pk}")
             
-            return Response(response_data, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data=response_data,
+                message="Notification detail retrieved successfully"
+            )
             
         except Exception as e:
             logger.error(f"Error fetching notification detail: {str(e)}")
-            return Response(
-                {'error': 'Failed to fetch notification'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to fetch notification",
+                error_code="DETAIL_FETCH_ERROR"
             )
 
 
@@ -263,14 +266,14 @@ class ClientNotificationDeleteAPIView(APIView):
                 f"title={notification_title}, user={user.email}"
             )
             
-            return Response(
-                {'message': 'Notification deleted successfully'},
-                status=status.HTTP_200_OK
+            return APIResponse.success(
+                data={'id': notification_id},
+                message="Notification deleted successfully"
             )
             
         except Exception as e:
             logger.error(f"Error deleting notification: {str(e)}")
-            return Response(
-                {'error': 'Failed to delete notification'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to delete notification",
+                error_code="DELETE_ERROR"
             )

@@ -152,6 +152,9 @@ class _ClientDashboardState extends State<ClientDashboard>
     });
   }
 
+  /// Fetch client dashboard data with stats, promotions, and price history
+  /// Backend response includes latest_value_by_company structure: {company_id: {updates: [...]}}
+  /// Flattens to single list for UI price explorer
   Future<void> _fetchDashboard() async {
     setState(() {
       _loading = true;
@@ -159,13 +162,22 @@ class _ClientDashboardState extends State<ClientDashboard>
     });
     try {
       final resp = await _api.getClientDashboardData(widget.token);
-      // expected keys: total_properties, fully_paid_allocations, not_fully_paid_allocations, active_promotions, latest_value
       setState(() {
         _data = resp;
         _activePromos =
             List<Map<String, dynamic>>.from(resp['active_promotions'] ?? []);
-        _latestValue =
-            List<Map<String, dynamic>>.from(resp['latest_value'] ?? []);
+        // Handle latest_value_by_company: {company_id: {company_name, logo, updates: [...]}}
+        // Flatten to single list for UI price explorer
+        final latestByCompany =
+            resp['latest_value_by_company'] as Map<String, dynamic>? ?? {};
+        final flatList = <Map<String, dynamic>>[];
+        latestByCompany.forEach((companyId, companyData) {
+          if (companyData is Map && companyData['updates'] is List) {
+            flatList.addAll(
+                List<Map<String, dynamic>>.from(companyData['updates']));
+          }
+        });
+        _latestValue = flatList;
       });
       _staggerController.forward();
 
@@ -184,7 +196,8 @@ class _ClientDashboardState extends State<ClientDashboard>
     }
   }
 
-  // Filter + sort logic similar to Django's JS
+  /// Filter and sort price history cards based on search, sort mode, and promo filter
+  /// Returns latest updates for each plot unit, sorted by user preference
   List<Map<String, dynamic>> _filteredPriceCards() {
     final q = _priceSearchCtr.text.trim().toLowerCase();
     List<Map<String, dynamic>> cards = List.from(_latestValue);
@@ -227,6 +240,7 @@ class _ClientDashboardState extends State<ClientDashboard>
     return cards;
   }
 
+  /// Format numeric value as Nigerian Naira currency
   String _formatNGN(dynamic v) {
     if (v == null) return '—';
     try {
@@ -237,6 +251,8 @@ class _ClientDashboardState extends State<ClientDashboard>
     }
   }
 
+  /// Check if effective date is in the future (ignoring time component)
+  /// Future means: effective_date > today (not today, but tomorrow or later)
   bool _isFutureDate(String dateString) {
     try {
       final date = DateTime.parse(dateString);
@@ -254,6 +270,7 @@ class _ClientDashboardState extends State<ClientDashboard>
     }
   }
 
+  /// Format date string as human-readable format (MMM dd, yyyy)
   String _formatDateDisplay(String dateString) {
     try {
       final date = DateTime.parse(dateString);
@@ -263,6 +280,7 @@ class _ClientDashboardState extends State<ClientDashboard>
     }
   }
 
+  /// Navigate to promotion detail page with complete promo information
   Future<void> _openPromoDetail(Map<String, dynamic> promo) async {
     // push to PromotionDetailPage
     final id = (promo['id'] as num?)?.toInt();
@@ -271,6 +289,7 @@ class _ClientDashboardState extends State<ClientDashboard>
         builder: (_) => PromotionDetailPage(token: widget.token, promoId: id)));
   }
 
+  /// Show price history detail modal with change analysis and promo info
   Future<void> _openPriceDetail(int id) async {
     showDialog(
         context: context,
@@ -278,10 +297,17 @@ class _ClientDashboardState extends State<ClientDashboard>
             api: _api, token: widget.token, priceHistoryId: id));
   }
 
+  /// Build four stat cards matching client_side.html dashboard stats
+  /// Cards: My Properties, Fully Paid & Allocated, Not Fully Paid, Paid but Not Allocated
+  /// Keys: total_properties, fully_paid_and_allocated, not_fully_paid, paid_complete_not_allocated
   Widget _buildTopStats() {
     final total = (_data['total_properties'] ?? 0).toString();
-    final fully = (_data['fully_paid_allocations'] ?? 0).toString();
-    final notFully = (_data['not_fully_paid_allocations'] ?? 0).toString();
+    final fully = (_data['fully_paid_and_allocated'] ?? 0).toString();
+    final notFully =
+        (_data['not_fully_paid'] ?? _data['not_fully_paid_allocations'] ?? 0)
+            .toString();
+    final paidNotAllocated =
+        (_data['paid_complete_not_allocated'] ?? 0).toString();
 
     Widget statCard(String title, String value, IconData icon, Color color) {
       return TweenAnimationBuilder<double>(
@@ -386,12 +412,18 @@ class _ClientDashboardState extends State<ClientDashboard>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 850;
-        final cardWidth = (math.min(400, constraints.maxWidth / 3 - 16)).toDouble();
+        final cardWidth =
+            (math.min(400, constraints.maxWidth / 3 - 16)).toDouble();
 
         final cards = [
-          statCard('My Properties Purchased', total, Icons.home_rounded, Colors.indigo),
-          statCard('Fully Paid & Allocated', fully, Icons.verified_rounded, Colors.teal),
-          statCard('Not Fully Paid', notFully, Icons.warning_amber_rounded, Colors.orange),
+          statCard('My Properties Purchased', total, Icons.home_rounded,
+              Colors.indigo),
+          statCard('Fully Paid & Allocated', fully, Icons.verified_rounded,
+              Colors.teal),
+          statCard('Not Fully Paid', notFully, Icons.warning_amber_rounded,
+              Colors.orange),
+          statCard('Paid, Not Allocated', paidNotAllocated,
+              Icons.schedule_rounded, Colors.blue),
         ];
 
         return Padding(
@@ -411,7 +443,9 @@ class _ClientDashboardState extends State<ClientDashboard>
                       )
                     : Column(
                         children: [
-                          ...cards.expand((c) => [c, const SizedBox(height: 12)]).toList()
+                          ...cards
+                              .expand((c) => [c, const SizedBox(height: 12)])
+                              .toList()
                             ..removeLast(),
                         ],
                       ),
@@ -445,18 +479,35 @@ class _ClientDashboardState extends State<ClientDashboard>
 
     Widget _discountBadge(String discount, bool compact) {
       return Container(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: compact ? 6 : 8),
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 12, vertical: compact ? 6 : 8),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFff6b6b), Color(0xFFffa500)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          gradient: const LinearGradient(
+              colors: [Color(0xFFff6b6b), Color(0xFFffa500)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: const Color(0xFFff6b6b).withOpacity(0.22), blurRadius: 14, offset: const Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFFff6b6b).withOpacity(0.22),
+                blurRadius: 14,
+                offset: const Offset(0, 6))
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('-$discount%', style: TextStyle(fontSize: compact ? 14 : 16, fontWeight: FontWeight.w900, color: Colors.white)),
+            Text('-$discount%',
+                style: TextStyle(
+                    fontSize: compact ? 14 : 16,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white)),
             const SizedBox(height: 2),
-            Text('OFF', style: TextStyle(fontSize: compact ? 9 : 10, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text('OFF',
+                style: TextStyle(
+                    fontSize: compact ? 9 : 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white)),
           ],
         ),
       );
@@ -465,29 +516,45 @@ class _ClientDashboardState extends State<ClientDashboard>
     Widget _emptyState(double maxWidth) {
       final compact = maxWidth < 600;
       return Padding(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 20, vertical: 8),
+        padding:
+            EdgeInsets.symmetric(horizontal: compact ? 12 : 20, vertical: 8),
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
           duration: const Duration(milliseconds: 700),
           curve: Curves.easeOutCubic,
           builder: (context, v, child) => Opacity(
             opacity: v,
-            child: Transform.translate(offset: Offset(0, 28 * (1 - v)), child: child),
+            child: Transform.translate(
+                offset: Offset(0, 28 * (1 - v)), child: child),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: Container(
-              constraints: BoxConstraints(maxWidth: math.min(920, maxWidth - 24)),
+              constraints:
+                  BoxConstraints(maxWidth: math.min(920, maxWidth - 24)),
               padding: EdgeInsets.all(compact ? 20 : 28),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: isDark ? [const Color(0xFF0b1220), const Color(0xFF0f1724)] : [Colors.white, Colors.grey.shade50],
+                  colors: isDark
+                      ? [const Color(0xFF0b1220), const Color(0xFF0f1724)]
+                      : [Colors.white, Colors.grey.shade50],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade200, width: 1.0),
-                boxShadow: [BoxShadow(color: isDark ? Colors.black.withOpacity(0.45) : Colors.grey.withOpacity(0.08), blurRadius: 22, offset: const Offset(0, 10))],
+                border: Border.all(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.06)
+                        : Colors.grey.shade200,
+                    width: 1.0),
+                boxShadow: [
+                  BoxShadow(
+                      color: isDark
+                          ? Colors.black.withOpacity(0.45)
+                          : Colors.grey.withOpacity(0.08),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10))
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -496,26 +563,44 @@ class _ClientDashboardState extends State<ClientDashboard>
                     tween: Tween(begin: 0.96, end: 1.04),
                     duration: const Duration(milliseconds: 1400),
                     curve: Curves.easeInOut,
-                    builder: (context, val, child) => Transform.scale(scale: val, child: child),
+                    builder: (context, val, child) =>
+                        Transform.scale(scale: val, child: child),
                     child: Container(
                       width: compact ? 72 : 88,
                       height: compact ? 72 : 88,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withOpacity(0.7)]),
-                        boxShadow: [BoxShadow(color: Theme.of(context).colorScheme.primary.withOpacity(0.22), blurRadius: 18)],
+                        gradient: LinearGradient(colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(context).colorScheme.primary.withOpacity(0.7)
+                        ]),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.22),
+                              blurRadius: 18)
+                        ],
                       ),
-                      child: Icon(Icons.local_offer_rounded, color: Colors.white, size: compact ? 36 : 44),
+                      child: Icon(Icons.local_offer_rounded,
+                          color: Colors.white, size: compact ? 36 : 44),
                     ),
                   ),
                   SizedBox(height: compact ? 14 : 18),
                   Text('No Active Promotions',
-                      style: TextStyle(fontSize: compact ? 18 : 22, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.grey.shade900)),
+                      style: TextStyle(
+                          fontSize: compact ? 18 : 22,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : Colors.grey.shade900)),
                   SizedBox(height: 8),
                   Text(
                     'Check back soon for exclusive offers — or browse available estates now.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: compact ? 13 : 15, color: isDark ? Colors.white70 : Colors.grey.shade600, height: 1.45),
+                    style: TextStyle(
+                        fontSize: compact ? 13 : 15,
+                        color: isDark ? Colors.white70 : Colors.grey.shade600,
+                        height: 1.45),
                   ),
                   SizedBox(height: compact ? 12 : 18),
                   Wrap(
@@ -524,16 +609,30 @@ class _ClientDashboardState extends State<ClientDashboard>
                     runSpacing: 10,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EstatesListPage(token: widget.token))),
+                        onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    EstatesListPage(token: widget.token))),
                         icon: const Icon(Icons.home_work_rounded, size: 18),
                         label: const Text('Browse Estates'),
-                        style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                        style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12)),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PromotionsListPage(token: widget.token, filter: 'past'))),
+                        onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => PromotionsListPage(
+                                    token: widget.token, filter: 'past'))),
                         icon: const Icon(Icons.history_rounded, size: 18),
                         label: const Text('Past Promos'),
-                        style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                        style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12)),
                       ),
                     ],
                   ),
@@ -547,7 +646,8 @@ class _ClientDashboardState extends State<ClientDashboard>
 
     // ---------- empty case ----------
     if (_activePromos.isEmpty) {
-      return LayoutBuilder(builder: (context, constraints) => _emptyState(constraints.maxWidth));
+      return LayoutBuilder(
+          builder: (context, constraints) => _emptyState(constraints.maxWidth));
     }
 
     // ---------- carousel case ----------
@@ -557,7 +657,8 @@ class _ClientDashboardState extends State<ClientDashboard>
       final isMedium = screenWidth >= 600 && screenWidth < 1000;
 
       // tuned heights to avoid overflow while keeping a bold look
-      final cardHeight = isSmall ? (screenWidth / 1.6) : (isMedium ? 380.0 : 460.0);
+      final cardHeight =
+          isSmall ? (screenWidth / 1.6) : (isMedium ? 380.0 : 460.0);
 
       // ClipRect + ClipRRect everywhere to prevent any overflow pixels
       return Column(
@@ -567,7 +668,8 @@ class _ClientDashboardState extends State<ClientDashboard>
               height: cardHeight,
               child: PageView.builder(
                 controller: _promoPageController,
-                onPageChanged: (index) => setState(() => _currentPromoIndex = index),
+                onPageChanged: (index) =>
+                    setState(() => _currentPromoIndex = index),
                 itemCount: _activePromos.length,
                 itemBuilder: (ctx, i) {
                   final promo = _activePromos[i];
@@ -583,7 +685,10 @@ class _ClientDashboardState extends State<ClientDashboard>
                     builder: (context, child) {
                       double page = 0;
                       try {
-                        page = _promoPageController.hasClients ? (_promoPageController.page ?? _currentPromoIndex.toDouble()) : _currentPromoIndex.toDouble();
+                        page = _promoPageController.hasClients
+                            ? (_promoPageController.page ??
+                                _currentPromoIndex.toDouble())
+                            : _currentPromoIndex.toDouble();
                       } catch (_) {
                         page = _currentPromoIndex.toDouble();
                       }
@@ -604,7 +709,9 @@ class _ClientDashboardState extends State<ClientDashboard>
                       );
                     },
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: isSmall ? 12 : 16, vertical: isSmall ? 8 : 10),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: isSmall ? 12 : 16,
+                          vertical: isSmall ? 8 : 10),
                       child: GestureDetector(
                         onTap: () => _openPromoDetail(promo),
                         child: ClipRRect(
@@ -615,11 +722,27 @@ class _ClientDashboardState extends State<ClientDashboard>
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: isDark ? [const Color(0xFF0b1220), const Color(0xFF0f1724)] : [Colors.white, Colors.grey.shade50],
+                                colors: isDark
+                                    ? [
+                                        const Color(0xFF0b1220),
+                                        const Color(0xFF0f1724)
+                                      ]
+                                    : [Colors.white, Colors.grey.shade50],
                               ),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isDark ? Colors.white.withOpacity(0.04) : Colors.grey.shade200, width: 1),
-                              boxShadow: [BoxShadow(color: isDark ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.12), blurRadius: 28, offset: const Offset(0, 12))],
+                              border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.04)
+                                      : Colors.grey.shade200,
+                                  width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: isDark
+                                        ? Colors.black.withOpacity(0.5)
+                                        : Colors.grey.withOpacity(0.12),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 12))
+                              ],
                             ),
                             child: Stack(
                               fit: StackFit.expand,
@@ -629,7 +752,8 @@ class _ClientDashboardState extends State<ClientDashboard>
                                   child: Align(
                                     alignment: Alignment.topRight,
                                     child: Padding(
-                                      padding: const EdgeInsets.only(right: 8, top: 4),
+                                      padding: const EdgeInsets.only(
+                                          right: 8, top: 4),
                                       child: _decorCircle(140, 0.035),
                                     ),
                                   ),
@@ -638,7 +762,8 @@ class _ClientDashboardState extends State<ClientDashboard>
                                   child: Align(
                                     alignment: Alignment.bottomLeft,
                                     child: Padding(
-                                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                                      padding: const EdgeInsets.only(
+                                          left: 4, bottom: 4),
                                       child: _decorCircle(100, 0.028),
                                     ),
                                   ),
@@ -660,7 +785,10 @@ class _ClientDashboardState extends State<ClientDashboard>
                                               gradient: LinearGradient(
                                                 colors: [
                                                   Colors.transparent,
-                                                  Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                      .withOpacity(0.04),
                                                   Colors.transparent
                                                 ],
                                                 stops: const [0.0, 0.5, 1.0],
@@ -677,39 +805,80 @@ class _ClientDashboardState extends State<ClientDashboard>
                                 Padding(
                                   padding: EdgeInsets.all(isSmall ? 14 : 18),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Container(
                                             width: isSmall ? 52 : 64,
                                             height: isSmall ? 52 : 64,
                                             decoration: BoxDecoration(
-                                              gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withOpacity(0.7)]),
-                                              borderRadius: BorderRadius.circular(16),
-                                              boxShadow: [BoxShadow(color: Theme.of(context).colorScheme.primary.withOpacity(0.26), blurRadius: 16, offset: const Offset(0, 8))],
+                                              gradient: LinearGradient(colors: [
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(0.7)
+                                              ]),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                        .withOpacity(0.26),
+                                                    blurRadius: 16,
+                                                    offset: const Offset(0, 8))
+                                              ],
                                             ),
-                                            child: Icon(Icons.local_offer_rounded, color: Colors.white, size: isSmall ? 26 : 30),
+                                            child: Icon(
+                                                Icons.local_offer_rounded,
+                                                color: Colors.white,
+                                                size: isSmall ? 26 : 30),
                                           ),
                                           SizedBox(width: isSmall ? 10 : 14),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   promoName,
-                                                  style: TextStyle(fontSize: isSmall ? 16 : 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.grey.shade900, height: 1.08),
+                                                  style: TextStyle(
+                                                      fontSize:
+                                                          isSmall ? 16 : 18,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: isDark
+                                                          ? Colors.white
+                                                          : Colors
+                                                              .grey.shade900,
+                                                      height: 1.08),
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                                if ((description ?? '').isNotEmpty) ...[
+                                                if ((description ?? '')
+                                                    .isNotEmpty) ...[
                                                   SizedBox(height: 6),
                                                   Text(
                                                     description,
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(fontSize: isSmall ? 12 : 13, color: isDark ? Colors.white70 : Colors.grey.shade600),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                        fontSize:
+                                                            isSmall ? 12 : 13,
+                                                        color: isDark
+                                                            ? Colors.white70
+                                                            : Colors
+                                                                .grey.shade600),
                                                   ),
                                                 ],
                                               ],
@@ -719,36 +888,95 @@ class _ClientDashboardState extends State<ClientDashboard>
                                           _discountBadge(discount, isSmall),
                                         ],
                                       ),
-
                                       SizedBox(height: isSmall ? 10 : 14),
-
                                       if (estates.isNotEmpty)
                                         ConstrainedBox(
-                                          constraints: BoxConstraints(maxHeight: isSmall ? 36 : 44),
+                                          constraints: BoxConstraints(
+                                              maxHeight: isSmall ? 36 : 44),
                                           child: ListView.separated(
                                             scrollDirection: Axis.horizontal,
-                                            itemCount: estates.length > 4 ? 5 : estates.length,
-                                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                                            itemCount: estates.length > 4
+                                                ? 5
+                                                : estates.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(width: 8),
                                             itemBuilder: (context, idx) {
-                                              if (idx == 4 && estates.length > 4) {
+                                              if (idx == 4 &&
+                                                  estates.length > 4) {
                                                 return Container(
-                                                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200)),
-                                                  child: Text('+${estates.length - 4} more', style: TextStyle(fontWeight: FontWeight.w700, fontSize: isSmall ? 11 : 13)),
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                      border: Border.all(
+                                                          color: isDark
+                                                              ? Colors.white12
+                                                              : Colors.grey
+                                                                  .shade200)),
+                                                  child: Text(
+                                                      '+${estates.length - 4} more',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize: isSmall
+                                                              ? 11
+                                                              : 13)),
                                                 );
                                               }
                                               final estate = estates[idx];
                                               return Container(
-                                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.14))),
+                                                padding: EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6),
+                                                decoration: BoxDecoration(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                        .withOpacity(0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                    border: Border.all(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .primary
+                                                            .withOpacity(
+                                                                0.14))),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.home, size: isSmall ? 12 : 14, color: Theme.of(context).colorScheme.primary),
+                                                    Icon(Icons.home,
+                                                        size: isSmall ? 12 : 14,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .primary),
                                                     const SizedBox(width: 6),
                                                     ConstrainedBox(
-                                                      constraints: BoxConstraints(maxWidth: isSmall ? 80 : 140),
-                                                      child: Text(estate['name'] ?? '', style: TextStyle(fontSize: isSmall ? 11 : 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                      constraints:
+                                                          BoxConstraints(
+                                                              maxWidth: isSmall
+                                                                  ? 80
+                                                                  : 140),
+                                                      child: Text(
+                                                          estate['name'] ?? '',
+                                                          style: TextStyle(
+                                                              fontSize: isSmall
+                                                                  ? 11
+                                                                  : 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: Theme.of(
+                                                                      context)
+                                                                  .colorScheme
+                                                                  .primary),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis),
                                                     ),
                                                   ],
                                                 ),
@@ -756,29 +984,62 @@ class _ClientDashboardState extends State<ClientDashboard>
                                             },
                                           ),
                                         ),
-
                                       const Spacer(),
-
                                       Row(
                                         children: [
                                           if ((endDate ?? '').isNotEmpty)
                                             Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                              decoration: BoxDecoration(color: isDark ? Colors.red.shade900.withOpacity(0.12) : Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 10, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                  color: isDark
+                                                      ? Colors.red.shade900
+                                                          .withOpacity(0.12)
+                                                      : Colors.red.shade50,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12)),
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.access_time_rounded, size: isSmall ? 12 : 14, color: isDark ? Colors.red.shade300 : Colors.red.shade700),
+                                                  Icon(
+                                                      Icons.access_time_rounded,
+                                                      size: isSmall ? 12 : 14,
+                                                      color: isDark
+                                                          ? Colors.red.shade300
+                                                          : Colors
+                                                              .red.shade700),
                                                   const SizedBox(width: 8),
-                                                  Text('Ends $endDate', style: TextStyle(fontSize: isSmall ? 11 : 12, fontWeight: FontWeight.w700, color: isDark ? Colors.red.shade300 : Colors.red.shade700)),
+                                                  Text('Ends $endDate',
+                                                      style: TextStyle(
+                                                          fontSize:
+                                                              isSmall ? 11 : 12,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: isDark
+                                                              ? Colors
+                                                                  .red.shade300
+                                                              : Colors.red
+                                                                  .shade700)),
                                                 ],
                                               ),
                                             ),
                                           const Spacer(),
                                           ElevatedButton.icon(
-                                            onPressed: () => _openPromoDetail(promo),
-                                            icon: const Icon(Icons.remove_red_eye_rounded, size: 18),
+                                            onPressed: () =>
+                                                _openPromoDetail(promo),
+                                            icon: const Icon(
+                                                Icons.remove_red_eye_rounded,
+                                                size: 18),
                                             label: const Text('View Promo'),
-                                            style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                                            style: ElevatedButton.styleFrom(
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12)),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 14,
+                                                        vertical: 12)),
                                           ),
                                         ],
                                       ),
@@ -796,9 +1057,7 @@ class _ClientDashboardState extends State<ClientDashboard>
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
           if (_activePromos.length > 1)
             SizedBox(
               height: 28,
@@ -816,9 +1075,31 @@ class _ClientDashboardState extends State<ClientDashboard>
                         height: 8,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          gradient: active ? LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withOpacity(0.7)]) : null,
-                          color: active ? null : (isDark ? Colors.white.withOpacity(0.18) : Colors.grey.shade300),
-                          boxShadow: active ? [BoxShadow(color: Theme.of(context).colorScheme.primary.withOpacity(0.22), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                          gradient: active
+                              ? LinearGradient(colors: [
+                                  Theme.of(context).colorScheme.primary,
+                                  Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.7)
+                                ])
+                              : null,
+                          color: active
+                              ? null
+                              : (isDark
+                                  ? Colors.white.withOpacity(0.18)
+                                  : Colors.grey.shade300),
+                          boxShadow: active
+                              ? [
+                                  BoxShadow(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.22),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2))
+                                ]
+                              : null,
                         ),
                       );
                     },
@@ -826,13 +1107,11 @@ class _ClientDashboardState extends State<ClientDashboard>
                 ),
               ),
             ),
-
           const SizedBox(height: 6),
         ],
       );
     });
   }
-
 
   DateTime? _parseDateDynamic(dynamic v) {
     if (v == null) return null;
@@ -1334,7 +1613,8 @@ class _ClientDashboardState extends State<ClientDashboard>
       duration: const Duration(milliseconds: 600),
       tween: Tween(begin: 0.9, end: 1.0),
       curve: Curves.easeOutCubic,
-      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
@@ -1400,7 +1680,8 @@ class _ClientDashboardState extends State<ClientDashboard>
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.local_offer, color: Colors.white, size: 12),
+                            const Icon(Icons.local_offer,
+                                color: Colors.white, size: 12),
                             const SizedBox(width: 3),
                             Text(
                               '-${promo['discount']}%',
@@ -1467,8 +1748,9 @@ class _ClientDashboardState extends State<ClientDashboard>
                           Text(
                             'Prev: ${_formatNGN(c['previous'])}',
                             style: TextStyle(
-                              color:
-                                  isDark ? Colors.white54 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.white54
+                                  : Colors.grey.shade600,
                               fontSize: 11,
                             ),
                           ),
@@ -1477,8 +1759,8 @@ class _ClientDashboardState extends State<ClientDashboard>
                     ),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 500),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: up
                             ? Colors.greenAccent.withOpacity(0.15)
@@ -1496,8 +1778,7 @@ class _ClientDashboardState extends State<ClientDashboard>
                           Text(
                             '${percent.abs().toStringAsFixed(1)}%',
                             style: TextStyle(
-                              color:
-                                  up ? Colors.greenAccent : Colors.redAccent,
+                              color: up ? Colors.greenAccent : Colors.redAccent,
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                             ),
@@ -1529,8 +1810,9 @@ class _ClientDashboardState extends State<ClientDashboard>
                         isFutureDate ? 'Effective On' : 'Effective Since',
                         style: TextStyle(
                           fontSize: 11,
-                          color:
-                              isDark ? Colors.white70 : Colors.blueGrey.shade800,
+                          color: isDark
+                              ? Colors.white70
+                              : Colors.blueGrey.shade800,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -1539,7 +1821,8 @@ class _ClientDashboardState extends State<ClientDashboard>
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.blueGrey.shade900,
+                          color:
+                              isDark ? Colors.white : Colors.blueGrey.shade900,
                         ),
                       ),
                     ],
@@ -1588,12 +1871,12 @@ class _ClientDashboardState extends State<ClientDashboard>
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
-                    onPressed: () =>
-                        _openPriceDetail((c['id'] as num).toInt()),
+                    onPressed: () => _openPriceDetail((c['id'] as num).toInt()),
                     icon: const Icon(Icons.arrow_forward_rounded, size: 14),
                     label: const Text(
                       'View Details',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor:
@@ -1986,11 +2269,10 @@ class _PriceDetailDialogState extends State<PriceDetailDialog>
                   Expanded(
                     child: Text(
                       "Price Update Overview",
-                      style:
-                          Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5,
-                              ),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
                     ),
                   ),
                   IconButton(
@@ -2155,8 +2437,6 @@ class _PriceDetailDialogState extends State<PriceDetailDialog>
   }
 }
 
-
-
 // ---------------------------
 // Promotions List Page (Refined Design)
 // ---------------------------
@@ -2191,8 +2471,8 @@ class _PromotionsListPageState extends State<PromotionsListPage>
   @override
   void initState() {
     super.initState();
-    _animationController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900));
     _filter = widget.filter ?? 'all';
     _load();
   }
@@ -2203,6 +2483,9 @@ class _PromotionsListPageState extends State<PromotionsListPage>
     super.dispose();
   }
 
+  /// Load promotions from backend with filtering and pagination
+  /// Filter values: 'all', 'active', 'past'
+  /// Returns: {active_promotions: [...], promotions: {results: [...], page, count, total_pages}
   Future<void> _load({int page = 1}) async {
     setState(() {
       _loading = true;
@@ -2267,7 +2550,8 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                     final width = constraints.maxWidth;
                     final isSmall = width < 760;
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       child: Column(
                         children: [
                           _buildHeader(isSmall),
@@ -2276,7 +2560,9 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                             _buildActivePromotionsRow(width),
                             const SizedBox(height: 16),
                           ],
-                          Expanded(child: _buildPromotionsGridOrList(isSmall, width)),
+                          Expanded(
+                              child:
+                                  _buildPromotionsGridOrList(isSmall, width)),
                           const SizedBox(height: 12),
                           _buildPaginationControls(),
                         ],
@@ -2336,7 +2622,8 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                 const Icon(Icons.filter_list, size: 18, color: promoB),
                 const SizedBox(width: 8),
                 Text(_filter.toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13)),
               ],
             ),
           ),
@@ -2361,7 +2648,8 @@ class _PromotionsListPageState extends State<PromotionsListPage>
 
           return FadeTransition(
             opacity: Tween<double>(begin: 0, end: 1).animate(
-              CurvedAnimation(parent: _animationController, curve: Interval(0.08 * i, 1.0)),
+              CurvedAnimation(
+                  parent: _animationController, curve: Interval(0.08 * i, 1.0)),
             ),
             child: GestureDetector(
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -2507,12 +2795,13 @@ class _PromotionsListPageState extends State<PromotionsListPage>
             onTap: isActive
                 ? () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => PromotionDetailPage(
-                        token: widget.token, promoId: (p['id'] as num).toInt())))
+                        token: widget.token,
+                        promoId: (p['id'] as num).toInt())))
                 : null,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 14, vertical: wide ? 12 : 10),
+              padding: EdgeInsets.symmetric(
+                  horizontal: 14, vertical: wide ? 12 : 10),
               child: Row(
                 children: [
                   Container(
@@ -2521,9 +2810,7 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                     decoration: BoxDecoration(
                       color: isActive
                           ? promoA.withOpacity(0.12)
-                          : Theme.of(context)
-                              .dividerColor
-                              .withOpacity(0.05),
+                          : Theme.of(context).dividerColor.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -2567,8 +2854,7 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                             horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
                           gradient: isActive
-                              ? const LinearGradient(
-                                  colors: [promoA, promoC])
+                              ? const LinearGradient(colors: [promoA, promoC])
                               : LinearGradient(colors: [
                                   Colors.grey.shade400,
                                   Colors.grey.shade400.withOpacity(0.9)
@@ -2583,10 +2869,11 @@ class _PromotionsListPageState extends State<PromotionsListPage>
                       const SizedBox(height: 8),
                       ElevatedButton(
                         onPressed: isActive
-                            ? () => Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => PromotionDetailPage(
-                                    token: widget.token,
-                                    promoId: (p['id'] as num).toInt())))
+                            ? () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => PromotionDetailPage(
+                                        token: widget.token,
+                                        promoId: (p['id'] as num).toInt())))
                             : null,
                         style: ElevatedButton.styleFrom(
                           shape: RoundedRectangleBorder(
@@ -2628,26 +2915,22 @@ class _PromotionsListPageState extends State<PromotionsListPage>
             icon: const Icon(Icons.chevron_left),
             onPressed: pageNum > 1 ? () => _load(page: pageNum - 1) : null),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: Theme.of(context).cardColor,
           ),
           child: Text('Page $pageNum of $totalPages',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700)),
+              style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
         IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: pageNum < totalPages
-                ? () => _load(page: pageNum + 1)
-                : null),
+            onPressed:
+                pageNum < totalPages ? () => _load(page: pageNum + 1) : null),
       ],
     );
   }
 }
-
 
 // ---------------------------
 // Promotion Detail Page
@@ -2655,13 +2938,16 @@ class _PromotionsListPageState extends State<PromotionsListPage>
 class PromotionDetailPage extends StatefulWidget {
   final String token;
   final int promoId;
-  const PromotionDetailPage({Key? key, required this.token, required this.promoId}) : super(key: key);
+  const PromotionDetailPage(
+      {Key? key, required this.token, required this.promoId})
+      : super(key: key);
 
   @override
   _PromotionDetailPageState createState() => _PromotionDetailPageState();
 }
 
-class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTickerProviderStateMixin {
+class _PromotionDetailPageState extends State<PromotionDetailPage>
+    with SingleTickerProviderStateMixin {
   final ApiService _api = ApiService();
   bool _loading = true;
   String? _error;
@@ -2678,13 +2964,23 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1000));
 
-    _headerFade = CurvedAnimation(parent: _animationController, curve: const Interval(0.0, 0.35, curve: Curves.easeOut));
+    _headerFade = CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.35, curve: Curves.easeOut));
     _chipPulse = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.92, end: 1.05).chain(CurveTween(curve: Curves.easeOut)), weight: 60),
-      TweenSequenceItem(tween: Tween(begin: 1.05, end: 1.0).chain(CurveTween(curve: Curves.easeIn)), weight: 40),
-    ]).animate(CurvedAnimation(parent: _animationController, curve: const Interval(0.18, 0.55)));
+      TweenSequenceItem(
+          tween: Tween(begin: 0.92, end: 1.05)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 60),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.05, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 40),
+    ]).animate(CurvedAnimation(
+        parent: _animationController, curve: const Interval(0.18, 0.55)));
 
     _load();
   }
@@ -2696,10 +2992,12 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
     super.dispose();
   }
 
+  /// Load promotion detail from backend with estates and pricing
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final resp = await _api.getPromotionDetail(widget.promoId, token: widget.token);
+      final resp =
+          await _api.getPromotionDetail(widget.promoId, token: widget.token);
       setState(() => _promo = resp);
       await Future.delayed(const Duration(milliseconds: 120));
       _animationController.forward();
@@ -2720,7 +3018,9 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
     try {
       if (v == null) return '—';
       final numVal = v is num ? v : num.parse(v.toString());
-      return NumberFormat.currency(locale: 'en_NG', symbol: '₦', decimalDigits: 0).format(numVal);
+      return NumberFormat.currency(
+              locale: 'en_NG', symbol: '₦', decimalDigits: 0)
+          .format(numVal);
     } catch (_) {
       return v?.toString() ?? '—';
     }
@@ -2732,13 +3032,19 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
 
     await Future.delayed(const Duration(milliseconds: 80));
     if (key != null && key.currentContext != null) {
-      await Scrollable.ensureVisible(key.currentContext!, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic, alignment: 0.08);
+      await Scrollable.ensureVisible(key.currentContext!,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+          alignment: 0.08);
       return;
     }
     try {
       final approxHeight = 140.0;
-      final offset = (index * (approxHeight + 16)).clamp(0.0, _listController.position.maxScrollExtent);
-      await _listController.animateTo(offset, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+      final offset = (index * (approxHeight + 16))
+          .clamp(0.0, _listController.position.maxScrollExtent);
+      await _listController.animateTo(offset,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic);
     } catch (_) {}
   }
 
@@ -2765,8 +3071,16 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_promoA, _promoB]),
-                boxShadow: [BoxShadow(color: _promoA.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 8))],
+                gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_promoA, _promoB]),
+                boxShadow: [
+                  BoxShadow(
+                      color: _promoA.withOpacity(0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8))
+                ],
               ),
               child: SafeArea(
                 bottom: false,
@@ -2781,20 +3095,37 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
                           color: Colors.white.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.local_offer_rounded, color: Colors.white, size: 28),
+                        child: const Icon(Icons.local_offer_rounded,
+                            color: Colors.white, size: 28),
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20, height: 1.05), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          const Icon(Icons.access_time_rounded, size: 14, color: Colors.white70),
-                          const SizedBox(width: 6),
-                          Flexible(child: Text('Valid: $start → $end', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                        ])
-                      ]),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 20,
+                                    height: 1.05),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 6),
+                            Row(children: [
+                              const Icon(Icons.access_time_rounded,
+                                  size: 14, color: Colors.white70),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                  child: Text('Valid: $start → $end',
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontWeight: FontWeight.w600),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)),
+                            ])
+                          ]),
                     ),
                     const SizedBox(width: 12),
                     // Discount chip
@@ -2802,12 +3133,24 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
                       ScaleTransition(
                         scale: _chipPulse,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.white.withOpacity(0.12)),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text('-${discount.toString()}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white.withOpacity(0.12)),
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            Text('-${discount.toString()}%',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 18)),
                             const SizedBox(height: 2),
-                            const Text('OFF', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700))
+                            const Text('OFF',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700))
                           ]),
                         ),
                       ),
@@ -2835,21 +3178,42 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF101010) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.28 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.28 : 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 6))
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.card_giftcard_rounded, size: 18, color: _promoA)),
+          Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  Icon(Icons.card_giftcard_rounded, size: 18, color: _promoA)),
           const SizedBox(width: 10),
-          Text('About this promotion', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : Colors.grey.shade900)),
+          Text('About this promotion',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: isDark ? Colors.white : Colors.grey.shade900)),
         ]),
         const SizedBox(height: 10),
         InkWell(
-          onTap: estates.isNotEmpty ? () => _scrollToEstateIndex(0, (estates[0] as Map)['id'] as int) : null,
+          onTap: estates.isNotEmpty
+              ? () => _scrollToEstateIndex(0, (estates[0] as Map)['id'] as int)
+              : null,
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.all(10),
-            child: Text(desc.isNotEmpty ? desc : '(No description provided)', style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.grey.shade700, height: 1.5)),
+            child: Text(desc.isNotEmpty ? desc : '(No description provided)',
+                style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                    height: 1.5)),
           ),
         ),
       ]),
@@ -2864,7 +3228,9 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
 
     final start = 0.14 + (idx * 0.06);
     final end = (start + 0.45).clamp(0.0, 1.0);
-    final anim = CurvedAnimation(parent: _animationController, curve: Interval(start, end, curve: Curves.easeOut));
+    final anim = CurvedAnimation(
+        parent: _animationController,
+        curve: Interval(start, end, curve: Curves.easeOut));
 
     final sizes = List<Map<String, dynamic>>.from(e['sizes'] ?? []);
     final discount = (_promo?['discount'] as num?)?.toDouble() ?? 0.0;
@@ -2872,14 +3238,20 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
     return FadeTransition(
       opacity: anim,
       child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0.12, 0), end: Offset.zero).animate(anim),
+        position: Tween<Offset>(begin: const Offset(0.12, 0), end: Offset.zero)
+            .animate(anim),
         child: Container(
           key: key,
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF0b0b0b) : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6))
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
@@ -2887,23 +3259,69 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
               InkWell(
                 onTap: () => _toggleEstateExpansion(estateId),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   child: Row(children: [
-                    Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(gradient: LinearGradient(colors: [_promoA.withOpacity(0.12), _promoB.withOpacity(0.08)]), borderRadius: BorderRadius.circular(10)), child: Icon(Icons.home_work_rounded, size: 22, color: _promoA)),
+                    Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [
+                              _promoA.withOpacity(0.12),
+                              _promoB.withOpacity(0.08)
+                            ]),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Icon(Icons.home_work_rounded,
+                            size: 22, color: _promoA)),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(e['name'] ?? '', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: isDark ? Colors.white : Colors.grey.shade900), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 6),
-                        Text(e['location'] ?? '', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey.shade600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)
-                      ]),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e['name'] ?? '',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? Colors.white
+                                        : Colors.grey.shade900),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 6),
+                            Text(e['location'] ?? '',
+                                style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.grey.shade600,
+                                    fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis)
+                          ]),
                     ),
                     const SizedBox(width: 8),
-                    Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(gradient: LinearGradient(colors: [_promoA, _promoB]), borderRadius: BorderRadius.circular(10)), child: Text('-${discount.toInt()}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
-                      const SizedBox(height: 6),
-                      AnimatedRotation(turns: isExpanded ? 0.5 : 0.0, duration: const Duration(milliseconds: 300), child: Icon(Icons.expand_more_rounded, color: isDark ? Colors.white70 : Colors.grey.shade700))
-                    ])
+                    Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                      colors: [_promoA, _promoB]),
+                                  borderRadius: BorderRadius.circular(10)),
+                              child: Text('-${discount.toInt()}%',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900))),
+                          const SizedBox(height: 6),
+                          AnimatedRotation(
+                              turns: isExpanded ? 0.5 : 0.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: Icon(Icons.expand_more_rounded,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.grey.shade700))
+                        ])
                   ]),
                 ),
               ),
@@ -2912,15 +3330,22 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
               if (!isExpanded)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  color:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.03),
                   child: InkWell(
                     onTap: () => _scrollToEstateIndex(idx, estateId),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.price_check_rounded, size: 18, color: _promoA),
-                      const SizedBox(width: 8),
-                      Text('CLICK TO VIEW PLOT PRICES', style: TextStyle(fontWeight: FontWeight.w800, color: _promoA)),
-                    ]),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.price_check_rounded,
+                              size: 18, color: _promoA),
+                          const SizedBox(width: 8),
+                          Text('CLICK TO VIEW PLOT PRICES',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800, color: _promoA)),
+                        ]),
                   ),
                 ),
 
@@ -2928,39 +3353,105 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
                 secondChild: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   child: Column(
                     children: sizes.map((size) {
                       final curr = size['current'] ?? size['amount'];
                       final currHas = curr != null;
-                      final currStr = currHas ? _formatNGN(curr) : 'NO AMOUNT SET';
-                      final promoPrice = currHas ? ((curr as num) * (100 - discount) / 100) : null;
-                      final promoStr = promoPrice != null ? _formatNGN(promoPrice) : 'NO AMOUNT SET';
+                      final currStr =
+                          currHas ? _formatNGN(curr) : 'NO AMOUNT SET';
+                      final promoPrice = currHas
+                          ? ((curr as num) * (100 - discount) / 100)
+                          : null;
+                      final promoStr = promoPrice != null
+                          ? _formatNGN(promoPrice)
+                          : 'NO AMOUNT SET';
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: isDark ? const Color(0xFF0a0a0a) : Colors.grey.shade50, borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF0a0a0a)
+                                : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10)),
                         child: Row(children: [
-                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.crop_square_rounded, size: 18, color: _promoA)),
+                          Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.03),
+                                  borderRadius: BorderRadius.circular(8)),
+                              child: Icon(Icons.crop_square_rounded,
+                                  size: 18, color: _promoA)),
                           const SizedBox(width: 12),
-                          Expanded(child: Text(size['size']?.toString() ?? '-', style: TextStyle(fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.grey.shade900))),
+                          Expanded(
+                              child: Text(size['size']?.toString() ?? '-',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.grey.shade900))),
                           const SizedBox(width: 12),
-                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                            Row(children: [
-                              if (promoPrice != null) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFff6b6b), Color(0xFFffa500)]), borderRadius: BorderRadius.circular(6)), child: Text('-${discount.toInt()}%', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900))),
-                              const SizedBox(width: 6),
-                              Text(promoStr, style: TextStyle(fontWeight: FontWeight.w900, color: promoPrice != null ? (isDark ? Colors.green.shade300 : Colors.green.shade700) : (isDark ? Colors.orange.shade300 : Colors.orange.shade700))),
-                            ]),
-                            const SizedBox(height: 6),
-                            Text(currStr, style: TextStyle(decoration: promoPrice != null ? TextDecoration.lineThrough : null, color: currHas ? (promoPrice != null ? (isDark ? Colors.white38 : Colors.grey.shade500) : (isDark ? Colors.white70 : Colors.grey.shade700)) : (isDark ? Colors.orange.shade300 : Colors.orange.shade700))),
-                          ])
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(children: [
+                                  if (promoPrice != null)
+                                    Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFFff6b6b),
+                                                  Color(0xFFffa500)
+                                                ]),
+                                            borderRadius:
+                                                BorderRadius.circular(6)),
+                                        child: Text('-${discount.toInt()}%',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w900))),
+                                  const SizedBox(width: 6),
+                                  Text(promoStr,
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: promoPrice != null
+                                              ? (isDark
+                                                  ? Colors.green.shade300
+                                                  : Colors.green.shade700)
+                                              : (isDark
+                                                  ? Colors.orange.shade300
+                                                  : Colors.orange.shade700))),
+                                ]),
+                                const SizedBox(height: 6),
+                                Text(currStr,
+                                    style: TextStyle(
+                                        decoration: promoPrice != null
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        color: currHas
+                                            ? (promoPrice != null
+                                                ? (isDark
+                                                    ? Colors.white38
+                                                    : Colors.grey.shade500)
+                                                : (isDark
+                                                    ? Colors.white70
+                                                    : Colors.grey.shade700))
+                                            : (isDark
+                                                ? Colors.orange.shade300
+                                                : Colors.orange.shade700))),
+                              ])
                         ]),
                       );
                     }).toList(),
                   ),
                 ),
-                crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 280),
               )
             ]),
@@ -2975,83 +3466,151 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> with SingleTi
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // ensure status bar icons contrast the promotional header if shown
-    SystemUiOverlayStyle overlay = SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark);
+    SystemUiOverlayStyle overlay = SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark);
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Promotion Details', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Promotion Details',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         elevation: 0,
         foregroundColor: isDark ? Colors.white : Colors.grey.shade900,
         backgroundColor: Colors.transparent,
         systemOverlayStyle: overlay,
-        flexibleSpace: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_promoA, _promoB]))),
+        flexibleSpace: Container(
+            decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_promoA, _promoB]))),
       ),
       body: SafeArea(
         child: _loading
             ? Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)),
-                  const SizedBox(height: 14),
-                  Text('Loading promotion...', style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade700))
-                ]),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation(
+                              Theme.of(context).colorScheme.primary)),
+                      const SizedBox(height: 14),
+                      Text('Loading promotion...',
+                          style: TextStyle(
+                              color: isDark
+                                  ? Colors.white60
+                                  : Colors.grey.shade700))
+                    ]),
               )
             : _error != null
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle), child: Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400)),
+                        Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                shape: BoxShape.circle),
+                            child: Icon(Icons.error_outline_rounded,
+                                size: 48, color: Colors.red.shade400)),
                         const SizedBox(height: 14),
-                        Text('Error loading promotion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.grey.shade900)),
+                        Text('Error loading promotion',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isDark
+                                    ? Colors.white
+                                    : Colors.grey.shade900)),
                         const SizedBox(height: 8),
-                        Text('$_error', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade700)),
+                        Text('$_error',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade700)),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'), style: ElevatedButton.styleFrom(backgroundColor: _promoA)),
+                        ElevatedButton.icon(
+                            onPressed: _load,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry'),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: _promoA)),
                       ]),
                     ),
                   )
                 : LayoutBuilder(builder: (ctx, cons) {
                     final estates = (_promo?['estates'] as List?) ?? [];
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        // header & description
-                        _buildHeader(context),
-                        _buildDescription(context),
-                        const SizedBox(height: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // header & description
+                            _buildHeader(context),
+                            _buildDescription(context),
+                            const SizedBox(height: 12),
 
-                        // estates title
-                        Row(children: [
-                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.grid_view_rounded, size: 18, color: _promoA)),
-                          const SizedBox(width: 10),
-                          Text('Promo Estates', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: isDark ? Colors.white : Colors.grey.shade900)),
-                          const SizedBox(width: 8),
-                          if (estates.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: _promoA.withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Text('${estates.length}', style: const TextStyle(fontWeight: FontWeight.w800))),
-                        ]),
-                        const SizedBox(height: 10),
+                            // estates title
+                            Row(children: [
+                              Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.03),
+                                      borderRadius: BorderRadius.circular(8)),
+                                  child: Icon(Icons.grid_view_rounded,
+                                      size: 18, color: _promoA)),
+                              const SizedBox(width: 10),
+                              Text('Promo Estates',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.grey.shade900)),
+                              const SizedBox(width: 8),
+                              if (estates.isNotEmpty)
+                                Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                        color: _promoA.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(8)),
+                                    child: Text('${estates.length}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800))),
+                            ]),
+                            const SizedBox(height: 10),
 
-                        // estates list (Expanded) - uses ListView.builder so content is scrollable and won't overflow
-                        Expanded(
-                          child: estates.isEmpty
-                              ? Center(child: Text('No estates attached', style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700)))
-                              : ListView.builder(
-                                  controller: _listController,
-                                  itemCount: estates.length,
-                                  itemBuilder: (context, i) {
-                                    final e = Map<String, dynamic>.from(estates[i] as Map);
-                                    return _buildEstateRow(e, i);
-                                  },
-                                ),
-                        ),
-                      ]),
+                            // estates list (Expanded) - uses ListView.builder so content is scrollable and won't overflow
+                            Expanded(
+                              child: estates.isEmpty
+                                  ? Center(
+                                      child: Text('No estates attached',
+                                          style: TextStyle(
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.grey.shade700)))
+                                  : ListView.builder(
+                                      controller: _listController,
+                                      itemCount: estates.length,
+                                      itemBuilder: (context, i) {
+                                        final e = Map<String, dynamic>.from(
+                                            estates[i] as Map);
+                                        return _buildEstateRow(e, i);
+                                      },
+                                    ),
+                            ),
+                          ]),
                     );
                   }),
       ),
     );
   }
 }
-
 
 // ---------------------------
 // Estates List Page
@@ -3156,7 +3715,7 @@ class _EstatesListPageState extends State<EstatesListPage>
     super.dispose();
   }
 
-  // Explicit search trigger (keyboard submit or icon)
+  /// Trigger search immediately (debounce already managed by listener)
   void _doSearch() {
     _searchDebounce?.cancel();
     _q = _searchController.text.trim();
@@ -3225,6 +3784,7 @@ class _EstatesListPageState extends State<EstatesListPage>
     }
 
     // Fallback: call active promotions endpoint and map estates -> discounts
+    // Backend returns: List<{id, name, discount_pct, is_active, estates: [{id}...], ...}>
     try {
       final activePromos = await _api.listActivePromotions(token: widget.token);
       if (activePromos is List) {
@@ -3260,7 +3820,9 @@ class _EstatesListPageState extends State<EstatesListPage>
     if (mounted) setState(() => _estateDiscounts = discounts);
   }
 
-  /// Loads estates (handles list, paginated maps, single object shapes)
+  /// Load estates list from backend with pagination and search
+  /// Handles multiple response shapes: List, {results, page, count}, or single estate
+  /// Extracts promotional_offers from each estate if available
   Future<void> _loadEstates({int page = 1}) async {
     if (mounted) {
       setState(() {
@@ -3286,7 +3848,8 @@ class _EstatesListPageState extends State<EstatesListPage>
         if (list.isNotEmpty && list[0] is Map) {
           final firstEstate = list[0] as Map;
           debugPrint('   First estate keys: ${firstEstate.keys.toList()}');
-          debugPrint('   Has promotional_offers? ${firstEstate.containsKey('promotional_offers')}');
+          debugPrint(
+              '   Has promotional_offers? ${firstEstate.containsKey('promotional_offers')}');
         }
         if (mounted) {
           setState(() {
@@ -3305,13 +3868,16 @@ class _EstatesListPageState extends State<EstatesListPage>
         final map = Map<String, dynamic>.from(resp);
         final dynamic maybeResults = map['results'];
         if (maybeResults is List) {
-          debugPrint('🔵 Received paginated Map with ${(maybeResults as List).length} estates in results');
+          debugPrint(
+              '🔵 Received paginated Map with ${(maybeResults as List).length} estates in results');
           if (maybeResults.isNotEmpty && maybeResults[0] is Map) {
             final firstEstate = maybeResults[0] as Map;
             debugPrint('   First estate keys: ${firstEstate.keys.toList()}');
-            debugPrint('   Has promotional_offers? ${firstEstate.containsKey('promotional_offers')}');
+            debugPrint(
+                '   Has promotional_offers? ${firstEstate.containsKey('promotional_offers')}');
             if (firstEstate.containsKey('promotional_offers')) {
-              debugPrint('   promotional_offers value: ${firstEstate['promotional_offers']}');
+              debugPrint(
+                  '   promotional_offers value: ${firstEstate['promotional_offers']}');
             }
           }
           if (mounted) {
@@ -3390,6 +3956,7 @@ class _EstatesListPageState extends State<EstatesListPage>
     }
   }
 
+  /// Show estate sizes and pricing details in modal dialog
   Future<void> _showEstateSizesModal(Map<String, dynamic> estate) async {
     await showDialog(
       context: context,
@@ -3398,7 +3965,8 @@ class _EstatesListPageState extends State<EstatesListPage>
     );
   }
 
-  // Robust date extractor & formatter
+  /// Extract and format date from various input formats (ISO string, DateTime, int timestamp)
+  /// Returns 'N/A' if format cannot be determined
   String _formatAddedDate(dynamic candidate) {
     try {
       if (candidate == null) return 'N/A';
@@ -4166,7 +4734,7 @@ class AnimatedEstateCard extends StatelessWidget {
       ),
     );
   }
-} 
+}
 
 class _EstateCard extends StatefulWidget {
   final Map<String, dynamic> map;
@@ -4214,8 +4782,7 @@ class _EstateCardState extends State<_EstateCard>
 
   void _extractPromotionalOffers() {
     // Extract promotional offers from various possible fields in the API response
-    debugPrint(
-        '\n═══════════════════════════════════════════════════════════');
+    debugPrint('\n═══════════════════════════════════════════════════════════');
     debugPrint('🏢 EXTRACTING PROMOS FOR: ${widget.map['name']}');
     debugPrint('═══════════════════════════════════════════════════════════');
     debugPrint('📋 Estate map keys: ${widget.map.keys.toList()}');
@@ -4226,9 +4793,11 @@ class _EstateCardState extends State<_EstateCard>
         widget.map['promos'] ??
         widget.map['promotions'] ??
         [];
-    
-    debugPrint('🔍 Checking field "promotional_offers": ${widget.map['promotional_offers']}');
-    debugPrint('🔍 Checking field "promotionalOffers": ${widget.map['promotionalOffers']}');
+
+    debugPrint(
+        '🔍 Checking field "promotional_offers": ${widget.map['promotional_offers']}');
+    debugPrint(
+        '🔍 Checking field "promotionalOffers": ${widget.map['promotionalOffers']}');
     debugPrint('🔍 Checking field "promos": ${widget.map['promos']}');
     debugPrint('🔍 Checking field "promotions": ${widget.map['promotions']}');
 
@@ -4278,7 +4847,8 @@ class _EstateCardState extends State<_EstateCard>
     final isDark = theme.brightness == Brightness.dark;
 
     // DEBUG: Print every time widget builds
-    debugPrint('🎨 Building estate card for: $name | Promos count: ${_promotionalOffers.length}');
+    debugPrint(
+        '🎨 Building estate card for: $name | Promos count: ${_promotionalOffers.length}');
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
@@ -4550,8 +5120,8 @@ class _EstateCardState extends State<_EstateCard>
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _promotionalOffers.isEmpty
-                                ? Colors.red  // RED = NO PROMOS
-                                : Colors.green,  // GREEN = HAS PROMOS
+                                ? Colors.red // RED = NO PROMOS
+                                : Colors.green, // GREEN = HAS PROMOS
                             border: Border.all(
                               color: Colors.yellow,
                               width: 4,

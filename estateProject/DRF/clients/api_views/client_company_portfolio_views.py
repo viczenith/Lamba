@@ -21,10 +21,10 @@ SECURITY FEATURES:
 """
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.throttling import UserRateThrottle
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Value
 from django.db.models.fields import DecimalField
@@ -35,6 +35,7 @@ from collections import OrderedDict
 import re
 import logging
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_company_portfolio_serializers import (
     CompanyPortfolioResponseSerializer,
     TransactionDetailSerializer,
@@ -243,7 +244,10 @@ class ClientCompanyPortfolioAPIView(APIView):
             company_id = int(company_id)
         except (ValueError, TypeError):
             logger.warning(f"[SECURITY] Invalid company_id from client {user.email}")
-            return Response({'detail': 'Invalid company ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'company_id': ['Invalid company ID']},
+                error_code="INVALID_ID"
+            )
         
         # Get company
         company = get_object_or_404(Company, id=company_id)
@@ -255,9 +259,9 @@ class ClientCompanyPortfolioAPIView(APIView):
                 f"for company {company.company_name} (ID: {company_id}) "
                 f"from IP: {get_client_ip(request)}"
             )
-            return Response(
-                {'detail': 'You do not have any allocations in this company.'},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message="You do not have any allocations in this company",
+                error_code="ACCESS_DENIED"
             )
         
         # Audit log successful access
@@ -413,7 +417,11 @@ class ClientCompanyPortfolioAPIView(APIView):
             'estates_count': estates_count,
         }
         
-        return Response(response_data, status=status.HTTP_200_OK)
+        serializer = CompanyPortfolioResponseSerializer(response_data, context={'request': request})
+        return APIResponse.success(
+            data=serializer.data,
+            message="Portfolio data retrieved successfully"
+        )
 
 
 # =============================================================================
@@ -442,7 +450,10 @@ class ClientCompanyTransactionDetailAPIView(APIView):
         try:
             transaction_id = int(transaction_id)
         except (ValueError, TypeError):
-            return Response({'detail': 'Invalid transaction ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'transaction_id': ['Invalid transaction ID']},
+                error_code="INVALID_ID"
+            )
         
         # SECURITY: Get transaction filtered by client_id
         try:
@@ -456,7 +467,10 @@ class ClientCompanyTransactionDetailAPIView(APIView):
             logger.warning(
                 f"[SECURITY] Transaction {transaction_id} access denied for {user.email}"
             )
-            return Response({'detail': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+            return APIResponse.not_found(
+                message="Transaction not found",
+                error_code="TRANSACTION_NOT_FOUND"
+            )
         
         # Audit log
         logger.info(f"[AUDIT] Client {user.email} viewing transaction {transaction_id}")
@@ -487,7 +501,11 @@ class ClientCompanyTransactionDetailAPIView(APIView):
             'third_installment': getattr(transaction, 'third_installment', None),
         }
         
-        return Response(response_data, status=status.HTTP_200_OK)
+        serializer = TransactionDetailSerializer(response_data, context={'request': request})
+        return APIResponse.success(
+            data=serializer.data,
+            message="Transaction details retrieved successfully"
+        )
 
 
 # =============================================================================
@@ -514,21 +532,27 @@ class ClientCompanyPaymentHistoryAPIView(APIView):
         transaction_id = request.query_params.get('transaction_id')
         
         if not transaction_id:
-            return Response(
-                {'detail': 'transaction_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
+            return APIResponse.validation_error(
+                errors={'transaction_id': ['transaction_id is required']},
+                error_code="MISSING_PARAMETER"
             )
         
         try:
             transaction_id = int(transaction_id)
         except (ValueError, TypeError):
-            return Response({'detail': 'Invalid transaction ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'transaction_id': ['Invalid transaction ID']},
+                error_code="INVALID_ID"
+            )
         
         # SECURITY: Verify transaction belongs to client
         try:
             transaction = Transaction.all_objects.get(id=transaction_id, client_id=client_id)
         except Transaction.DoesNotExist:
-            return Response({'detail': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+            return APIResponse.not_found(
+                message="Transaction not found",
+                error_code="TRANSACTION_NOT_FOUND"
+            )
         
         # Get payment records
         payments = transaction.payment_records.all().order_by('-payment_date')
@@ -548,7 +572,10 @@ class ClientCompanyPaymentHistoryAPIView(APIView):
                 'reference': pr.reference_code,
             })
         
-        return Response({'payments': payments_list}, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={'payments': payments_list},
+            message="Payment history retrieved successfully"
+        )
 
 
 # =============================================================================
@@ -578,12 +605,18 @@ class ClientCompanyReceiptAPIView(APIView):
         ref = reference or request.query_params.get('reference')
         
         if not ref:
-            return Response({'detail': 'Payment reference is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'reference': ['Payment reference is required']},
+                error_code="MISSING_PARAMETER"
+            )
         
         # Input sanitization
         if not re.match(r'^[A-Za-z0-9\-_]+$', ref):
             logger.warning(f"[SECURITY] Invalid receipt reference format from {user.email}")
-            return Response({'detail': 'Invalid reference format'}, status=status.HTTP_400_BAD_REQUEST)
+            return APIResponse.validation_error(
+                errors={'reference': ['Invalid reference format']},
+                error_code="INVALID_FORMAT"
+            )
         
         # SECURITY: Verify payment belongs to client
         try:
@@ -596,15 +629,21 @@ class ClientCompanyReceiptAPIView(APIView):
             )
         except PaymentRecord.DoesNotExist:
             logger.warning(f"[SECURITY] Receipt {ref} access denied for {user.email}")
-            return Response({'detail': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+            return APIResponse.not_found(
+                message="Payment not found",
+                error_code="PAYMENT_NOT_FOUND"
+            )
         
         logger.info(f"[AUDIT] Client {user.email} downloading receipt {ref}")
         
-        return Response({
-            'reference_code': payment.reference_code,
-            'receipt_number': getattr(payment, 'receipt_number', None),
-            'amount': str(payment.amount_paid),
-            'payment_date': payment.payment_date,
-            'estate_name': payment.transaction.allocation.estate.name if payment.transaction.allocation else 'N/A',
-            'download_url': request.build_absolute_uri(f'/payment/receipt/{ref}/'),
-        }, status=status.HTTP_200_OK)
+        return APIResponse.success(
+            data={
+                'reference_code': payment.reference_code,
+                'receipt_number': getattr(payment, 'receipt_number', None),
+                'amount': str(payment.amount_paid),
+                'payment_date': payment.payment_date,
+                'estate_name': payment.transaction.allocation.estate.name if payment.transaction.allocation else 'N/A',
+                'download_url': request.build_absolute_uri(f'/payment/receipt/{ref}/'),
+            },
+            message="Receipt data retrieved successfully"
+        )

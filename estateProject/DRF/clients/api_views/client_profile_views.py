@@ -1,33 +1,37 @@
 """
 Client Profile API Views
 ========================
-API endpoints for the client profile page tabs:
+API endpoints for client profile page tabs:
 
 OVERVIEW TAB:
-- ClientProfileOverviewView: GET complete overview data
-- ClientProfileView: GET basic profile data (legacy)
+- ClientProfileOverviewView: GET complete profile overview data
+  Returns: Avatar, stats, contact info, portfolio summary, best estate
 
 EDIT PROFILE TAB:
-- ClientProfileEditView: GET/POST profile data for editing
-- ClientProfileUpdateView: POST update profile (legacy)
-- ClientProfileImageUploadView: POST profile image
+- ClientProfileEditView: GET/POST profile data
+  GET: Returns all profile fields for edit form
+  POST: Updates title, full_name, email (read-only), DOB, about, phone, country, address, company, job
+- ClientProfileImageUploadView: POST profile image only
+  POST: Upload new profile image (JPEG/PNG/GIF, max 2MB)
 
 PASSWORD TAB:
 - ClientChangePasswordView: POST password change
-- ChangePasswordView: POST password change (legacy)
+  POST: Change password with validation (current password, new password, confirmation)
 
 SECURITY:
-- All endpoints require authentication (TokenAuthentication or SessionAuthentication)
-- IsClient permission enforces role-based access
-- Clients can only access their own profile data (IDOR protection)
-- Password changes validate current password before allowing updates
-- Profile images validated for type and size
-- Cross-company access allowed (clients can buy from multiple companies)
-- Audit logging for security-sensitive operations
+- All endpoints require authentication (Token or Session)
+- IsClient permission enforces role-based access (role='client')
+- IDOR Protection: Clients can only access/update their own profile (pk=user.id)
+- Password changes: Validates current password before allowing updates
+- Profile images: Validated for type (JPEG/PNG/GIF) and size (max 2MB)
+- Rate Limiting:
+  - Password changes: 5 attempts per hour (prevent brute force)
+  - Profile updates: 30 per hour (prevent spam)
+- Audit Logging: All security-sensitive operations logged (password change, image upload)
+- Cross-company access allowed: Clients can purchase from multiple companies
 """
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -35,10 +39,14 @@ from rest_framework.throttling import UserRateThrottle
 from decimal import Decimal
 import logging
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_profile_serializer import (
+    # Overview Tab
     ClientProfileOverviewSerializer,
-    ProfileEditSerializer,
-    ProfileImageUploadSerializer,
+    # Edit Profile Tab
+    ClientProfileEditSerializer,
+    ProfilePhotoUploadSerializer,
+    # Password Tab
     ChangePasswordSerializer,
 )
 from estateApp.models import (
@@ -53,12 +61,18 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 class PasswordChangeThrottle(UserRateThrottle):
-    """Limit password change attempts to prevent brute force"""
+    """
+    Limit password change attempts to prevent brute force attacks.
+    Rate: 5 attempts per hour
+    """
     rate = '5/hour'
 
 
 class ProfileUpdateThrottle(UserRateThrottle):
-    """Limit profile updates to prevent spam"""
+    """
+    Limit profile update requests to prevent spam.
+    Rate: 30 updates per hour
+    """
     rate = '30/hour'
 
 
@@ -68,17 +82,20 @@ class ProfileUpdateThrottle(UserRateThrottle):
 
 class IsClient(permissions.BasePermission):
     """
-    Permission class to check if user is a client.
+    Permission class to verify user is a client.
     
-    SECURITY:
-    - Verifies user is authenticated
-    - Checks role is 'client'
+    Checks:
+    - User is authenticated
+    - User role is 'client'
     - Allows staff/superusers for admin access
-    - Logs unauthorized access attempts
+    - Logs unauthorized access attempts for security
+    
+    IDOR Protection: Views using this permission must verify pk=user.id
     """
     message = 'Access denied. Client role required.'
     
     def has_permission(self, request, view):
+        # Check authentication
         if not request.user or not request.user.is_authenticated:
             logger.warning(
                 f"SECURITY: Unauthenticated access attempt to {view.__class__.__name__} "
@@ -86,12 +103,12 @@ class IsClient(permissions.BasePermission):
             )
             return False
         
-        # Allow staff/admins for admin panel access
+        # Allow staff/superusers (admin access)
         if getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False):
             logger.info(f"Admin access to client profile API by {request.user.email}")
             return True
         
-        # Check client role
+        # Verify client role
         is_client = getattr(request.user, 'role', '') == 'client'
         
         if not is_client:
@@ -103,7 +120,7 @@ class IsClient(permissions.BasePermission):
         return is_client
     
     def _get_client_ip(self, request):
-        """Extract client IP from request"""
+        """Extract client IP address from request headers"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
@@ -117,7 +134,18 @@ class IsClient(permissions.BasePermission):
 def get_client_portfolio_stats(client):
     """
     Calculate portfolio statistics for a client.
-    Returns dict with: current_value, total_investment, appreciation_total, average_growth, best_estate
+    
+    Returns:
+    {
+        'current_value': Total current value of all properties,
+        'total_investment': Total amount invested,
+        'appreciation_total': Current value - Total investment,
+        'average_growth': Average growth percentage,
+        'highest_growth_estate': Best performing estate dict or None,
+        'highest_growth_rate': Growth rate of best estate,
+        'highest_growth_location': Location of best estate,
+        'highest_growth_company': Company name of best estate,
+    }
     """
     allocations = PlotAllocation.objects.filter(client=client).select_related(
         'estate', 'plot_size', 'plot_size_unit'
@@ -140,19 +168,20 @@ def get_client_portfolio_stats(client):
         else:
             purchase_price = Decimal('0')
         
-        # Get current price from PropertyPrice
+        # Get current price from PropertyPrice model
         try:
             prop_price = PropertyPrice.objects.filter(
                 estate=alloc.estate,
                 plot_unit=alloc.plot_size_unit
             ).first()
             current_price = prop_price.current if prop_price else purchase_price
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Error fetching PropertyPrice for estate {alloc.estate.id}: {e}")
             current_price = purchase_price
         
         current_value += current_price
         
-        # Track growth per estate
+        # Accumulate growth data per estate for best performer calculation
         estate_name = alloc.estate.name
         if estate_name not in estate_growth_data:
             estate_growth_data[estate_name] = {
@@ -163,7 +192,7 @@ def get_client_portfolio_stats(client):
         estate_growth_data[estate_name]['purchase_total'] += purchase_price
         estate_growth_data[estate_name]['current_total'] += current_price
     
-    # Calculate appreciation
+    # Calculate total appreciation
     appreciation_total = current_value - total_investment
     
     # Calculate average growth percentage
@@ -172,8 +201,14 @@ def get_client_portfolio_stats(client):
     else:
         average_growth = Decimal('0')
     
-    # Find best performing estate
-    best_estate = None
+    # Find best performing estate (highest growth rate)
+    best_estate_data = {
+        'highest_growth_estate': None,
+        'highest_growth_rate': Decimal('0'),
+        'highest_growth_location': None,
+        'highest_growth_company': None,
+    }
+    
     best_growth_rate = Decimal('-999999')
     
     for estate_name, data in estate_growth_data.items():
@@ -181,11 +216,11 @@ def get_client_portfolio_stats(client):
             growth = ((data['current_total'] - data['purchase_total']) / data['purchase_total']) * 100
             if growth > best_growth_rate:
                 best_growth_rate = growth
-                best_estate = {
-                    'estate_name': estate_name,
-                    'growth_rate': growth,
-                    'location': data['estate'].location,
-                    'company_name': data['estate'].company.company_name if data['estate'].company else None
+                best_estate_data = {
+                    'highest_growth_estate': estate_name,
+                    'highest_growth_rate': growth,
+                    'highest_growth_location': data['estate'].location or '',
+                    'highest_growth_company': data['estate'].company.company_name if data['estate'].company else None,
                 }
     
     return {
@@ -193,7 +228,7 @@ def get_client_portfolio_stats(client):
         'total_investment': total_investment,
         'appreciation_total': appreciation_total,
         'average_growth': average_growth,
-        'best_performing_estate': best_estate
+        **best_estate_data,  # Unpack best estate fields
     }
 
 
@@ -203,8 +238,15 @@ def get_client_portfolio_stats(client):
 
 class ClientProfileOverviewView(APIView):
     """
-    GET: Returns complete profile overview data
-    Includes: user info, contact, stats, portfolio summary, best estate
+    GET: Returns complete profile overview data for the OVERVIEW TAB
+    
+    Includes:
+    - Avatar: full_name, profile_image, role
+    - Stats: properties_count, total_investment
+    - Contact Info: email, phone, company, address
+    - Profile Details Table: full_name, company, job, country, date_registered
+    - Portfolio Summary: current_value, average_growth, appreciation_total
+    - Best Performing Estate: highest_growth_estate, rate, location, company
     """
     authentication_classes = (TokenAuthentication, SessionAuthentication)
     permission_classes = (permissions.IsAuthenticated, IsClient)
@@ -215,96 +257,67 @@ class ClientProfileOverviewView(APIView):
         try:
             client = ClientUser.objects.get(pk=user.id)
         except ClientUser.DoesNotExist:
-            return Response(
-                {'detail': 'Client profile not found'},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message="Client profile not found",
+                error_code="PROFILE_NOT_FOUND"
             )
         
-        # Get portfolio stats
-        portfolio_stats = get_client_portfolio_stats(client)
-        
-        # Get properties count
-        properties_count = PlotAllocation.objects.filter(client=client).count()
-        
-        # Build overview data
-        overview_data = {
-            'id': client.id,
-            'full_name': client.full_name,
-            'email': client.email,
-            'profile_image': client.profile_image,
-            'role': 'Real Estate Investor',
-            'contact_info': {
-                'email': client.email,
-                'phone': client.phone,
-                'company': client.company,
-                'address': client.address,
-            },
-            'profile_details': {
+        try:
+            # Get portfolio stats (includes best estate data)
+            portfolio_stats = get_client_portfolio_stats(client)
+            
+            # Get properties count
+            properties_count = PlotAllocation.objects.filter(client=client).count()
+            
+            # Build overview response matching all HTML sections
+            overview_data = {
+                # Avatar section (left column)
+                'id': client.id,
                 'full_name': client.full_name,
-                'company': client.company,
-                'job': client.job,
-                'country': client.country,
+                'profile_image': client.profile_image.url if client.profile_image else None,
+                'role': 'Real Estate Investor',
+                
+                # Contact info section (left column)
+                'email': client.email,
+                'phone': client.phone or '',
+                'company': client.company or '',
+                'address': client.address or '',
+                
+                # Profile details table (overview tab - right column)
+                'job': client.job or '',
+                'country': client.country or '',
                 'date_registered': client.date_registered,
-                'about': client.about,
-            },
-            'stats': {
+                'about': client.about or '',
+                
+                # Stats section (left column)
                 'properties_count': properties_count,
                 'total_investment': portfolio_stats['total_investment'],
-            },
-            'portfolio': portfolio_stats,
-        }
-        
-        serializer = ClientProfileOverviewSerializer(overview_data, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class ClientProfileView(APIView):
-    """
-    GET: Returns basic profile data (legacy endpoint - kept for backward compatibility)
-    """
-    authentication_classes = (TokenAuthentication, SessionAuthentication)
-    permission_classes = (permissions.IsAuthenticated, IsClient)
-
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        try:
-            client = ClientUser.objects.get(pk=user.id)
-        except ClientUser.DoesNotExist:
-            return Response({'detail': 'Client profile not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Get portfolio stats
-        portfolio_stats = get_client_portfolio_stats(client)
-        properties_count = PlotAllocation.objects.filter(client=client).count()
-
-        data = {
-            'id': client.id,
-            'full_name': client.full_name,
-            'email': client.email,
-            'phone': client.phone,
-            'title': client.title,
-            'about': client.about,
-            'company': client.company,
-            'job': client.job,
-            'country': client.country,
-            'address': client.address,
-            'date_of_birth': client.date_of_birth,
-            'date_registered': client.date_registered,
-            'profile_image_url': request.build_absolute_uri(f'/secure-profile-image/{client.id}/') if client.profile_image else None,
-            'rank_tag': client.rank_tag,
-            'properties_count': properties_count,
-            'total_investment': str(portfolio_stats['total_investment']),
-            'current_value': str(portfolio_stats['current_value']),
-            'appreciation_total': str(portfolio_stats['appreciation_total']),
-            'average_growth': str(portfolio_stats['average_growth']),
-        }
-
-        if portfolio_stats['best_performing_estate']:
-            data['highest_growth_estate'] = portfolio_stats['best_performing_estate']['estate_name']
-            data['highest_growth_rate'] = str(portfolio_stats['best_performing_estate']['growth_rate'])
-            data['highest_growth_location'] = portfolio_stats['best_performing_estate']['location']
-            data['highest_growth_company'] = portfolio_stats['best_performing_estate']['company_name']
-
-        return Response(data, status=status.HTTP_200_OK)
+                
+                # Portfolio summary section (overview tab - right column)
+                'current_value': portfolio_stats['current_value'],
+                'average_growth': portfolio_stats['average_growth'],
+                'appreciation_total': portfolio_stats['appreciation_total'],
+                'highest_growth_estate': portfolio_stats['highest_growth_estate'],
+                'highest_growth_rate': portfolio_stats['highest_growth_rate'],
+                'highest_growth_location': portfolio_stats['highest_growth_location'],
+                'highest_growth_company': portfolio_stats['highest_growth_company'],
+            }
+            
+            serializer = ClientProfileOverviewSerializer(overview_data, context={'request': request})
+            
+            logger.info(f"Profile overview retrieved for client {client.email}")
+            
+            return APIResponse.success(
+                data=serializer.data,
+                message="Profile overview retrieved successfully"
+            )
+            
+        except Exception as e:
+            logger.error(f"Error retrieving profile overview for {user.email}: {e}", exc_info=True)
+            return APIResponse.server_error(
+                message="Failed to retrieve profile overview",
+                error_code="RETRIEVAL_FAILED"
+            )
 
 
 # =============================================================================
@@ -313,14 +326,19 @@ class ClientProfileView(APIView):
 
 class ClientProfileEditView(APIView):
     """
-    GET: Returns profile data for edit form
+    GET: Returns profile data for EDIT PROFILE FORM
     POST: Updates profile data
+    
+    Returns/Updates:
+    - Personal Details: title, full_name, email (read-only), date_of_birth, about
+    - Contact Information: phone, country, address
+    - Work Information: company, job
+    - Profile Photo: profile_image (handled by separate upload endpoint)
     
     SECURITY:
     - Rate limited to 30 updates per hour
-    - IDOR protection: users can only access their own profile (pk=user.id)
-    - Profile image validated for type and size
-    - Logs profile updates for audit trail
+    - IDOR protection: users can only access/update their own profile (pk=user.id)
+    - Logs all profile updates for audit trail
     """
     authentication_classes = (TokenAuthentication, SessionAuthentication)
     permission_classes = (permissions.IsAuthenticated, IsClient)
@@ -328,117 +346,91 @@ class ClientProfileEditView(APIView):
     throttle_classes = (ProfileUpdateThrottle,)
 
     def get(self, request, *args, **kwargs):
+        """GET: Retrieve profile data for edit form"""
         user = request.user
+        
         # SECURITY: IDOR Protection - only get own profile
         try:
             client = ClientUser.objects.get(pk=user.id)
         except ClientUser.DoesNotExist:
-            return Response({'detail': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
+            logger.warning(f"SECURITY: Client {user.email} attempted to access non-existent profile")
+            return APIResponse.not_found(
+                message="Client profile not found",
+                error_code="PROFILE_NOT_FOUND"
+            )
 
-        serializer = ProfileEditSerializer(client)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            serializer = ClientProfileEditSerializer(client)
+            logger.info(f"Profile edit data retrieved for {client.email}")
+            
+            return APIResponse.success(
+                data=serializer.data,
+                message="Profile data retrieved for editing"
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving profile edit data for {user.email}: {e}")
+            return APIResponse.server_error(
+                message="Failed to retrieve profile data",
+                error_code="RETRIEVAL_FAILED"
+            )
 
     def post(self, request, *args, **kwargs):
+        """POST: Update profile data"""
         user = request.user
+        
         # SECURITY: IDOR Protection - only update own profile
         try:
             client = ClientUser.objects.get(pk=user.id)
         except ClientUser.DoesNotExist:
-            return Response({'detail': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Update fields
-        updatable_fields = [
-            'title', 'full_name', 'about', 'phone', 'country',
-            'address', 'company', 'job', 'date_of_birth'
-        ]
-        
-        for field in updatable_fields:
-            if field in request.data:
-                value = request.data.get(field)
-                # Handle empty strings as None for optional fields
-                if value == '' and field not in ['full_name']:
-                    value = None
-                setattr(client, field, value)
-
-        # Handle profile image if included
-        if 'profile_image' in request.FILES:
-            client.profile_image = request.FILES['profile_image']
+            logger.warning(f"SECURITY: Client {user.email} attempted to update non-existent profile")
+            return APIResponse.not_found(
+                message="Client profile not found",
+                error_code="PROFILE_NOT_FOUND"
+            )
 
         try:
-            client.save()
-            serializer = ProfileEditSerializer(client)
-            logger.info(f"Profile updated for client {client.email}")
-            return Response({
-                'detail': 'Profile updated successfully',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            serializer = ClientProfileEditSerializer(
+                client,
+                data=request.data,
+                partial=True,
+                context={'request': request}
+            )
+            
+            if not serializer.is_valid():
+                logger.warning(f"Profile update validation failed for {user.email}: {serializer.errors}")
+                return APIResponse.validation_error(
+                    errors=serializer.errors
+                )
+            
+            serializer.save()
+            
+            logger.info(f"Profile updated successfully for {client.email}")
+            
+            return APIResponse.success(
+                data=serializer.data,
+                message="Profile updated successfully"
+            )
+            
         except Exception as e:
-            logger.error(f"Profile update error for {user.email}: {e}")
-            return Response({'detail': 'Failed to update profile'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ClientProfileUpdateView(APIView):
-    """
-    POST: Update profile (legacy endpoint - kept for backward compatibility)
-    
-    SECURITY:
-    - Rate limited to 30 updates per hour
-    - IDOR protection: users can only update their own profile
-    - Supports both camelCase and snake_case field names
-    """
-    authentication_classes = (TokenAuthentication, SessionAuthentication)
-    permission_classes = (permissions.IsAuthenticated, IsClient)
-    parser_classes = (MultiPartParser, FormParser)
-    throttle_classes = (ProfileUpdateThrottle,)
-
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        # SECURITY: IDOR Protection - only update own profile
-        try:
-            client = ClientUser.objects.get(pk=user.id)
-        except ClientUser.DoesNotExist:
-            return Response({'detail': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Map frontend field names to model fields
-        field_mapping = {
-            'fullName': 'full_name',
-            'dateOfBirth': 'date_of_birth',
-        }
-        
-        updatable_fields = [
-            'title', 'fullName', 'about', 'phone', 'country',
-            'address', 'company', 'job', 'dateOfBirth'
-        ]
-        
-        for field in updatable_fields:
-            if field in request.data:
-                model_field = field_mapping.get(field, field)
-                value = request.data.get(field)
-                if value == '':
-                    value = None
-                setattr(client, model_field, value)
-
-        if 'profile_image' in request.FILES:
-            client.profile_image = request.FILES['profile_image']
-
-        try:
-            client.save()
-            logger.info(f"Profile updated (legacy endpoint) for client {client.email}")
-            return Response({'detail': 'Profile updated successfully'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Profile update error for {user.email}: {e}")
-            return Response({'detail': 'Failed to update profile'}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(f"Profile update error for {user.email}: {e}", exc_info=True)
+            return APIResponse.server_error(
+                message="Failed to update profile",
+                error_code="UPDATE_FAILED"
+            )
 
 
 class ClientProfileImageUploadView(APIView):
     """
-    POST: Upload profile image only
+    POST: Upload profile image for EDIT PROFILE TAB
+    
+    Validation:
+    - File type: JPEG, PNG, GIF only
+    - File size: Maximum 2MB
     
     SECURITY:
     - Rate limited to 30 uploads per hour
-    - IDOR protection: users can only update their own image
-    - Image validated for type (JPEG, PNG, GIF) and size (max 2MB)
-    - Logs image uploads for audit trail
+    - IDOR protection: users can only update their own image (pk=user.id)
+    - Logs all image uploads for audit trail
     """
     authentication_classes = (TokenAuthentication, SessionAuthentication)
     permission_classes = (permissions.IsAuthenticated, IsClient)
@@ -446,26 +438,47 @@ class ClientProfileImageUploadView(APIView):
     throttle_classes = (ProfileUpdateThrottle,)
 
     def post(self, request, *args, **kwargs):
+        """POST: Upload and set profile image"""
         user = request.user
+        
         # SECURITY: IDOR Protection - only update own profile image
         try:
             client = ClientUser.objects.get(pk=user.id)
         except ClientUser.DoesNotExist:
-            return Response({'detail': 'Client not found'}, status=status.HTTP_404_NOT_FOUND)
+            logger.warning(f"SECURITY: Client {user.email} attempted to update image for non-existent profile")
+            return APIResponse.not_found(
+                message="Client profile not found",
+                error_code="PROFILE_NOT_FOUND"
+            )
 
-        serializer = ProfileImageUploadSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer = ProfilePhotoUploadSerializer(data=request.data)
+            
+            if not serializer.is_valid():
+                logger.warning(f"Profile image validation failed for {user.email}: {serializer.errors}")
+                return APIResponse.validation_error(
+                    errors=serializer.errors
+                )
 
-        client.profile_image = serializer.validated_data['profile_image']
-        client.save()
+            # Update profile image
+            client.profile_image = serializer.validated_data['profile_image']
+            client.save()
 
-        logger.info(f"Profile image updated for client {client.email}")
+            logger.info(f"Profile image uploaded and updated for {client.email}")
 
-        return Response({
-            'detail': 'Profile image updated successfully',
-            'profile_image_url': request.build_absolute_uri(f'/secure-profile-image/{client.id}/')
-        }, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data={
+                    'profile_image': client.profile_image.url if client.profile_image else None
+                },
+                message="Profile image updated successfully"
+            )
+            
+        except Exception as e:
+            logger.error(f"Profile image upload error for {user.email}: {e}", exc_info=True)
+            return APIResponse.server_error(
+                message="Failed to upload profile image",
+                error_code="UPLOAD_FAILED"
+            )
 
 
 # =============================================================================
@@ -474,124 +487,83 @@ class ClientProfileImageUploadView(APIView):
 
 class ClientChangePasswordView(APIView):
     """
-    POST: Change user password
+    POST: Change user password for PASSWORD TAB
+    
+    Request Fields:
+    - current_password: Current password (required)
+    - new_password: New password (required, min 8 chars, 1 uppercase, 1 number)
+    - confirm_password: Confirmation of new password (required, must match new_password)
     
     SECURITY:
-    - Rate limited to 5 attempts per hour
-    - Validates current password before change
-    - Logs all password change attempts
-    - Minimum password length enforced
+    - Rate limited to 5 attempts per hour (prevent brute force attacks)
+    - Validates current password before allowing change
+    - Logs all password change attempts (success and failures)
+    - IP address logging for forensics
+    - Minimum password requirements enforced
     """
     authentication_classes = (TokenAuthentication, SessionAuthentication)
     permission_classes = (permissions.IsAuthenticated, IsClient)
     throttle_classes = (PasswordChangeThrottle,)
 
     def post(self, request, *args, **kwargs):
-        serializer = ChangePasswordSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        """POST: Validate current password and set new password"""
         user = request.user
-        current_password = serializer.validated_data['current_password']
-        new_password = serializer.validated_data['new_password']
-
-        # SECURITY: Log password change attempt
-        client_ip = self._get_client_ip(request)
         
-        if not user.check_password(current_password):
-            logger.warning(
-                f"SECURITY: Failed password change attempt for {user.email}. "
-                f"Incorrect current password. IP: {client_ip}"
+        try:
+            serializer = ChangePasswordSerializer(data=request.data)
+            
+            if not serializer.is_valid():
+                client_ip = self._get_client_ip(request)
+                logger.warning(
+                    f"SECURITY: Password change validation failed for {user.email}. "
+                    f"Errors: {serializer.errors} | IP: {client_ip}"
+                )
+                return APIResponse.validation_error(
+                    errors=serializer.errors
+                )
+
+            current_password = serializer.validated_data['current_password']
+            new_password = serializer.validated_data['new_password']
+            client_ip = self._get_client_ip(request)
+
+            # SECURITY: Verify current password before change
+            if not user.check_password(current_password):
+                logger.warning(
+                    f"SECURITY: Failed password change attempt for {user.email}. "
+                    f"Incorrect current password. IP: {client_ip}"
+                )
+                return APIResponse.validation_error(
+                    errors={'current_password': ['Current password is incorrect.']},
+                    error_code="INVALID_PASSWORD"
+                )
+
+            # Set new password
+            user.set_password(new_password)
+            user.save()
+
+            logger.info(
+                f"SECURITY: Password successfully changed for {user.email} | IP: {client_ip}"
             )
-            return Response(
-                {'detail': 'Current password is incorrect.'},
-                status=status.HTTP_400_BAD_REQUEST
+
+            return APIResponse.success(
+                message="Password changed successfully"
             )
-
-        user.set_password(new_password)
-        user.save()
-
-        logger.info(
-            f"SECURITY: Password changed successfully for {user.email}. IP: {client_ip}"
-        )
-
-        return Response(
-            {'detail': 'Password changed successfully.'},
-            status=status.HTTP_200_OK
-        )
+            
+        except Exception as e:
+            client_ip = self._get_client_ip(request)
+            logger.error(
+                f"SECURITY: Unexpected error during password change for {user.email}: {e} | IP: {client_ip}",
+                exc_info=True
+            )
+            return APIResponse.server_error(
+                message="Failed to change password",
+                error_code="CHANGE_FAILED"
+            )
     
     def _get_client_ip(self, request):
-        """Extract client IP from request"""
+        """Extract client IP address from request headers"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR', 'unknown')
 
-
-class ChangePasswordView(APIView):
-    """
-    POST: Change password (legacy endpoint name - kept for backward compatibility)
-    
-    SECURITY:
-    - Rate limited to 5 attempts per hour
-    - Supports both camelCase and snake_case field names
-    - Validates current password before change
-    - Minimum 8 character password requirement
-    - Logs all password change attempts
-    """
-    authentication_classes = (TokenAuthentication, SessionAuthentication)
-    permission_classes = (permissions.IsAuthenticated, IsClient)
-    throttle_classes = (PasswordChangeThrottle,)
-
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        client_ip = self._get_client_ip(request)
-        
-        # Support both naming conventions
-        current = request.data.get('current_password') or request.data.get('currentPassword')
-        new = request.data.get('new_password') or request.data.get('newPassword')
-        confirm = request.data.get('confirm_password') or request.data.get('renewPassword')
-
-        if not all([current, new]):
-            return Response(
-                {'detail': 'Current password and new password are required.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if confirm and new != confirm:
-            return Response(
-                {'detail': 'New password and confirmation do not match.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if not user.check_password(current):
-            logger.warning(
-                f"SECURITY: Failed password change attempt for {user.email}. "
-                f"Incorrect current password. IP: {client_ip}"
-            )
-            return Response(
-                {'detail': 'Current password is incorrect.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if len(new) < 8:
-            return Response(
-                {'detail': 'Password must be at least 8 characters long.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        user.set_password(new)
-        user.save()
-
-        logger.info(
-            f"SECURITY: Password changed successfully for {user.email}. IP: {client_ip}"
-        )
-
-        return Response({'detail': 'Password updated successfully.'}, status=status.HTTP_200_OK)
-    
-    def _get_client_ip(self, request):
-        """Extract client IP from request"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR', 'unknown')

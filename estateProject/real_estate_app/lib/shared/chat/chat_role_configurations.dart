@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/api_service.dart';
-import '../../services/push_notification_service.dart';
 import '../../services/navigation_service.dart';
 import 'chat_role_config.dart';
 
@@ -35,7 +34,8 @@ PreferredSizeWidget _buildDefaultHeader(
       titleSpacing: 0,
       automaticallyImplyLeading: false,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF128C7E)),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF128C7E)),
         onPressed: () {
           final navigator = Navigator.of(context);
           if (navigator.canPop()) {
@@ -97,10 +97,55 @@ PreferredSizeWidget _buildDefaultHeader(
   );
 }
 
-PushNotificationService get _pushService => PushNotificationService();
-
 final ApiService _api = ApiService();
-final ApiService _supportProfileApi = ApiService();
+
+void _normalizeMessageCanonicalFields(Map<String, dynamic> normalized) {
+  // id fallback
+  normalized['id'] = normalized['id'] ?? normalized['message_id'];
+
+  // flatten nested sender/recipient objects if present
+  if (normalized['sender'] is Map<String, dynamic>) {
+    final sender = normalized['sender'] as Map<String, dynamic>;
+    normalized['sender_id'] = sender['id'] ?? sender['pk'];
+    normalized['sender_name'] = sender['full_name'] ?? sender['name'];
+    normalized['sender_email'] = sender['email'];
+    normalized['sender_role'] = sender['role'];
+  }
+  if (normalized['recipient'] is Map<String, dynamic>) {
+    final recipient = normalized['recipient'] as Map<String, dynamic>;
+    normalized['recipient_id'] = recipient['id'] ?? recipient['pk'];
+    normalized['recipient_name'] = recipient['full_name'] ?? recipient['name'];
+    normalized['recipient_email'] = recipient['email'];
+    normalized['recipient_role'] = recipient['role'];
+  }
+
+  // canonical file fields (keep null when absent)
+  normalized['file_url'] =
+      normalized['file_url'] ?? normalized['file']?.toString();
+  normalized['file_name'] =
+      normalized['file_name'] ?? normalized['file_name'] ?? null;
+  normalized['file_type'] = normalized['file_type'] ?? 'file';
+  normalized['file_size'] = normalized['file_size'] ?? normalized['file_size'];
+
+  // canonical company fields
+  final company = normalized['company'];
+  normalized['company_id'] =
+      normalized['company_id'] ?? (company is Map ? company['id'] : null);
+  normalized['company_name'] =
+      normalized['company_name'] ?? (company is Map ? company['name'] : null);
+  normalized['company_logo'] =
+      normalized['company_logo'] ?? (company is Map ? company['logo'] : null);
+
+  // timestamps/status
+  normalized['date_sent'] = normalized['date_sent'] ?? normalized['created_at'];
+  normalized['status'] = normalized['status'] ?? 'sent';
+
+  // deletion/read flags
+  normalized['deleted_for_everyone'] = normalized['deleted_for_everyone'] ??
+      (normalized['_deleted_for_everyone'] == true) ??
+      false;
+  normalized['is_read'] = normalized['is_read'] ?? normalized['read'] ?? false;
+}
 
 ChatRoleConfig buildClientChatConfig() {
   String? marketerOrAdminAvatar(Map<String, dynamic> message, String? current) {
@@ -120,7 +165,8 @@ ChatRoleConfig buildClientChatConfig() {
     pushChannelMatcher: (payload) {
       final data = payload['data'] as Map<String, dynamic>?;
       final type = payload['type']?.toString().toLowerCase() ??
-          data?['type']?.toString().toLowerCase() ?? '';
+          data?['type']?.toString().toLowerCase() ??
+          '';
       final chatId = data?['chat_id']?.toString() ?? '';
       return type.contains('chat') &&
           (chatId == 'admin_chat' || chatId.isEmpty);
@@ -137,8 +183,7 @@ ChatRoleConfig buildClientChatConfig() {
     isOwnMessage: (msg) => msg['is_sender'] == true,
     normalizeBackendMessage: (message) {
       final normalized = Map<String, dynamic>.from(message);
-      normalized['id'] = normalized['id'] ?? normalized['message_id'];
-      normalized['file_url'] = normalized['file_url'];
+      _normalizeMessageCanonicalFields(normalized);
       return normalized;
     },
     loadInitialMessages: ({
@@ -146,12 +191,18 @@ ChatRoleConfig buildClientChatConfig() {
       required ChatParticipantContext? participant,
       required int? lastMessageId,
     }) async {
-      final data = await _api.getClientChatMessages(token: token);
+      final int? companyId = participant?.idAsInt;
+      final data =
+          await _api.getClientChatMessages(token: token, companyId: companyId);
       final messages = (data['messages'] ?? data['results'] ?? [])
           .cast<Map<String, dynamic>>();
+      final lastId = messages.isNotEmpty
+          ? (int.tryParse(messages.last['id']?.toString() ?? '') ?? null)
+          : null;
       return ChatThreadLoadResult(
         messages: messages,
-        lastMessageId: messages.isNotEmpty ? messages.last['id'] as int? : null,
+        participant: participant,
+        lastMessageId: lastId,
       );
     },
     pollForMessages: ({
@@ -162,10 +213,10 @@ ChatRoleConfig buildClientChatConfig() {
       final result = await _api.pollClientChatMessages(
         token: token,
         lastMsgId: lastMessageId,
+        companyId: participant?.idAsInt,
       );
-      final newMessages =
-          (result['new_messages'] ?? result['messages'] ?? [])
-              .cast<Map<String, dynamic>>();
+      final newMessages = (result['new_messages'] ?? result['messages'] ?? [])
+          .cast<Map<String, dynamic>>();
       return ChatPollResult(
         newMessages: newMessages,
         lastMessageId: result['last_message_id'] as int? ?? lastMessageId,
@@ -184,15 +235,15 @@ ChatRoleConfig buildClientChatConfig() {
         token: token,
         content: content,
         file: file,
-        replyToId: replyToMessageId != null
-            ? int.tryParse(replyToMessageId)
-            : null,
+        replyToId:
+            replyToMessageId != null ? int.tryParse(replyToMessageId) : null,
         messageType: messageType ?? 'enquiry',
+        companyId: participant?.idAsInt,
       );
       final message = data['message'] as Map<String, dynamic>;
       return ChatSendResult(
         message: message,
-        lastMessageId: message['id'] as int?,
+        lastMessageId: int.tryParse(message['id']?.toString() ?? '') ?? null,
       );
     },
     deleteMessage: ({
@@ -222,6 +273,7 @@ ChatRoleConfig buildClientChatConfig() {
         token: token,
         messageIds: messageIds,
         markAll: messageIds == null,
+        companyId: participant?.idAsInt,
       );
     },
     loadCurrentUserAvatar: ({
@@ -250,8 +302,9 @@ ChatRoleConfig buildMarketerChatConfig() {
     downloadNamespaceBuilder: (_) => 'marketer_chat',
     pushChannelMatcher: (payload) {
       final data = payload['data'] as Map<String, dynamic>?;
-      final type = payload?['type']?.toString().toLowerCase() ??
-          data?['type']?.toString().toLowerCase() ?? '';
+      final type = payload['type']?.toString().toLowerCase() ??
+          data?['type']?.toString().toLowerCase() ??
+          '';
       final chatId = data?['chat_id']?.toString().toLowerCase() ?? '';
       return type.contains('chat') &&
           (chatId == 'marketer_chat' || chatId.startsWith('marketer_chat_'));
@@ -268,7 +321,7 @@ ChatRoleConfig buildMarketerChatConfig() {
     isOwnMessage: (msg) => msg['is_sender'] == true,
     normalizeBackendMessage: (message) {
       final normalized = Map<String, dynamic>.from(message);
-      normalized['id'] = normalized['id'] ?? normalized['message_id'];
+      _normalizeMessageCanonicalFields(normalized);
       return normalized;
     },
     loadInitialMessages: ({
@@ -276,7 +329,11 @@ ChatRoleConfig buildMarketerChatConfig() {
       required ChatParticipantContext? participant,
       required int? lastMessageId,
     }) async {
-      final data = await _api.getMarketerChatMessages(token: token);
+      final int? companyId = participant?.idAsInt;
+      final data = await _api.getMarketerChatMessages(
+        token: token,
+        companyId: companyId,
+      );
       final messages = (data['messages'] ?? data['results'] ?? [])
           .cast<Map<String, dynamic>>();
       return ChatThreadLoadResult(
@@ -292,10 +349,10 @@ ChatRoleConfig buildMarketerChatConfig() {
       final result = await _api.pollMarketerChatMessages(
         token: token,
         lastMsgId: lastMessageId,
+        companyId: participant?.idAsInt,
       );
-      final newMessages =
-          (result['new_messages'] ?? result['messages'] ?? [])
-              .cast<Map<String, dynamic>>();
+      final newMessages = (result['new_messages'] ?? result['messages'] ?? [])
+          .cast<Map<String, dynamic>>();
       return ChatPollResult(
         newMessages: newMessages,
         lastMessageId: result['last_message_id'] as int? ?? lastMessageId,
@@ -311,7 +368,10 @@ ChatRoleConfig buildMarketerChatConfig() {
     }) async {
       final PlatformFile? file;
       if (attachment is File) {
-        file = PlatformFile(name: p.basename(attachment.path), path: attachment.path, size: attachment.lengthSync());
+        file = PlatformFile(
+            name: p.basename(attachment.path),
+            path: attachment.path,
+            size: attachment.lengthSync());
       } else if (attachment is PlatformFile) {
         file = attachment;
       } else {
@@ -324,11 +384,12 @@ ChatRoleConfig buildMarketerChatConfig() {
         replyToId:
             replyToMessageId != null ? int.tryParse(replyToMessageId) : null,
         messageType: messageType ?? 'enquiry',
+        companyId: participant?.idAsInt,
       );
       final message = data['message'] as Map<String, dynamic>;
       return ChatSendResult(
         message: message,
-        lastMessageId: message['id'] as int?,
+        lastMessageId: int.tryParse(message['id']?.toString() ?? '') ?? null,
       );
     },
     deleteMessage: ({
@@ -342,7 +403,8 @@ ChatRoleConfig buildMarketerChatConfig() {
       );
 
       final normalized = Map<String, dynamic>.from(response['message'] as Map);
-      normalized['id'] = normalized['id'] ?? normalized['message_id'] ?? messageId;
+      normalized['id'] =
+          normalized['id'] ?? normalized['message_id'] ?? messageId;
       normalized['_deleted_for_everyone'] = true;
       return normalized;
     },
@@ -368,7 +430,8 @@ ChatRoleConfig buildMarketerChatConfig() {
   );
 }
 
-ChatRoleConfig buildSupportChatConfig(String participantRole, String participantId) {
+ChatRoleConfig buildSupportChatConfig(
+    String participantRole, String participantId) {
   String namesFromParticipant(ChatParticipantContext? ctx) {
     if (ctx == null) return 'Conversation';
     return ctx.displayName ?? ctx.email ?? 'Conversation';
@@ -396,7 +459,8 @@ ChatRoleConfig buildSupportChatConfig(String participantRole, String participant
       final data = payload['data'] as Map<String, dynamic>?;
       final chatId = data?['chat_id']?.toString() ?? '';
       final type = payload['type']?.toString().toLowerCase() ??
-          data?['type']?.toString().toLowerCase() ?? '';
+          data?['type']?.toString().toLowerCase() ??
+          '';
       if (!type.contains('chat')) return false;
       if (chatId.isEmpty) return false;
       if (participantRole == 'client') {
@@ -419,7 +483,8 @@ ChatRoleConfig buildSupportChatConfig(String participantRole, String participant
     isOwnMessage: (msg) => msg['is_support_sender'] == true,
     normalizeBackendMessage: (message) {
       final normalized = Map<String, dynamic>.from(message);
-      normalized['id'] = normalized['id'] ?? normalized['message_id'];
+      _normalizeMessageCanonicalFields(normalized);
+      // preserve specific support flags expected by templates
       normalized['_deleted_for_everyone'] =
           normalized['deleted_for_everyone'] == true;
       return normalized;
@@ -464,13 +529,11 @@ ChatRoleConfig buildSupportChatConfig(String participantRole, String participant
         participantId: participantId,
         lastMessageId: lastMessageId,
       );
-      final newMessages =
-          (response['new_messages'] as List<dynamic>)
-              .cast<Map<String, dynamic>>();
+      final newMessages = (response['new_messages'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
       return ChatPollResult(
         newMessages: newMessages,
-        lastMessageId:
-            response['last_message_id'] as int? ?? lastMessageId,
+        lastMessageId: response['last_message_id'] as int? ?? lastMessageId,
       );
     },
     sendMessage: ({

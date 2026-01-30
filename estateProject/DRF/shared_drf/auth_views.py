@@ -1,17 +1,15 @@
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from estateApp.backends import MultipleUserMatch
 from DRF.shared_drf.auth_serializers import CustomAuthTokenSerializer
+from DRF.shared_drf.api_response import APIResponse
 
 
-class CustomAuthToken(ObtainAuthToken):
-    serializer_class = CustomAuthTokenSerializer
-
+class CustomAuthToken(APIView):
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = CustomAuthTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user_or_match = serializer.validated_data["user"]
 
@@ -37,21 +35,17 @@ class CustomAuthToken(ObtainAuthToken):
                     }
                 )
 
-            return Response(
-                {
-                    "requires_role_selection": True,
-                    "multiple_users": payload_users,
-                    "detail": "Multiple user roles found for these credentials. Select a role to continue.",
-                },
-                status=status.HTTP_409_CONFLICT,
+            return APIResponse.conflict(
+                message="Multiple user roles found for these credentials. Select a role to continue.",
+                errors={"requires_role_selection": True, "multiple_users": payload_users},
             )
 
         user = user_or_match
         token, _created = Token.objects.get_or_create(user=user)
 
         company = getattr(user, "company_profile", None)
-        return Response(
-            {
+        return APIResponse.success(
+            data={
                 "token": token.key,
                 "user": {
                     "id": user.id,
@@ -66,5 +60,7 @@ class CustomAuthToken(ObtainAuthToken):
                     if company
                     else None,
                 },
-            }
+            },
+            message="Authentication successful",
+            status_code=status.HTTP_200_OK,
         )

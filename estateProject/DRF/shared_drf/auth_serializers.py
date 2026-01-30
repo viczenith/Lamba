@@ -6,7 +6,9 @@ from estateApp.models import Company, CustomUser
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
-    email = serializers.EmailField(label=_("Email"))
+    # Accept either `email` or `username` (the login form uses `username` for email)
+    email = serializers.EmailField(label=_("Email"), required=False)
+    username = serializers.EmailField(label=_("Username"), required=False)
     password = serializers.CharField(
         label=_("Password"),
         style={"input_type": "password"},
@@ -16,13 +18,14 @@ class CustomAuthTokenSerializer(serializers.Serializer):
     login_slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
 
     def validate(self, attrs):
-        email = attrs.get("email")
+        # Support both `email` and `username` field names from clients
+        email = attrs.get("email") or attrs.get("username")
         password = attrs.get("password")
         selected_user_id = attrs.get("selected_user_id")
         login_slug = attrs.get("login_slug")
 
         if not email or not password:
-            msg = _('Must include "email" and "password".')
+            msg = _('Must include "email/username" and "password".')
             raise serializers.ValidationError(msg, code="authorization")
 
         company = None

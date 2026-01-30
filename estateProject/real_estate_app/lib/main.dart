@@ -47,6 +47,8 @@ import 'client/client_chat_admin.dart';
 import 'client/property_details.dart';
 import 'client/client_plot_details.dart';
 import 'client/client_notification_details.dart';
+import 'client/screens/my_companies_screen.dart';
+import 'client/screens/my_company_portfolio_screen.dart';
 
 // Marketer side
 import 'marketer/marketer_dashboard.dart';
@@ -70,7 +72,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp(
       options: await DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     // Handle the message
     await PushNotificationService().handleBackgroundMessage(message);
   } catch (e) {
@@ -86,13 +88,13 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: await DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     // Set up background message handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    
+
     // Initialize notifications
     await _initializeNotifications();
-    
+
     runApp(
       MultiProvider(
         providers: [
@@ -139,7 +141,6 @@ Future<void> _initializeNotifications() async {
         // Handle notification dismissal if needed
       },
     );
-
   } catch (e) {
     // Failed to initialize global notifications (production: log to crash analytics)
   }
@@ -178,6 +179,20 @@ class MyApp extends StatelessWidget {
         '/client-profile': (context) {
           final token = ModalRoute.of(context)?.settings.arguments as String?;
           return ClientProfile(token: token ?? '');
+        },
+        '/client-my-companies': (context) {
+          final token = ModalRoute.of(context)?.settings.arguments as String?;
+          return MyCompaniesScreen(token: token ?? '');
+        },
+        '/client-company-portfolio': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map?;
+          if (args == null) return const ErrorScreen();
+          final token = args['token']?.toString() ?? '';
+          final companyId = args['companyId'] is int
+              ? args['companyId'] as int
+              : int.tryParse(args['companyId']?.toString() ?? '');
+          if (token.isEmpty || companyId == null) return const ErrorScreen();
+          return CompanyPortfolioScreen(token: token, companyId: companyId);
         },
 
         '/client-property-list': (context) {
@@ -342,11 +357,13 @@ class MyApp extends StatelessWidget {
 
         // Admin Support routes
         '/admin-support-dashboard': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String? ?? '';
+          final token =
+              ModalRoute.of(context)?.settings.arguments as String? ?? '';
           return AdminSupportDashboardPage(token: token);
         },
         '/admin-support-chat': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String? ?? '';
+          final token =
+              ModalRoute.of(context)?.settings.arguments as String? ?? '';
           return AdminSupportChatPage(token: token);
         },
         '/admin-support-chat-thread': (context) {
@@ -374,11 +391,13 @@ class MyApp extends StatelessWidget {
           );
         },
         '/admin-support-birthdays': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String? ?? '';
+          final token =
+              ModalRoute.of(context)?.settings.arguments as String? ?? '';
           return AdminSupportBirthdaysPage(token: token);
         },
         '/admin-support-special-days': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String? ?? '';
+          final token =
+              ModalRoute.of(context)?.settings.arguments as String? ?? '';
           return AdminSupportSpecialDaysPage(token: token);
         },
 

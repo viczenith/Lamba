@@ -105,12 +105,59 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
+    # ===== AUTHENTICATION =====
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ),
+    
+    # ===== PERMISSIONS =====
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
+    ),
+    
+    # ===== EXCEPTION HANDLING =====
+    'EXCEPTION_HANDLER': 'DRF.shared_drf.exception_handler.custom_exception_handler',
+    
+    # ===== PAGINATION =====
+    'DEFAULT_PAGINATION_CLASS': 'DRF.shared_drf.pagination.StandardPagination',
+    'PAGE_SIZE': 20,
+    
+    # ===== FILTERING & SEARCH =====
+    'DEFAULT_FILTER_BACKENDS': (
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ),
+    
+    # ===== THROTTLING =====
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+    },
+    
+    # ===== RENDERING & PARSING =====
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ),
+    
+    # ===== API DOCUMENTATION =====
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.AutoSchema',
+    
+    # ===== VALIDATION & ERRORS =====
+    'COERCE_DECIMAL_TO_STRING': False,
+    'TEST_REQUEST_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
     ),
 }
 

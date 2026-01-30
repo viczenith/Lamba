@@ -27,8 +27,9 @@ Last Updated: December 2024
 
 from rest_framework import permissions, status
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
-from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from DRF.shared_drf import APIResponse
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
@@ -216,22 +217,25 @@ class ClientDashboardAPIView(APIView):
             
             # If no company affiliation, return empty response with template-compatible format
             if not affiliated_companies:
-                return Response({
-                    "user": {
-                        "id": user.id,
-                        "full_name": sanitize_string(getattr(user, 'full_name', '')),
-                        "email": sanitize_string(user.email),
+                return APIResponse.success(
+                    data={
+                        "user": {
+                            "id": user.id,
+                            "full_name": sanitize_string(getattr(user, 'full_name', '')),
+                            "email": sanitize_string(user.email),
+                        },
+                        # Stats cards section - TEMPLATE FORMAT
+                        "total_properties": 0,
+                        "fully_paid_and_allocated": 0,
+                        "not_fully_paid": 0,
+                        "paid_complete_not_allocated": 0,
+                        # Promotions section
+                        "active_promotions": [],
+                        # Price updates section - organized by company
+                        "latest_value_by_company": [],
                     },
-                    # Stats cards section - TEMPLATE FORMAT
-                    "total_properties": 0,
-                    "fully_paid_and_allocated": 0,
-                    "not_fully_paid": 0,
-                    "paid_complete_not_allocated": 0,
-                    # Promotions section
-                    "active_promotions": [],
-                    # Price updates section - organized by company
-                    "latest_value_by_company": [],
-                }, status=status.HTTP_200_OK)
+                    message="Dashboard data retrieved"
+                )
             
             # Aggregate stats across all companies
             total_properties_all = 0
@@ -335,30 +339,33 @@ class ClientDashboardAPIView(APIView):
                 }
             
             # Build final response with TEMPLATE-COMPATIBLE FORMAT
-            return Response({
-                "user": {
-                    "id": user.id,
-                    "full_name": sanitize_string(getattr(user, 'full_name', '')),
-                    "email": sanitize_string(user.email),
+            return APIResponse.success(
+                data={
+                    "user": {
+                        "id": user.id,
+                        "full_name": sanitize_string(getattr(user, 'full_name', '')),
+                        "email": sanitize_string(user.email),
+                    },
+                    # ===== STATS CARDS SECTION =====
+                    "total_properties": total_properties_all,
+                    "fully_paid_and_allocated": fully_paid_and_allocated_all,
+                    "not_fully_paid": not_fully_paid_all,
+                    "paid_complete_not_allocated": paid_complete_not_allocated_all,
+                    
+                    # ===== ACTIVE PROMOTIONS SECTION =====
+                    "active_promotions": all_active_promos,
+                    
+                    # ===== PRICE INCREMENTS SECTION (organized by company) =====
+                    "latest_value_by_company": list(company_price_updates.values()),
                 },
-                # ===== STATS CARDS SECTION =====
-                "total_properties": total_properties_all,
-                "fully_paid_and_allocated": fully_paid_and_allocated_all,
-                "not_fully_paid": not_fully_paid_all,
-                "paid_complete_not_allocated": paid_complete_not_allocated_all,
-                
-                # ===== ACTIVE PROMOTIONS SECTION =====
-                "active_promotions": all_active_promos,
-                
-                # ===== PRICE INCREMENTS SECTION (organized by company) =====
-                "latest_value_by_company": list(company_price_updates.values()),
-            }, status=status.HTTP_200_OK)
+                message="Dashboard data retrieved successfully"
+            )
             
         except Exception as e:
             logger.exception(f"Dashboard API error for user {request.user.id}: {e}")
-            return Response(
-                {'error': 'Failed to load dashboard data'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to load dashboard data",
+                error_code="DASHBOARD_ERROR"
             )
 
 
@@ -389,9 +396,9 @@ class PriceUpdateDetailAPIView(RetrieveAPIView):
         try:
             pk = validate_integer_param(kwargs.get('pk'), 'pk')
             if pk is None:
-                return Response(
-                    {'error': 'Invalid price update ID'},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'pk': ['Invalid price update ID']},
+                    error_code="INVALID_ID"
                 )
             
             instance = self.get_object()
@@ -399,13 +406,13 @@ class PriceUpdateDetailAPIView(RetrieveAPIView):
                       company_id=instance.price.estate.company_id)
             
             serializer = self.get_serializer(instance)
-            return Response(serializer.data)
+            return APIResponse.success(data=serializer.data, message="Price update retrieved")
             
         except Exception as e:
             logger.exception(f"Price update detail error: {e}")
-            return Response(
-                {'error': 'Price update not found or access denied'},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message="Price update not found or access denied",
+                error_code="PRICE_UPDATE_NOT_FOUND"
             )
 
 
@@ -467,9 +474,9 @@ class EstateListAPIView(ListAPIView):
                 # SECURITY: Validate estate_id
                 estate_id = validate_integer_param(estate_id, 'estate_id')
                 if estate_id is None:
-                    return Response(
-                        {"error": "Invalid estate ID"},
-                        status=status.HTTP_400_BAD_REQUEST
+                    return APIResponse.validation_error(
+                        errors={'estate_id': ['Invalid estate ID']},
+                        error_code="INVALID_ID"
                     )
                 
                 try:
@@ -485,15 +492,15 @@ class EstateListAPIView(ListAPIView):
                     ).get()
                 except (Estate.DoesNotExist, ValueError):
                     log_access(request.user, 'estate_detail', 'estate', estate_id, success=False)
-                    return Response(
-                        {"error": "Estate not found or access denied"},
-                        status=status.HTTP_404_NOT_FOUND
+                    return APIResponse.not_found(
+                        message="Estate not found or access denied",
+                        error_code="ESTATE_NOT_FOUND"
                     )
 
                 log_access(request.user, 'estate_detail', 'estate', estate_id, 
                           company_id=estate.company_id)
                 serializer = EstateDetailSerializer(estate, context={'request': request})
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                return APIResponse.success(data=serializer.data, message="Estate retrieved")
 
             # List all estates for user's companies
             log_access(request.user, 'estate_list', 'estates')
@@ -530,13 +537,15 @@ class EstateListAPIView(ListAPIView):
                             "name": sanitize_string(
                                 e.company.company_name if hasattr(e.company, 'company_name') else str(e.company)
                             ),
+                            # Include company logo (may be relative/storage path); UI prefers absolute URL when available
+                            "company_logo": getattr(e.company, 'logo', None)
                         },
                         "promos_count": len(promo_preview),
                         "promotional_offers": promo_preview,
                     }
                     
                     data.append(estate_data)
-                return self.get_paginated_response(data)
+                return APIResponse.paginated_response(data, self.paginate_queryset(qs))
 
             # Fallback (no pagination)
             data = []
@@ -572,13 +581,13 @@ class EstateListAPIView(ListAPIView):
                     "promos_count": len(promo_preview),
                     "promotional_offers": promo_preview,
                 })
-            return Response(data, status=status.HTTP_200_OK)
+            return APIResponse.success(data=data, message="Estates retrieved")
             
         except Exception as e:
             logger.exception(f"Estate list error: {e}")
-            return Response(
-                {'error': 'Failed to retrieve estates'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to retrieve estates",
+                error_code="ESTATE_LIST_ERROR"
             )
 
 
@@ -611,13 +620,13 @@ class ActivePromotionsListAPIView(APIView):
             ).order_by('-discount')[:50]  # SECURITY: Limit results
             
             serializer = PromotionDashboardSerializer(promos, many=True, context={'request': request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return APIResponse.success(data=serializer.data, message="Active promotions retrieved")
             
         except Exception as e:
             logger.exception(f"Active promotions list error: {e}")
-            return Response(
-                {'error': 'Failed to retrieve promotions'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to retrieve promotions",
+                error_code="PROMOTIONS_ERROR"
             )
 
 
@@ -688,16 +697,19 @@ class PromotionsListAPIView(APIView):
             serialized_page = PromotionListItemSerializer(page, many=True, context={'request': request}).data
             paginated_response = paginator.get_paginated_response(serialized_page).data
 
-            return Response({
-                "active_promotions": active_serialized,
-                "promotions": paginated_response
-            }, status=status.HTTP_200_OK)
+            return APIResponse.success(
+                data={
+                    "active_promotions": active_serialized,
+                    "promotions": paginated_response
+                },
+                message="Promotions retrieved successfully"
+            )
             
         except Exception as e:
             logger.exception(f"Promotions list error: {e}")
-            return Response(
-                {'error': 'Failed to retrieve promotions'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to retrieve promotions",
+                error_code="PROMOTIONS_ERROR"
             )
 
 
@@ -730,28 +742,28 @@ class PromotionDetailAPIView(RetrieveAPIView):
         try:
             pk = validate_integer_param(kwargs.get('pk'), 'pk')
             if pk is None:
-                return Response(
-                    {'error': 'Invalid promotion ID'},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'pk': ['Invalid promotion ID']},
+                    error_code="INVALID_ID"
                 )
             
             try:
                 instance = self.get_object()
             except Exception:
                 log_access(request.user, 'promotion_detail', 'promotion', pk, success=False)
-                return Response(
-                    {'error': 'Promotion not found or access denied'},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Promotion not found or access denied",
+                    error_code="PROMOTION_NOT_FOUND"
                 )
             
             log_access(request.user, 'promotion_detail', 'promotion', pk)
             serializer = self.get_serializer(instance)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return APIResponse.success(data=serializer.data, message="Promotion retrieved")
             
         except Exception as e:
             logger.exception(f"Promotion detail error: {e}")
-            return Response(
-                {'error': 'Failed to retrieve promotion'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Failed to retrieve promotion",
+                error_code="PROMOTION_ERROR"
             )
 

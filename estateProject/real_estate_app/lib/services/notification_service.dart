@@ -255,7 +255,8 @@ class NotificationService {
     required double progress,
   }) async {
     try {
-      final percent = progress.isNaN ? 0 : (progress * 100).clamp(0, 100).round();
+      final percent =
+          progress.isNaN ? 0 : (progress * 100).clamp(0, 100).round();
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
           id: notificationId,
@@ -1088,7 +1089,8 @@ class NotificationService {
             break;
         }
 
-        if ((buttonKey.isEmpty) && (payload['type'] == 'file_download_complete')) {
+        if ((buttonKey.isEmpty) &&
+            (payload['type'] == 'file_download_complete')) {
           await _openDownloadedFileFromNotification(
             payload['file_path'] ?? '',
             payload['file_url'] ?? '',
@@ -1124,20 +1126,17 @@ class NotificationService {
 
   // Enhanced mark as read implementation
   static Future<void> _markChatAsRead(String chatId, String messageId) async {
+    // Intentionally minimal: notification-action handlers cannot reliably
+    // perform authenticated API calls (no token available in background
+    // handlers). Clear local notifications and badges so the user isn't
+    // repeatedly notified. In-app handlers (when the app is foregrounded)
+    // should call the appropriate API with the user's token.
     try {
-      print('🔔 Marking chat as read: $chatId, message: $messageId');
-      // TODO: Implement actual API call to mark messages as read
-
-      // Clear notifications for this chat
       await AwesomeNotifications()
           .cancelNotificationsByGroupKey('real_estate_chat_$chatId');
-
-      // Reset badge count
       await AwesomeNotifications().setGlobalBadgeCounter(0);
-
-      print('🔔 Chat marked as read successfully');
-    } catch (e) {
-      print('❌ Mark as read failed: $e');
+    } catch (_) {
+      // best-effort; swallow failures
     }
   }
 

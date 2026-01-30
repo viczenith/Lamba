@@ -22,10 +22,7 @@ import 'package:real_estate_app/shared/app_layout.dart';
 
 import 'chat_role_config.dart';
 
-/// A reusable WhatsApp-style chat page that can serve clients, marketers and
-/// admin-support staff. It reuses the modern UI/experience from the marketer
-/// chat screen but delegates all role-specific logic (API calls, message
-/// normalisation, push matching, etc.) to [ChatRoleConfig].
+
 class SharedChatThreadPage extends StatefulWidget {
   const SharedChatThreadPage({
     super.key,
@@ -123,10 +120,12 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
             : (_outgoingToneBytes ??=
                 _generateToneBytes(frequency: 660, durationSeconds: 0.14));
         await _audioPlayer!.stop();
-        await _audioPlayer!.play(BytesSource(bytes), volume: incoming ? 0.6 : 0.4);
+        await _audioPlayer!
+            .play(BytesSource(bytes), volume: incoming ? 0.6 : 0.4);
       } catch (_) {
         try {
-          SystemSound.play(incoming ? SystemSoundType.alert : SystemSoundType.click);
+          SystemSound.play(
+              incoming ? SystemSoundType.alert : SystemSoundType.click);
         } catch (_) {
           // best-effort fallback; ignore
         }
@@ -143,8 +142,9 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     final amplitude = 0.32;
     final toneData = ByteData(sampleCount * 2);
     for (int i = 0; i < sampleCount; i++) {
-      final value = (sin(2 * pi * frequency * i / sampleRate) * 32767 * amplitude)
-          .round();
+      final value =
+          (sin(2 * pi * frequency * i / sampleRate) * 32767 * amplitude)
+              .round();
       toneData.setInt16(i * 2, value.clamp(-32768, 32767), Endian.little);
     }
 
@@ -236,7 +236,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     }
     if (raw is int) {
       try {
-        return DateTime.fromMillisecondsSinceEpoch(raw * (raw < 10000000000 ? 1000 : 1));
+        return DateTime.fromMillisecondsSinceEpoch(
+            raw * (raw < 10000000000 ? 1000 : 1));
       } catch (_) {
         return null;
       }
@@ -262,7 +263,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     return _messageId(a).compareTo(_messageId(b));
   }
 
-  int _resolveLastMessageId(int? preferred, List<Map<String, dynamic>> messages) {
+  int _resolveLastMessageId(
+      int? preferred, List<Map<String, dynamic>> messages) {
     if (preferred != null && preferred > 0) return preferred;
     if (messages.isEmpty) return 0;
     return _messageId(messages.last);
@@ -391,9 +393,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
 
   void _subscribeToPushMessages() {
     try {
-      _pushSubscription = PushNotificationService()
-          .incomingPushEvents
-          .listen((payload) async {
+      _pushSubscription =
+          PushNotificationService().incomingPushEvents.listen((payload) async {
         final data = payload['data'] as Map<String, dynamic>?;
         if (data == null || !mounted) return;
 
@@ -452,10 +453,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
       if (normalized.isEmpty) return;
       if (!mounted) return;
 
-      final existingIds = _messages
-          .map(_messageId)
-          .where((id) => id > 0)
-          .toSet();
+      final existingIds =
+          _messages.map(_messageId).where((id) => id > 0).toSet();
       final List<Map<String, dynamic>> uniqueNewMessages = [];
 
       for (final message in normalized) {
@@ -531,7 +530,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
       setState(() {
         for (final message in _messages) {
           if (_config.isOwnMessage(message)) continue;
-          if (markAll || (idSet != null && idSet.contains(_messageId(message)))) {
+          if (markAll ||
+              (idSet != null && idSet.contains(_messageId(message)))) {
             if (message['is_read'] != true) {
               message['is_read'] = true;
               updated = true;
@@ -696,8 +696,7 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
       Future.delayed(const Duration(milliseconds: 16), () {
         if (!mounted || !_scrollController.hasClients) return;
 
-        final remaining =
-            (position.maxScrollExtent - position.pixels).abs();
+        final remaining = (position.maxScrollExtent - position.pixels).abs();
         if (remaining > 12 && retries > 0) {
           _scrollToBottom(immediate: true, retries: retries - 1);
           return;
@@ -746,7 +745,12 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
   }
 
   bool _isValidBackendMessage(Map<String, dynamic> message) {
-    return message.containsKey('id') && message.containsKey('date_sent');
+    // Accept canonical shape (id + date_sent) or legacy keys (message_id / created_at)
+    final hasId =
+        message.containsKey('id') || message.containsKey('message_id');
+    final hasTimestamp =
+        message.containsKey('date_sent') || message.containsKey('created_at');
+    return hasId && hasTimestamp;
   }
 
   bool _isFromCurrentUser(Map<String, dynamic> message) {
@@ -780,7 +784,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
       return provided.trim();
     }
 
-    final derived = _extractFileNameFromPath(localPath ?? message['file_url']?.toString());
+    final derived =
+        _extractFileNameFromPath(localPath ?? message['file_url']?.toString());
     if (derived != null && derived.trim().isNotEmpty) {
       return derived.trim();
     }
@@ -795,7 +800,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     String? mimeType,
   }) async {
     final fileStat = await file.stat();
-    final derivedMime = mimeType ?? lookupMimeType(file.path) ?? 'application/octet-stream';
+    final derivedMime =
+        mimeType ?? lookupMimeType(file.path) ?? 'application/octet-stream';
     final resolvedName = fileName ?? p.basename(file.path);
     setState(() {
       _pendingFile = file;
@@ -910,7 +916,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -918,7 +925,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     final theme = Theme.of(context);
     final header = _config.headerBuilder(context, _participant);
     final EdgeInsets resolvedPadding =
-        _config.bodyPaddingBuilder?.call(context) ?? const EdgeInsets.symmetric(horizontal: 8);
+        _config.bodyPaddingBuilder?.call(context) ??
+            const EdgeInsets.symmetric(horizontal: 8);
     final double topPadding = header == null ? resolvedPadding.top : 0;
     final double bottomPadding = resolvedPadding.bottom;
 
@@ -976,7 +984,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.arrow_downward_rounded, color: Colors.white),
+                    const Icon(Icons.arrow_downward_rounded,
+                        color: Colors.white),
                     const SizedBox(width: 6),
                     Text(
                       _pendingNewMessageCount == 1
@@ -1004,7 +1013,11 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
         child: Column(
           children: [
             Expanded(child: content),
-            if (_pendingFile != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: _buildAttachmentPreview(theme)),
+            if (_pendingFile != null)
+              Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: _buildAttachmentPreview(theme)),
             Padding(
               padding: EdgeInsets.only(
                 left: 12,
@@ -1122,9 +1135,10 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                 minWidth: 60,
               ),
               child: GestureDetector(
-                onLongPress: isFromMe && message['_deleted_for_everyone'] != true
-                    ? () => _showMessageOptions(message)
-                    : null,
+                onLongPress:
+                    isFromMe && message['_deleted_for_everyone'] != true
+                        ? () => _showMessageOptions(message)
+                        : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutQuad,
@@ -1139,10 +1153,16 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
-                      bottomLeft:
-                          Radius.circular(isFromMe ? 16 : isSmallScreen ? 8 : 4),
-                      bottomRight:
-                          Radius.circular(!isFromMe ? 16 : isSmallScreen ? 8 : 4),
+                      bottomLeft: Radius.circular(isFromMe
+                          ? 16
+                          : isSmallScreen
+                              ? 8
+                              : 4),
+                      bottomRight: Radius.circular(!isFromMe
+                          ? 16
+                          : isSmallScreen
+                              ? 8
+                              : 4),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1167,10 +1187,9 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                                 : const Color(0xFF303030),
                             fontSize: 14,
                             height: 1.4,
-                            fontWeight:
-                                message['_deleted_for_everyone'] == true
-                                    ? FontWeight.w500
-                                    : FontWeight.w400,
+                            fontWeight: message['_deleted_for_everyone'] == true
+                                ? FontWeight.w500
+                                : FontWeight.w400,
                           ),
                         ),
                       const SizedBox(height: 4),
@@ -1262,12 +1281,14 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
         ),
         child: Row(
           children: [
-            if (isImage && (localPath != null || (fileUrl?.isNotEmpty ?? false)))
+            if (isImage &&
+                (localPath != null || (fileUrl?.isNotEmpty ?? false)))
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: _buildAttachmentThumbnail(localPath, fileUrl, isFromMe),
+                  child:
+                      _buildAttachmentThumbnail(localPath, fileUrl, isFromMe),
                 ),
               )
             else ...[
@@ -1289,14 +1310,15 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  if (!isFromMe && _downloadProgress.containsKey(fileId) && !completed)
+                  if (!isFromMe &&
+                      _downloadProgress.containsKey(fileId) &&
+                      !completed)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: LinearProgressIndicator(
                         value: progress,
-                        backgroundColor: isFromMe
-                            ? Colors.white10
-                            : Colors.grey.shade200,
+                        backgroundColor:
+                            isFromMe ? Colors.white10 : Colors.grey.shade200,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           isFromMe
                               ? Colors.white
@@ -1347,7 +1369,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     );
   }
 
-  Widget _buildAttachmentThumbnail(String? localPath, String? remoteUrl, bool isFromMe) {
+  Widget _buildAttachmentThumbnail(
+      String? localPath, String? remoteUrl, bool isFromMe) {
     if (localPath != null) {
       final file = File(localPath);
       if (file.existsSync()) {
@@ -1366,7 +1389,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
         width: 70,
         height: 70,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildAttachmentIcon('image', isFromMe),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildAttachmentIcon('image', isFromMe),
       );
     }
 
@@ -1383,7 +1407,9 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isFromMe ? Colors.white10 : const Color(0xFF128C7E).withOpacity(0.12),
+        color: isFromMe
+            ? Colors.white10
+            : const Color(0xFF128C7E).withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: color, size: 24),
@@ -1400,7 +1426,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
     ImageProvider? imageProvider;
     if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
       if (profileImageUrl.startsWith('asset://')) {
-        imageProvider = AssetImage(profileImageUrl.substring('asset://'.length));
+        imageProvider =
+            AssetImage(profileImageUrl.substring('asset://'.length));
       } else {
         imageProvider = NetworkImage(profileImageUrl);
       }
@@ -1471,7 +1498,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
                   _pendingFileType ?? 'Unknown type',
                   style: theme.textTheme.bodySmall,
                 ),
-                if (_pendingFileType?.startsWith('image') == true && _pendingFile != null)
+                if (_pendingFileType?.startsWith('image') == true &&
+                    _pendingFile != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: ClipRRect(
@@ -1496,7 +1524,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
   }
 
   Widget _buildComposer(ThemeData theme) {
-    final canSend = _messageController.text.trim().isNotEmpty || _pendingFile != null;
+    final canSend =
+        _messageController.text.trim().isNotEmpty || _pendingFile != null;
     return SafeArea(
       top: false,
       child: Container(
@@ -1762,7 +1791,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
 
       if (!mounted) return;
       if (path == null) {
-        _resetDownloadState(fileId, notify: true, message: 'Download cancelled');
+        _resetDownloadState(fileId,
+            notify: true, message: 'Download cancelled');
         return;
       }
 
@@ -1785,7 +1815,8 @@ class _SharedChatThreadPageState extends State<SharedChatThreadPage> {
       }
     } catch (error) {
       if (!mounted) return;
-      _resetDownloadState(fileId, notify: true, message: 'Failed to download: $error');
+      _resetDownloadState(fileId,
+          notify: true, message: 'Failed to download: $error');
       final id = notificationId ?? _downloadNotificationIds.remove(fileId);
       if (id != null) {
         await _notificationService.failDownloadNotification(

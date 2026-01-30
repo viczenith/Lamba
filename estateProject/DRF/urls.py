@@ -25,14 +25,11 @@ from DRF.clients.api_views.client_estate_detail_views import ClientEstateDetailA
 from DRF.clients.api_views.client_profile_views import (
     # Overview Tab
     ClientProfileOverviewView,
-    ClientProfileView,
     # Edit Profile Tab  
     ClientProfileEditView,
-    ClientProfileUpdateView,
     ClientProfileImageUploadView,
     # Password Tab
     ClientChangePasswordView,
-    ChangePasswordView,
 )
 # My Companies Page (separate file)
 from DRF.clients.api_views.client_my_companies_views import (
@@ -87,9 +84,10 @@ from DRF.clients.api_views.client_chat_views import (
     ClientChatUnreadCountAPIView,
     ClientChatMarkAsReadAPIView,
     ClientChatPollAPIView,
+    ClientChatCompaniesAPIView,
 )
 from DRF.marketers.api_views.client_record_views import MarketerClientDetailAPIView, MarketerClientListAPIView
-from DRF.marketers.api_views.marketer_dashboard_views import MarketerChartRangeAPIView, MarketerDashboardAPIView
+from DRF.marketers.api_views.marketer_dashboard_views import MarketerDashboardAPIView
 from DRF.marketers.api_views.marketer_profile_views import (
     MarketerChangePasswordView,
     MarketerProfileUpdateView,
@@ -160,31 +158,28 @@ urlpatterns = [
     path('admin-support/chat/<str:role>/<int:participant_id>/mark-read/', SupportChatMarkReadAPIView.as_view(), name='support_chat_mark_read_api'),
     path('admin-support/chat/messages/<int:pk>/delete/', SupportChatDeleteMessageAPIView.as_view(), name='support_chat_delete_message_api'),
 
-
-    # client dashboard
-    path('client/dashboard-data/', ClientDashboardAPIView.as_view(), name='client-dashboard-data'),
+    # =========================================================================
+    # CLIENT DASHBOARD API ENDPOINTS - All use /api/ prefix for REST compliance
+    # =========================================================================
+    path('api/client/dashboard/', ClientDashboardAPIView.as_view(), name='client-dashboard'),
     path('api/price-update/<int:pk>/', PriceUpdateDetailAPIView.as_view(), name='api-price-update'),
-    path('estates/', EstateListAPIView.as_view(), name='estates-list'),
-    path('promotions/active/', ActivePromotionsListAPIView.as_view(), name='active-promotions-list'),
-    path('promotions/', PromotionsListAPIView.as_view(), name='promotions-list'),
-    path('promotions/<int:pk>/', PromotionDetailAPIView.as_view(), name='promotion-detail'),
+    path('api/estates/', EstateListAPIView.as_view(), name='estates-list'),
+    path('api/active-promotions/', ActivePromotionsListAPIView.as_view(), name='active-promotions-list'),
+    path('api/promotions/', PromotionsListAPIView.as_view(), name='promotions-list'),
+    path('api/promotion/<int:pk>/', PromotionDetailAPIView.as_view(), name='promotion-detail'),
 
     # =========================================================================
     # CLIENT PROFILE ENDPOINTS
     # =========================================================================
     
-    # Overview Tab
-    path('clients/profile/', ClientProfileView.as_view(), name='client-profile'),
     path('clients/profile/overview/', ClientProfileOverviewView.as_view(), name='client-profile-overview'),
     
     # Edit Profile Tab
-    path('clients/profile/update/', ClientProfileUpdateView.as_view(), name='client-profile-update'),
     path('clients/profile/edit/', ClientProfileEditView.as_view(), name='client-profile-edit'),
     path('clients/profile/image/', ClientProfileImageUploadView.as_view(), name='client-profile-image'),
     
     # Password Tab
-    path('clients/change-password/', ChangePasswordView.as_view(), name='client-change-password'),
-    path('clients/password/change/', ClientChangePasswordView.as_view(), name='client-password-change'),
+    path('clients/change-password/', ClientChangePasswordView.as_view(), name='client-change-password'),
 
     # =========================================================================
     # MY COMPANIES PAGE ENDPOINTS
@@ -201,21 +196,21 @@ urlpatterns = [
     path('clients/company/receipt/', ClientCompanyReceiptAPIView.as_view(), name='client-company-receipt-query'),
 
     # =========================================================================
-    # NOTIFICATION LIST PAGE ENDPOINTS (notification.html)
+    # NOTIFICATION LIST PAGE ENDPOINTS (notification.html) - All use /api/ prefix
     # =========================================================================
-    path('clients/notifications/page/', ClientNotificationListPageAPIView.as_view(), name='client-notifications-page'),
-    path('client/notifications/', ClientNotificationListAPI.as_view(), name='notifications-list'),
-    path('client/notifications/unread-count/', ClientUnreadCountAPIView.as_view(), name='notifications-unread-count'),
-    path('client/notifications/<int:pk>/mark-read/', ClientMarkReadAPIView.as_view(), name='notifications-mark-read'),
-    path('client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
-    path('client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
+    path('api/client/notifications/', ClientNotificationListPageAPIView.as_view(), name='client-notifications-page'),
+    path('api/client/notifications/list/', ClientNotificationListAPI.as_view(), name='notifications-list'),
+    path('api/client/notifications/unread-count/', ClientUnreadCountAPIView.as_view(), name='notifications-unread-count'),
+    path('api/client/notifications/<int:pk>/mark-read/', ClientMarkReadAPIView.as_view(), name='notifications-mark-read'),
+    path('api/client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
+    path('api/client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
 
     # =========================================================================
-    # NOTIFICATION DETAIL PAGE ENDPOINTS (notification_detail.html)
+    # NOTIFICATION DETAIL PAGE ENDPOINTS (notification_detail.html) - All use /api/ prefix
     # =========================================================================
-    path('clients/notifications/<int:pk>/detail/', ClientNotificationDetailPageAPIView.as_view(), name='client-notification-detail-page'),
-    path('client/notifications/<int:pk>/', ClientNotificationDetailAPI.as_view(), name='notifications-detail'),
-    path('clients/notifications/<int:pk>/delete/', ClientNotificationDeleteAPIView.as_view(), name='client-notification-delete'),
+    path('api/client/notifications/<int:pk>/detail/', ClientNotificationDetailPageAPIView.as_view(), name='client-notification-detail-page'),
+    path('api/client/notifications/<int:pk>/', ClientNotificationDetailAPI.as_view(), name='notifications-detail'),
+    path('api/client/notifications/<int:pk>/delete/', ClientNotificationDeleteAPIView.as_view(), name='client-notification-delete'),
 
     path('marketers/notifications/', MarketerNotificationListAPI.as_view(), name='marketer-notifications-list'),
     path('marketers/notifications/unread-count/', MarketerUnreadCountAPI.as_view(), name='marketer-notifications-unread-count'),
@@ -234,6 +229,7 @@ urlpatterns = [
     path('marketers/chat/poll/', MarketerChatPollAPIView.as_view(), name='marketer-chat-poll'),
 
     # CLIENT CHAT / MESSAGING
+    path('client/chat/companies/', ClientChatCompaniesAPIView.as_view(), name='client-chat-companies'),
     path('client/chat/', ClientChatListAPIView.as_view(), name='client-chat-list'),
     path('client/chat/<int:pk>/', ClientChatDetailAPIView.as_view(), name='client-chat-detail'),
     path('client/chat/send/', ClientChatSendAPIView.as_view(), name='client-chat-send'),
@@ -257,7 +253,6 @@ urlpatterns = [
     
     # marketer dashboard
     path('marketers/dashboard/', MarketerDashboardAPIView.as_view(), name='marketer-dashboard'),
-    path('marketers/dashboard/data/', MarketerChartRangeAPIView.as_view(), name='marketer-dashboard-data'),
 
     # marketer clients records
     path('marketers/clients/', MarketerClientListAPIView.as_view(), name='marketer-client-list'),

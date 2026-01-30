@@ -41,26 +41,36 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
 
     final token = widget.token.trim();
     if (token.isEmpty) {
-      setState(() {
-        _error = 'Not authenticated.';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Not authenticated.';
+          _loading = false;
+        });
+      }
       return;
     }
 
     try {
+      // Fetch notification detail from API
+      // Response structure: {id, notification: {id, title, message, notification_type, notification_type_display, company: {id, company_name, logo_url, initial}, created_at, formatted_date, formatted_time}, read, created_at}
       final data = await _api.getClientNotificationDetail(
         token: token,
         userNotificationId: widget.userNotificationId,
       );
       if (!mounted) return;
+
+      // Validate response structure
+      if (data == null || data.isEmpty) {
+        throw Exception('Empty notification data received');
+      }
+
       setState(() => _userNotification = Map<String, dynamic>.from(data));
     } on Exception catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = 'Failed to load notification: ${e.toString()}');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Unexpected error');
+      setState(() => _error = 'Unexpected error: $e');
     } finally {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -73,7 +83,8 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
     if (id < 0) return;
 
     try {
-      await _api.markClientNotificationRead(token: widget.token, userNotificationId: id);
+      await _api.markClientNotificationRead(
+          token: widget.token, userNotificationId: id);
       if (!mounted) return;
       setState(() {
         _userNotification = {..._userNotification!, 'read': true};
@@ -200,7 +211,8 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: const Color(0xFF4154F1).withOpacity(0.1),
+                                  color:
+                                      const Color(0xFF4154F1).withOpacity(0.1),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
@@ -214,93 +226,109 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4154F1).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.notifications_rounded,
-                                      color: Color(0xFF4154F1),
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _userNotification?['notification']?['title']?.toString() ?? 'Notification',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1a1a1a),
-                                            height: 1.3,
-                                          ),
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF4154F1)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Row(
+                                        child: const Icon(
+                                          Icons.notifications_rounded,
+                                          color: Color(0xFF4154F1),
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _userNotification?['notification']
+                                                          ?['title']
+                                                      ?.toString() ??
+                                                  'Notification',
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF1a1a1a),
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.schedule,
+                                                  size: 14,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    _getFormattedDate(),
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              _userNotification?['read'] == true
+                                                  ? Colors.grey.shade100
+                                                  : const Color(0xFF4154F1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              Icons.schedule,
-                                              size: 14,
-                                              color: Colors.grey.shade500,
+                                              _userNotification?['read'] == true
+                                                  ? Icons.check_circle
+                                                  : Icons.circle,
+                                              size: 12,
+                                              color:
+                                                  _userNotification?['read'] ==
+                                                          true
+                                                      ? Colors.grey.shade600
+                                                      : Colors.white,
                                             ),
                                             const SizedBox(width: 6),
-                                            Flexible(
-                                              child: Text(
-                                                _getFormattedDate(),
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade600,
-                                                  fontSize: 13,
-                                                ),
+                                            Text(
+                                              _userNotification?['read'] == true
+                                                  ? 'Read'
+                                                  : 'New',
+                                              style: TextStyle(
+                                                color: _userNotification?[
+                                                            'read'] ==
+                                                        true
+                                                    ? Colors.grey.shade600
+                                                    : Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _userNotification?['read'] == true
-                                          ? Colors.grey.shade100
-                                          : const Color(0xFF4154F1),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _userNotification?['read'] == true
-                                              ? Icons.check_circle
-                                              : Icons.circle,
-                                          size: 12,
-                                          color: _userNotification?['read'] == true
-                                              ? Colors.grey.shade600
-                                              : Colors.white,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _userNotification?['read'] == true ? 'Read' : 'New',
-                                          style: TextStyle(
-                                            color: _userNotification?['read'] == true
-                                                ? Colors.grey.shade600
-                                                : Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -348,6 +376,24 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
                         ),
                       ),
 
+                      // Notification Footer with Type Badge
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFF1F5F9),
+                              ),
+                            ),
+                            child: _buildNotificationBadge(),
+                          ),
+                        ),
+                      ),
+
                       // Action Button
                       // if (_userNotification?['read'] != true)
                       //   SliverToBoxAdapter(
@@ -381,15 +427,143 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
 
   String _getFormattedDate() {
     try {
-      final createdAt = _userNotification?['notification']?['created_at']?.toString() ?? 
-                       _userNotification?['created_at']?.toString() ?? '';
+      // Prefer pre-formatted date from API if available
+      final notification = _userNotification?['notification'] as Map?;
+      if (notification != null) {
+        final formattedDate = notification['formatted_date'];
+        final formattedTime = notification['formatted_time'];
+        if (formattedDate != null && formattedTime != null) {
+          return '$formattedDate at $formattedTime';
+        }
+      }
+
+      // Fallback: parse from ISO datetime
+      final createdAt =
+          _userNotification?['notification']?['created_at']?.toString() ??
+              _userNotification?['created_at']?.toString() ??
+              '';
       if (createdAt.isEmpty) return 'Unknown date';
-      
+
       final date = DateTime.parse(createdAt);
       return DateFormat('MMMM d, yyyy • h:mm a').format(date);
     } catch (e) {
       return 'Unknown date';
     }
+  }
+
+  /// Extract company data from nested notification structure
+  Map<String, dynamic>? _getCompanyData() {
+    try {
+      final notification = _userNotification?['notification'] as Map?;
+      if (notification == null) return null;
+
+      final company = notification['company'];
+      if (company == null) return null;
+
+      return Map<String, dynamic>.from(company as Map);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Extract notification content from nested structure
+  Map<String, dynamic>? _getNotificationContent() {
+    try {
+      final notification = _userNotification?['notification'];
+      if (notification == null) return null;
+
+      return Map<String, dynamic>.from(notification as Map);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _getNotificationTitle() {
+    return _getNotificationContent()?['title'] ?? 'Notification';
+  }
+
+  String _getNotificationMessage() {
+    return _getNotificationContent()?['message'] ?? 'No message content';
+  }
+
+  String _getNotificationType() {
+    return _getNotificationContent()?['notification_type_display'] ?? 'System';
+  }
+
+  bool _isNotificationRead() {
+    return _userNotification?['read'] as bool? ?? false;
+  }
+
+  String _getCompanyName() {
+    final company = _getCompanyData();
+    if (company != null) {
+      return company['company_name']?.toString() ?? 'System Notification';
+    }
+    return 'System Notification';
+  }
+
+  String _getCompanyLogoUrl() {
+    final company = _getCompanyData();
+    if (company != null && company['logo_url'] != null) {
+      final logoUrl = company['logo_url'].toString();
+      // Ensure full URL
+      if (logoUrl.startsWith('http')) {
+        return logoUrl;
+      } else if (logoUrl.startsWith('/')) {
+        // Relative URL - prepend base URL
+        final baseUrl = _api.baseUrl ?? 'https://api.example.com';
+        return '$baseUrl$logoUrl';
+      }
+    }
+    return '';
+  }
+
+  String _getCompanyInitial() {
+    final company = _getCompanyData();
+    if (company != null && company['initial'] != null) {
+      return company['initial'].toString();
+    }
+    return 'S';
+  }
+
+  /// Build company avatar widget matching HTML template styling
+  Widget _buildCompanyAvatar() {
+    final logoUrl = _getCompanyLogoUrl();
+
+    if (logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          logoUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // Fallback to initial if image fails
+            return Center(
+              child: Text(
+                _getCompanyInitial(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Fallback to initial letter
+    return Center(
+      child: Text(
+        _getCompanyInitial(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 
   String _decodeHtmlEntities(String text) {
@@ -497,18 +671,20 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
   String _preprocessHtml(String html) {
     // Ensure proper HTML structure and decode entities
     String processed = html;
-    
+
     // Wrap plain text in paragraph if no HTML structure
-    if (!processed.contains('<p>') && !processed.contains('<div>') && !processed.contains('<br>')) {
+    if (!processed.contains('<p>') &&
+        !processed.contains('<div>') &&
+        !processed.contains('<br>')) {
       processed = '<p>$processed</p>';
     }
-    
+
     // Fix common HTML issues
     processed = processed
-        .replaceAll('\n\n', '<br><br>')  // Double newlines to breaks
-        .replaceAll('\n', '<br>')        // Single newlines to breaks
+        .replaceAll('\n\n', '<br><br>') // Double newlines to breaks
+        .replaceAll('\n', '<br>') // Single newlines to breaks
         .trim();
-    
+
     return processed;
   }
 
@@ -518,7 +694,8 @@ class _NotificationDetailPageState extends State<NotificationDetailPage> {
         html.contains('box-shadow') ||
         html.contains('transform') ||
         html.contains('background: ') && html.contains('gradient') ||
-        (html.contains('style="') && html.split('style="').length > 5); // Many inline styles
+        (html.contains('style="') &&
+            html.split('style="').length > 5); // Many inline styles
   }
 
   Widget _buildWebViewHtml(String html) {
@@ -569,7 +746,8 @@ $html
             onNavigationRequest: (NavigationRequest request) {
               // Handle link clicks - open in external browser
               if (request.url.startsWith('http')) {
-                launchUrl(Uri.parse(request.url), mode: LaunchMode.externalApplication);
+                launchUrl(Uri.parse(request.url),
+                    mode: LaunchMode.externalApplication);
                 return NavigationDecision.prevent;
               }
               return NavigationDecision.navigate;
@@ -640,16 +818,51 @@ $html
     );
   }
 
+  /// Build notification type badge matching HTML template styling
+  Widget _buildNotificationBadge() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0E7FF),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.notifications_active_rounded,
+                size: 14,
+                color: Color(0xFF4338CA),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _getNotificationType(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF4338CA),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMessageContent() {
-    final message = _userNotification?['notification']?['message']?.toString() ?? 'No message content';
-    
+    final message = _getNotificationMessage();
+
     // Check if content looks like HTML
     if (message.contains('<') && message.contains('>')) {
       // Use WebView for complex HTML with inline styles
       if (_hasComplexInlineStyles(message)) {
         return _buildWebViewHtml(message);
       }
-      
+
       // Use flutter_html for simpler HTML
       try {
         // Preprocess HTML for better rendering
@@ -701,7 +914,8 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => maxHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return SizedBox.expand(child: child);
   }
 
@@ -712,4 +926,3 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
         child != oldDelegate.child;
   }
 }
-

@@ -161,9 +161,10 @@ class PaymentRecordSerializer(serializers.Serializer):
     date = serializers.DateField(read_only=True)
     amount = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     reference_code = serializers.CharField(read_only=True)
-    payment_type = serializers.CharField(read_only=True)
-    status = serializers.CharField(read_only=True)
-    estate_name = serializers.CharField(read_only=True)
+    payment_type = serializers.CharField(read_only=True)  # 'Full Payment' or 'Installment N'
+    status = serializers.CharField(read_only=True)  # 'Paid', 'Pending', etc.
+    estate_name = serializers.CharField(read_only=True)  # For context
+    year = serializers.IntegerField(read_only=True)  # For grouping by year
 
 
 # =============================================================================

@@ -142,6 +142,7 @@ class _ClientSidebarState extends State<ClientSidebar> with SingleTickerProvider
     return [
       SidebarItem(icon: Icons.dashboard_rounded, title: "Dashboard", route: '/client-dashboard'),
       SidebarItem(icon: Icons.person_rounded, title: "Profile", route: '/client-profile'),
+      SidebarItem(icon: Icons.business, title: "My Companies", route: '/client-my-companies'),
       SidebarItem(
         icon: Icons.notifications_active,
         title: "Notifications",

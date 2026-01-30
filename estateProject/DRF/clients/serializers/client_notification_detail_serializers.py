@@ -1,14 +1,3 @@
-"""
-Client Notification Detail Serializers
-=======================================
-DRF Serializers for notification_detail.html (Single Notification Detail Page)
-
-Security Features:
-- Data exposure control - only necessary fields exposed
-- Company data isolation - only show notification client should see
-- No sensitive internal data exposed
-"""
-
 from rest_framework import serializers
 from estateApp.models import Company, Notification, UserNotification
 

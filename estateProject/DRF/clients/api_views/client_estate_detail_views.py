@@ -27,7 +27,7 @@ Last Updated: December 2024
 """
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
@@ -39,6 +39,7 @@ import logging
 import mimetypes
 import os
 
+from DRF.shared_drf import APIResponse
 from DRF.clients.serializers.client_estate_detail_serializer import (
     ClientEstateDetailSerializer,
     ClientEstateDetailResponseSerializer,
@@ -205,9 +206,9 @@ class SecureClientBaseView(APIView):
         SECURITY: Logs full error internally, returns safe message to client.
         """
         logger.exception(f"Error in {context}: {str(error)}")
-        return Response(
-            {"success": False, "error": "An error occurred processing your request."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        return APIResponse.server_error(
+            message="An error occurred processing your request",
+            error_code="SERVER_ERROR"
         )
 
 
@@ -244,47 +245,45 @@ class ClientEstateDetailAPIView(SecureClientBaseView):
     """
     throttle_classes = [ClientEstateDetailThrottle, BurstThrottle]
 
-    def get(self, request, estate_id, plot_size_id):
+    def get(self, request, *args, **kwargs):
         """
         Retrieve estate details for a specific plot size.
-        
-        URL Parameters:
-            estate_id: The ID of the estate (integer)
-            plot_size_id: The ID of the plot size (integer)
-        
-        Returns:
-            200: Estate details with all related data
-            400: Invalid parameters
-            403: Access denied (not client or no access to estate)
-            404: Estate or plot size not found
-            429: Rate limit exceeded
-            500: Server error
+
+        This method accepts multiple URL shapes for backwards-compatibility:
+        - /api/client/estate/<estate_id>/plot-size/<plot_size_id>/  (canonical)
+        - /api/clients/estates/<pk>/?plot_size_id=<id>                (legacy/mobile)
+
+        Normalizes parameters from kwargs or querystring and validates them.
         """
         try:
+            # Normalize inputs (accept 'estate_id' or legacy 'pk')
+            estate_id = kwargs.get('estate_id') or kwargs.get('pk') or (args[0] if len(args) > 0 else None)
+            plot_size_id = kwargs.get('plot_size_id') or request.GET.get('plot_size_id') or request.GET.get('plot_size')
+
             # Import models
             from estateApp.models import Estate, PlotSize, EstateFloorPlan
-            
+
             # =================================================================
             # STEP 1: Input Validation
             # =================================================================
             try:
                 estate_id = int(estate_id)
                 plot_size_id = int(plot_size_id)
-                
+
                 # Additional validation for reasonable ranges
                 if estate_id <= 0 or plot_size_id <= 0:
                     raise ValueError("IDs must be positive integers")
                 if estate_id > 2147483647 or plot_size_id > 2147483647:
                     raise ValueError("ID values too large")
-                    
+
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    f"SECURITY: Invalid input from user {request.user.id}: "
+                    f"SECURITY: Invalid input from user {getattr(request.user, 'id', 'anon')}: "
                     f"estate_id={estate_id}, plot_size_id={plot_size_id}"
                 )
-                return Response(
-                    {"success": False, "error": "Invalid estate or plot size identifier."},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'estate_id': ['Invalid estate or plot size identifier']},
+                    error_code="INVALID_ID"
                 )
             
             # =================================================================
@@ -308,9 +307,9 @@ class ClientEstateDetailAPIView(SecureClientBaseView):
                 ).get(id=estate_id)
             except Estate.DoesNotExist:
                 logger.info(f"Estate {estate_id} not found for user {request.user.id}")
-                return Response(
-                    {"success": False, "error": "Estate not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Estate not found",
+                    error_code="ESTATE_NOT_FOUND"
                 )
             
             # =================================================================
@@ -320,9 +319,9 @@ class ClientEstateDetailAPIView(SecureClientBaseView):
                 plot_size = PlotSize.objects.get(id=plot_size_id)
             except PlotSize.DoesNotExist:
                 logger.info(f"Plot size {plot_size_id} not found for user {request.user.id}")
-                return Response(
-                    {"success": False, "error": "Plot size not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Plot size not found",
+                    error_code="PLOT_SIZE_NOT_FOUND"
                 )
             
             # =================================================================
@@ -330,12 +329,9 @@ class ClientEstateDetailAPIView(SecureClientBaseView):
             # =================================================================
             if not self.validate_estate_access(client_profile, estate, plot_size):
                 self.log_access(client_profile, "estate", estate_id, success=False)
-                return Response(
-                    {
-                        "success": False, 
-                        "error": "You do not have access to this estate with the specified plot size."
-                    },
-                    status=status.HTTP_403_FORBIDDEN
+                return APIResponse.forbidden(
+                    message="You do not have access to this estate with the specified plot size",
+                    error_code="ACCESS_DENIED"
                 )
             
             # =================================================================
@@ -367,22 +363,19 @@ class ClientEstateDetailAPIView(SecureClientBaseView):
             # =================================================================
             # STEP 9: Return Response
             # =================================================================
-            return Response(
-                {
-                    "success": True,
-                    "data": serializer.data,
-                    "meta": {
-                        "estate_id": estate_id,
-                        "plot_size_id": plot_size_id,
-                    }
-                },
-                status=status.HTTP_200_OK
+            return APIResponse.success(
+                data=serializer.data,
+                message="Estate details retrieved successfully",
+                meta={
+                    "estate_id": estate_id,
+                    "plot_size_id": plot_size_id,
+                }
             )
             
         except PermissionDenied as e:
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message=str(e),
+                error_code="PERMISSION_DENIED"
             )
         except Exception as e:
             return self.handle_error(e, "ClientEstateDetailAPIView.get")
@@ -469,9 +462,9 @@ class SecureMediaBaseView(SecureClientBaseView):
         is_valid, result = self.validate_file(file_field)
         
         if not is_valid:
-            return Response(
-                {"success": False, "error": result},
-                status=status.HTTP_404_NOT_FOUND
+            return APIResponse.not_found(
+                message=result,
+                error_code="FILE_NOT_FOUND"
             )
         
         mime_type = result
@@ -493,9 +486,9 @@ class SecureMediaBaseView(SecureClientBaseView):
             
         except Exception as e:
             logger.exception(f"Error serving file: {e}")
-            return Response(
-                {"success": False, "error": "Error retrieving file."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return APIResponse.server_error(
+                message="Error retrieving file",
+                error_code="FILE_ERROR"
             )
 
 
@@ -523,9 +516,9 @@ class SecurePrototypeImageAPIView(SecureMediaBaseView):
                 if prototype_id <= 0:
                     raise ValueError()
             except (ValueError, TypeError):
-                return Response(
-                    {"success": False, "error": "Invalid prototype identifier."},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'prototype_id': ['Invalid prototype identifier']},
+                    error_code="INVALID_ID"
                 )
             
             # Get client profile
@@ -537,17 +530,17 @@ class SecurePrototypeImageAPIView(SecureMediaBaseView):
                     'estate', 'estate__company'
                 ).get(id=prototype_id)
             except EstatePrototype.DoesNotExist:
-                return Response(
-                    {"success": False, "error": "Prototype not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Prototype not found",
+                    error_code="PROTOTYPE_NOT_FOUND"
                 )
             
             # Validate access
             if not self.validate_estate_access(client_profile, prototype.estate):
                 self.log_access(client_profile, "prototype_image", prototype_id, success=False)
-                return Response(
-                    {"success": False, "error": "Access denied."},
-                    status=status.HTTP_403_FORBIDDEN
+                return APIResponse.forbidden(
+                    message="Access denied",
+                    error_code="ACCESS_DENIED"
                 )
             
             # Log access
@@ -560,9 +553,9 @@ class SecurePrototypeImageAPIView(SecureMediaBaseView):
             )
             
         except PermissionDenied as e:
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message=str(e),
+                error_code="PERMISSION_DENIED"
             )
         except Exception as e:
             return self.handle_error(e, "SecurePrototypeImageAPIView.get")
@@ -592,9 +585,9 @@ class SecureEstateLayoutAPIView(SecureMediaBaseView):
                 if layout_id <= 0:
                     raise ValueError()
             except (ValueError, TypeError):
-                return Response(
-                    {"success": False, "error": "Invalid layout identifier."},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'layout_id': ['Invalid layout identifier']},
+                    error_code="INVALID_ID"
                 )
             
             # Get client profile
@@ -606,17 +599,17 @@ class SecureEstateLayoutAPIView(SecureMediaBaseView):
                     'estate', 'estate__company'
                 ).get(id=layout_id)
             except EstateLayout.DoesNotExist:
-                return Response(
-                    {"success": False, "error": "Layout not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Layout not found",
+                    error_code="LAYOUT_NOT_FOUND"
                 )
             
             # Validate access
             if not self.validate_estate_access(client_profile, layout.estate):
                 self.log_access(client_profile, "estate_layout", layout_id, success=False)
-                return Response(
-                    {"success": False, "error": "Access denied."},
-                    status=status.HTTP_403_FORBIDDEN
+                return APIResponse.forbidden(
+                    message="Access denied",
+                    error_code="ACCESS_DENIED"
                 )
             
             # Log access
@@ -629,9 +622,9 @@ class SecureEstateLayoutAPIView(SecureMediaBaseView):
             )
             
         except PermissionDenied as e:
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message=str(e),
+                error_code="PERMISSION_DENIED"
             )
         except Exception as e:
             return self.handle_error(e, "SecureEstateLayoutAPIView.get")
@@ -661,9 +654,9 @@ class SecureFloorPlanAPIView(SecureMediaBaseView):
                 if plan_id <= 0:
                     raise ValueError()
             except (ValueError, TypeError):
-                return Response(
-                    {"success": False, "error": "Invalid floor plan identifier."},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'plan_id': ['Invalid floor plan identifier']},
+                    error_code="INVALID_ID"
                 )
             
             # Get client profile
@@ -675,17 +668,17 @@ class SecureFloorPlanAPIView(SecureMediaBaseView):
                     'estate', 'estate__company', 'plot_size'
                 ).get(id=plan_id)
             except EstateFloorPlan.DoesNotExist:
-                return Response(
-                    {"success": False, "error": "Floor plan not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Floor plan not found",
+                    error_code="FLOOR_PLAN_NOT_FOUND"
                 )
             
             # Validate access - also check plot size access
             if not self.validate_estate_access(client_profile, plan.estate, plan.plot_size):
                 self.log_access(client_profile, "floor_plan", plan_id, success=False)
-                return Response(
-                    {"success": False, "error": "Access denied."},
-                    status=status.HTTP_403_FORBIDDEN
+                return APIResponse.forbidden(
+                    message="Access denied",
+                    error_code="ACCESS_DENIED"
                 )
             
             # Log access
@@ -698,9 +691,9 @@ class SecureFloorPlanAPIView(SecureMediaBaseView):
             )
             
         except PermissionDenied as e:
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message=str(e),
+                error_code="PERMISSION_DENIED"
             )
         except Exception as e:
             return self.handle_error(e, "SecureFloorPlanAPIView.get")
@@ -737,9 +730,9 @@ class ClientEstateAccessCheckAPIView(SecureClientBaseView):
                 if estate_id <= 0:
                     raise ValueError()
             except (ValueError, TypeError):
-                return Response(
-                    {"success": False, "error": "Invalid estate identifier."},
-                    status=status.HTTP_400_BAD_REQUEST
+                return APIResponse.validation_error(
+                    errors={'estate_id': ['Invalid estate identifier']},
+                    error_code="INVALID_ID"
                 )
             
             # Get client profile
@@ -749,9 +742,9 @@ class ClientEstateAccessCheckAPIView(SecureClientBaseView):
             try:
                 estate = Estate.objects.get(id=estate_id)
             except Estate.DoesNotExist:
-                return Response(
-                    {"success": False, "error": "Estate not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                return APIResponse.not_found(
+                    message="Estate not found",
+                    error_code="ESTATE_NOT_FOUND"
                 )
             
             # Get client's plot allocations for this estate
@@ -771,17 +764,19 @@ class ClientEstateAccessCheckAPIView(SecureClientBaseView):
                 for a in allocations if a.plot_size
             ]))
             
-            return Response({
-                "success": True,
-                "has_access": has_access,
-                "estate_id": estate_id,
-                "plot_sizes": plot_sizes
-            })
+            return APIResponse.success(
+                data={
+                    'has_access': has_access,
+                    'estate_id': estate_id,
+                    'plot_sizes': plot_sizes
+                },
+                message="Access check completed"
+            )
             
         except PermissionDenied as e:
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+            return APIResponse.forbidden(
+                message=str(e),
+                error_code="PERMISSION_DENIED"
             )
         except Exception as e:
             return self.handle_error(e, "ClientEstateAccessCheckAPIView.get")

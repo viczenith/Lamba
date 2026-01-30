@@ -120,7 +120,6 @@ class _ClientNotificationState extends State<ClientNotification>
       _webSocketService.messages.listen((message) {
         _handleWebSocketMessage(message);
       });
-
     } catch (e) {
       // Handle error
     }
@@ -152,10 +151,10 @@ class _ClientNotificationState extends State<ClientNotification>
 
     final notification = Map<String, dynamic>.from(data as Map);
 
-    final notifData = notification['notification'] as Map<String, dynamic>?
-        ?? notification['data'] as Map<String, dynamic>?
-        ?? notification['payload'] as Map<String, dynamic>?
-        ?? <String, dynamic>{};
+    final notifData = notification['notification'] as Map<String, dynamic>? ??
+        notification['data'] as Map<String, dynamic>? ??
+        notification['payload'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
     final title = notifData?['title']?.toString() ?? '';
     final body = notifData?['message']?.toString() ?? '';
     final createdAt = notification['created_at']?.toString();
@@ -210,16 +209,19 @@ class _ClientNotificationState extends State<ClientNotification>
 
         final meta = payload['meta'] as Map<String, dynamic>?;
 
-        final unreadNotifications = _parseCount(notification['unread_notifications_count'])
-            ?? _parseCount(notification['unread_count'])
-            ?? _parseCount(meta?['unread_notifications_count']);
+        final unreadNotifications =
+            _parseCount(notification['unread_notifications_count']) ??
+                _parseCount(notification['unread_count']) ??
+                _parseCount(meta?['unread_notifications_count']);
 
-        final unreadMessages = _parseCount(notification['global_message_count'])
-            ?? _parseCount(notification['unread_messages_count'])
-            ?? _parseCount(meta?['global_message_count']);
+        final unreadMessages =
+            _parseCount(notification['global_message_count']) ??
+                _parseCount(notification['unread_messages_count']) ??
+                _parseCount(meta?['global_message_count']);
 
         if (unreadNotifications != null || unreadMessages != null) {
-          final nextNotifications = unreadNotifications ?? fallbackNotifications;
+          final nextNotifications =
+              unreadNotifications ?? fallbackNotifications;
           final nextMessages = unreadMessages ?? fallbackMessages;
           headerController.updateCounts(nextNotifications, nextMessages);
           if (mounted && unreadNotifications != null) {
@@ -236,6 +238,9 @@ class _ClientNotificationState extends State<ClientNotification>
     }
   }
 
+  /// Fetch complete notification page data in one request
+  /// Uses new getClientNotificationPageData() for better performance
+  /// Falls back to separate calls if needed
   Future<void> _fetchCountsAndFirstPage() async {
     setState(() {
       _isLoading = true;
@@ -243,7 +248,41 @@ class _ClientNotificationState extends State<ClientNotification>
       _hasMore = true;
       _items.clear();
     });
-    await Future.wait([_fetchCounts(), _fetchPage(page: 1, reset: true)]);
+
+    try {
+      // Try new combined endpoint for better performance
+      final pageData =
+          await widget.api.getClientNotificationPageData(token: widget.token);
+
+      // Parse stats
+      final stats = pageData['stats'] as Map<String, dynamic>? ?? {};
+      setState(() {
+        _unread = stats['unread_count'] ?? 0;
+        _total = stats['total_count'] ?? 0;
+      });
+
+      // Combine unread and read lists
+      final unreadList = (pageData['unread_list'] as List<dynamic>?) ?? [];
+      final readList = (pageData['read_list'] as List<dynamic>?) ?? [];
+
+      setState(() {
+        _items.clear();
+        for (var item in unreadList) {
+          _items.add(Map<String, dynamic>.from(item as Map));
+        }
+        for (var item in readList) {
+          _items.add(Map<String, dynamic>.from(item as Map));
+        }
+        _sortNotifications();
+      });
+
+      _syncHeaderCounts(unreadNotifications: _unread);
+    } catch (e) {
+      // Fallback to separate calls
+      debugPrint('Combined page data failed: $e, using fallback');
+      await Future.wait([_fetchCounts(), _fetchPage(page: 1, reset: true)]);
+    }
+
     setState(() {
       _isLoading = false;
     });
@@ -255,28 +294,35 @@ class _ClientNotificationState extends State<ClientNotification>
     if (controller == null) return;
 
     final current = controller.countsNotifier.value;
-    final nextNotifications = unreadNotifications ?? current['notifications'] ?? _unread;
+    final nextNotifications =
+        unreadNotifications ?? current['notifications'] ?? _unread;
     final nextMessages = unreadMessages ?? current['messages'] ?? 0;
     controller.updateCounts(nextNotifications, nextMessages);
   }
 
+  /// Fetch unread/read notification counts from updated API
+  /// Maps new response fields: unread_count, read_count, total_count
   Future<void> _fetchCounts() async {
     try {
       final counts = await widget.api.getClientUnreadCounts(widget.token);
       setState(() {
-        _unread = counts['unread'] ?? 0;
-        _total = counts['total'] ?? 0;
+        // Handle both old and new field names for backward compatibility
+        _unread = counts['unread_count'] ?? counts['unread'] ?? 0;
+        _total = counts['total_count'] ?? counts['total'] ?? 0;
       });
 
       int? unreadMessages;
-      final rawMessages = counts['messages'] ?? counts['unread_messages'] ?? counts['global_message_count'];
+      final rawMessages = counts['messages'] ??
+          counts['unread_messages'] ??
+          counts['global_message_count'];
       if (rawMessages is int) {
         unreadMessages = rawMessages;
       } else if (rawMessages != null) {
         unreadMessages = int.tryParse('$rawMessages');
       }
 
-      _syncHeaderCounts(unreadNotifications: _unread, unreadMessages: unreadMessages);
+      _syncHeaderCounts(
+          unreadNotifications: _unread, unreadMessages: unreadMessages);
     } catch (e) {
       // ignore - show subtle snackbar
       _showSnack('Failed to load counts');
@@ -288,11 +334,11 @@ class _ClientNotificationState extends State<ClientNotification>
       // First, sort by read status (unread first)
       final aRead = a['read'] == true;
       final bRead = b['read'] == true;
-      
+
       if (aRead != bRead) {
         return aRead ? 1 : -1; // unread (false) comes before read (true)
       }
-      
+
       // Then sort by date (newest first)
       try {
         final aDate = DateTime.parse(a['created_at']?.toString() ?? '');
@@ -304,6 +350,8 @@ class _ClientNotificationState extends State<ClientNotification>
     });
   }
 
+  /// Fetch paginated notification list with filter support
+  /// Handles both new API response structure and legacy formats
   Future<void> _fetchPage({int page = 1, bool reset = false}) async {
     if (!_hasMore && !reset) return;
     setState(() {
@@ -315,22 +363,22 @@ class _ClientNotificationState extends State<ClientNotification>
       List<dynamic> results = [];
       bool nextExists = false;
 
-      // support paginated DRF {count,next,previous,results}
+      // Support paginated DRF format: {count, next, previous, results}
       if (resp is Map<String, dynamic> && resp.containsKey('results')) {
         results = resp['results'] as List<dynamic>;
         nextExists = resp['next'] != null;
       } else if (resp is List<dynamic>) {
+        // Legacy list format
         results = resp;
-        // If list length < pageSize -> no more
         nextExists = (results.length >= 12);
       } else {
-        // fallback single object
+        // Unknown format
         results = [];
       }
 
       if (reset) {
         _items.clear();
-        _listKey.currentState?.setState(() {}); // ensure AnimatedList rebuild
+        _listKey.currentState?.setState(() {});
       }
 
       final startIndex = _items.length;
@@ -341,7 +389,7 @@ class _ClientNotificationState extends State<ClientNotification>
             duration: const Duration(milliseconds: 300));
       }
 
-      // Sort notifications after adding them
+      // Sort notifications: unread first, then by date (newest first)
       _sortNotifications();
 
       setState(() {
@@ -373,7 +421,7 @@ class _ClientNotificationState extends State<ClientNotification>
 
   Future<void> _markReadInBackground(Map<String, dynamic> item) async {
     if (item['read'] == true) return;
-    
+
     setState(() {
       _unread = (_unread - 1).clamp(0, _total);
     });
@@ -475,19 +523,55 @@ class _ClientNotificationState extends State<ClientNotification>
       await Navigator.of(context).push(
         MaterialPageRoute(
             builder: (_) => NotificationDetailPage(
-                token: widget.token,
-                userNotificationId: id)),
+                token: widget.token, userNotificationId: id)),
       );
-      
+
       // Refresh the notification data after returning
       await _fetchCounts();
-      
+
       // Mark as read if it wasn't already
       if (un['read'] != true) {
         await _markReadOptimistic(index);
       }
     } catch (e) {
       _showSnack('Failed to load detail');
+    }
+  }
+
+  Future<void> _deleteNotificationOptimistic(int index) async {
+    if (index < 0 || index >= _items.length) return;
+
+    final item = _items[index];
+    final itemId = item['id'] as int?;
+    if (itemId == null) return;
+
+    // Optimistic removal from UI
+    setState(() {
+      _items.removeAt(index);
+      // Update counts if it was unread
+      if (item['read'] != true) {
+        _unread = (_unread - 1).clamp(0, _total);
+      }
+      _total = (_total - 1).clamp(0, 999);
+    });
+    _syncHeaderCounts(unreadNotifications: _unread);
+    _showSnack('Notification deleted');
+
+    try {
+      await widget.api.deleteClientNotification(
+          token: widget.token, userNotificationId: itemId);
+      await _fetchCounts();
+    } catch (e) {
+      // Restore if delete failed
+      setState(() {
+        _items.insert(index, item);
+        if (item['read'] != true) {
+          _unread = (_unread + 1).clamp(0, _total);
+        }
+        _total = (_total + 1).clamp(0, 999);
+      });
+      _syncHeaderCounts(unreadNotifications: _unread);
+      _showSnack('Failed to delete notification');
     }
   }
 
@@ -513,7 +597,7 @@ class _ClientNotificationState extends State<ClientNotification>
       final dt = DateTime.parse(dateStr).toLocal();
       final now = DateTime.now();
       final diff = now.difference(dt);
-      
+
       if (diff.inMinutes < 1) return 'Just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
       if (diff.inHours < 24) return '${diff.inHours}h ago';
@@ -526,7 +610,8 @@ class _ClientNotificationState extends State<ClientNotification>
 
   String _stripHtmlTags(String htmlText) {
     // Remove HTML tags for preview
-    final RegExp exp = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false);
+    final RegExp exp =
+        RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false);
     String stripped = htmlText.replaceAll(exp, '');
     // Comprehensive HTML entity decoding for accurate symbol display
     stripped = stripped
@@ -589,12 +674,19 @@ class _ClientNotificationState extends State<ClientNotification>
   Widget _buildNotificationTile(
       int index, Map<String, dynamic> item, Animation<double> animation) {
     final notif = item['notification'] as Map<String, dynamic>? ?? {};
+    final company = notif['company'] as Map<String, dynamic>? ?? {};
     final title = notif['title']?.toString() ?? 'No title';
     final rawMsg = notif['message']?.toString() ?? '';
     final msg = _stripHtmlTags(rawMsg);
     final created =
         item['created_at']?.toString() ?? notif['created_at']?.toString();
+    final timeAgo = notif['time_ago']?.toString() ?? _getRelativeTime(created);
     final read = item['read'] == true;
+
+    // Company info
+    final companyName = company['company_name']?.toString() ?? 'System';
+    final companyLogoUrl = company['logo_url']?.toString();
+    final companyInitial = company['initial']?.toString() ?? 'S';
 
     return SizeTransition(
       sizeFactor: CurvedAnimation(parent: animation, curve: Curves.easeOut),
@@ -619,64 +711,84 @@ class _ClientNotificationState extends State<ClientNotification>
                   color: Colors.white, size: 24),
             ),
             onDismissed: (_) {
-              // Remove item from list immediately to prevent "still part of tree" error
               final dismissedItem = _items[index];
               setState(() {
                 _items.removeAt(index);
               });
-              // Then mark as read in background
               _markReadInBackground(dismissedItem);
             },
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 400;
-                
-                return GestureDetector(
-                  onTap: () => _openDetail(index),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                    decoration: BoxDecoration(
-                      color: read ? Colors.grey.shade50 : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: read ? Colors.grey.shade100 : const Color(0xFF4154F1).withOpacity(0.1),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+            child: GestureDetector(
+              onTap: () => _openDetail(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: read ? Colors.grey.shade50 : Colors.blue.shade50,
+                  border: Border.all(
+                    color: read ? Colors.grey.shade200 : Colors.blue.shade200,
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(read ? 0.02 : 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
+                  ],
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Clean minimal icon
+                    // Company Avatar with logo or initial
                     Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: read
-                            ? Colors.grey.shade200
-                            : const Color(0xFF4154F1).withOpacity(0.1),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
-                        read ? Icons.check_circle_rounded : Icons.circle_notifications,
-                        color: read ? Colors.grey.shade500 : const Color(0xFF4154F1),
-                        size: 20,
-                      ),
+                      child: companyLogoUrl != null && companyLogoUrl.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                companyLogoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(
+                                    companyInitial,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                companyInitial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 12),
-                    // content
+                    // Content
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Title + Time
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -684,30 +796,31 @@ class _ClientNotificationState extends State<ClientNotification>
                                 child: Text(
                                   title,
                                   style: TextStyle(
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: read
+                                        ? FontWeight.w500
+                                        : FontWeight.w600,
                                     fontSize: 14,
-                                    color: read ? Colors.grey.shade700 : Colors.grey.shade900,
-                                    fontFamily: 'Roboto',  // Supports emojis and special characters
+                                    color: read
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade900,
                                   ),
-                                  maxLines: 2,
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (!read) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.only(top: 4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF4154F1),
-                                    shape: BoxShape.circle,
-                                  ),
+                              const SizedBox(width: 8),
+                              Text(
+                                timeAgo,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                  fontWeight: FontWeight.w400,
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
+                          // Preview message
                           Text(
                             msg,
                             maxLines: 2,
@@ -715,50 +828,85 @@ class _ClientNotificationState extends State<ClientNotification>
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 13,
-                              height: 1.5,
-                              fontFamily: 'Roboto',  // Ensures emoji and special character support
+                              height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 8,
-                            crossAxisAlignment: WrapCrossAlignment.center,
+                          const SizedBox(height: 8),
+                          // Company tag + actions
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                _getRelativeTime(created),
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 12,
+                              // Company tag
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  companyName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (!read)
+                              const SizedBox(width: 8),
+                              // Actions for unread
+                              if (!read) ...[
                                 InkWell(
                                   onTap: () => _markReadOptimistic(index),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 4),
-                                    child: const Text(
+                                    child: Text(
                                       'Mark read',
                                       style: TextStyle(
                                         color: Color(0xFF4154F1),
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                              ],
+                              // Delete action
+                              InkWell(
+                                onTap: () =>
+                                    _deleteNotificationOptimistic(index),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  child: Icon(Icons.close,
+                                      size: 16, color: Colors.grey),
+                                ),
+                              ),
                             ],
-                          )
+                          ),
                         ],
                       ),
-                    )
+                    ),
+                    // Unread indicator dot
+                    if (!read)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, top: 4),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF3B82F6),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                  ),
-                );
-              },
+              ),
             ),
           ),
         ),
@@ -833,7 +981,7 @@ class _ClientNotificationState extends State<ClientNotification>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 400;
-        
+
         return Container(
           padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
           decoration: BoxDecoration(
@@ -1058,7 +1206,6 @@ class _ClientNotificationState extends State<ClientNotification>
   }
 }
 
-
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   final double minHeight;
@@ -1077,7 +1224,8 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => maxHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return SizedBox.expand(child: child);
   }
 

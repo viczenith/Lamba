@@ -34,6 +34,9 @@ class ChatParticipantContext {
   });
 
   final String? id;
+
+  /// Convenience getter to parse the ID as integer when needed (company IDs are numeric)
+  int? get idAsInt => id == null ? null : int.tryParse(id!);
   final String? displayName;
   final String? email;
   final String? avatarUrl;
@@ -56,9 +59,6 @@ class ChatParticipantContext {
   }
 }
 
-/// Lightweight descriptor used by each role to customise the shared chat
-/// implementation. Each role provides the actions required to talk to the
-/// backend plus any UI overrides (header widgets, colours, etc.).
 class ChatRoleConfig {
   const ChatRoleConfig({
     required this.role,
@@ -88,14 +88,14 @@ class ChatRoleConfig {
 
   final ChatBodyPaddingBuilder? bodyPaddingBuilder;
 
-  final String? Function(Map<String, dynamic> message, String? currentUserAvatar)
+  final String? Function(
+          Map<String, dynamic> message, String? currentUserAvatar)
       messageAvatarBuilder;
 
   final bool Function(Map<String, dynamic> message) isOwnMessage;
 
   final Map<String, dynamic> Function(Map<String, dynamic> message)
       normalizeBackendMessage;
-
 
   final Future<ChatThreadLoadResult> Function({
     required String token,

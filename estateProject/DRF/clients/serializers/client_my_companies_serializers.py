@@ -11,7 +11,7 @@ Each card displays:
 - Client rank badge
 
 Security: All data scoped to authenticated client only.
-"""
+""" 
 
 from rest_framework import serializers
 from decimal import Decimal

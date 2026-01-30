@@ -21,7 +21,6 @@ import 'package:real_estate_app/admin/models/estate_details_model.dart';
 import 'package:real_estate_app/admin/models/admin_user_registration.dart';
 import 'package:real_estate_app/admin/models/plot_allocation_model.dart';
 import 'package:real_estate_app/admin/models/plot_size_number_model.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:real_estate_app/core/config.dart';
 
@@ -87,7 +86,10 @@ class ApiService {
     final url = '$baseUrl/api-token-auth/';
 
     final body = <String, dynamic>{
+      // Include both `email` and `username` for compatibility with different
+      // backends / form field names.
       'email': email,
+      'username': email,
       'password': password,
     };
     if (selectedUserId != null) body['selected_user_id'] = selectedUserId;
@@ -856,11 +858,19 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['profile_image'] != null &&
-          !data['profile_image'].startsWith('http')) {
+      final decoded = jsonDecode(response.body);
+      final data = (decoded is Map &&
+              decoded.containsKey('data') &&
+              decoded['success'] == true)
+          ? decoded['data']
+          : decoded;
+
+      if (data is Map &&
+          data['profile_image'] != null &&
+          !data['profile_image'].toString().startsWith('http')) {
         data['profile_image'] = '$baseUrl${data['profile_image']}';
       }
+
       return data;
     } else {
       throw Exception('Failed to fetch client details');
@@ -972,11 +982,17 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      final data = (decoded is Map &&
+              decoded.containsKey('data') &&
+              decoded['success'] == true)
+          ? decoded['data']
+          : decoded;
 
       // Check if the profile_image field is not null and handle dynamic URLs
-      if (data['profile_image'] != null &&
-          !data['profile_image'].startsWith('http')) {
+      if (data is Map &&
+          data['profile_image'] != null &&
+          !data['profile_image'].toString().startsWith('http')) {
         data['profile_image'] = '$baseUrl${data['profile_image']}';
       }
 
@@ -1068,7 +1084,17 @@ class ApiService {
       },
     );
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      final Map<String, dynamic> data = (decoded is Map<String, dynamic> &&
+              decoded.containsKey('data') &&
+              decoded['success'] == true &&
+              decoded['data'] is Map<String, dynamic>)
+          ? Map<String, dynamic>.from(decoded['data'])
+          : (decoded is Map<String, dynamic>
+              ? Map<String, dynamic>.from(decoded)
+              : <String, dynamic>{});
+
+      return data;
     } else {
       throw Exception('Failed to load user profile: ${response.body}');
     }
@@ -1145,10 +1171,16 @@ class ApiService {
       body: jsonEncode(data),
     );
 
-    if (resp.statusCode != 200) {
-      final error = jsonDecode(resp.body);
-      throw Exception(error['detail'] ?? 'Failed to update allocation');
-    }
+    if (resp.statusCode == 200) {
+      final decoded = jsonDecode(resp.body);
+      final data = (decoded is Map &&
+              decoded.containsKey('data') &&
+              decoded['success'] == true)
+          ? decoded['data']
+          : decoded;
+
+      return data;
+    } else {}
   }
 
   Future<List<dynamic>> loadPlots(String token, int estateId) async {
@@ -2027,11 +2059,55 @@ class ApiService {
       }
     }
 
+    // Defensive: normalize nested estates -> company_logo and sizes (promo_price/discount_pct)
+    if (promo['estates'] is List) {
+      promo['estates'] = (promo['estates'] as List).map((e) {
+        if (e is Map<String, dynamic>) {
+          final company = e['company'];
+          if (company is Map<String, dynamic>) {
+            final cand = company['company_logo'] ??
+                company['logo'] ??
+                company['logo_url'] ??
+                (company['logo'] is Map
+                    ? (company['logo'] as Map<String, dynamic>)['url']
+                    : null);
+            if (cand is String && cand.isNotEmpty)
+              company['company_logo'] = _absUrl(cand);
+            e['company'] = company;
+          } else {
+            final cand = e['company_logo'] ?? e['logo'];
+            if (cand is String && cand.isNotEmpty)
+              e['company_logo'] = _absUrl(cand);
+          }
+
+          if (e['sizes'] is List) {
+            e['sizes'] = (e['sizes'] as List).map((s) {
+              if (s is Map<String, dynamic>) {
+                s['promo_price'] = s['promo_price'] ??
+                    s['promoPrice'] ??
+                    s['price'] ??
+                    s['current'];
+                s['discount_pct'] = s['discount_pct'] ??
+                    s['discount'] ??
+                    promo['discount_pct'] ??
+                    null;
+              }
+              return s;
+            }).toList();
+          }
+        }
+        return e;
+      }).toList();
+    }
+
     return promo;
   }
 
+  /// Fetch complete client dashboard data with stats, promotions, and price history
+  /// Endpoint: GET /api/client/dashboard/
+  /// Returns: user, stats (4 cards), active_promotions, latest_value_by_company organized by company
   Future<Map<String, dynamic>> getClientDashboardData(String token) async {
-    final url = '$baseUrl/client/dashboard-data/';
+    final url = '$baseUrl/api/client/dashboard/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Authorization': 'Token $token'
@@ -2077,11 +2153,17 @@ class ApiService {
         }
       }
 
-      // Normalize promos inside latest_value entries (price history)
-      if (data['latest_value'] is List) {
-        for (var entry in data['latest_value']) {
-          if (entry is Map<String, dynamic> && entry.containsKey('promo')) {
-            entry['promo'] = _normalizePromo(entry['promo']);
+      // Normalize promos in latest_value_by_company (organized by company for accordion)
+      if (data['latest_value_by_company'] is List) {
+        for (var companyGroup in data['latest_value_by_company']) {
+          if (companyGroup is Map<String, dynamic> &&
+              companyGroup['updates'] is List) {
+            for (var update in companyGroup['updates']) {
+              if (update is Map<String, dynamic> &&
+                  update.containsKey('promo')) {
+                update['promo'] = _normalizePromo(update['promo']);
+              }
+            }
           }
         }
       }
@@ -2093,13 +2175,17 @@ class ApiService {
     }
   }
 
+  /// Fetch detailed price update by ID
+  /// Endpoint: GET /api/price-update/<id>/
+  /// Returns: PriceHistory with estate, plot_unit, prices, percent_change, promo, dates
   Future<Map<String, dynamic>> getPriceUpdateById(int id,
-      {String? token}) async {
+      {String? token, Duration timeout = const Duration(seconds: 15)}) async {
     final url = '$baseUrl/api/price-update/$id/';
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
-    final resp = await http.get(Uri.parse(url), headers: headers);
+    final resp =
+        await http.get(Uri.parse(url), headers: headers).timeout(timeout);
     if (resp.statusCode == 200) {
       final Map<String, dynamic> data =
           jsonDecode(resp.body) as Map<String, dynamic>;
@@ -2112,20 +2198,64 @@ class ApiService {
     }
   }
 
+  /// Fetch active promotional offers for user's affiliated companies
+  /// Endpoint: GET /api/active-promotions/
+  /// Returns: List of active promotions with estates and pricing
+  Future<List<Map<String, dynamic>>> getActivePromotions(
+      {String? token, Duration timeout = const Duration(seconds: 15)}) async {
+    final url = '$baseUrl/api/active-promotions/';
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty)
+      headers['Authorization'] = 'Token $token';
+    final resp =
+        await http.get(Uri.parse(url), headers: headers).timeout(timeout);
+    if (resp.statusCode == 200) {
+      final dynamic decoded = jsonDecode(resp.body);
+      if (decoded is List) {
+        final promos = <Map<String, dynamic>>[];
+        for (var p in decoded) {
+          if (p is Map<String, dynamic>) {
+            _normalizePromo(p);
+            promos.add(p);
+          }
+        }
+        return promos;
+      } else if (decoded is Map && decoded['data'] is List) {
+        final promos = <Map<String, dynamic>>[];
+        for (var p in decoded['data']) {
+          if (p is Map<String, dynamic>) {
+            _normalizePromo(p);
+            promos.add(p);
+          }
+        }
+        return promos;
+      }
+      return [];
+    } else {
+      throw Exception(
+          'Failed to load active promotions: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  /// Fetch paginated promotions with filtering
+  /// Endpoint: GET /api/promotions/?filter=all|active|past&page=X&q=search
+  /// Returns: {active_promotions: [...], promotions: {count, next, previous, results: [...]}}
   Future<Map<String, dynamic>> listPromotions({
     String? token,
     String filter = 'all',
     String? q,
     int page = 1,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final qPart =
         q != null && q.isNotEmpty ? '&q=${Uri.encodeQueryComponent(q)}' : '';
     final url =
-        '$baseUrl/promotions/?filter=${Uri.encodeQueryComponent(filter)}&page=$page$qPart';
+        '$baseUrl/api/promotions/?filter=${Uri.encodeQueryComponent(filter)}&page=$page$qPart';
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
-    final resp = await http.get(Uri.parse(url), headers: headers);
+    final resp =
+        await http.get(Uri.parse(url), headers: headers).timeout(timeout);
     if (resp.statusCode == 200) {
       final Map<String, dynamic> data =
           jsonDecode(resp.body) as Map<String, dynamic>;
@@ -2155,13 +2285,17 @@ class ApiService {
     }
   }
 
+  /// Fetch detailed promotion information
+  /// Endpoint: GET /api/promotion/<id>/
+  /// Returns: Complete promotion with estates, sizes, pricing, and active status
   Future<Map<String, dynamic>> getPromotionDetail(int id,
-      {String? token}) async {
-    final url = '$baseUrl/promotions/$id/';
+      {String? token, Duration timeout = const Duration(seconds: 15)}) async {
+    final url = '$baseUrl/api/promotion/$id/';
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
-    final resp = await http.get(Uri.parse(url), headers: headers);
+    final resp =
+        await http.get(Uri.parse(url), headers: headers).timeout(timeout);
     if (resp.statusCode == 200) {
       final Map<String, dynamic> data =
           jsonDecode(resp.body) as Map<String, dynamic>;
@@ -2201,7 +2335,15 @@ class ApiService {
     };
     final resp = await http.get(Uri.parse(url), headers: headers);
     if (resp.statusCode == 200) {
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final decoded = jsonDecode(resp.body);
+      final Map<String, dynamic> data = (decoded is Map<String, dynamic> &&
+              decoded.containsKey('data') &&
+              decoded['success'] == true &&
+              decoded['data'] is Map<String, dynamic>)
+          ? Map<String, dynamic>.from(decoded['data'])
+          : (decoded is Map<String, dynamic>
+              ? Map<String, dynamic>.from(decoded)
+              : <String, dynamic>{});
 
       // inline normalize helper (recursively normalizes profile_image / image-like fields)
       void _normalizeMediaUrlsInMap(Map<String, dynamic> m) {
@@ -2241,15 +2383,21 @@ class ApiService {
     }
   }
 
+  /// Fetch paginated list of estates for user's affiliated companies
+  /// Endpoint: GET /api/estates/?page=X&q=search&estate_id=X
+  /// Returns: List of estates with details, promos, and pricing
   Future<Map<String, dynamic>> listEstates({
     String? token,
     int page = 1,
     String? q,
+    int? estateId,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final qPart =
         q != null && q.isNotEmpty ? '&q=${Uri.encodeQueryComponent(q)}' : '';
-    final url = '$baseUrl/estates/?page=$page$qPart';
-    final headers = {
+    final estatePart = estateId != null ? '&estate_id=$estateId' : '';
+    final url = '$baseUrl/api/estates/?page=$page$qPart$estatePart';
+    final headers = <String, String>{
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Token $token',
     };
@@ -2343,14 +2491,17 @@ class ApiService {
     };
   }
 
-  Future<List<dynamic>> listActivePromotions({String? token}) async {
-    final url = '$baseUrl/promotions/active/';
-    final headers = {
+  /// Fetch currently active promotional offers
+  Future<List<dynamic>> listActivePromotions(
+      {String? token, Duration timeout = const Duration(seconds: 15)}) async {
+    final url = '$baseUrl/api/active-promotions/';
+    final headers = <String, String>{
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Token $token',
     };
 
-    final resp = await http.get(Uri.parse(url), headers: headers);
+    final resp =
+        await http.get(Uri.parse(url), headers: headers).timeout(timeout);
     if (resp.statusCode != 200) {
       throw Exception(
           'Failed to load active promotions: ${resp.statusCode} ${resp.body}');
@@ -2579,6 +2730,29 @@ class ApiService {
       }
     }
 
+    // normalize company logo (accept several server shapes)
+    String? _companyLogo;
+    if (raw['company'] is Map<String, dynamic>) {
+      final company = Map<String, dynamic>.from(raw['company']);
+      final cand = company['company_logo'] ??
+          company['logo'] ??
+          company['logo_url'] ??
+          (company['logo'] is Map
+              ? (company['logo'] as Map<String, dynamic>)['url']
+              : null);
+      if (cand is String && cand.isNotEmpty) {
+        company['company_logo'] = _absUrl(cand);
+      }
+      out['company'] = company;
+      _companyLogo = company['company_logo'];
+    } else {
+      final cand = raw['company_logo'] ?? raw['logo'];
+      out['company_logo'] =
+          cand is String && cand.isNotEmpty ? _absUrl(cand) : null;
+      _companyLogo = out['company_logo'];
+    }
+
+    // ensure sizes exist and return
     out['sizes'] = sizes;
     return out;
   }
@@ -2762,15 +2936,39 @@ class ApiService {
   }
 
   void _normalizeMediaUrls(Map<String, dynamic> data) {
-    // shallow normalization for common keys
-    final keys = ['profile_image', 'image', 'avatar', 'photo'];
+    // shallow normalization for common keys (accept company logo variants)
+    final keys = [
+      'profile_image',
+      'image',
+      'avatar',
+      'photo',
+      'company_logo',
+      'logo'
+    ];
     for (final k in keys) {
-      if (data.containsKey(k)) {
-        final v = data[k];
-        if (v != null && v is String && v.isNotEmpty && !v.startsWith('http')) {
-          data[k] = baseUrl + v;
-        }
+      if (!data.containsKey(k) || data[k] == null) continue;
+      final v = data[k];
+      if (v is String && v.isNotEmpty) {
+        data[k] = _absUrl(v);
+      } else if (v is Map<String, dynamic>) {
+        final candidate = v['url'] ?? v['path'] ?? v['logo'] ?? v['logo_url'];
+        if (candidate is String && candidate.isNotEmpty)
+          data[k] = _absUrl(candidate);
       }
+    }
+
+    // normalize nested company.logo / company.company_logo
+    if (data['company'] is Map<String, dynamic>) {
+      final company = data['company'] as Map<String, dynamic>;
+      final cand = company['company_logo'] ??
+          company['logo'] ??
+          company['logo_url'] ??
+          (company['logo'] is Map
+              ? (company['logo'] as Map<String, dynamic>)['url']
+              : null);
+      if (cand is String && cand.isNotEmpty)
+        company['company_logo'] = _absUrl(cand);
+      data['company'] = company;
     }
   }
 
@@ -2833,6 +3031,29 @@ class ApiService {
   }
 
   // PROFILE METHODS
+  Future<Map<String, dynamic>> getClientProfileOverview({
+    required String token,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri = Uri.parse('$baseUrl/clients/profile/overview/');
+
+    final resp = await http.get(uri, headers: {
+      'Authorization': 'Token $token',
+      'Accept': 'application/json',
+    }).timeout(timeout);
+
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    }
+
+    String msg = 'Failed to load profile overview: ${resp.statusCode}';
+    try {
+      final j = jsonDecode(resp.body);
+      if (j is Map && j['detail'] != null) msg = j['detail'].toString();
+    } catch (_) {}
+    throw Exception('$msg ${resp.body}');
+  }
+
   Future<Map<String, dynamic>> getClientDetailByToken({
     required String token,
     Duration timeout = const Duration(seconds: 15),
@@ -2845,85 +3066,7 @@ class ApiService {
     }).timeout(timeout);
 
     if (resp.statusCode == 200) {
-      final Map<String, dynamic> data =
-          jsonDecode(resp.body) as Map<String, dynamic>;
-
-      // --- normalize top-level profile_image to absolute URL ---
-      final img = data['profile_image'];
-      if (img != null &&
-          img is String &&
-          img.isNotEmpty &&
-          !img.startsWith('http')) {
-        final prefix = baseUrl.endsWith('/')
-            ? baseUrl.substring(0, baseUrl.length - 1)
-            : baseUrl;
-        data['profile_image'] = '$prefix$img';
-      }
-
-      // --- normalize assigned_marketer into Map<String, dynamic>? with safe keys ---
-      final amRaw = data['assigned_marketer'];
-      if (amRaw == null) {
-        data['assigned_marketer'] = null;
-      } else {
-        Map<String, dynamic> am;
-        if (amRaw is Map<String, dynamic>) {
-          am = Map<String, dynamic>.from(amRaw);
-        } else if (amRaw is Map) {
-          am = Map<String, dynamic>.from(
-              amRaw.map((k, v) => MapEntry(k.toString(), v)));
-        } else {
-          // unexpected shape -> null
-          data['assigned_marketer'] = null;
-          return data;
-        }
-
-        // normalize name keys
-        am['full_name'] = (am['full_name']?.toString().isNotEmpty == true)
-            ? am['full_name'].toString()
-            : (am['name']?.toString() ?? '');
-
-        String? marketerImage;
-        if (am['profile_image'] is String &&
-            (am['profile_image'] as String).isNotEmpty) {
-          marketerImage = am['profile_image'] as String;
-        } else if (am['avatar'] is String &&
-            (am['avatar'] as String).isNotEmpty) {
-          marketerImage = am['avatar'] as String;
-        } else if (am['image'] is String &&
-            (am['image'] as String).isNotEmpty) {
-          marketerImage = am['image'] as String;
-        }
-
-        // if (marketerImage != null && !marketerImage.startsWith('http')) {
-        //   final prefix = baseUrl.endsWith('/')
-        //       ? baseUrl.substring(0, baseUrl.length - 1)
-        //       : baseUrl;
-        //   marketerImage = '$prefix$marketerImage';
-        // }
-        // am['profile_image'] = marketerImage;
-        bool _isAbsoluteUrl(String s) {
-          final pattern = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.\-]*://');
-          return pattern.hasMatch(s) || s.startsWith('//');
-        }
-
-        if (marketerImage != null && !_isAbsoluteUrl(marketerImage)) {
-          final prefix = baseUrl.endsWith('/')
-              ? baseUrl.substring(0, baseUrl.length - 1)
-              : baseUrl;
-          marketerImage = marketerImage.startsWith('/')
-              ? '$prefix$marketerImage'
-              : '$prefix/$marketerImage';
-        }
-        am['profile_image'] = marketerImage;
-
-        // ensure phone/email are string or null
-        am['phone'] = am['phone']?.toString();
-        am['email'] = am['email']?.toString();
-
-        data['assigned_marketer'] = am;
-      }
-
-      return data;
+      return jsonDecode(resp.body) as Map<String, dynamic>;
     }
 
     String msg = 'Failed to load profile: ${resp.statusCode}';
@@ -2936,55 +3079,64 @@ class ApiService {
 
   Future<Map<String, dynamic>> updateClientProfileByToken({
     required String token,
+    String? title,
     String? fullName,
     String? about,
+    String? dateOfBirth,
     String? company,
     String? job,
     String? country,
     String? address,
     String? phone,
-    String? email,
     File? profileImage,
     Duration timeout = const Duration(seconds: 40),
   }) async {
-    final uri = Uri.parse('$baseUrl/clients/profile/update/');
+    final uri = Uri.parse('$baseUrl/clients/profile/');
     final request = http.MultipartRequest('POST', uri);
 
-    // Headers (MultipartRequest sets content-type for multipart)
+    // Headers
     request.headers['Authorization'] = 'Token $token';
     request.headers['Accept'] = 'application/json';
 
-    if (fullName != null) request.fields['full_name'] = fullName;
-    if (about != null) request.fields['about'] = about;
-    if (company != null) request.fields['company'] = company;
-    if (job != null) request.fields['job'] = job;
-    if (country != null) request.fields['country'] = country;
-    if (address != null) request.fields['address'] = address;
-    if (phone != null) request.fields['phone'] = phone;
-    if (email != null) request.fields['email'] = email;
+    // Add optional fields (only non-null, non-empty values)
+    if (title != null && title.trim().isNotEmpty)
+      request.fields['title'] = title;
+    if (fullName != null && fullName.trim().isNotEmpty)
+      request.fields['full_name'] = fullName;
+    if (about != null && about.trim().isNotEmpty)
+      request.fields['about'] = about;
+    if (dateOfBirth != null && dateOfBirth.trim().isNotEmpty)
+      request.fields['date_of_birth'] = dateOfBirth;
+    if (company != null && company.trim().isNotEmpty)
+      request.fields['company'] = company;
+    if (job != null && job.trim().isNotEmpty) request.fields['job'] = job;
+    if (country != null && country.trim().isNotEmpty)
+      request.fields['country'] = country;
+    if (address != null && address.trim().isNotEmpty)
+      request.fields['address'] = address;
+    if (phone != null && phone.trim().isNotEmpty)
+      request.fields['phone'] = phone;
 
+    // Attach profile image if provided (multipart form data)
     if (profileImage != null) {
-      final mimeType =
-          lookupMimeType(profileImage.path) ?? 'application/octet-stream';
-      final parts = mimeType.split('/');
-      final multipartFile = await http.MultipartFile.fromPath(
-        'profile_image',
-        profileImage.path,
-        contentType: MediaType(parts[0], parts[1]),
+      final mimeType = lookupMimeType(profileImage.path) ?? 'image/jpeg';
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'profile_image',
+          profileImage.path,
+          contentType: MediaType.parse(mimeType),
+        ),
       );
-      request.files.add(multipartFile);
     }
 
     final streamed = await request.send().timeout(timeout);
     final resp = await http.Response.fromStream(streamed);
 
     if (resp.statusCode == 200 || resp.statusCode == 201) {
-      // Return parsed response as map (or empty map if no body)
       if (resp.body.isEmpty) return <String, dynamic>{};
       return jsonDecode(resp.body) as Map<String, dynamic>;
     }
 
-    // attempt to use server message
     String msg = 'Failed to update profile: ${resp.statusCode}';
     try {
       final j = jsonDecode(resp.body);
@@ -2993,89 +3145,35 @@ class ApiService {
     throw Exception('$msg ${resp.body}');
   }
 
-  Future<dynamic> getValueAppreciation({
+  Future<Map<String, dynamic>> uploadClientProfileImage({
     required String token,
-    Duration timeout = const Duration(seconds: 15),
+    required File profileImage,
+    Duration timeout = const Duration(seconds: 30),
   }) async {
-    final uri = Uri.parse('$baseUrl/clients/appreciation/');
+    final uri = Uri.parse('$baseUrl/clients/profile/image/');
+    final request = http.MultipartRequest('POST', uri);
 
-    final resp = await http.get(uri, headers: {
-      'Authorization': 'Token $token',
-      'Accept': 'application/json',
-    }).timeout(timeout);
+    request.headers['Authorization'] = 'Token $token';
+    request.headers['Accept'] = 'application/json';
 
-    if (resp.statusCode == 200) {
-      final decoded = jsonDecode(resp.body);
-      // Accept List or Map (or null/empty)
-      return decoded;
+    final mimeType = lookupMimeType(profileImage.path) ?? 'image/jpeg';
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'profile_image',
+        profileImage.path,
+        contentType: MediaType.parse(mimeType),
+      ),
+    );
+
+    final streamed = await request.send().timeout(timeout);
+    final resp = await http.Response.fromStream(streamed);
+
+    if (resp.statusCode == 200 || resp.statusCode == 201) {
+      if (resp.body.isEmpty) return <String, dynamic>{};
+      return jsonDecode(resp.body) as Map<String, dynamic>;
     }
 
-    String msg = 'Failed to load appreciation: ${resp.statusCode}';
-    try {
-      final j = jsonDecode(resp.body);
-      if (j is Map && j['detail'] != null) msg = j['detail'].toString();
-    } catch (_) {}
-    throw Exception('$msg ${resp.body}');
-  }
-
-  Future<List<dynamic>> getClientProperties({
-    required String token,
-    Duration timeout = const Duration(seconds: 15),
-  }) async {
-    final uri = Uri.parse('$baseUrl/clients/properties/');
-
-    final resp = await http.get(uri, headers: {
-      'Authorization': 'Token $token',
-      'Accept': 'application/json',
-    }).timeout(timeout);
-
-    if (resp.statusCode == 200) {
-      final decoded = jsonDecode(resp.body);
-      if (decoded is List) return decoded;
-      if (decoded is Map) {
-        final alt = decoded['transactions'] ??
-            decoded['results'] ??
-            decoded['data'] ??
-            decoded['items'];
-        if (alt is List) return alt;
-      }
-      // fallback: wrap single object in a list
-      return decoded is Map ? [decoded] : <dynamic>[];
-    }
-
-    String msg = 'Failed to load properties: ${resp.statusCode}';
-    try {
-      final j = jsonDecode(resp.body);
-      if (j is Map && j['detail'] != null) msg = j['detail'].toString();
-    } catch (_) {}
-    throw Exception('$msg ${resp.body}');
-  }
-
-  Future<List<dynamic>> getClientTransactions({
-    required String token,
-    Duration timeout = const Duration(seconds: 15),
-  }) async {
-    final uri = Uri.parse('$baseUrl/clients/transactions/');
-
-    final resp = await http.get(uri, headers: {
-      'Authorization': 'Token $token',
-      'Accept': 'application/json',
-    }).timeout(timeout);
-
-    if (resp.statusCode == 200) {
-      final decoded = jsonDecode(resp.body);
-      if (decoded is List) return decoded;
-      if (decoded is Map) {
-        final alt = decoded['transactions'] ??
-            decoded['results'] ??
-            decoded['data'] ??
-            decoded['items'];
-        if (alt is List) return alt;
-      }
-      return decoded is Map ? [decoded] : <dynamic>[];
-    }
-
-    String msg = 'Failed to load transactions: ${resp.statusCode}';
+    String msg = 'Failed to upload profile image: ${resp.statusCode}';
     try {
       final j = jsonDecode(resp.body);
       if (j is Map && j['detail'] != null) msg = j['detail'].toString();
@@ -3087,21 +3185,28 @@ class ApiService {
     required String token,
     required String currentPassword,
     required String newPassword,
+    required String confirmPassword,
     Duration timeout = const Duration(seconds: 15),
   }) async {
     final uri = Uri.parse('$baseUrl/clients/change-password/');
+
+    // Validate input on client side before sending
+    if (newPassword != confirmPassword) {
+      throw Exception('New password and confirmation do not match');
+    }
 
     final resp = await http
         .post(
           uri,
           headers: {
             'Authorization': 'Token $token',
-            'Accept': 'application/json',
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
           body: jsonEncode({
             'current_password': currentPassword,
             'new_password': newPassword,
+            'confirm_password': confirmPassword,
           }),
         )
         .timeout(timeout);
@@ -3111,7 +3216,12 @@ class ApiService {
     String message = 'Failed to change password: ${resp.statusCode}';
     try {
       final j = jsonDecode(resp.body);
-      if (j is Map && j['detail'] != null) message = j['detail'].toString();
+      if (j is Map) {
+        if (j['detail'] != null) message = j['detail'].toString();
+        if (j['current_password'] != null)
+          message = 'Current password is incorrect';
+        if (j['new_password'] != null) message = j['new_password'].toString();
+      }
     } catch (_) {}
     throw Exception('$message ${resp.body}');
   }
@@ -3445,9 +3555,35 @@ class ApiService {
   }
 
   // =========================
-  // NOTIFICATIONS (CLIENT)
-  // =========================
+  // =========================================================================
+  // NOTIFICATIONS (CLIENT) - notification.html page
+  // =========================================================================
+  Future<Map<String, dynamic>> getClientNotificationPageData({
+    required String token,
+  }) async {
+    if (token.isEmpty) {
+      throw Exception('Authentication token is required');
+    }
 
+    final url = '$baseUrl/api/client/notifications/';
+    final headers = <String, String>{
+      'Authorization': 'Token $token',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    try {
+      final resp = await http
+          .get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 30));
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Notification page data request timed out');
+    }
+  }
+
+  /// Fetch notifications with pagination and filtering
   Future<Map<String, dynamic>> fetchClientNotifications({
     required String token,
     int page = 1,
@@ -3455,7 +3591,6 @@ class ApiService {
     String? since,
     int pageSize = 12,
   }) async {
-    // ✅ Validate token
     if (token.isEmpty) {
       throw Exception('Authentication token is required');
     }
@@ -3469,7 +3604,7 @@ class ApiService {
       params['since'] = since;
     }
 
-    final uri = Uri.parse('$baseUrl/client/notifications/')
+    final uri = Uri.parse('$baseUrl/api/client/notifications/list/')
         .replace(queryParameters: params);
 
     final headers = <String, String>{
@@ -3478,19 +3613,19 @@ class ApiService {
       'Accept': 'application/json',
     };
 
-    if (kDebugMode) {}
-
-    final resp = await http.get(uri, headers: headers);
-
-    if (kDebugMode) {
-      if (resp.statusCode != 200) {}
+    try {
+      final resp = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 30));
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Notification list request timed out');
     }
-
-    final parsed = await _handleResponse(resp);
-    return Map<String, dynamic>.from(parsed as Map);
   }
 
   /// Get details of a single notification
+  /// GET /api/client/notifications/<id>/detail/
   Future<Map<String, dynamic>> getClientNotificationDetail({
     required String token,
     required int userNotificationId,
@@ -3499,24 +3634,24 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/client/notifications/$userNotificationId/';
+    final url = '$baseUrl/api/client/notifications/$userNotificationId/detail/';
 
-    if (kDebugMode) {}
+    try {
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json; charset=utf-8',
+          'Accept-Charset': 'utf-8',
+        },
+      ).timeout(const Duration(seconds: 20));
 
-    final resp = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Token $token',
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json; charset=utf-8',
-        'Accept-Charset': 'utf-8',
-      },
-    );
-
-    if (kDebugMode) {}
-
-    final parsed = await _handleResponse(resp);
-    return Map<String, dynamic>.from(parsed as Map);
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Notification detail request timed out');
+    }
   }
 
   /// Get unread notification counts
@@ -3525,35 +3660,32 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/client/notifications/unread-count/';
+    final url = '$baseUrl/api/client/notifications/unread-count/';
 
-    if (kDebugMode) {}
+    try {
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
 
-    final resp = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Token $token',
-        'Content-Type': 'application/json',
-      },
-    );
+      final parsed = await _handleResponse(resp);
 
-    if (kDebugMode) {
-      if (resp.statusCode == 200) {
-      } else {}
+      // Ensure ints
+      final Map<String, dynamic> map = Map<String, dynamic>.from(parsed as Map);
+      return {
+        'unread': (map['unread_count'] is int)
+            ? map['unread_count']
+            : int.tryParse(map['unread_count']?.toString() ?? '0') ?? 0,
+        'total': (map['total_count'] is int)
+            ? map['total_count']
+            : int.tryParse(map['total_count']?.toString() ?? '0') ?? 0,
+      };
+    } on TimeoutException {
+      throw Exception('Unread count request timed out');
     }
-
-    final parsed = await _handleResponse(resp);
-
-    // Ensure ints
-    final Map<String, dynamic> map = Map<String, dynamic>.from(parsed as Map);
-    return {
-      'unread': (map['unread'] is int)
-          ? map['unread']
-          : int.tryParse(map['unread']?.toString() ?? '0') ?? 0,
-      'total': (map['total'] is int)
-          ? map['total']
-          : int.tryParse(map['total']?.toString() ?? '0') ?? 0,
-    };
   }
 
   /// Mark a notification as read
@@ -3565,25 +3697,27 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/client/notifications/$userNotificationId/mark-read/';
+    final url =
+        '$baseUrl/api/client/notifications/$userNotificationId/mark-read/';
 
-    if (kDebugMode) {}
+    try {
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
 
-    final resp = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Token $token',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (kDebugMode) {}
-
-    final parsed = await _handleResponse(resp);
-    return Map<String, dynamic>.from(parsed as Map);
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Mark read request timed out');
+    }
   }
 
   /// Mark a notification as unread
+  /// POST /api/client/notifications/<id>/mark-unread/
   Future<Map<String, dynamic>> markClientNotificationUnread({
     required String token,
     required int userNotificationId,
@@ -3593,25 +3727,26 @@ class ApiService {
     }
 
     final url =
-        '$baseUrl/client/notifications/$userNotificationId/mark-unread/';
+        '$baseUrl/api/client/notifications/$userNotificationId/mark-unread/';
 
-    if (kDebugMode) {}
+    try {
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
 
-    final resp = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Token $token',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (kDebugMode) {}
-
-    final parsed = await _handleResponse(resp);
-    return Map<String, dynamic>.from(parsed as Map);
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Mark unread request timed out');
+    }
   }
 
   /// Mark all notifications as read
+  /// POST /api/client/notifications/mark-all-read/
   Future<Map<String, int>> markClientAllNotificationsRead({
     required String token,
   }) async {
@@ -3619,28 +3754,28 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/client/notifications/mark-all-read/';
+    final url = '$baseUrl/api/client/notifications/mark-all-read/';
 
-    if (kDebugMode) {}
+    try {
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
 
-    final resp = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Token $token',
-        'Content-Type': 'application/json',
-      },
-    );
+      final parsed = await _handleResponse(resp);
+      final map = Map<String, dynamic>.from(parsed as Map);
 
-    if (kDebugMode) {}
-
-    final parsed = await _handleResponse(resp);
-    final map = Map<String, dynamic>.from(parsed as Map);
-
-    return {
-      'marked': (map['marked'] is int)
-          ? map['marked']
-          : int.tryParse(map['marked']?.toString() ?? '0') ?? 0,
-    };
+      return {
+        'marked': (map['marked'] is int)
+            ? map['marked']
+            : int.tryParse(map['marked']?.toString() ?? '0') ?? 0,
+      };
+    } on TimeoutException {
+      throw Exception('Mark all read request timed out');
+    }
   }
 
   /// Helper: Fetch notifications since a specific datetime
@@ -3658,7 +3793,35 @@ class ApiService {
     );
   }
 
-  // =========================
+  /// Delete a notification
+  /// POST /api/client/notifications/<id>/delete/
+  Future<Map<String, dynamic>> deleteClientNotification({
+    required String token,
+    required int userNotificationId,
+  }) async {
+    if (token.isEmpty) {
+      throw Exception('Authentication token is required');
+    }
+
+    final url = '$baseUrl/api/client/notifications/$userNotificationId/delete/';
+
+    try {
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      final parsed = await _handleResponse(resp);
+      return Map<String, dynamic>.from(parsed as Map);
+    } on TimeoutException {
+      throw Exception('Delete notification request timed out');
+    }
+  }
+
+  // =========================================================================
   // NOTIFICATIONS (MARKETER)
   // =========================
 
@@ -4458,25 +4621,15 @@ class ApiService {
     }
   }
 
-  // Add these methods to your existing ApiService class
-
 // ============================================================================
 // CLIENT CHAT API METHODS
 // ============================================================================
-
-  /// Fetch all chat messages between client and admin
-  ///
-  /// Query Parameters:
-  /// - [page]: Page number for pagination (default: 1)
-  /// - [pageSize]: Number of messages per page (default: 50, max: 100)
-  /// - [lastMsgId]: Get only messages after this ID (for polling/real-time updates)
-  ///
-  /// Returns paginated list of messages
   Future<Map<String, dynamic>> getClientChatMessages({
     required String token,
     int page = 1,
     int pageSize = 50,
     int? lastMsgId,
+    int? companyId,
   }) async {
     final params = <String, String>{
       'page': page.toString(),
@@ -4485,6 +4638,10 @@ class ApiService {
 
     if (lastMsgId != null) {
       params['last_msg_id'] = lastMsgId.toString();
+    }
+
+    if (companyId != null) {
+      params['company_id'] = companyId.toString();
     }
 
     final uri =
@@ -4583,20 +4740,13 @@ class ApiService {
   }
 
   /// Send a new message to admin
-  ///
-  /// Parameters:
-  /// - [content]: Message text (optional if file is provided)
-  /// - [file]: File attachment (optional)
-  /// - [messageType]: 'complaint', 'enquiry', or 'compliment' (default: 'enquiry')
-  /// - [replyToId]: Message ID to reply to (optional)
-  ///
-  /// Returns the created message
   Future<Map<String, dynamic>> sendClientChatMessage({
     required String token,
     String? content,
     File? file,
     String messageType = 'enquiry',
     int? replyToId,
+    int? companyId,
   }) async {
     final uri = Uri.parse('$baseUrl/client/chat/send/');
 
@@ -4618,6 +4768,10 @@ class ApiService {
 
       if (replyToId != null) {
         request.fields['reply_to'] = replyToId.toString();
+      }
+
+      if (companyId != null) {
+        request.fields['company_id'] = companyId.toString();
       }
 
       // Add file if provided
@@ -4758,6 +4912,7 @@ class ApiService {
     required String token,
     List<int>? messageIds,
     bool markAll = false,
+    int? companyId,
   }) async {
     final uri = Uri.parse('$baseUrl/client/chat/mark-read/');
 
@@ -4771,6 +4926,8 @@ class ApiService {
       } else {
         throw Exception('Please provide message_ids or set mark_all to true.');
       }
+
+      if (companyId != null) body['company_id'] = companyId;
 
       final response = await http.post(
         uri,
@@ -4799,18 +4956,17 @@ class ApiService {
     }
   }
 
-  /// Poll for new messages (lightweight endpoint for real-time updates)
-  ///
-  /// Parameters:
-  /// - [lastMsgId]: Get only messages after this ID
-  ///
-  /// Returns new messages and updated message statuses
+  /// Poll for new messages since last_msg_id
   Future<Map<String, dynamic>> pollClientChatMessages({
     required String token,
     int lastMsgId = 0,
+    int? companyId,
   }) async {
+    final params = <String, String>{'last_msg_id': lastMsgId.toString()};
+    if (companyId != null) params['company_id'] = companyId.toString();
+
     final uri = Uri.parse('$baseUrl/client/chat/poll/')
-        .replace(queryParameters: {'last_msg_id': lastMsgId.toString()});
+        .replace(queryParameters: params);
 
     try {
       final response = await http.get(
@@ -4853,6 +5009,62 @@ class ApiService {
     }
   }
 
+  /// Fetch list of companies for client chat explorer
+  ///
+  /// Returns: List of companies with {id, company_name, logo_url, last_message, last_message_date, unread_count}
+  Future<List<Map<String, dynamic>>> getClientChatCompanies({
+    required String token,
+  }) async {
+    final uri = Uri.parse('$baseUrl/client/chat/companies/');
+
+    try {
+      final response = await http.get(uri, headers: {
+        'Authorization': 'Token $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<Map<String, dynamic>> out = [];
+
+        if (data['companies'] is List) {
+          for (var c in data['companies']) {
+            if (c is Map<String, dynamic>) {
+              // Normalize logo url
+              if (c['logo_url'] is String) {
+                final logo = c['logo_url'].toString();
+                if (logo.isNotEmpty && !logo.startsWith('http')) {
+                  c['logo_url'] = '$baseUrl$logo';
+                }
+              }
+
+              // Normalize nested last_message file_url if present
+              if (c['last_message'] is Map &&
+                  c['last_message']['file_url'] != null) {
+                final fileUrl = c['last_message']['file_url'].toString();
+                if (fileUrl.isNotEmpty && !fileUrl.startsWith('http')) {
+                  c['last_message']['file_url'] = '$baseUrl$fileUrl';
+                }
+              }
+
+              out.add(Map<String, dynamic>.from(c));
+            }
+          }
+        }
+
+        return out;
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load client chat companies: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching client chat companies: $e');
+    }
+  }
+
   // ============================================================================
   // MARKETER CHAT API METHODS
   // ============================================================================
@@ -4862,6 +5074,7 @@ class ApiService {
     int page = 1,
     int pageSize = 50,
     int? lastMsgId,
+    int? companyId,
   }) async {
     final params = <String, String>{
       'page': page.toString(),
@@ -4870,6 +5083,10 @@ class ApiService {
 
     if (lastMsgId != null) {
       params['last_msg_id'] = lastMsgId.toString();
+    }
+
+    if (companyId != null) {
+      params['company_id'] = companyId.toString();
     }
 
     final uri =
@@ -4921,6 +5138,7 @@ class ApiService {
     PlatformFile? file,
     String messageType = 'enquiry',
     int? replyToId,
+    int? companyId,
   }) async {
     final uri = Uri.parse('$baseUrl/marketers/chat/send/');
 
@@ -4932,6 +5150,10 @@ class ApiService {
       request.fields['content'] = content?.trim() ?? '';
 
       request.fields['message_type'] = messageType;
+
+      if (companyId != null) {
+        request.fields['company_id'] = companyId.toString();
+      }
 
       if (replyToId != null) {
         request.fields['reply_to'] = replyToId.toString();
@@ -5044,9 +5266,14 @@ class ApiService {
   Future<Map<String, dynamic>> pollMarketerChatMessages({
     required String token,
     int lastMsgId = 0,
+    int? companyId,
   }) async {
+    final params = {'last_msg_id': lastMsgId.toString()};
+    if (companyId != null) {
+      params['company_id'] = companyId.toString();
+    }
     final uri = Uri.parse('$baseUrl/marketers/chat/poll/')
-        .replace(queryParameters: {'last_msg_id': lastMsgId.toString()});
+        .replace(queryParameters: params);
 
     try {
       final response = await http.get(
@@ -5157,5 +5384,320 @@ class ApiService {
     await stream.pipe(sink);
     await sink.close();
     return file;
+  }
+
+  // =========================================================================
+  // CLIENT COMPANY PORTFOLIO API METHODS (my_companies.html & my_company_portfolio.html)
+  // =========================================================================
+
+  /// Fetch all companies for the current client with stats and allocation counts
+  /// GET /api/clients/my-companies/
+  /// Returns: List of companies with rank, total_invested, allocation counts, marketer info
+  Future<Map<String, dynamic>> getClientMyCompanies({
+    required String token,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/clients/my-companies/');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Normalize company logos if present
+        if (data['companies'] is List) {
+          for (var company in (data['companies'] as List)) {
+            if (company is Map && company['logo_url'] != null) {
+              final logoUrl = company['logo_url'].toString();
+              if (logoUrl.isNotEmpty && !logoUrl.startsWith('http')) {
+                company['logo_url'] = _absUrl(logoUrl);
+              }
+            }
+          }
+        }
+
+        return data;
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load companies: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      throw Exception('Error fetching companies: $e');
+    }
+  }
+
+  /// Fetch comprehensive portfolio data for a specific company
+  /// GET /api/clients/company/{company_id}/portfolio/
+  /// Returns: Company details, stats, properties, appreciation data, payment history, estates count
+  Future<Map<String, dynamic>> getClientCompanyPortfolio({
+    required String token,
+    required int companyId,
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/clients/company/$companyId/portfolio/');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Normalize company logo
+        if (data['company'] is Map && data['company']['logo_url'] != null) {
+          final logoUrl = data['company']['logo_url'].toString();
+          if (logoUrl.isNotEmpty && !logoUrl.startsWith('http')) {
+            data['company']['logo_url'] = _absUrl(logoUrl);
+          }
+        }
+
+        // Normalize estate logos in properties
+        if (data['properties'] is List) {
+          for (var prop in (data['properties'] as List)) {
+            if (prop is Map && prop['logo_url'] != null) {
+              final logoUrl = prop['logo_url'].toString();
+              if (logoUrl.isNotEmpty && !logoUrl.startsWith('http')) {
+                prop['logo_url'] = _absUrl(logoUrl);
+              }
+            }
+          }
+        }
+
+        // Normalize estate logos in appreciation_data
+        if (data['appreciation_data'] is List) {
+          for (var appreciation in (data['appreciation_data'] as List)) {
+            if (appreciation is Map && appreciation['logo_url'] != null) {
+              final logoUrl = appreciation['logo_url'].toString();
+              if (logoUrl.isNotEmpty && !logoUrl.startsWith('http')) {
+                appreciation['logo_url'] = _absUrl(logoUrl);
+              }
+            }
+          }
+        }
+
+        return data;
+      } else if (response.statusCode == 403) {
+        throw Exception('You do not have access to this company.');
+      } else if (response.statusCode == 404) {
+        throw Exception('Company not found.');
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load portfolio: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      throw Exception('Error fetching portfolio: $e');
+    }
+  }
+
+  /// Fetch detailed transaction information and payment breakdown
+  /// GET /api/clients/company/transaction/{transaction_id}/
+  /// Returns: Transaction details with allocation info, payment plan, installment breakdown
+  Future<Map<String, dynamic>> getClientCompanyTransactionDetail({
+    required String token,
+    required int transactionId,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri =
+        Uri.parse('$baseUrl/api/clients/company/transaction/$transactionId/');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else if (response.statusCode == 403) {
+        throw Exception('You do not have access to this transaction.');
+      } else if (response.statusCode == 404) {
+        throw Exception('Transaction not found.');
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load transaction: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      throw Exception('Error fetching transaction: $e');
+    }
+  }
+
+  /// Fetch payment history for a specific transaction
+  /// GET /api/clients/company/payment-history/?transaction_id={id}
+  /// Returns: List of payment records with dates, amounts, references, and statuses
+  Future<List<dynamic>> getClientCompanyPaymentHistory({
+    required String token,
+    required int transactionId,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/clients/company/payment-history/')
+        .replace(queryParameters: {'transaction_id': transactionId.toString()});
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Handle both direct list and wrapped response
+        if (data['payments'] is List) {
+          return data['payments'] as List<dynamic>;
+        }
+
+        return <dynamic>[];
+      } else if (response.statusCode == 404) {
+        throw Exception('Transaction not found.');
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load payment history: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      throw Exception('Error fetching payment history: $e');
+    }
+  }
+
+  /// Download receipt for a payment by reference code
+  /// GET /api/clients/company/receipt/{reference}/
+  /// Returns: Receipt data (reference, amount, date, estate, download_url)
+  Future<Map<String, dynamic>> getClientCompanyReceipt({
+    required String token,
+    required String reference,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final safeRef = Uri.encodeComponent(reference);
+    final uri = Uri.parse('$baseUrl/api/clients/company/receipt/$safeRef/');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Normalize download URL if present
+        if (data['download_url'] != null) {
+          final downloadUrl = data['download_url'].toString();
+          if (downloadUrl.isNotEmpty && !downloadUrl.startsWith('http')) {
+            data['download_url'] = _absUrl(downloadUrl);
+          }
+        }
+
+        return data;
+      } else if (response.statusCode == 404) {
+        throw Exception('Receipt not found.');
+      } else if (response.statusCode == 403) {
+        throw Exception('You do not have access to this receipt.');
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else {
+        throw Exception(
+            'Failed to load receipt: ${response.statusCode} ${response.body}');
+      }
+    } on TimeoutException {
+      throw Exception('Request timed out. Please check your connection.');
+    } catch (e) {
+      throw Exception('Error fetching receipt: $e');
+    }
+  }
+
+  /// Download receipt file by reference code
+  /// Query param variant: GET /api/clients/company/receipt/?reference={code}
+  /// Returns: PDF file bytes
+  Future<File> downloadClientCompanyReceiptPdf({
+    required String token,
+    required String reference,
+    void Function(int, int)? onProgress,
+    bool openAfterDownload = false,
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final safeRef = Uri.encodeComponent(reference);
+    final base = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final url = '$base/api/clients/company/receipt/$safeRef/';
+
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/receipt_$safeRef.pdf';
+    final file = File(filePath);
+
+    try {
+      final resp = await _dio.get<List<int>>(
+        url,
+        options: Options(
+          headers: {'Authorization': 'Token $token'},
+          responseType: ResponseType.bytes,
+          validateStatus: (s) => s != null && s < 500,
+        ),
+        onReceiveProgress: (rec, total) {
+          if (onProgress != null) onProgress(rec, total);
+        },
+      ).timeout(timeout);
+
+      final status = resp.statusCode ?? 0;
+      if (status == 200 && resp.data != null && resp.data!.isNotEmpty) {
+        await file.writeAsBytes(resp.data!, flush: true);
+        if (openAfterDownload) await OpenFile.open(file.path);
+        return file;
+      } else if (status == 404) {
+        throw Exception('Receipt not found');
+      } else if (status == 403) {
+        throw Exception('Access denied to this receipt');
+      } else {
+        final text = resp.data != null ? String.fromCharCodes(resp.data!) : '';
+        throw Exception('Failed to download (status: $status) $text');
+      }
+    } on DioError catch (e) {
+      throw Exception('Network error: ${e.message}');
+    }
   }
 }

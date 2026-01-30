@@ -1,6 +1,6 @@
 ﻿from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework.authtoken.views import obtain_auth_token
+# avoid importing rest_framework.authtoken.views at module import time to prevent optional coreapi dependency
 
 
 from DRF.company_admin.api_views.api_viewsets import (

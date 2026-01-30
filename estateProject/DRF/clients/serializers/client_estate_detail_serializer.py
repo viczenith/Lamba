@@ -70,15 +70,27 @@ def build_secure_url(request, url_name, **kwargs):
 class CompanyMinimalSerializer(serializers.Serializer):
     """
     Minimal company info to prevent data leakage.
-    SECURITY: Only expose ID and name - no sensitive business data.
+    SECURITY: Expose ID, name and an optional `company_logo` URL for client thumbnails.
     """
     id = serializers.IntegerField(read_only=True)
     company_name = serializers.SerializerMethodField()
+    company_logo = serializers.SerializerMethodField()
 
     def get_company_name(self, obj):
         """Sanitize company name to prevent XSS."""
         name = getattr(obj, 'company_name', None)
         return sanitize_string(name)
+
+    def get_company_logo(self, obj):
+        request = self.context.get('request') if isinstance(self.context, dict) else None
+        try:
+            if getattr(obj, 'logo', None):
+                if request:
+                    return request.build_absolute_uri(reverse('secure-company-logo', kwargs={'company_id': obj.id}))
+                return getattr(obj, 'logo', None)
+        except Exception:
+            return getattr(obj, 'logo', None)
+        return None
 
 
 class PlotSizeSerializer(serializers.Serializer):
