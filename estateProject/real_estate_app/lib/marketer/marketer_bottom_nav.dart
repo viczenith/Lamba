@@ -25,11 +25,11 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
     _index = widget.currentIndex;
   }
 
-
   @override
   void didUpdateWidget(covariant MarketerBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentIndex != oldWidget.currentIndex && widget.currentIndex != _index) {
+    if (widget.currentIndex != oldWidget.currentIndex &&
+        widget.currentIndex != _index) {
       setState(() {
         _index = widget.currentIndex;
       });
@@ -41,15 +41,22 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
       _index = i;
     });
 
-    if (i == 2) {
+    late String routeName;
+
+    if (i == 0) {
+      routeName = '/marketer-dashboard';
+    } else if (i == 1) {
+      routeName = '/marketer-profile';
+    } else if (i == 2) {
+      routeName = '/marketer-my-companies';
+    } else if (i == 3) {
       _navigateToChat();
       return;
     }
 
-    final routeName = i == 0 ? '/marketer-dashboard' : '/marketer-profile';
-
     try {
-      Navigator.of(context).pushReplacementNamed(routeName, arguments: widget.token ?? '');
+      Navigator.of(context)
+          .pushReplacementNamed(routeName, arguments: widget.token ?? '');
     } catch (e) {
       debugPrint('Navigation to $routeName failed: $e');
     }
@@ -59,13 +66,15 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
     final token = widget.token;
     if (token == null || token.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to open chat – missing session token.')),
+        const SnackBar(
+            content: Text('Unable to open chat – missing session token.')),
       );
       return;
     }
 
     try {
-      Navigator.of(context).pushReplacementNamed('/marketer-chat-admin', arguments: token);
+      Navigator.of(context)
+          .pushReplacementNamed('/marketer-chat-admin', arguments: token);
     } catch (e) {
       debugPrint('Navigation to /marketer-chat-admin failed: $e');
     }
@@ -73,7 +82,8 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
 
   Widget _buildIconWithBadge(IconData icon, String label,
       {int badge = 0, required bool active}) {
-    final color = active ? Theme.of(context).colorScheme.primary : Colors.grey[600];
+    final color =
+        active ? Theme.of(context).colorScheme.primary : Colors.grey[600];
     return Tooltip(
       message: label,
       child: Stack(
@@ -93,13 +103,18 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
                 decoration: BoxDecoration(
                   color: Colors.redAccent,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 4)
+                  ],
                 ),
                 constraints: const BoxConstraints(minWidth: 20, minHeight: 18),
                 child: Center(
                   child: Text(
                     badge > 99 ? '99+' : '$badge',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -110,7 +125,9 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
   }
 
   Widget _buildBottomBar() {
-    final bg = Theme.of(context).brightness == Brightness.dark ? Colors.grey[900] : Colors.white;
+    final bg = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey[900]
+        : Colors.white;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -128,14 +145,18 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildIconWithBadge(Icons.dashboard, 'Dashboard', active: _index == 0),
+                    _buildIconWithBadge(Icons.dashboard, 'Dashboard',
+                        active: _index == 0),
                     const SizedBox(height: 4),
                     Text(
                       'Dashboard',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: _index == 0 ? FontWeight.bold : FontWeight.w500,
-                        color: _index == 0 ? Theme.of(context).colorScheme.primary : Colors.grey[600],
+                        fontWeight:
+                            _index == 0 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 0
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -148,14 +169,18 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildIconWithBadge(Icons.person, 'Profile', active: _index == 1),
+                    _buildIconWithBadge(Icons.person, 'Profile',
+                        active: _index == 1),
                     const SizedBox(height: 4),
                     Text(
                       'Profile',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: _index == 1 ? FontWeight.bold : FontWeight.w500,
-                        color: _index == 1 ? Theme.of(context).colorScheme.primary : Colors.grey[600],
+                        fontWeight:
+                            _index == 1 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 1
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -168,14 +193,42 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildIconWithBadge(Icons.chat, 'Chat', badge: widget.chatBadge, active: _index == 2),
+                    _buildIconWithBadge(Icons.business, 'Companies',
+                        active: _index == 2),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Companies',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            _index == 2 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 2
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: () => _navigateToIndex(3),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildIconWithBadge(Icons.chat, 'Chat',
+                        badge: widget.chatBadge, active: _index == 3),
                     const SizedBox(height: 4),
                     Text(
                       'Chat',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: _index == 2 ? FontWeight.bold : FontWeight.w500,
-                        color: _index == 2 ? Theme.of(context).colorScheme.primary : Colors.grey[600],
+                        fontWeight:
+                            _index == 3 ? FontWeight.bold : FontWeight.w500,
+                        color: _index == 3
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -194,10 +247,32 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
       onDestinationSelected: (i) => _navigateToIndex(i),
       labelType: NavigationRailLabelType.selected,
       destinations: [
-        const NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: Text('Dashboard')),
-        const NavigationRailDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: Text('Profile')),
+        const NavigationRailDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: Text('Dashboard')),
+        const NavigationRailDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: Text('Profile')),
+        const NavigationRailDestination(
+            icon: Icon(Icons.business_outlined),
+            selectedIcon: Icon(Icons.business),
+            label: Text('Companies')),
         NavigationRailDestination(
-          icon: Stack(children: [const Icon(Icons.chat_bubble_outline), if (widget.chatBadge > 0) Positioned(right: -2, top: -2, child: CircleAvatar(radius: 6, backgroundColor: Colors.redAccent, child: Text('${widget.chatBadge}', style: const TextStyle(fontSize: 8, color: Colors.white))))]),
+          icon: Stack(children: [
+            const Icon(Icons.chat_bubble_outline),
+            if (widget.chatBadge > 0)
+              Positioned(
+                  right: -2,
+                  top: -2,
+                  child: CircleAvatar(
+                      radius: 6,
+                      backgroundColor: Colors.redAccent,
+                      child: Text('${widget.chatBadge}',
+                          style: const TextStyle(
+                              fontSize: 8, color: Colors.white))))
+          ]),
           selectedIcon: const Icon(Icons.chat_bubble),
           label: const Text('Chat'),
         ),
@@ -213,7 +288,13 @@ class _MarketerBottomNavState extends State<MarketerBottomNav> {
         alignment: Alignment.centerLeft,
         child: Container(
           margin: const EdgeInsets.only(left: 12, top: 24, bottom: 24),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)]),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color:
+                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 8)
+              ]),
           child: _buildNavigationRail(),
         ),
       );

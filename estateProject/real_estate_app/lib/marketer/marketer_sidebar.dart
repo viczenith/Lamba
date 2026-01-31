@@ -36,7 +36,8 @@ class MarketerSidebar extends StatefulWidget {
   State<MarketerSidebar> createState() => _MarketerSidebarState();
 }
 
-class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProviderStateMixin {
+class _MarketerSidebarState extends State<MarketerSidebar>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   int _hoverIndex = -1;
 
@@ -52,9 +53,18 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
 
   List<SidebarItem> _buildMenuItems() {
     return [
-      SidebarItem(icon: Icons.dashboard_rounded, title: "Dashboard", route: '/marketer-dashboard'),
-      SidebarItem(icon: Icons.person_rounded, title: "Profile", route: '/marketer-profile'),
-      SidebarItem(icon: Icons.list_alt_rounded, title: "Client Records", route: '/marketer-clients'),
+      SidebarItem(
+          icon: Icons.dashboard_rounded,
+          title: "Dashboard",
+          route: '/marketer-dashboard'),
+      SidebarItem(
+          icon: Icons.person_rounded,
+          title: "Profile",
+          route: '/marketer-profile'),
+      SidebarItem(
+          icon: Icons.business,
+          title: "Companies",
+          route: '/marketer-my-companies'),
       SidebarItem(
         icon: Icons.notifications_active,
         title: "Notifications",
@@ -79,7 +89,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
     if (widget.headerController != null) {
       try {
         final current = widget.headerController!.countsNotifier.value;
-        _liveNotificationCount = current['notifications'] ?? _liveNotificationCount;
+        _liveNotificationCount =
+            current['notifications'] ?? _liveNotificationCount;
         _liveMessageCount = current['messages'] ?? _liveMessageCount;
       } catch (_) {}
 
@@ -101,10 +112,12 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
     }
 
     _menuItems = _buildMenuItems();
-    _pulseController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _pulseController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
     // initial sync with provided route or current ModalRoute if available
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSelectedIndexIfNeeded());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _syncSelectedIndexIfNeeded());
   }
 
   @override
@@ -118,7 +131,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
     if (oldWidget.headerController != widget.headerController) {
       if (oldWidget.headerController != null && _headerListener != null) {
         try {
-          oldWidget.headerController!.countsNotifier.removeListener(_headerListener!);
+          oldWidget.headerController!.countsNotifier
+              .removeListener(_headerListener!);
         } catch (_) {}
       }
       _headerListener = null;
@@ -129,7 +143,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
       if (widget.headerController != null) {
         try {
           final current = widget.headerController!.countsNotifier.value;
-          _liveNotificationCount = current['notifications'] ?? _liveNotificationCount;
+          _liveNotificationCount =
+              current['notifications'] ?? _liveNotificationCount;
           _liveMessageCount = current['messages'] ?? _liveMessageCount;
         } catch (_) {}
         _headerListener = () {
@@ -153,7 +168,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
         });
       }
     } else if (widget.headerController == null &&
-        (widget.notificationCount != oldWidget.notificationCount || widget.messageCount != oldWidget.messageCount)) {
+        (widget.notificationCount != oldWidget.notificationCount ||
+            widget.messageCount != oldWidget.messageCount)) {
       setState(() {
         _liveNotificationCount = widget.notificationCount;
         _liveMessageCount = widget.messageCount;
@@ -166,7 +182,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
   void dispose() {
     if (widget.headerController != null && _headerListener != null) {
       try {
-        widget.headerController!.countsNotifier.removeListener(_headerListener!);
+        widget.headerController!.countsNotifier
+            .removeListener(_headerListener!);
       } catch (_) {}
     }
     _pulseController.dispose();
@@ -185,7 +202,7 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
     for (var i = 0; i < _menuItems.length; i++) {
       if (_menuItems[i].route == route) return i;
     }
-    // fallback: startsWith (handles subroutes like /marketer-clients/123)
+    // fallback: startsWith (handles subroutes)
     for (var i = 0; i < _menuItems.length; i++) {
       if (route.startsWith(_menuItems[i].route)) return i;
     }
@@ -210,27 +227,37 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
         final double collapsedWidth = 64;
-        final double expandedWidth = screenWidth < 420 ? max(180, screenWidth * 0.7) : 260;
+        final double expandedWidth =
+            screenWidth < 420 ? max(180, screenWidth * 0.7) : 260;
         final double width = widget.isExpanded ? expandedWidth : collapsedWidth;
 
         return SafeArea(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: width.clamp(56.0, min(360.0, screenWidth)),
-            constraints: BoxConstraints(minWidth: 56, maxWidth: min(360, screenWidth)),
+            constraints:
+                BoxConstraints(minWidth: 56, maxWidth: min(360, screenWidth)),
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[900] : Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[900]
+                  : Colors.white,
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(6, 4))
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(6, 4))
               ],
-              borderRadius: const BorderRadius.only(topRight: Radius.circular(18), bottomRight: Radius.circular(18)),
+              borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(18),
+                  bottomRight: Radius.circular(18)),
             ),
             child: Column(
               children: [
                 _buildHeader(width),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: widget.isExpanded ? 8 : 6),
+                    padding: EdgeInsets.symmetric(
+                        vertical: 8, horizontal: widget.isExpanded ? 8 : 6),
                     child: Scrollbar(
                       radius: const Radius.circular(8),
                       thickness: 6,
@@ -238,7 +265,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                         padding: EdgeInsets.zero,
                         itemCount: _menuItems.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 6),
-                        itemBuilder: (context, index) => _buildMenuTile(index, _menuItems[index], width),
+                        itemBuilder: (context, index) =>
+                            _buildMenuTile(index, _menuItems[index], width),
                       ),
                     ),
                   ),
@@ -253,13 +281,18 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
   }
 
   Widget _buildHeader(double sidebarWidth) {
-    final avatarRadius = widget.isExpanded ? (sidebarWidth * 0.09).clamp(16.0, 34.0) : 16.0;
+    final avatarRadius =
+        widget.isExpanded ? (sidebarWidth * 0.09).clamp(16.0, 34.0) : 16.0;
 
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 14, horizontal: widget.isExpanded ? 12 : 8),
+      padding: EdgeInsets.symmetric(
+          vertical: 14, horizontal: widget.isExpanded ? 12 : 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [primaryColor.withOpacity(0.98), primaryColor.withOpacity(0.78)],
+          colors: [
+            primaryColor.withOpacity(0.98),
+            primaryColor.withOpacity(0.78)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -267,7 +300,9 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: widget.isExpanded ? MainAxisAlignment.spaceBetween : MainAxisAlignment.center,
+        mainAxisAlignment: widget.isExpanded
+            ? MainAxisAlignment.spaceBetween
+            : MainAxisAlignment.center,
         children: [
           if (widget.isExpanded)
             Flexible(
@@ -276,7 +311,12 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 4))
+                      ],
                     ),
                     child: ProfileAvatar(
                       imageUrl: widget.profileImageUrl,
@@ -293,10 +333,17 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                           "${widget.marketerName}",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
                         ),
                         const SizedBox(height: 4),
-                        const Text("Classic", maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        const Text("Classic",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -317,7 +364,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
             padding: const EdgeInsets.all(6),
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
               child: Icon(
                 widget.isExpanded ? Icons.chevron_left_rounded : Icons.menu,
                 key: ValueKey<bool>(widget.isExpanded),
@@ -364,10 +412,12 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                   alignment: Alignment.center,
                   child: badges.Badge(
                     showBadge: item.notificationCount > 0,
-                    badgeStyle:
-                        const badges.BadgeStyle(badgeColor: Colors.redAccent, padding: EdgeInsets.all(6)),
+                    badgeStyle: const badges.BadgeStyle(
+                        badgeColor: Colors.redAccent,
+                        padding: EdgeInsets.all(6)),
                     badgeContent: Text('${item.notificationCount}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10)),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 10)),
                     child: Icon(item.icon, color: iconColor, size: 20),
                   ),
                 ),
@@ -383,7 +433,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
       onExit: (_) => setState(() => _hoverIndex = -1),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+            color: bgColor, borderRadius: BorderRadius.circular(12)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -395,15 +446,18 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                 children: [
                   ScaleTransition(
                     scale: isSelected
-                        ? Tween<double>(begin: 0.98, end: 1.03).animate(_pulseController)
+                        ? Tween<double>(begin: 0.98, end: 1.03)
+                            .animate(_pulseController)
                         : const AlwaysStoppedAnimation(1.0),
                     child: badges.Badge(
                       position: badges.BadgePosition.topEnd(top: -6, end: -6),
                       showBadge: item.notificationCount > 0,
-                      badgeStyle:
-                          const badges.BadgeStyle(badgeColor: Colors.redAccent, padding: EdgeInsets.all(6)),
+                      badgeStyle: const badges.BadgeStyle(
+                          badgeColor: Colors.redAccent,
+                          padding: EdgeInsets.all(6)),
                       badgeContent: Text('${item.notificationCount}',
-                          style: const TextStyle(color: Colors.white, fontSize: 10)),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 10)),
                       child: Icon(item.icon, color: iconColor, size: 20),
                     ),
                   ),
@@ -413,7 +467,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                       duration: const Duration(milliseconds: 180),
                       style: TextStyle(
                           color: textColor,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
                           fontSize: 14),
                       child: Text(
                         item.title,
@@ -430,7 +485,10 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                         color: primaryColor,
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: [
-                          BoxShadow(color: primaryColor.withOpacity(0.2), blurRadius: 8, offset: Offset(0, 3))
+                          BoxShadow(
+                              color: primaryColor.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: Offset(0, 3))
                         ],
                       ),
                     )
@@ -451,7 +509,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
       children: [
         const Divider(height: 1),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: widget.isExpanded ? 12 : 6, vertical: 8),
+          padding: EdgeInsets.symmetric(
+              horizontal: widget.isExpanded ? 12 : 6, vertical: 8),
           child: Row(
             children: [
               if (widget.isExpanded)
@@ -463,16 +522,24 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
-                            Text('Settings', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Settings',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             SizedBox(height: 4),
-                            Text('Preferences & account', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11)),
+                            Text('Preferences & account',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11)),
                           ],
                         ),
                       ),
                       const Spacer(),
                       IconButton(
-                          onPressed: () => widget.onMenuItemTap('/marketer-support'),
-                          icon: Icon(Icons.support_agent_rounded, color: primaryColor)),
+                          onPressed: () =>
+                              widget.onMenuItemTap('/marketer-support'),
+                          icon: Icon(Icons.support_agent_rounded,
+                              color: primaryColor)),
                     ],
                   ),
                 )
@@ -484,7 +551,8 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
           ),
         ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: widget.isExpanded ? 12 : 6, vertical: 10),
+          padding: EdgeInsets.symmetric(
+              horizontal: widget.isExpanded ? 12 : 6, vertical: 10),
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -492,13 +560,17 @@ class _MarketerSidebarState extends State<MarketerSidebar> with SingleTickerProv
                 backgroundColor: Colors.redAccent,
                 minimumSize: const Size(double.infinity, 44),
                 elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
               icon: const Icon(Icons.logout, size: 18),
               label: AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
-                secondChild: const Text("Logout", style: TextStyle(fontWeight: FontWeight.bold)),
-                crossFadeState: widget.isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                secondChild: const Text("Logout",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                crossFadeState: widget.isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 220),
                 firstCurve: Curves.easeOut,
                 secondCurve: Curves.easeIn,

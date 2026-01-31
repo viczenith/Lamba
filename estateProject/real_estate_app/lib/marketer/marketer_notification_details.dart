@@ -18,10 +18,12 @@ class MarketerNotificationDetailPage extends StatefulWidget {
   });
 
   @override
-  State<MarketerNotificationDetailPage> createState() => _MarketerNotificationDetailPageState();
+  State<MarketerNotificationDetailPage> createState() =>
+      _MarketerNotificationDetailPageState();
 }
 
-class _MarketerNotificationDetailPageState extends State<MarketerNotificationDetailPage> {
+class _MarketerNotificationDetailPageState
+    extends State<MarketerNotificationDetailPage> {
   final ApiService _api = ApiService();
   bool _loading = true;
   String? _error;
@@ -50,9 +52,10 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
     }
 
     try {
-      final data = await _api.getMarketerNotificationDetail(
+      final data = await _api.getMarketerNotificationDetailPage(
         token: token,
         userNotificationId: widget.userNotificationId,
+        autoRead: true,
       );
       if (!mounted) return;
       setState(() => _userNotification = Map<String, dynamic>.from(data));
@@ -74,7 +77,8 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
     if (id < 0) return;
 
     try {
-      await _api.markMarketerNotificationRead(token: widget.token, userNotificationId: id);
+      await _api.markMarketerNotificationRead(
+          token: widget.token, userNotificationId: id);
       if (!mounted) return;
       setState(() {
         _userNotification = {..._userNotification!, 'read': true};
@@ -199,7 +203,8 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: const Color(0xFF4154F1).withOpacity(0.1),
+                                  color:
+                                      const Color(0xFF4154F1).withOpacity(0.1),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
@@ -213,14 +218,17 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Container(
                                         width: 48,
                                         height: 48,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF4154F1).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(0xFF4154F1)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: const Icon(
                                           Icons.notifications_rounded,
@@ -231,10 +239,14 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              _userNotification?['notification']?['title']?.toString() ?? 'Notification',
+                                              _userNotification?['notification']
+                                                          ?['title']
+                                                      ?.toString() ??
+                                                  'Notification',
                                               style: const TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.w700,
@@ -255,7 +267,8 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                                   child: Text(
                                                     _getFormattedDate(),
                                                     style: TextStyle(
-                                                      color: Colors.grey.shade600,
+                                                      color:
+                                                          Colors.grey.shade600,
                                                       fontSize: 13,
                                                     ),
                                                   ),
@@ -266,12 +279,15 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                         ),
                                       ),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: _userNotification?['read'] == true
-                                              ? Colors.grey.shade100
-                                              : const Color(0xFF4154F1),
-                                          borderRadius: BorderRadius.circular(20),
+                                          color:
+                                              _userNotification?['read'] == true
+                                                  ? Colors.grey.shade100
+                                                  : const Color(0xFF4154F1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -281,15 +297,21 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                                                   ? Icons.check_circle
                                                   : Icons.circle,
                                               size: 12,
-                                              color: _userNotification?['read'] == true
-                                                  ? Colors.grey.shade600
-                                                  : Colors.white,
+                                              color:
+                                                  _userNotification?['read'] ==
+                                                          true
+                                                      ? Colors.grey.shade600
+                                                      : Colors.white,
                                             ),
                                             const SizedBox(width: 6),
                                             Text(
-                                              _userNotification?['read'] == true ? 'Read' : 'New',
+                                              _userNotification?['read'] == true
+                                                  ? 'Read'
+                                                  : 'New',
                                               style: TextStyle(
-                                                color: _userNotification?['read'] == true
+                                                color: _userNotification?[
+                                                            'read'] ==
+                                                        true
                                                     ? Colors.grey.shade600
                                                     : Colors.white,
                                                 fontSize: 12,
@@ -349,10 +371,12 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                             child: ElevatedButton.icon(
                               onPressed: _markRead,
-                              icon: const Icon(Icons.check_circle_rounded, size: 20),
+                              icon: const Icon(Icons.check_circle_rounded,
+                                  size: 20),
                               label: const Text('Mark as Read'),
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 24),
                                 backgroundColor: const Color(0xFF4154F1),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
@@ -371,8 +395,10 @@ class _MarketerNotificationDetailPageState extends State<MarketerNotificationDet
 
   String _getFormattedDate() {
     try {
-      final createdAt = _userNotification?['notification']?['created_at']?.toString() ??
-          _userNotification?['created_at']?.toString() ?? '';
+      final createdAt =
+          _userNotification?['notification']?['created_at']?.toString() ??
+              _userNotification?['created_at']?.toString() ??
+              '';
       if (createdAt.isEmpty) return 'Unknown date';
       final date = DateTime.parse(createdAt);
       return DateFormat('MMMM d, yyyy • h:mm a').format(date);
@@ -543,7 +569,8 @@ $html
           NavigationDelegate(
             onNavigationRequest: (NavigationRequest request) {
               if (request.url.startsWith('http')) {
-                launchUrl(Uri.parse(request.url), mode: LaunchMode.externalApplication);
+                launchUrl(Uri.parse(request.url),
+                    mode: LaunchMode.externalApplication);
                 return NavigationDecision.prevent;
               }
               return NavigationDecision.navigate;
@@ -614,7 +641,9 @@ $html
   }
 
   Widget _buildMessageContent() {
-    final message = _userNotification?['notification']?['message']?.toString() ?? 'No message content';
+    final message =
+        _userNotification?['notification']?['message']?.toString() ??
+            'No message content';
     if (message.contains('<') && message.contains('>')) {
       if (_hasComplexInlineStyles(message)) {
         return _buildWebViewHtml(message);
@@ -647,7 +676,8 @@ $html
   }
 }
 
-class _MarketerNotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
+class _MarketerNotificationHeaderDelegate
+    extends SliverPersistentHeaderDelegate {
   final Widget child;
   final double minHeight;
   final double maxHeight;
@@ -665,7 +695,8 @@ class _MarketerNotificationHeaderDelegate extends SliverPersistentHeaderDelegate
   double get maxExtent => maxHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return SizedBox.expand(child: child);
   }
 

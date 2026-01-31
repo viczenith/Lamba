@@ -1,9 +1,17 @@
 from rest_framework import serializers
 from decimal import Decimal
 from datetime import date
-from django.urls import reverse
 from django.db.models import Sum, Q
-from estateApp.models import *
+from estateApp.models import (
+    MarketerUser,
+    MarketerPerformanceRecord,
+    MarketerCommission,
+    MarketerTarget,
+    Transaction,
+    ClientUser,
+    ClientMarketerAssignment,
+    MarketerAffiliation,
+)
 
 class SmallMarketerSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField()
@@ -20,19 +28,12 @@ class SmallMarketerSerializer(serializers.ModelSerializer):
         return None
 
 
-class MarketerPerformanceSerializer(serializers.Serializer):
-    closed_deals = serializers.IntegerField()
-    total_sales = serializers.DecimalField(max_digits=14, decimal_places=2)
-    commission_earned = serializers.DecimalField(max_digits=14, decimal_places=2)
-    commission_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
-    yearly_target = serializers.DecimalField(max_digits=14, decimal_places=2, allow_null=True)
-    yearly_target_achievement = serializers.FloatField(allow_null=True)
-
-
 class MarketerProfileSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField()
     date_registered = serializers.DateTimeField(read_only=True)
     performance = serializers.SerializerMethodField()
+    # canonical, company-scoped summary (matches MarketerDashboardAPIView.summary)
+    dashboard_summary = serializers.SerializerMethodField()
     top3 = serializers.SerializerMethodField()
     user_entry = serializers.SerializerMethodField()
     current_year = serializers.SerializerMethodField()
@@ -42,7 +43,7 @@ class MarketerProfileSerializer(serializers.ModelSerializer):
         fields = [
             "id", "email", "full_name", "phone", "job", "company", "country", "about",
             "profile_image", "date_registered",
-            "performance", "top3", "user_entry", "current_year", "address",
+            "performance", "dashboard_summary", "top3", "user_entry", "current_year", "address",
         ]
         read_only_fields = ["id", "email", "date_registered"]
 
@@ -121,7 +122,55 @@ class MarketerProfileSerializer(serializers.ModelSerializer):
             "yearly_target": yearly_target.quantize(Decimal('0.01')) if isinstance(yearly_target, Decimal) else yearly_target,
             "yearly_target_achievement": round(yearly_target_achievement, 2) if yearly_target_achievement is not None else None,
         }
+    def get_dashboard_summary(self, obj):
+        """Return company-scoped summary keys used by the profile UI.
+        Keeps logic consistent with MarketerDashboardAPIView to avoid drift.
+        """
+        # Resolve affiliated companies (same rules as dashboard view)
+        affiliated_company_ids = list(
+            MarketerAffiliation.objects.filter(marketer=obj).values_list('company_id', flat=True)
+        )
+        own_company_id = getattr(obj, 'company_profile_id', None)
+        if own_company_id and own_company_id not in affiliated_company_ids:
+            affiliated_company_ids.append(own_company_id)
 
+        # include companies where the marketer has transactions
+        txn_company_ids = list(
+            Transaction.objects.filter(marketer=obj).values_list('company_id', flat=True).distinct()
+        )
+        for cid in txn_company_ids:
+            if cid and cid not in affiliated_company_ids:
+                affiliated_company_ids.append(cid)
+
+        total_transactions = Transaction.objects.filter(
+            marketer=obj, company_id__in=affiliated_company_ids
+        ).count()
+
+        # number_clients: union of directly assigned clients and ClientMarketerAssignment within affiliated companies
+        direct_client_ids = set(
+            ClientUser.objects.filter(
+                assigned_marketer=obj,
+                company_profile_id__in=affiliated_company_ids
+            ).values_list('id', flat=True)
+        )
+        assigned_client_ids = set(
+            ClientMarketerAssignment.objects.filter(
+                marketer=obj,
+                company_id__in=affiliated_company_ids
+            ).values_list('client_id', flat=True)
+        )
+        number_clients = len([c for c in (direct_client_ids | assigned_client_ids) if c])
+
+        total_companies = (
+            Transaction.objects.filter(marketer=obj, company_id__in=affiliated_company_ids)
+            .values('allocation__estate__company').distinct().count()
+        )
+
+        return {
+            'total_transactions': int(total_transactions),
+            'number_clients': int(number_clients),
+            'total_companies': int(total_companies),
+        }
     def _build_leaderboard_entry(self, marketer, rank, year):
         """
         Return structure expected by template:

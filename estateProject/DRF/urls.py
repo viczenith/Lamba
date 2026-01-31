@@ -61,10 +61,15 @@ from DRF.marketers.api_views.marketer_notification_views import (
     MarketerMarkAllReadAPI,
     MarketerMarkReadAPI,
     MarketerMarkUnreadAPI,
+    MarketerNotificationDeleteAPIView,
     MarketerNotificationDetailAPI,
+    MarketerNotificationDetailPageAPIView,
     MarketerNotificationListAPI,
+    MarketerNotificationListPageAPIView,
     MarketerUnreadCountAPI,
 )
+from DRF.marketers.api_views.my_companies_views import MarketerMyCompaniesAPIView
+from DRF.marketers.api_views.marketer_company_portfolio_views import MarketerCompanyPortfolioAPIView
 from DRF.marketers.api_views.marketer_chat_views import (
     MarketerChatDeleteAPIView,
     MarketerChatDeleteForEveryoneAPIView,
@@ -205,6 +210,14 @@ urlpatterns = [
     path('api/client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
     path('api/client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
 
+    # Marketer page-style endpoint (page payload used by server-rendered `marketer_side/notification.html`)
+    path('api/marketer/notifications/', MarketerNotificationListPageAPIView.as_view(), name='marketer-notifications-page'),
+
+    # Marketer My Companies page-style endpoint (page payload used by server-rendered `marketer_side/my_companies.html`)
+    path('api/marketer/my-companies/', MarketerMyCompaniesAPIView.as_view(), name='marketer-my-companies-page'),
+    # Per-company portfolio (page payload used by server-side portfolio view)
+    path('api/marketer/company/<int:company_id>/portfolio/', MarketerCompanyPortfolioAPIView.as_view(), name='marketer-company-portfolio-page'),
+
     # =========================================================================
     # NOTIFICATION DETAIL PAGE ENDPOINTS (notification_detail.html) - All use /api/ prefix
     # =========================================================================
@@ -214,7 +227,9 @@ urlpatterns = [
 
     path('marketers/notifications/', MarketerNotificationListAPI.as_view(), name='marketer-notifications-list'),
     path('marketers/notifications/unread-count/', MarketerUnreadCountAPI.as_view(), name='marketer-notifications-unread-count'),
+    path('marketers/notifications/<int:pk>/detail/', MarketerNotificationDetailPageAPIView.as_view(), name='marketer-notifications-detail-page'),
     path('marketers/notifications/<int:pk>/', MarketerNotificationDetailAPI.as_view(), name='marketer-notifications-detail'),
+    path('marketers/notifications/<int:pk>/delete/', MarketerNotificationDeleteAPIView.as_view(), name='marketer-notifications-delete'),
     path('marketers/notifications/<int:pk>/mark-read/', MarketerMarkReadAPI.as_view(), name='marketer-notifications-mark-read'),
     path('marketers/notifications/<int:pk>/mark-unread/', MarketerMarkUnreadAPI.as_view(), name='marketer-notifications-mark-unread'),
     path('marketers/notifications/mark-all-read/', MarketerMarkAllReadAPI.as_view(), name='marketer-notifications-mark-all-read'),

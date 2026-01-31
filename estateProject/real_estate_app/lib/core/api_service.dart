@@ -342,7 +342,12 @@ class ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> payload =
           jsonDecode(response.body) as Map<String, dynamic>;
-      final message = payload['message'];
+      final Map<String, dynamic> data =
+          (payload['success'] == true && payload['data'] is Map)
+              ? Map<String, dynamic>.from(payload['data'] as Map)
+              : payload;
+
+      final message = data['message'];
       if (message is Map<String, dynamic>) {
         final fileUrl = message['file_url']?.toString();
         if (fileUrl != null &&
@@ -351,7 +356,8 @@ class ApiService {
           message['file_url'] = _absUrl(fileUrl);
         }
       }
-      return payload;
+
+      return data;
     }
 
     if (response.statusCode == 401) {
@@ -391,8 +397,13 @@ class ApiService {
     final Map<String, dynamic> payload =
         jsonDecode(response.body) as Map<String, dynamic>;
 
+    final Map<String, dynamic> data =
+        (payload['success'] == true && payload['data'] is Map)
+            ? Map<String, dynamic>.from(payload['data'] as Map)
+            : payload;
+
     if (response.statusCode == 200 && payload['success'] == true) {
-      final message = payload['message'];
+      final message = data['message'];
       if (message is Map<String, dynamic>) {
         final fileUrl = message['file_url']?.toString();
         if (fileUrl != null &&
@@ -401,7 +412,7 @@ class ApiService {
           message['file_url'] = _absUrl(fileUrl);
         }
       }
-      return payload;
+      return data;
     }
 
     if (response.statusCode == 401) {
@@ -3859,6 +3870,47 @@ class ApiService {
     return Map<String, dynamic>.from(parsed as Map);
   }
 
+  /// Fetch the "page" shaped marketer notifications payload used by the
+  /// server-rendered `marketer_side/notification.html` page. Returns a map
+  /// with keys: `stats`, `unread_list`, `read_list`.
+  ///
+  /// This method is non‑breaking and intended for the notifications *page*
+  /// UI; existing paginated APIs are preserved for infinite-scroll lists.
+  Future<Map<String, dynamic>> fetchMarketerNotificationsPage({
+    required String token,
+  }) async {
+    if (token.isEmpty) throw Exception('Authentication token is required');
+
+    final uri = Uri.parse('$baseUrl/api/marketer/notifications/');
+    final headers = {
+      'Authorization': 'Token $token',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    final resp = await http.get(uri, headers: headers);
+    final parsed = await _handleResponse(resp);
+    final Map<String, dynamic> payload =
+        Map<String, dynamic>.from(parsed as Map);
+
+    // Normalize any nested media/company logos so callers can render safely.
+    try {
+      final unread = payload['unread_list'] as List? ?? <dynamic>[];
+      final read = payload['read_list'] as List? ?? <dynamic>[];
+      for (final item in [...unread, ...read]) {
+        if (item is Map<String, dynamic>) {
+          _normalizeMediaUrls(item);
+          final notif = item['notification'];
+          if (notif is Map<String, dynamic>) _normalizeMediaUrls(notif);
+        }
+      }
+    } catch (_) {
+      // defensive: parsing/normalization should not break callers
+    }
+
+    return payload;
+  }
+
   Future<Map<String, dynamic>> getMarketerNotificationDetail({
     required String token,
     required int userNotificationId,
@@ -3879,6 +3931,90 @@ class ApiService {
     );
     final parsed = await _handleResponse(resp);
     return Map<String, dynamic>.from(parsed as Map);
+  }
+
+  /// Fetch the marketer notification *detail page* payload.
+  /// Endpoint: GET /marketers/notifications/<id>/detail/?auto_read=true
+  /// Returns a flattened UserNotification-like map (keys: id, notification, read, created_at)
+  Future<Map<String, dynamic>> getMarketerNotificationDetailPage({
+    required String token,
+    required int userNotificationId,
+    bool autoRead = true,
+  }) async {
+    if (token.isEmpty) throw Exception('Authentication token is required');
+
+    final url =
+        '$baseUrl/marketers/notifications/$userNotificationId/detail/?auto_read=${autoRead ? 'true' : 'false'}';
+    final resp = await http.get(Uri.parse(url), headers: {
+      'Authorization': 'Token $token',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    });
+
+    final parsed = await _handleResponse(resp);
+    final payload = Map<String, dynamic>.from(parsed as Map);
+
+    // payload expected: { 'notification': <UserNotification>, 'is_read': bool }
+    final userNotif = Map<String, dynamic>.from(payload['notification'] ?? {});
+
+    // Ensure read flag reflects page 'is_read'
+    if (payload.containsKey('is_read')) {
+      userNotif['read'] = payload['is_read'] == true;
+    }
+
+    // Normalize nested media and company fields safely
+    try {
+      _normalizeMediaUrls(userNotif);
+      final notif = userNotif['notification'];
+      if (notif is Map<String, dynamic>) {
+        _normalizeMediaUrls(notif);
+
+        // Ensure company initial exists for avatar fallback
+        final company = notif['company'] as Map<String, dynamic>?;
+        if (company != null) {
+          if (company['initial'] == null ||
+              (company['initial'] is String &&
+                  company['initial'].toString().isEmpty)) {
+            final name = company['company_name'] ?? company['name'] ?? '';
+            company['initial'] = (name is String && name.isNotEmpty)
+                ? name[0].toUpperCase()
+                : 'S';
+          }
+        }
+      }
+    } catch (_) {
+      // defensive: normalization should not fail callers
+    }
+
+    return userNotif;
+  }
+
+  /// Delete a UserNotification for a marketer.
+  /// DELETE /marketers/notifications/<id>/delete/
+  Future<bool> deleteMarketerNotification({
+    required String token,
+    required int userNotificationId,
+  }) async {
+    if (token.isEmpty) throw Exception('Authentication token is required');
+
+    final url = '$baseUrl/marketers/notifications/$userNotificationId/delete/';
+    final resp = await http.delete(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Token $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (resp.statusCode == 200) return true;
+    if (resp.statusCode == 401) throw Exception('Unauthorized');
+    if (resp.statusCode == 404) throw Exception('Notification not found');
+
+    // Fallback: attempt to parse response body for success
+    final parsed = await _handleResponse(resp);
+    if (parsed is Map<String, dynamic> && parsed.containsKey('id')) return true;
+
+    return false;
   }
 
   Future<Map<String, int>> getMarketerUnreadCounts(String token) async {
@@ -3980,10 +4116,12 @@ class ApiService {
     required String token,
     int? marketerId,
   }) async {
+    // Primary (canonical) endpoint
     final buffer = StringBuffer('$baseUrl/marketers/dashboard/');
-    if (marketerId != null)
+    if (marketerId != null) {
       buffer
           .write('?marketer_id=${Uri.encodeComponent(marketerId.toString())}');
+    }
 
     final response = await http.get(
       Uri.parse(buffer.toString()),
@@ -3994,15 +4132,98 @@ class ApiService {
       },
     );
 
+    // If the canonical endpoint returns a payload, normalize it and return a
+    // predictable shape. If the canonical endpoint is missing expected keys
+    // we'll attempt a safe fallback to the profile endpoint which exposes
+    // `dashboard_summary` (server-side compatibility surface).
     if (response.statusCode == 200) {
-      final Map<String, dynamic> data =
+      final Map<String, dynamic> raw =
           jsonDecode(response.body) as Map<String, dynamic>;
-      return data;
-    } else {
-      // Keep same error-style as other methods
-      throw Exception(
-          'Failed to fetch marketer dashboard: ${response.statusCode} - ${response.body}');
+
+      // If the server returned a profile-like payload that contains the
+      // canonical dashboard under `dashboard_summary`, prefer that.
+      final Map<String, dynamic> payload =
+          (raw['dashboard_summary'] is Map<String, dynamic>)
+              ? Map<String, dynamic>.from(raw['dashboard_summary'] as Map)
+              : Map<String, dynamic>.from(raw);
+
+      // Ensure blocks and companies are present (apply safe fallbacks)
+      final out = <String, dynamic>{};
+
+      // summary / dashboard_summary (keep both keys for consumers)
+      if (payload['summary'] is Map) {
+        out['dashboard_summary'] =
+            Map<String, dynamic>.from(payload['summary']);
+      } else if (payload['dashboard_summary'] is Map) {
+        out['dashboard_summary'] =
+            Map<String, dynamic>.from(payload['dashboard_summary']);
+      } else if (raw['dashboard_summary'] is Map) {
+        out['dashboard_summary'] =
+            Map<String, dynamic>.from(raw['dashboard_summary']);
+      } else {
+        // try older top-level fields
+        out['dashboard_summary'] = {
+          'total_transactions': _asInt(payload['total_transactions'] ??
+              payload['total_tx'] ??
+              payload['tx_count']),
+          'number_clients':
+              _asInt(payload['number_clients'] ?? payload['clients_count']),
+          'total_companies': _asInt(payload['total_companies'] ??
+              payload['companies_count'] ??
+              payload['total_estates_sold']),
+        };
+      }
+
+      // Blocks: weekly/monthly/yearly/alltime — accept canonical and legacy shapes
+      for (final k in ['weekly', 'monthly', 'yearly', 'alltime']) {
+        final Map<String, dynamic>? b = _extractDashboardBlock(payload, k) ??
+            _extractDashboardBlock(raw, k);
+        if (b != null) out[k] = b;
+      }
+
+      // Companies list (canonical) with legacy-array fallback
+      out['companies'] = _parseCompanies(payload) ??
+          _parseCompanies(raw) ??
+          <Map<String, dynamic>>[];
+
+      // Preserve legacy arrays if present (back-compat)
+      if (payload['company_names'] != null)
+        out['company_names'] = payload['company_names'];
+      if (payload['company_transactions'] != null)
+        out['company_transactions'] = payload['company_transactions'];
+
+      // Keep the original raw payload accessible (useful for incremental rollouts)
+      out['_raw'] = raw;
+
+      return out;
     }
+
+    // If canonical endpoint failed, attempt profile endpoint as a guarded fallback
+    // (profile endpoint exposes `dashboard_summary` in some deployments).
+    try {
+      final profile = await getMarketerProfileByToken(token: token);
+      if (profile['dashboard_summary'] is Map<String, dynamic>) {
+        final Map<String, dynamic> ds =
+            Map<String, dynamic>.from(profile['dashboard_summary'] as Map);
+        final out = <String, dynamic>{
+          'dashboard_summary': ds,
+          'companies': _parseCompanies(ds) ?? <Map<String, dynamic>>[],
+          '_raw_profile': profile,
+        };
+
+        // copy blocks if present
+        for (final k in ['weekly', 'monthly', 'yearly', 'alltime']) {
+          final b = _extractDashboardBlock(ds, k);
+          if (b != null) out[k] = b;
+        }
+        return out;
+      }
+    } catch (_) {
+      // fall through to surface the original error below
+    }
+
+    throw Exception(
+        'Failed to fetch marketer dashboard: ${response.statusCode} - ${response.body}');
   }
 
   Future<Map<String, dynamic>> fetchMarketerChartRange({
@@ -4010,10 +4231,43 @@ class ApiService {
     String range = 'weekly',
     int? marketerId,
   }) async {
-    final params = StringBuffer('?range=${Uri.encodeQueryComponent(range)}');
-    if (marketerId != null)
+    // Only accept supported ranges; default to weekly
+    const supported = {'weekly', 'monthly', 'yearly', 'alltime'};
+    final r = supported.contains(range) ? range : 'weekly';
+
+    // Preferred (canonical) path: fetch the full dashboard which now contains
+    // `weekly` / `monthly` / `yearly` / `alltime` blocks. This keeps the
+    // client aligned with the server-side consolidation.
+    try {
+      final dashboard = await fetchMarketerDashboard(
+        token: token,
+        marketerId: marketerId,
+      );
+
+      final dynamic candidate = dashboard[r];
+      if (candidate is Map<String, dynamic>) return Map.from(candidate);
+
+      // Back-compat: some payloads may nest the block under `data` / `chart`
+      if (dashboard['data'] is Map && dashboard['data'][r] is Map) {
+        return Map<String, dynamic>.from(dashboard['data'][r] as Map);
+      }
+      if (candidate is List && candidate.isNotEmpty && candidate.first is Map) {
+        return Map<String, dynamic>.from(candidate.first as Map);
+      }
+      // If canonical response didn't include the range block, fall through to
+      // the legacy endpoint below as a safe fallback.
+    } catch (_) {
+      // Intentionally swallow — we'll attempt the legacy endpoint next.
+    }
+
+    // Legacy fallback (kept for transition). If the server still supports the
+    // old `dashboard/data` endpoint we'll use it; otherwise this will surface
+    // a clear error to the caller.
+    final params = StringBuffer('?range=${Uri.encodeQueryComponent(r)}');
+    if (marketerId != null) {
       params
           .write('&marketer_id=${Uri.encodeComponent(marketerId.toString())}');
+    }
 
     final response = await http.get(
       Uri.parse('$baseUrl/marketers/dashboard/data/$params'),
@@ -4025,20 +4279,24 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> block =
-          jsonDecode(response.body) as Map<String, dynamic>;
-      return block;
-    } else {
-      throw Exception(
-          'Failed to fetch marketer chart range: ${response.statusCode} - ${response.body}');
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
+        return Map<String, dynamic>.from(decoded.first as Map);
+      }
     }
+
+    throw Exception(
+        'Failed to fetch marketer chart range (canonical and fallback): ${response.statusCode} - ${response.body}');
   }
 
   List<Map<String, dynamic>> parseChartBlockToChartData(
       Map<String, dynamic> block) {
     final List<dynamic> labels = (block['labels'] ?? []) as List<dynamic>;
     final List<dynamic> tx = (block['tx'] ?? []) as List<dynamic>;
-    final List<dynamic> est = (block['est'] ?? []) as List<dynamic>;
+    // prefer canonical `comp` (company-scoped transactions); fall back to `est`
+    final List<dynamic> comp =
+        (block['comp'] ?? block['est'] ?? []) as List<dynamic>;
     final List<dynamic> cli = (block['cli'] ?? []) as List<dynamic>;
 
     final int n = labels.length;
@@ -4047,17 +4305,358 @@ class ApiService {
     for (var i = 0; i < n; i++) {
       final String time = labels[i]?.toString() ?? '';
       final double sales = _toDoubleSafe(i < tx.length ? tx[i] : 0);
-      final double revenue = _toDoubleSafe(i < est.length ? est[i] : 0);
+      final double companyMetric = _toDoubleSafe(i < comp.length ? comp[i] : 0);
       final double customers = _toDoubleSafe(i < cli.length ? cli[i] : 0);
 
       out.add({
         'time': time,
         'sales': sales,
-        'revenue': revenue,
+        // new canonical field (preferred by server)
+        'company_metric': companyMetric,
+        // keep `revenue` for backward-compatibility (maps to company_metric)
+        'revenue': companyMetric,
         'customers': customers,
       });
     }
     return out;
+  }
+
+  // Helper: safely parse int-like values returned by the API (string/num/null)
+  int _asInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v.replaceAll(',', '')) ?? 0;
+    return 0;
+  }
+
+  Map<String, dynamic>? _extractDashboardBlock(
+      Map<String, dynamic> payload, String key) {
+    // Accept canonical top-level block
+    final candidate = payload[key];
+    if (candidate is Map<String, dynamic>)
+      return Map<String, dynamic>.from(candidate);
+
+    // Accept list-wrapped blocks
+    if (candidate is List && candidate.isNotEmpty && candidate.first is Map) {
+      return Map<String, dynamic>.from(candidate.first as Map);
+    }
+
+    // Common legacy nesting locations
+    if (payload['data'] is Map && payload['data'][key] is Map) {
+      return Map<String, dynamic>.from(payload['data'][key] as Map);
+    }
+    if (payload['chart'] is Map && payload['chart'][key] is Map) {
+      return Map<String, dynamic>.from(payload['chart'][key] as Map);
+    }
+    if (payload['blocks'] is Map && payload['blocks'][key] is Map) {
+      return Map<String, dynamic>.from(payload['blocks'][key] as Map);
+    }
+
+    // Profile-shaped payload: dashboard_summary: { weekly: {...} }
+    if (payload['dashboard_summary'] is Map &&
+        payload['dashboard_summary'][key] is Map) {
+      return Map<String, dynamic>.from(
+          payload['dashboard_summary'][key] as Map);
+    }
+
+    return null;
+  }
+
+  /// Normalizes `companies[]` or legacy `company_names`/`company_transactions`
+  /// into a reliable List<Map> with keys: company_id, company_name,
+  /// transactions, company_logo
+  List<Map<String, dynamic>>? _parseCompanies(Map<String, dynamic>? payload) {
+    if (payload == null) return null;
+
+    // Canonical list
+    if (payload['companies'] is List) {
+      final raw = payload['companies'] as List;
+      return raw
+          .map((e) {
+            if (e is Map<String, dynamic>) {
+              return {
+                'company_id': e['company_id'] ?? e['id'] ?? null,
+                'company_name': e['company_name'] ?? e['name'] ?? '',
+                'transactions':
+                    _asInt(e['transactions'] ?? e['tx'] ?? e['count']),
+                'company_logo': e['company_logo'] ?? e['logo'] ?? null,
+              };
+            }
+            return null;
+          })
+          .whereType<Map<String, dynamic>>()
+          .toList();
+    }
+
+    // Legacy parallel arrays: company_names[] and company_transactions[]
+    if (payload['company_names'] is List &&
+        payload['company_transactions'] is List) {
+      final List names = payload['company_names'] as List;
+      final List txs = payload['company_transactions'] as List;
+      final n = names.length < txs.length ? names.length : txs.length;
+      final out = <Map<String, dynamic>>[];
+      for (var i = 0; i < n; i++) {
+        out.add({
+          'company_id': null,
+          'company_name': names[i]?.toString() ?? '',
+          'transactions': _asInt(txs[i]),
+          'company_logo': null,
+        });
+      }
+      return out;
+    }
+
+    return null;
+  }
+
+  /// Fetch the marketer-side "My Companies" page payload.
+  /// Endpoint: GET /api/marketer/my-companies/
+  /// Returns a map with keys: `companies` (List<Map>) and `current_year` (int).
+  Future<Map<String, dynamic>> getMarketerMyCompanies({
+    required String token,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/marketer/my-companies/');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token.isNotEmpty) headers['Authorization'] = 'Token $token';
+
+    final resp = await http.get(uri, headers: headers).timeout(timeout);
+    if (resp.statusCode == 200) {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic> &&
+          decoded['success'] == true &&
+          decoded['data'] is Map) {
+        final Map<String, dynamic> data =
+            Map<String, dynamic>.from(decoded['data']);
+        final rawCompanies = (data['companies'] as List?) ?? <dynamic>[];
+        final companies = rawCompanies.map<Map<String, dynamic>>((c) {
+          final Map<String, dynamic> item = Map<String, dynamic>.from(c as Map);
+          final Map<String, dynamic> company =
+              Map<String, dynamic>.from(item['company'] ?? {});
+          company['logo_url'] = _absUrl(company['logo_url']);
+          // preserve initial and location if provided by the API
+          if (company['initial'] != null)
+            company['initial'] = company['initial']?.toString();
+          if (company['location'] != null)
+            company['location'] = company['location']?.toString();
+          item['company'] = company;
+
+          // normalize numeric fields for safe UI usage
+          item['closed_deals'] = (item['closed_deals'] is int)
+              ? item['closed_deals']
+              : int.tryParse(item['closed_deals']?.toString() ?? '') ?? 0;
+          item['client_count'] = (item['client_count'] is int)
+              ? item['client_count']
+              : int.tryParse(item['client_count']?.toString() ?? '') ?? 0;
+          item['monthly_sales'] = _toDoubleSafe(item['monthly_sales']);
+          item['quarterly_sales'] = _toDoubleSafe(item['quarterly_sales']);
+          item['total_year_sales'] = _toDoubleSafe(item['total_year_sales']);
+          item['commission_rate'] = _toDoubleSafe(item['commission_rate']);
+
+          // normalize achievement percentages (may be null)
+          item['yearly_target_achievement'] =
+              item['yearly_target_achievement'] != null
+                  ? _toDoubleSafe(item['yearly_target_achievement'])
+                  : null;
+          item['monthly_achievement'] = item['monthly_achievement'] != null
+              ? _toDoubleSafe(item['monthly_achievement'])
+              : null;
+          item['quarterly_achievement'] = item['quarterly_achievement'] != null
+              ? _toDoubleSafe(item['quarterly_achievement'])
+              : null;
+
+          // normalize boolean-ish has_transactions
+          final ht = item['has_transactions'];
+          if (ht is bool) {
+            item['has_transactions'] = ht;
+          } else if (ht is int) {
+            item['has_transactions'] = ht != 0;
+          } else if (ht is String) {
+            item['has_transactions'] = ht.toLowerCase() == 'true';
+          } else {
+            item['has_transactions'] = false;
+          }
+
+          // ranks: keep null when absent, otherwise coerce to int
+          item['rank_position'] =
+              item.containsKey('rank_position') && item['rank_position'] != null
+                  ? _asInt(item['rank_position'])
+                  : null;
+          item['rank_total'] =
+              item.containsKey('rank_total') && item['rank_total'] != null
+                  ? _asInt(item['rank_total'])
+                  : null;
+          item['rank_label'] =
+              item['rank_label'] != null ? item['rank_label'].toString() : null;
+
+          // normalize nested target amounts if present
+          if (item['monthly_target'] is Map &&
+              item['monthly_target']['target_amount'] != null) {
+            item['monthly_target']['target_amount'] =
+                _toDoubleSafe(item['monthly_target']['target_amount']);
+          }
+          if (item['quarterly_target'] is Map &&
+              item['quarterly_target']['target_amount'] != null) {
+            item['quarterly_target']['target_amount'] =
+                _toDoubleSafe(item['quarterly_target']['target_amount']);
+          }
+          if (item['yearly_target'] is Map &&
+              item['yearly_target']['target_amount'] != null) {
+            item['yearly_target']['target_amount'] =
+                _toDoubleSafe(item['yearly_target']['target_amount']);
+          }
+
+          return item;
+        }).toList();
+        return {
+          'companies': companies,
+          'current_year': _asInt(data['current_year'])
+        };
+      }
+      throw Exception((decoded as Map)['message'] ??
+          'Unexpected response for marketer companies');
+    } else if (resp.statusCode == 401) {
+      throw Exception('Authentication required');
+    } else {
+      String msg = 'Failed to fetch marketer companies (${resp.statusCode})';
+      try {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map && decoded['message'] != null)
+          msg = decoded['message'];
+      } catch (_) {}
+      throw Exception(msg);
+    }
+  }
+
+  /// Fetch marketer's portfolio for a specific company.
+  /// Endpoint: GET /api/marketer/company/{company_id}/portfolio/
+  /// Returns: { company_id, company_name, total_value, transactions: [...], clients: [...] }
+  Future<Map<String, dynamic>> getMarketerCompanyPortfolio({
+    required int companyId,
+    required String token,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri =
+        Uri.parse('$baseUrl/api/marketer/company/$companyId/portfolio/');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token.isNotEmpty) headers['Authorization'] = 'Token $token';
+
+    final resp = await http.get(uri, headers: headers).timeout(timeout);
+    if (resp.statusCode == 200) {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic> &&
+          decoded['success'] == true &&
+          decoded['data'] is Map) {
+        final Map<String, dynamic> data =
+            Map<String, dynamic>.from(decoded['data']);
+        final txs = ((data['transactions'] as List?) ?? [])
+            .map<Map<String, dynamic>>((tx) {
+          final Map<String, dynamic> m = Map<String, dynamic>.from(tx as Map);
+          m['amount'] = _toDoubleSafe(m['amount']);
+          // normalize allocation nested fields if present
+          if (m['allocation'] is Map) {
+            final alloc = Map<String, dynamic>.from(m['allocation'] as Map);
+            if (alloc['plot_size'] != null)
+              alloc['plot_size'] = alloc['plot_size'];
+            if (alloc['estate'] is Map && alloc['estate']['name'] != null) {
+              alloc['estate']['name'] = alloc['estate']['name'];
+            }
+            m['allocation'] = alloc;
+          }
+          return m;
+        }).toList();
+        data['transactions'] = txs;
+
+        final clients =
+            ((data['clients'] as List?) ?? []).map<Map<String, dynamic>>((c) {
+          final Map<String, dynamic> m = Map<String, dynamic>.from(c as Map);
+          // normalize profile image url
+          if (m['profile_image'] is String)
+            m['profile_image'] = _absUrl(m['profile_image']);
+
+          // normalize company_transactions
+          if (m['company_transactions'] is List) {
+            m['company_transactions'] = (m['company_transactions'] as List)
+                .map<Map<String, dynamic>>((tx) {
+              final Map<String, dynamic> t =
+                  Map<String, dynamic>.from(tx as Map);
+              t['amount'] = _toDoubleSafe(t['amount']);
+              if (t['allocation'] is Map) {
+                final alloc = Map<String, dynamic>.from(t['allocation'] as Map);
+                if (alloc['plot_size'] != null)
+                  alloc['plot_size'] = alloc['plot_size'];
+                if (alloc['estate'] is Map && alloc['estate']['name'] != null) {
+                  alloc['estate']['name'] = alloc['estate']['name'];
+                }
+                t['allocation'] = alloc;
+              }
+              return t;
+            }).toList();
+          }
+
+          return m;
+        }).toList();
+        data['clients'] = clients;
+
+        // normalize top-level fields
+        data['company_logo'] = _absUrl(data['company_logo']);
+        data['total_value'] = _toDoubleSafe(data['total_value']);
+        data['commission_earned'] = _toDoubleSafe(data['commission_earned']);
+        data['commission_rate'] = _toDoubleSafe(data['commission_rate']);
+        data['closed_deals'] = (data['closed_deals'] is int)
+            ? data['closed_deals']
+            : int.tryParse(data['closed_deals']?.toString() ?? '') ?? 0;
+
+        // normalize leaderboard (top3) and the current user's entry (user_entry)
+        // ensure ranks are ints and profile images are absolute URLs
+        if (data['top3'] is List) {
+          data['top3'] = (data['top3'] as List).map<Map<String, dynamic>>((e) {
+            final Map<String, dynamic> entry =
+                Map<String, dynamic>.from(e as Map);
+            entry['rank'] = _asInt(entry['rank']);
+            if (entry['marketer'] is Map) {
+              final m = Map<String, dynamic>.from(entry['marketer'] as Map);
+              m['id'] = _asInt(m['id']);
+              if (m['profile_image'] is String)
+                m['profile_image'] = _absUrl(m['profile_image']);
+              entry['marketer'] = m;
+            }
+            return entry;
+          }).toList();
+        }
+
+        if (data['user_entry'] is Map) {
+          final Map<String, dynamic> ue =
+              Map<String, dynamic>.from(data['user_entry'] as Map);
+          ue['rank'] = _asInt(ue['rank']);
+          if (ue['marketer'] is Map) {
+            final m = Map<String, dynamic>.from(ue['marketer'] as Map);
+            m['id'] = _asInt(m['id']);
+            if (m['profile_image'] is String)
+              m['profile_image'] = _absUrl(m['profile_image']);
+            ue['marketer'] = m;
+          }
+          data['user_entry'] = ue;
+        }
+
+        // ensure current_year is an int when present
+        if (data['current_year'] != null)
+          data['current_year'] = _asInt(data['current_year']);
+
+        return data;
+      }
+      throw Exception((decoded as Map)['message'] ??
+          'Unexpected response for company portfolio');
+    } else if (resp.statusCode == 401) {
+      throw Exception('Authentication required');
+    } else if (resp.statusCode == 403) {
+      throw Exception('Access denied to this company portfolio');
+    } else if (resp.statusCode == 404) {
+      throw Exception('Company portfolio not found');
+    } else {
+      throw Exception('Failed to fetch company portfolio: ${resp.statusCode}');
+    }
   }
 
   double _toDoubleSafe(dynamic v) {
@@ -5103,7 +5702,12 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> payload =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            (payload['success'] == true && payload['data'] is Map)
+                ? Map<String, dynamic>.from(payload['data'] as Map)
+                : payload;
 
         void normalizeList(dynamic list) {
           if (list is List) {
@@ -5195,7 +5799,13 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> payload =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            (payload['success'] == true && payload['data'] is Map)
+                ? Map<String, dynamic>.from(payload['data'] as Map)
+                : payload;
+
         final message = data['message'];
         if (message is Map && message['file_url'] != null) {
           final fileUrl = message['file_url'].toString();
@@ -5247,7 +5857,13 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> payload =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            (payload['success'] == true && payload['data'] is Map)
+                ? Map<String, dynamic>.from(payload['data'] as Map)
+                : payload;
+        return data;
       } else if (response.statusCode == 400) {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['error'] ??
@@ -5286,7 +5902,12 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> payload =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            (payload['success'] == true && payload['data'] is Map)
+                ? Map<String, dynamic>.from(payload['data'] as Map)
+                : payload;
 
         if (data['new_messages'] is List) {
           for (var msg in data['new_messages']) {

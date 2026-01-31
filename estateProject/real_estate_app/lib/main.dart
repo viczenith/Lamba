@@ -40,11 +40,7 @@ import 'admin/others/estate_allocation_details.dart';
 // Client side
 import 'client/client_dashboard.dart';
 import 'client/client_profile.dart';
-import 'client/client_property_list.dart';
-import 'client/client_request_property.dart';
-import 'client/client_view_requests.dart';
 import 'client/client_chat_admin.dart';
-import 'client/property_details.dart';
 import 'client/client_plot_details.dart';
 import 'client/client_notification_details.dart';
 import 'client/screens/my_companies_screen.dart';
@@ -52,11 +48,11 @@ import 'client/screens/my_company_portfolio_screen.dart';
 
 // Marketer side
 import 'marketer/marketer_dashboard.dart';
-import 'marketer/marketer_clients.dart';
 import 'marketer/marketer_notifications.dart';
 import 'marketer/marketer_chat_admin.dart';
 import 'package:real_estate_app/marketer/marketer_profile.dart';
-import 'test_notifications.dart'; // Add test page import
+import 'marketer/screens/my_companies_screen.dart';
+import 'marketer/screens/company_portfolio_screen.dart';
 
 // Admin Support Side
 import 'admin_support/admin_support_dashboard.dart';
@@ -195,26 +191,9 @@ class MyApp extends StatelessWidget {
           return CompanyPortfolioScreen(token: token, companyId: companyId);
         },
 
-        '/client-property-list': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String?;
-          return ClientPropertyList(token: token ?? '');
-        },
-        '/client-request-property': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String?;
-          return ClientRequestProperty(token: token ?? '');
-        },
-        '/client-view-requests': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String?;
-          return ClientViewRequests(token: token ?? '');
-        },
-
         '/client-chat-admin': (context) {
           final token = ModalRoute.of(context)?.settings.arguments as String?;
           return ClientChatAdmin(token: token ?? '');
-        },
-        '/client-property-details': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String?;
-          return PropertyDetailsPage(token: token ?? '');
         },
         '/client-notification': (context) {
           final token = ModalRoute.of(context)?.settings.arguments as String?;
@@ -321,25 +300,11 @@ class MyApp extends StatelessWidget {
             estatePlot: args?['estatePlot'] ?? '',
           );
         },
-        // '/edit-estate-plot': (context) {
-        //   final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-        //   if (args == null) {
-        //     return const ErrorScreen();
-        //   }
-        //   return EditEstatePlotScreen(
-        //     estatePlot: args['estatePlot'],
-        //     token: args['token'] as String,
-        //   );
-        // },
 
         // Marketer side routes
         '/marketer-dashboard': (context) {
           final token = ModalRoute.of(context)?.settings.arguments as String?;
           return MarketerDashboard(token: token ?? '');
-        },
-        '/marketer-clients': (context) {
-          final token = ModalRoute.of(context)?.settings.arguments as String?;
-          return MarketerClients(token: token ?? '');
         },
 
         '/marketer-profile': (context) {
@@ -353,6 +318,22 @@ class MyApp extends StatelessWidget {
         '/marketer-notifications': (context) {
           final token = ModalRoute.of(context)?.settings.arguments as String?;
           return MarketerNotifications(token: token ?? '');
+        },
+
+        '/marketer-my-companies': (context) {
+          final token = ModalRoute.of(context)?.settings.arguments as String?;
+          return MarketerMyCompaniesScreen(token: token ?? '');
+        },
+        '/marketer-company-portfolio': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map?;
+          if (args == null) return const ErrorScreen();
+          final token = args['token']?.toString() ?? '';
+          final companyId = args['companyId'] is int
+              ? args['companyId'] as int
+              : int.tryParse(args['companyId']?.toString() ?? '');
+          if (token.isEmpty || companyId == null) return const ErrorScreen();
+          return MarketerCompanyPortfolioScreen(
+              token: token, companyId: companyId);
         },
 
         // Admin Support routes
@@ -400,9 +381,6 @@ class MyApp extends StatelessWidget {
               ModalRoute.of(context)?.settings.arguments as String? ?? '';
           return AdminSupportSpecialDaysPage(token: token);
         },
-
-        // Test page for debugging notifications
-        '/test-notifications': (context) => const NotificationTestPage(),
       },
     );
   }

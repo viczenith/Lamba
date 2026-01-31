@@ -34,7 +34,8 @@ class AppLayout extends StatefulWidget {
 
   static AppLayoutController of(BuildContext context) {
     final controller = maybeOf(context);
-    assert(controller != null, 'AppLayout.of() called with a context that does not contain AppLayout.');
+    assert(controller != null,
+        'AppLayout.of() called with a context that does not contain AppLayout.');
     return controller!;
   }
 
@@ -72,11 +73,14 @@ class AppLayoutController {
     _messages = messages;
   }
 
-  ValueNotifier<Map<String, int>> get countsNotifier => headerController.countsNotifier;
+  ValueNotifier<Map<String, int>> get countsNotifier =>
+      headerController.countsNotifier;
 }
 
 class _AppLayoutScope extends InheritedWidget {
-  const _AppLayoutScope({required this.controller, required Widget child, super.key}) : super(child: child);
+  const _AppLayoutScope(
+      {required this.controller, required Widget child, super.key})
+      : super(child: child);
 
   final AppLayoutController controller;
 
@@ -146,7 +150,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
   void _onHeaderCountsChanged() {
     try {
       final data = _headerController.countsNotifier.value;
-      final int notifs = _parseCount(data['notifications'], _unreadNotificationsCount);
+      final int notifs =
+          _parseCount(data['notifications'], _unreadNotificationsCount);
       final int msgs = _parseCount(data['messages'], _unreadMessagesCount);
 
       _controller.setInternalCounts(notifs, msgs);
@@ -213,12 +218,19 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
         // Populate counts from cache immediately
         if (clientData != null) {
           // use safe parsing to avoid cast errors
-          final rawMsgs = clientData!['unread_messages_count'] ?? clientData!['unread_messages'] ?? 0;
-          final rawNotifs = clientData!['unread_notifications_count'] ?? clientData!['unread_notifications'] ?? 0;
-          _unreadMessagesCount = rawMsgs is int ? rawMsgs : int.tryParse('$rawMsgs') ?? 0;
-          _unreadNotificationsCount = rawNotifs is int ? rawNotifs : int.tryParse('$rawNotifs') ?? 0;
+          final rawMsgs = clientData!['unread_messages_count'] ??
+              clientData!['unread_messages'] ??
+              0;
+          final rawNotifs = clientData!['unread_notifications_count'] ??
+              clientData!['unread_notifications'] ??
+              0;
+          _unreadMessagesCount =
+              rawMsgs is int ? rawMsgs : int.tryParse('$rawMsgs') ?? 0;
+          _unreadNotificationsCount =
+              rawNotifs is int ? rawNotifs : int.tryParse('$rawNotifs') ?? 0;
           try {
-            _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+            _headerController.updateCounts(
+                _unreadNotificationsCount, _unreadMessagesCount);
           } catch (_) {}
         }
         _fetchClientAndCache();
@@ -238,9 +250,10 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
         }
         if (mounted) setState(() {});
         if (marketerData != null) {
-          final notifCount = _parseCount(marketerData!['unread_notifications_count'] ??
-              marketerData!['notification_unread_count'] ??
-              marketerData!['unread_count']);
+          final notifCount = _parseCount(
+              marketerData!['unread_notifications_count'] ??
+                  marketerData!['notification_unread_count'] ??
+                  marketerData!['unread_count']);
           final msgCount = _parseCount(marketerData!['unread_messages_count'] ??
               marketerData!['global_message_count'] ??
               marketerData!['unread_messages']);
@@ -254,7 +267,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
             _unreadMessagesCount = msgCount;
           }
           try {
-            _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+            _headerController.updateCounts(
+                _unreadNotificationsCount, _unreadMessagesCount);
           } catch (_) {}
         }
         _fetchMarketerAndCache();
@@ -276,9 +290,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
 
   void _subscribeToPushCounts() {
     if (widget.side != AppSide.client) return;
-    _pushSubscription = PushNotificationService()
-        .incomingPushEvents
-        .listen((payload) {
+    _pushSubscription =
+        PushNotificationService().incomingPushEvents.listen((payload) {
       final data = payload['data'] as Map<String, dynamic>?;
       if (data == null) return;
 
@@ -289,7 +302,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       }
 
       final meta = data['meta'] as Map<String, dynamic>?;
-      final type = ((payload['type'] ?? data['type']) as String?)?.toLowerCase() ?? '';
+      final type =
+          ((payload['type'] ?? data['type']) as String?)?.toLowerCase() ?? '';
 
       int? unreadMessages = _parseCount(
         data['global_message_count'] ??
@@ -307,13 +321,15 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
 
       final counts = _headerController.countsNotifier.value;
       final currentMessages = counts['messages'] ?? _unreadMessagesCount;
-      final currentNotifications = counts['notifications'] ?? _unreadNotificationsCount;
+      final currentNotifications =
+          counts['notifications'] ?? _unreadNotificationsCount;
 
       if (type == 'chat_message' && unreadMessages == null) {
         unreadMessages = currentMessages + 1;
       }
 
-      if ((type.contains('notification') || type == 'new_notification') && unreadNotifications == null) {
+      if ((type.contains('notification') || type == 'new_notification') &&
+          unreadNotifications == null) {
         unreadNotifications = currentNotifications + 1;
       }
 
@@ -324,7 +340,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       final nextMessages = unreadMessages ?? currentMessages;
       final nextNotifications = unreadNotifications ?? currentNotifications;
 
-      if (nextMessages != currentMessages || nextNotifications != currentNotifications) {
+      if (nextMessages != currentMessages ||
+          nextNotifications != currentNotifications) {
         if (mounted) {
           setState(() {
             _unreadMessagesCount = nextMessages;
@@ -348,7 +365,9 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
     final api = ApiService();
     try {
       final counts = await api.getChatUnreadCountShared(token: widget.token);
-      final unreadMessages = (counts['global_message_count'] ?? counts['total_unread_count'] ?? 0) as int;
+      final unreadMessages = (counts['global_message_count'] ??
+          counts['total_unread_count'] ??
+          0) as int;
 
       final headerData = await api.getHeaderDataShared(token: widget.token);
       int unreadNotifications = 0;
@@ -358,7 +377,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       } else if (headerCount != null) {
         unreadNotifications = int.tryParse('$headerCount') ?? 0;
       } else {
-        final notifications = (headerData['unread_notifications'] as List?) ?? [];
+        final notifications =
+            (headerData['unread_notifications'] as List?) ?? [];
         unreadNotifications = notifications.length;
       }
 
@@ -375,11 +395,14 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
 
         // push to header controller so header and sidebar stay in sync
         try {
-          _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+          _headerController.updateCounts(
+              _unreadNotificationsCount, _unreadMessagesCount);
         } catch (_) {}
       }
 
-      if (kDebugMode) debugPrint('AppLayout refreshed counts -> notifs:$unreadNotifications msgs:$unreadMessages');
+      if (kDebugMode)
+        debugPrint(
+            'AppLayout refreshed counts -> notifs:$unreadNotifications msgs:$unreadMessages');
     } catch (e, st) {
       debugPrint('Failed to refresh counts: $e\n$st');
     }
@@ -403,7 +426,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
           _unreadNotificationsCount = unreadNotifications;
           _unreadMessagesCount = unreadMessages;
           marketerData ??= {};
-          marketerData!['unread_notifications_count'] = _unreadNotificationsCount;
+          marketerData!['unread_notifications_count'] =
+              _unreadNotificationsCount;
           marketerData!['unread_messages_count'] = _unreadMessagesCount;
         });
       } else {
@@ -415,7 +439,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       }
 
       try {
-        _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+        _headerController.updateCounts(
+            _unreadNotificationsCount, _unreadMessagesCount);
       } catch (_) {}
 
       await _updateMarketerCache();
@@ -450,13 +475,19 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
   Future<void> _fetchClientAndCache() async {
     final api = ApiService();
     try {
-      final data = await api.getClientDetailByToken(token: widget.token).timeout(const Duration(seconds: 10));
+      final data = await api
+          .getClientDetailByToken(token: widget.token)
+          .timeout(const Duration(seconds: 10));
       clientData = Map<String, dynamic>.from(data);
 
-      final rawMsgs = clientData!['unread_messages_count'] ?? clientData!['unread_messages'] ?? 0;
+      final rawMsgs = clientData!['unread_messages_count'] ??
+          clientData!['unread_messages'] ??
+          0;
       final dynamic rawNotifCount = clientData!['unread_notifications_count'];
-      final rawNotifs = rawNotifCount ?? clientData!['unread_notifications'] ?? 0;
-      final unreadMessages = rawMsgs is int ? rawMsgs : int.tryParse('$rawMsgs') ?? 0;
+      final rawNotifs =
+          rawNotifCount ?? clientData!['unread_notifications'] ?? 0;
+      final unreadMessages =
+          rawMsgs is int ? rawMsgs : int.tryParse('$rawMsgs') ?? 0;
       int unreadNotifications;
       if (rawNotifs is int) {
         unreadNotifications = rawNotifs;
@@ -472,7 +503,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       }
 
       try {
-        _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+        _headerController.updateCounts(
+            _unreadNotificationsCount, _unreadMessagesCount);
       } catch (_) {}
 
       clientData!['unread_notifications_count'] = unreadNotifications;
@@ -487,11 +519,14 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
   Future<void> _fetchMarketerAndCache() async {
     final api = ApiService();
     try {
-      final data = await api.getMarketerProfileByToken(token: widget.token).timeout(const Duration(seconds: 10));
+      final data = await api
+          .getMarketerProfileByToken(token: widget.token)
+          .timeout(const Duration(seconds: 10));
       marketerData = Map<String, dynamic>.from(data);
-      final notifCount = _parseCount(marketerData!['unread_notifications_count'] ??
-          marketerData!['notification_unread_count'] ??
-          marketerData!['unread_count']);
+      final notifCount = _parseCount(
+          marketerData!['unread_notifications_count'] ??
+              marketerData!['notification_unread_count'] ??
+              marketerData!['unread_count']);
       final msgCount = _parseCount(marketerData!['unread_messages_count'] ??
           marketerData!['global_message_count'] ??
           marketerData!['unread_messages']);
@@ -511,7 +546,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       await _updateMarketerCache();
 
       try {
-        _headerController.updateCounts(_unreadNotificationsCount, _unreadMessagesCount);
+        _headerController.updateCounts(
+            _unreadNotificationsCount, _unreadMessagesCount);
       } catch (_) {}
 
       await _refreshMarketerCounts();
@@ -548,10 +584,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
       '/client-dashboard',
       '/client-profile',
       '/client-chat-admin',
-      '/client-property-details',
       '/client-notification',
       '/marketer-dashboard',
-      '/marketer-clients',
       '/marketer-profile',
       '/marketer-notifications',
       '/marketer-chat-admin',
@@ -580,7 +614,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
           clientRank: clientData?['rank_tag'],
           notificationCount: _unreadNotificationsCount,
           messageCount: _unreadMessagesCount,
-          headerController: _headerController, // <-- pass controller here for real-time updates
+          headerController:
+              _headerController, // <-- pass controller here for real-time updates
         );
 
       case AppSide.marketer:
@@ -618,7 +653,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if ((widget.side == AppSide.client && _loadingClient) || (widget.side == AppSide.marketer && _loadingMarketer)) {
+    if ((widget.side == AppSide.client && _loadingClient) ||
+        (widget.side == AppSide.marketer && _loadingMarketer)) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -647,13 +683,17 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
         appBar: _buildHeader(),
         body: Row(
           children: [
-            if (isLargeScreen) SizedBox(width: 250, child: _buildSidebar(isExpanded: true)),
+            if (isLargeScreen)
+              SizedBox(width: 250, child: _buildSidebar(isExpanded: true)),
             Expanded(
               child: Stack(
                 children: [
                   Container(
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Color(0xFFF5F3FF)]),
+                      gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.white, Color(0xFFF5F3FF)]),
                     ),
                     child: widget.child,
                   ),
@@ -663,7 +703,8 @@ class _AppLayoutState extends State<AppLayout> with WidgetsBindingObserver {
                       left: _isSidebarVisible ? 0 : -250,
                       top: 0,
                       bottom: 0,
-                      child: SizedBox(width: 250, child: _buildSidebar(isExpanded: true)),
+                      child: SizedBox(
+                          width: 250, child: _buildSidebar(isExpanded: true)),
                     ),
                 ],
               ),

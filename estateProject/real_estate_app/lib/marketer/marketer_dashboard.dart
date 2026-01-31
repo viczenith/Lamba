@@ -30,7 +30,7 @@ class MarketerDashboard extends StatefulWidget {
   _MarketerDashboardState createState() => _MarketerDashboardState();
 }
 
-class _MarketerDashboardState extends State<MarketerDashboard> 
+class _MarketerDashboardState extends State<MarketerDashboard>
     with TickerProviderStateMixin {
   final ApiService _api = ApiService();
   bool _loading = true;
@@ -40,24 +40,45 @@ class _MarketerDashboardState extends State<MarketerDashboard>
 
   // summary
   int totalTransactions = 0;
-  int totalEstatesSold = 0;
+  int totalCompanies = 0;
   int numberClients = 0;
 
   // chart
   List<ChartData> chartData = [];
   String activeRange = 'weekly';
-  final List<String> availableRanges = ['weekly', 'monthly', 'yearly', 'alltime'];
+  final List<String> availableRanges = [
+    'weekly',
+    'monthly',
+    'yearly',
+    'alltime'
+  ];
 
   Map<String, dynamic>? weeklyBlock;
   Map<String, dynamic>? monthlyBlock;
   Map<String, dynamic>? yearlyBlock;
   Map<String, dynamic>? alltimeBlock;
 
+  // Companies (for the "Transactions by Company" bar chart)
+  List<Map<String, dynamic>> companies = <Map<String, dynamic>>[];
+  List<String> companyNames = <String>[];
+  List<double> companyTransactions = <double>[];
+
+  // Color palette aligned with the HTML theme
+  final List<Color> _chartPalette = [
+    const Color(0xFF667EEA), // indigo
+    const Color(0xFF764BA2), // purple
+    const Color(0xFF11998E), // teal
+    const Color(0xFF38EF7D), // green
+    const Color(0xFF4FACFE), // blue
+    const Color(0xFFF2994A), // orange
+    const Color(0xFFEB3349), // red
+  ];
+
   // Animation controllers
   late final AnimationController _pulseController;
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
-  
+
   // For chart animations
   late final AnimationController _chartAnimationController;
   late final Animation<double> _chartAnimation;
@@ -65,35 +86,34 @@ class _MarketerDashboardState extends State<MarketerDashboard>
   @override
   void initState() {
     super.initState();
-    
+
     // Pulse animation for live indicator
-    _pulseController = AnimationController(
-      vsync: this, 
-      duration: const Duration(seconds: 2)
-    )..repeat(reverse: true);
-    
+    _pulseController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat(reverse: true);
+
     // Fade animation for content
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    
+
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
       curve: Curves.easeInOut,
     );
-    
+
     // Chart animation
     _chartAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    
+
     _chartAnimation = CurvedAnimation(
       parent: _chartAnimationController,
       curve: Curves.easeOutCubic,
     );
-    
+
     _loadDashboard().then((_) {
       _fadeController.forward();
       _chartAnimationController.forward();
@@ -115,19 +135,42 @@ class _MarketerDashboardState extends State<MarketerDashboard>
     });
     try {
       final payload = await _api.fetchMarketerDashboard(
-        token: widget.token, 
-        marketerId: widget.marketerId
-      );
+          token: widget.token, marketerId: widget.marketerId);
       final summary = payload['summary'] as Map<String, dynamic>? ?? {};
-      setState(() {
-        totalTransactions = (summary['total_transactions'] ?? 0) as int;
-        totalEstatesSold = (summary['total_estates_sold'] ?? 0) as int;
-        numberClients = (summary['number_clients'] ?? 0) as int;
 
-        weeklyBlock = payload['weekly'] as Map<String, dynamic>?;
-        monthlyBlock = payload['monthly'] as Map<String, dynamic>?;
-        yearlyBlock = payload['yearly'] as Map<String, dynamic>?;
-        alltimeBlock = payload['alltime'] as Map<String, dynamic>?;
+      int _asInt(dynamic v) {
+        if (v == null) return 0;
+        if (v is int) return v;
+        if (v is double) return v.toInt();
+        if (v is String) return int.tryParse(v.replaceAll(',', '')) ?? 0;
+        return 0;
+      }
+
+      setState(() {
+        totalTransactions =
+            _asInt(summary['total_transactions'] ?? summary['transactions']);
+        // Prefer canonical `total_companies`; fall back to legacy keys if present
+        totalCompanies = _asInt(summary['total_companies'] ??
+            summary['total_estates_sold'] ??
+            summary['companies_count']);
+        numberClients =
+            _asInt(summary['number_clients'] ?? summary['clients_count']);
+
+        weeklyBlock = _extractDashboardBlock(payload, 'weekly');
+        monthlyBlock = _extractDashboardBlock(payload, 'monthly');
+        yearlyBlock = _extractDashboardBlock(payload, 'yearly');
+        alltimeBlock = _extractDashboardBlock(payload, 'alltime');
+
+        // companies[] is the canonical shape; accept legacy parallel arrays too
+        companies = _parseCompanies(payload);
+        companyNames = companies
+            .map((c) => (c['company_name'] ?? c['name'] ?? c['company'] ?? '')
+                .toString())
+            .toList();
+        companyTransactions = companies
+            .map((c) =>
+                _toDoubleSafe(c['transactions'] ?? c['tx'] ?? c['count'] ?? 0))
+            .toList();
       });
       await _loadChartRange(activeRange, useCached: true);
     } catch (e) {
@@ -167,10 +210,7 @@ class _MarketerDashboardState extends State<MarketerDashboard>
       }
       if (block == null) {
         block = await _api.fetchMarketerChartRange(
-          token: widget.token, 
-          range: range, 
-          marketerId: widget.marketerId
-        );
+            token: widget.token, range: range, marketerId: widget.marketerId);
       }
       final parsed = _parseChartBlockToChartData(block);
       setState(() {
@@ -190,9 +230,15 @@ class _MarketerDashboardState extends State<MarketerDashboard>
   }
 
   List<ChartData> _parseChartBlockToChartData(Map<String, dynamic> block) {
-    final labels = (block['labels'] as List<dynamic>?)?.map((e) => e?.toString() ?? '').toList() ?? <String>[];
+    final labels = (block['labels'] as List<dynamic>?)
+            ?.map((e) => e?.toString() ?? '')
+            .toList() ??
+        <String>[];
     final tx = (block['tx'] as List<dynamic>?) ?? <dynamic>[];
-    final est = (block['est'] as List<dynamic>?) ?? <dynamic>[];
+    // prefer canonical 'comp' (active companies) — fall back to legacy 'est' (estates)
+    final est = (block['comp'] as List<dynamic>?) ??
+        (block['est'] as List<dynamic>?) ??
+        <dynamic>[];
     final cli = (block['cli'] as List<dynamic>?) ?? <dynamic>[];
 
     final n = labels.length;
@@ -202,8 +248,59 @@ class _MarketerDashboardState extends State<MarketerDashboard>
       final sales = _toDoubleSafe(i < tx.length ? tx[i] : 0);
       final revenue = _toDoubleSafe(i < est.length ? est[i] : 0);
       final customers = _toDoubleSafe(i < cli.length ? cli[i] : 0);
-      out.add(ChartData(time: time, sales: sales, revenue: revenue, customers: customers));
+      out.add(ChartData(
+          time: time, sales: sales, revenue: revenue, customers: customers));
     }
+    return out;
+  }
+
+  // Helper: extract a dashboard block (`weekly`/`monthly`/`yearly`/`alltime`)
+  // Accepts Map or List-first shapes and the legacy `data` wrapper.
+  Map<String, dynamic>? _extractDashboardBlock(
+      Map<String, dynamic> payload, String key) {
+    final candidate = payload[key];
+    if (candidate is Map<String, dynamic>)
+      return Map<String, dynamic>.from(candidate);
+    if (candidate is List && candidate.isNotEmpty && candidate.first is Map) {
+      return Map<String, dynamic>.from(candidate.first as Map);
+    }
+    if (payload['data'] is Map && payload['data'][key] is Map) {
+      return Map<String, dynamic>.from(payload['data'][key] as Map);
+    }
+    return null;
+  }
+
+  // Accept several server shapes for companies: canonical `companies: [{company_id, company_name, transactions, company_logo}]`
+  // or legacy parallel arrays: `company_names[]` + `company_transactions[]`.
+  List<Map<String, dynamic>> _parseCompanies(Map<String, dynamic> payload) {
+    final out = <Map<String, dynamic>>[];
+
+    if (payload['companies'] is List) {
+      for (final c in (payload['companies'] as List)) {
+        if (c is Map<String, dynamic>) {
+          out.add(Map<String, dynamic>.from(c));
+        }
+      }
+      if (out.isNotEmpty) return out;
+    }
+
+    // legacy: parallel arrays
+    final names = (payload['company_names'] as List<dynamic>?)
+        ?.map((e) => e?.toString() ?? '')
+        .toList();
+    final tx =
+        (payload['company_transactions'] as List<dynamic>?) ?? <dynamic>[];
+    if (names != null && names.isNotEmpty) {
+      for (var i = 0; i < names.length; i++) {
+        out.add({
+          'company_name': names[i],
+          'transactions': i < tx.length ? tx[i] : 0
+        });
+      }
+      return out;
+    }
+
+    // fallback empty
     return out;
   }
 
@@ -222,7 +319,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
   double _computeChartMaxY() {
     if (chartData.isEmpty) return 10.0;
     final maxVal = chartData
-        .map((c) => [c.sales, c.revenue, c.customers].reduce((a, b) => a > b ? a : b))
+        .map((c) =>
+            [c.sales, c.revenue, c.customers].reduce((a, b) => a > b ? a : b))
         .reduce((a, b) => a > b ? a : b);
     final buffer = max(10.0, maxVal * 0.12);
     return (maxVal + buffer).ceilToDouble();
@@ -276,9 +374,11 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                   builder: (context, constraints) {
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight - 18),
+                        constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight - 18),
                         child: IntrinsicHeight(
                           child: FadeTransition(
                             opacity: _fadeAnimation,
@@ -290,7 +390,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                                 if (_loading)
                                   _buildLoadingSkeleton(context)
                                 else if (_error != null)
-                                  _buildErrorCard(_error!, onRetry: _loadDashboard)
+                                  _buildErrorCard(_error!,
+                                      onRetry: _loadDashboard)
                                 else ...[
                                   _buildSummarySection(constraints),
                                   const SizedBox(height: 28),
@@ -317,7 +418,7 @@ class _MarketerDashboardState extends State<MarketerDashboard>
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -325,63 +426,49 @@ class _MarketerDashboardState extends State<MarketerDashboard>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Overview', 
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : Colors.grey.shade800,
-                  fontSize: 24
-                )
-              ),
+              Text('Overview',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.grey.shade800,
+                      fontSize: 24)),
               const SizedBox(height: 6),
-              Text(
-                'Home / Dashboard', 
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                  fontSize: 13
-                )
-              ),
+              Text('Home / Dashboard',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      fontSize: 13)),
             ],
           ),
         ),
         ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1.04).animate(
-            CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut)
-          ),
+          scale: Tween<double>(begin: 0.96, end: 1.04).animate(CurvedAnimation(
+              parent: _pulseController, curve: Curves.easeInOut)),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
+                gradient: LinearGradient(colors: [
                   Theme.of(context).colorScheme.primary,
                   Theme.of(context).colorScheme.primaryContainer,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight
-              ),
-              borderRadius: BorderRadius.circular(20), 
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3)
-                )
-              ]
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.show_chart, size: 18, color: Colors.white),
-                const SizedBox(width: 6),
-                Text(
-                  'Live Data', 
+                ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3))
+                ]),
+            child: Row(children: [
+              Icon(Icons.show_chart, size: 18, color: Colors.white),
+              const SizedBox(width: 6),
+              Text('Live Data',
                   style: TextStyle(
-                    color: Colors.white, 
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13
-                  )
-                ),
-              ]
-            ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+            ]),
           ),
         )
       ],
@@ -390,44 +477,41 @@ class _MarketerDashboardState extends State<MarketerDashboard>
 
   Widget _buildSummarySection(BoxConstraints constraints) {
     final isNarrow = constraints.maxWidth < 720;
-    final cardWidth = isNarrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3;
-    
+    final cardWidth =
+        isNarrow ? constraints.maxWidth : (constraints.maxWidth - 32) / 3;
+
     return Wrap(
       spacing: 16,
       runSpacing: 16,
       children: [
         _animatedSummaryCard(
-          icon: Icons.receipt_long, 
-          title: 'Total Transactions', 
-          value: totalTransactions.toString(), 
-          color: Colors.indigo, 
-          width: cardWidth
-        ),
+            icon: Icons.receipt_long,
+            title: 'Total Transactions',
+            value: totalTransactions.toString(),
+            color: Colors.indigo,
+            width: cardWidth),
         _animatedSummaryCard(
-          icon: Icons.business, 
-          title: 'Total Estates Sold', 
-          value: totalEstatesSold.toString(), 
-          color: Colors.teal, 
-          width: cardWidth
-        ),
+            icon: Icons.business,
+            title: 'Total Companies',
+            value: totalCompanies.toString(),
+            color: Colors.teal,
+            width: cardWidth),
         _animatedSummaryCard(
-          icon: Icons.people_alt, 
-          title: 'Number of Clients', 
-          value: numberClients.toString(), 
-          color: Colors.deepOrange, 
-          width: cardWidth
-        ),
+            icon: Icons.people_alt,
+            title: 'Number of Clients',
+            value: numberClients.toString(),
+            color: Colors.deepOrange,
+            width: cardWidth),
       ],
     );
   }
 
-  Widget _animatedSummaryCard({
-    required IconData icon, 
-    required String title, 
-    required String value, 
-    required Color color, 
-    required double width
-  }) {
+  Widget _animatedSummaryCard(
+      {required IconData icon,
+      required String title,
+      required String value,
+      required Color color,
+      required double width}) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 800),
@@ -442,24 +526,18 @@ class _MarketerDashboardState extends State<MarketerDashboard>
         );
       },
       child: _summaryCard(
-        icon: icon, 
-        title: title, 
-        value: value, 
-        color: color, 
-        width: width
-      ),
+          icon: icon, title: title, value: value, color: color, width: width),
     );
   }
 
-  Widget _summaryCard({
-    required IconData icon, 
-    required String title, 
-    required String value, 
-    required Color color, 
-    required double width
-  }) {
+  Widget _summaryCard(
+      {required IconData icon,
+      required String title,
+      required String value,
+      required Color color,
+      required double width}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: Container(
@@ -470,12 +548,11 @@ class _MarketerDashboardState extends State<MarketerDashboard>
           color: isDark ? Colors.grey.shade800 : Colors.white,
           boxShadow: [
             BoxShadow(
-              color: isDark 
-                 ? Colors.black.withOpacity(0.6)
-                 : Colors.grey.withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 5)
-            )
+                color: isDark
+                    ? Colors.black.withOpacity(0.6)
+                    : Colors.grey.withOpacity(0.2),
+                blurRadius: 15,
+                offset: const Offset(0, 5))
           ],
         ),
         child: Row(
@@ -499,33 +576,28 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                       scale: anim,
                       child: FadeTransition(opacity: anim, child: child),
                     ),
-                    child: Text(
-                      value, 
-                      key: ValueKey(value), 
-                      style: TextStyle(
-                        fontSize: 26, 
-                        fontWeight: FontWeight.w800, 
-                        color: color,
-                        shadows: [
-                          Shadow(
-                            color: color.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2)
-                          )
-                        ]
-                      )
-                    ),
+                    child: Text(value,
+                        key: ValueKey(value),
+                        style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                            shadows: [
+                              Shadow(
+                                  color: color.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2))
+                            ])),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    title, 
-                    textAlign: TextAlign.right, 
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-                      fontSize: 14
-                    )
-                  ),
+                  Text(title,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700,
+                          fontSize: 14)),
                 ],
               ),
             )
@@ -545,10 +617,10 @@ class _MarketerDashboardState extends State<MarketerDashboard>
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white : Colors.grey.shade800,
-        fontSize: 20,
-      ),
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.grey.shade800,
+            fontSize: 20,
+          ),
     );
 
     // Chips placed in a horizontal scroll view (prevents overflow).
@@ -580,7 +652,9 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                     style: TextStyle(
                       color: active
                           ? Colors.white
-                          : isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                          : isDark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -591,12 +665,15 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                 selectedColor: Theme.of(context).colorScheme.primary,
                 backgroundColor: Colors.transparent,
                 showCheckmark: false,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 shape: StadiumBorder(
                   side: BorderSide(
                     color: active
                         ? Colors.transparent
-                        : isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                        : isDark
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade300,
                     width: 1,
                   ),
                 ),
@@ -640,56 +717,56 @@ class _MarketerDashboardState extends State<MarketerDashboard>
             ),
           )
         else if (_chartError != null)
-          _buildErrorCard(_chartError!, onRetry: () => _loadChartRange(activeRange, useCached: false))
+          _buildErrorCard(_chartError!,
+              onRetry: () => _loadChartRange(activeRange, useCached: false))
         else
-          _buildAdvancedLineChart(isNarrow: isNarrow, maxWidth: constraints.maxWidth),
+          _buildAdvancedLineChart(
+              isNarrow: isNarrow, maxWidth: constraints.maxWidth),
       ],
     );
   }
 
   BoxDecoration _cardDecoration() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return BoxDecoration(
-      color: isDark ? Colors.grey.shade800 : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: isDark 
-            ? Colors.black.withOpacity(0.5)
-            : Colors.grey.withOpacity(0.2),
-          blurRadius: 15,
-          offset: const Offset(0, 5)
-        )
-      ]
-    );
+        color: isDark ? Colors.grey.shade800 : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.5)
+                  : Colors.grey.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 5))
+        ]);
   }
 
-  Widget _buildAdvancedLineChart({required bool isNarrow, required double maxWidth}) {
+  Widget _buildAdvancedLineChart(
+      {required bool isNarrow, required double maxWidth}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (chartData.isEmpty) {
       return Container(
-        height: isNarrow ? 280 : 360, 
-        decoration: _cardDecoration(), 
-        child: Center(
-          child: Text(
-            'No data for selected range', 
-            style: TextStyle(
-              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-              fontSize: 16
-            )
-          )
-        )
-      );
+          height: isNarrow ? 280 : 360,
+          decoration: _cardDecoration(),
+          child: Center(
+              child: Text('No data for selected range',
+                  style: TextStyle(
+                      color:
+                          isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                      fontSize: 16))));
     }
 
+    // chartData is normalized from the server; however the canonical
+    // series are: tx (transactions), comp (active companies) and cli (clients).
     final spotsSales = <FlSpot>[];
-    final spotsEst = <FlSpot>[];
+    final spotsComp = <FlSpot>[];
     final spotsCli = <FlSpot>[];
     for (var i = 0; i < chartData.length; i++) {
       spotsSales.add(FlSpot(i.toDouble(), chartData[i].sales));
-      spotsEst.add(FlSpot(i.toDouble(), chartData[i].revenue));
+      // `revenue` field previously used for estates; treat it as fallback for `comp`.
+      spotsComp.add(FlSpot(i.toDouble(), chartData[i].revenue));
       spotsCli.add(FlSpot(i.toDouble(), chartData[i].customers));
     }
 
@@ -707,11 +784,11 @@ class _MarketerDashboardState extends State<MarketerDashboard>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _legendDot(label: 'Transactions', color: Colors.deepPurple),
+              _legendDot(label: 'Transactions', color: _chartPalette[0]),
               const SizedBox(width: 16),
-              _legendDot(label: 'Estates Sold', color: Colors.teal),
+              _legendDot(label: 'Active Companies', color: _chartPalette[2]),
               const SizedBox(width: 16),
-              _legendDot(label: 'New Clients', color: Colors.orange),
+              _legendDot(label: 'New Clients', color: _chartPalette[5]),
             ],
           ),
           const SizedBox(height: 12),
@@ -726,7 +803,9 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                     horizontalInterval: max(1, (maxY / 5).floorToDouble()),
                     getDrawingHorizontalLine: (value) {
                       return FlLine(
-                        color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+                        color: isDark
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade200,
                         strokeWidth: 1,
                         dashArray: [4],
                       );
@@ -742,14 +821,13 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         getTitlesWidget: (value, meta) {
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
-                            child: Text(
-                              value.toInt().toString(),
-                              style: TextStyle(
-                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500
-                              )
-                            ),
+                            child: Text(value.toInt().toString(),
+                                style: TextStyle(
+                                    color: isDark
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500)),
                           );
                         },
                       ),
@@ -766,21 +844,23 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         reservedSize: 28,
                         getTitlesWidget: (value, meta) {
                           final idx = value.toInt();
-                          if (idx < 0 || idx >= chartData.length) return const SizedBox.shrink();
+                          if (idx < 0 || idx >= chartData.length)
+                            return const SizedBox.shrink();
                           final label = chartData[idx].time;
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500
-                              )
-                            ),
+                            child: Text(label,
+                                style: TextStyle(
+                                    color: isDark
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500)),
                           );
                         },
-                        interval: chartData.length > 12 ? (chartData.length / 6).floorToDouble() : 1,
+                        interval: chartData.length > 12
+                            ? (chartData.length / 6).floorToDouble()
+                            : 1,
                       ),
                     ),
                   ),
@@ -796,39 +876,42 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                     touchTooltipData: LineTouchTooltipData(
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((ts) {
-                          final idx = ts.x.toInt().clamp(0, chartData.length - 1);
+                          final idx =
+                              ts.x.toInt().clamp(0, chartData.length - 1);
                           final label = chartData[idx].time;
                           final y = ts.y.toInt();
-                          final seriesName = ts.barIndex == 0 
-                            ? 'Transactions' 
-                            : ts.barIndex == 1 
-                              ? 'Estates' 
-                              : 'Clients';
+                          final seriesName = ts.barIndex == 0
+                              ? 'Transactions'
+                              : ts.barIndex == 1
+                                  ? 'Active Companies'
+                                  : 'New Clients';
 
-                          Color textColor = isDark ? Colors.white : Colors.black;
+                          // determine tooltip text color for accessibility
+                          Color textColor =
+                              isDark ? Colors.white : Colors.black;
                           try {
                             final grad = ts.bar.gradient;
-                            if (grad is LinearGradient && grad.colors.isNotEmpty) {
-                              textColor = grad.colors.first.computeLuminance() > 0.5 
-                                ? Colors.black 
-                                : Colors.white;
+                            if (grad is LinearGradient &&
+                                grad.colors.isNotEmpty) {
+                              textColor =
+                                  grad.colors.first.computeLuminance() > 0.5
+                                      ? Colors.black
+                                      : Colors.white;
                             } else if (ts.bar.color != null) {
-                              textColor = ts.bar.color!.computeLuminance() > 0.5 
-                                ? Colors.black 
-                                : Colors.white;
+                              textColor = ts.bar.color!.computeLuminance() > 0.5
+                                  ? Colors.black
+                                  : Colors.white;
                             }
                           } catch (_) {
-                            textColor = isDark ? Colors.white : Colors.black;
+                            // keep default
                           }
 
                           return LineTooltipItem(
-                            '$seriesName: $y\n$label', 
-                            TextStyle(
-                              color: textColor, 
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13
-                            )
-                          );
+                              '$seriesName: $y\n$label',
+                              TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13));
                         }).toList();
                       },
                     ),
@@ -840,8 +923,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                       curveSmoothness: 0.3,
                       gradient: LinearGradient(
                         colors: [
-                          Colors.deepPurple.shade400,
-                          Colors.deepPurple.shade200,
+                          _chartPalette[0].withOpacity(0.95),
+                          _chartPalette[1].withOpacity(0.9)
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -852,7 +935,7 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
                             radius: 4,
-                            color: Colors.deepPurple.shade400,
+                            color: _chartPalette[0],
                             strokeWidth: 2,
                             strokeColor: isDark ? Colors.black : Colors.white,
                           );
@@ -862,8 +945,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            Colors.deepPurple.withOpacity(0.25),
-                            Colors.deepPurple.withOpacity(0.05),
+                            _chartPalette[0].withOpacity(0.25),
+                            _chartPalette[0].withOpacity(0.05)
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -871,13 +954,13 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                       ),
                     ),
                     LineChartBarData(
-                      spots: spotsEst,
+                      spots: spotsComp,
                       isCurved: true,
                       curveSmoothness: 0.3,
                       gradient: LinearGradient(
                         colors: [
-                          Colors.teal.shade400,
-                          Colors.teal.shade200,
+                          _chartPalette[2].withOpacity(0.9),
+                          _chartPalette[2].withOpacity(0.6)
                         ],
                       ),
                       barWidth: 4,
@@ -886,8 +969,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            Colors.teal.withOpacity(0.2),
-                            Colors.teal.withOpacity(0.02),
+                            _chartPalette[2].withOpacity(0.2),
+                            _chartPalette[2].withOpacity(0.02)
                           ],
                         ),
                       ),
@@ -898,8 +981,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                       curveSmoothness: 0.3,
                       gradient: LinearGradient(
                         colors: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade200,
+                          _chartPalette[5].withOpacity(0.9),
+                          _chartPalette[5].withOpacity(0.6)
                         ],
                       ),
                       barWidth: 4,
@@ -908,8 +991,8 @@ class _MarketerDashboardState extends State<MarketerDashboard>
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            Colors.orange.withOpacity(0.2),
-                            Colors.orange.withOpacity(0.02),
+                            _chartPalette[5].withOpacity(0.2),
+                            _chartPalette[5].withOpacity(0.02)
                           ],
                         ),
                       ),
@@ -926,40 +1009,32 @@ class _MarketerDashboardState extends State<MarketerDashboard>
 
   Widget _legendDot({required String label, required Color color}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Row(
       children: [
         Container(
-          width: 12, 
-          height: 12, 
-          decoration: BoxDecoration(
-            shape: BoxShape.circle, 
-            color: color,
-            boxShadow: [
+            width: 12,
+            height: 12,
+            decoration:
+                BoxDecoration(shape: BoxShape.circle, color: color, boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.5),
-                blurRadius: 6,
-                offset: const Offset(0, 2)
-              )
-            ]
-          )
-        ),
+                  color: color.withOpacity(0.5),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2))
+            ])),
         const SizedBox(width: 8),
-        Text(
-          label, 
-          style: TextStyle(
-            fontSize: 13, 
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700
-          )
-        ),
+        Text(label,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700)),
       ],
     );
   }
 
   Widget _buildLoadingSkeleton(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Column(
       children: [
         Row(
@@ -971,10 +1046,9 @@ class _MarketerDashboardState extends State<MarketerDashboard>
         ),
         const SizedBox(height: 20),
         Wrap(
-          spacing: 16, 
-          runSpacing: 16, 
-          children: List.generate(3, (i) => _skeletonCard())
-        ),
+            spacing: 16,
+            runSpacing: 16,
+            children: List.generate(3, (i) => _skeletonCard())),
         const SizedBox(height: 24),
         _skeleton(height: 320),
       ],
@@ -983,7 +1057,7 @@ class _MarketerDashboardState extends State<MarketerDashboard>
 
   Widget _skeleton({double? width, double height = 14}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
@@ -991,9 +1065,11 @@ class _MarketerDashboardState extends State<MarketerDashboard>
           width: width,
           height: height,
           decoration: BoxDecoration(
-            color: isDark 
-              ? Colors.grey.shade700.withOpacity(0.5 + 0.1 * sin(_pulseController.value * pi))
-              : Colors.grey.shade200.withOpacity(0.5 + 0.1 * sin(_pulseController.value * pi)),
+            color: isDark
+                ? Colors.grey.shade700
+                    .withOpacity(0.5 + 0.1 * sin(_pulseController.value * pi))
+                : Colors.grey.shade200
+                    .withOpacity(0.5 + 0.1 * sin(_pulseController.value * pi)),
             borderRadius: BorderRadius.circular(8),
           ),
         );
@@ -1003,7 +1079,7 @@ class _MarketerDashboardState extends State<MarketerDashboard>
 
   Widget _skeletonCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: 320,
       height: 120,
@@ -1013,36 +1089,34 @@ class _MarketerDashboardState extends State<MarketerDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: isDark 
-              ? Colors.black.withOpacity(0.4)
-              : Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5)
-          )
+              color: isDark
+                  ? Colors.black.withOpacity(0.4)
+                  : Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5))
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, 
-        children: [
-          _skeleton(width: 80, height: 18),
-          const SizedBox(height: 16),
-          _skeleton(height: 26),
-          const Spacer(),
-          Row(children: [_skeleton(width: 140, height: 14)])
-        ]
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _skeleton(width: 80, height: 18),
+        const SizedBox(height: 16),
+        _skeleton(height: 26),
+        const Spacer(),
+        Row(children: [_skeleton(width: 140, height: 14)])
+      ]),
     );
   }
 
-  Widget _buildErrorCard(String message, {required FutureOr<void> Function() onRetry}) {
+  Widget _buildErrorCard(String message,
+      {required FutureOr<void> Function() onRetry}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
+        color:
+            isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.red.shade100),
       ),
@@ -1051,18 +1125,12 @@ class _MarketerDashboardState extends State<MarketerDashboard>
           Icon(Icons.error_outline, color: Colors.red.shade600),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              message, 
-              style: TextStyle(color: Colors.red.shade800)
-            ),
+            child: Text(message, style: TextStyle(color: Colors.red.shade800)),
           ),
           TextButton.icon(
-            onPressed: () => onRetry(), 
+            onPressed: () => onRetry(),
             icon: Icon(Icons.refresh, color: Colors.red.shade700),
-            label: Text(
-              'Retry', 
-              style: TextStyle(color: Colors.red.shade700)
-            ),
+            label: Text('Retry', style: TextStyle(color: Colors.red.shade700)),
           ),
         ],
       ),
@@ -1087,5 +1155,4 @@ class _MarketerDashboardState extends State<MarketerDashboard>
     }
     return r;
   }
-
 }

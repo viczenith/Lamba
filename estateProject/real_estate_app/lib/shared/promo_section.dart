@@ -66,7 +66,8 @@ class PromoSection extends StatefulWidget {
   State<PromoSection> createState() => _PromoSectionState();
 }
 
-class _PromoSectionState extends State<PromoSection> with TickerProviderStateMixin {
+class _PromoSectionState extends State<PromoSection>
+    with TickerProviderStateMixin {
   late final PageController _pageController;
   Timer? _autoPlayTimer;
   Timer? _clockTimer;
@@ -82,8 +83,11 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.92);
-    _cardAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
-    _shimmerAnim = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _cardAnim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _shimmerAnim =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
 
     _cardAnim.forward();
 
@@ -122,7 +126,7 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
         imageUrl: 'assets/promo_guzape.jpg',
         endsAt: DateTime.now().add(const Duration(hours: 72)),
         ctaLabel: 'Claim Offer',
-        ctaRoute: '/client-request-property',
+        ctaRoute: null,
         primaryColor: Colors.deepPurple,
         secondaryColor: Colors.pink,
       ),
@@ -133,7 +137,7 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
         imageUrl: 'assets/promo_wuse.jpg',
         endsAt: DateTime.now().add(const Duration(days: 7)),
         ctaLabel: 'View Plots',
-        ctaRoute: '/client-property-list',
+        ctaRoute: null,
         primaryColor: Colors.orange,
         secondaryColor: Colors.deepOrange,
       ),
@@ -148,7 +152,9 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
       if (count <= 1) return;
       final next = (_currentPage + 1) % count;
       if (_pageController.hasClients) {
-        _pageController.animateToPage(next, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
+        _pageController.animateToPage(next,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic);
       }
     });
   }
@@ -229,7 +235,9 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
       // provider not present: show small placeholder
       return SizedBox(
         height: widget.height,
-        child: Center(child: Text('Promotions unavailable', style: TextStyle(color: Colors.grey.shade600))),
+        child: Center(
+            child: Text('Promotions unavailable',
+                style: TextStyle(color: Colors.grey.shade600))),
       );
     }
 
@@ -238,7 +246,9 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
       if (promos.isEmpty) {
         return SizedBox(
           height: widget.height,
-          child: Center(child: Text("No promotions currently — check back later!", style: TextStyle(color: Colors.grey.shade600))),
+          child: Center(
+              child: Text("No promotions currently — check back later!",
+                  style: TextStyle(color: Colors.grey.shade600))),
         );
       }
 
@@ -264,8 +274,10 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
                   return AnimatedBuilder(
                     animation: Listenable.merge([_cardAnim, _shimmerAnim]),
                     builder: (context, child) {
-                      final animValue = Curves.easeOut.transform(_cardAnim.value);
-                      final pageOffset = 1 - ((_currentPage - index).abs().clamp(0.0, 1.0));
+                      final animValue =
+                          Curves.easeOut.transform(_cardAnim.value);
+                      final pageOffset =
+                          1 - ((_currentPage - index).abs().clamp(0.0, 1.0));
                       final scale = 0.96 + animValue * 0.04 + pageOffset * 0.02;
                       final translateY = 8 * (1 - animValue);
                       return Transform.translate(
@@ -288,7 +300,8 @@ class _PromoSectionState extends State<PromoSection> with TickerProviderStateMix
                         if (promo.ctaRoute != null) {
                           Navigator.pushNamed(context, promo.ctaRoute!);
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${promo.title} — action tapped')));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('${promo.title} — action tapped')));
                         }
                       },
                     ),
@@ -326,13 +339,16 @@ class _PromoCard extends StatefulWidget {
   State<_PromoCard> createState() => _PromoCardState();
 }
 
-class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMixin {
+class _PromoCardState extends State<_PromoCard>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+    _pulse = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
   }
 
   @override
@@ -345,7 +361,9 @@ class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMi
   Widget build(BuildContext context) {
     final promo = widget.promo;
     final image = promo.imageUrl.isNotEmpty
-        ? (promo.imageUrl.startsWith('http') ? NetworkImage(promo.imageUrl) : AssetImage(promo.imageUrl) as ImageProvider)
+        ? (promo.imageUrl.startsWith('http')
+            ? NetworkImage(promo.imageUrl)
+            : AssetImage(promo.imageUrl) as ImageProvider)
         : const AssetImage('assets/logo.png');
 
     return Padding(
@@ -356,11 +374,18 @@ class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMi
             decoration: BoxDecoration(
               gradient: widget.gradient,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 16, offset: const Offset(0, 8))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8))
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: Container(color: Colors.black.withOpacity(0.04))),
+              child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(color: Colors.black.withOpacity(0.04))),
             ),
           ),
           Row(
@@ -368,33 +393,60 @@ class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMi
               Expanded(
                 flex: 7,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
-                            child: Text('PROMO', style: TextStyle(color: Colors.white.withOpacity(0.95), fontWeight: FontWeight.bold, fontSize: 12)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20)),
+                            child: Text('PROMO',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.95),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
                           ),
                           const Spacer(),
-                          IconButton(onPressed: widget.onDismiss, icon: Icon(Icons.close, color: Colors.white70), tooltip: 'Dismiss'),
+                          IconButton(
+                              onPressed: widget.onDismiss,
+                              icon: Icon(Icons.close, color: Colors.white70),
+                              tooltip: 'Dismiss'),
                         ],
                       ),
                       const SizedBox(height: 8),
                       _ShimmerText(text: promo.title),
                       const SizedBox(height: 6),
-                      Text(promo.subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(promo.subtitle,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
                       const Spacer(),
                       Row(
                         children: [
                           if (widget.remainingText.isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(12)),
-                              child: Row(children: [const Icon(Icons.timer, size: 14, color: Colors.white), const SizedBox(width: 8), Text(widget.remainingText, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Row(children: [
+                                const Icon(Icons.timer,
+                                    size: 14, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(widget.remainingText,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold))
+                              ]),
                             ),
                           const Spacer(),
                           AnimatedBuilder(
@@ -405,7 +457,14 @@ class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMi
                               return Transform.scale(
                                 scale: scale,
                                 child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black87,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12))),
                                   onPressed: widget.onCTA,
                                   child: Text(widget.promo.ctaLabel),
                                 ),
@@ -431,8 +490,25 @@ class _PromoCardState extends State<_PromoCard> with SingleTickerProviderStateMi
                         child: Container(
                           width: 120,
                           height: 120,
-                          decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [Colors.white.withOpacity(0.12), Colors.white.withOpacity(0.02)]), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 12)]),
-                          child: ClipOval(child: Image(image: image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 40, color: Colors.white24))),
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(colors: [
+                                Colors.white.withOpacity(0.12),
+                                Colors.white.withOpacity(0.02)
+                              ]),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withOpacity(0.18),
+                                    blurRadius: 12)
+                              ]),
+                          child: ClipOval(
+                              child: Image(
+                                  image: image,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.image,
+                                      size: 40,
+                                      color: Colors.white24))),
                         ),
                       );
                     },
@@ -468,7 +544,14 @@ class _DotsIndicator extends StatelessWidget {
             decoration: BoxDecoration(
               color: active ? Colors.blueAccent : Colors.grey.shade300,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: active ? [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 3))] : null,
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                          color: Colors.blueAccent.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3))
+                    ]
+                  : null,
             ),
           );
         }),
@@ -484,12 +567,15 @@ class _ShimmerText extends StatefulWidget {
   State<_ShimmerText> createState() => _ShimmerTextState();
 }
 
-class _ShimmerTextState extends State<_ShimmerText> with SingleTickerProviderStateMixin {
+class _ShimmerTextState extends State<_ShimmerText>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _shimmer;
   @override
   void initState() {
     super.initState();
-    _shimmer = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _shimmer =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
   }
 
   @override
@@ -504,12 +590,22 @@ class _ShimmerTextState extends State<_ShimmerText> with SingleTickerProviderSta
       animation: _shimmer,
       builder: (context, child) {
         final gradient = LinearGradient(
-          colors: [Colors.white.withOpacity(0.95), Colors.white.withOpacity(0.5), Colors.white.withOpacity(0.95)],
+          colors: [
+            Colors.white.withOpacity(0.95),
+            Colors.white.withOpacity(0.5),
+            Colors.white.withOpacity(0.95)
+          ],
           stops: const [0.0, 0.5, 1.0],
           begin: Alignment(-1 + 2 * _shimmer.value, -0.2),
           end: Alignment(1 + 2 * _shimmer.value, 0.2),
         );
-        return ShaderMask(shaderCallback: (rect) => gradient.createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)), blendMode: BlendMode.srcIn, child: Text(widget.text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)));
+        return ShaderMask(
+            shaderCallback: (rect) => gradient
+                .createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
+            blendMode: BlendMode.srcIn,
+            child: Text(widget.text,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)));
       },
     );
   }

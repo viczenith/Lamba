@@ -90,6 +90,75 @@ class _MarketerProfileState extends State<MarketerProfile>
     }
   }
 
+  /// Returns a normalized dashboard summary map using canonical keys:
+  /// { total_transactions, number_clients, total_companies }
+  Map<String, dynamic> _getDashboardSummary(Map<String, dynamic>? profile) {
+    if (profile == null) return <String, dynamic>{};
+    // prefer explicit canonical shape
+    if (profile['dashboard_summary'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(profile['dashboard_summary'] as Map);
+    }
+
+    // accept several legacy/name variants
+    final candidate = <String, dynamic>{
+      'total_transactions': profile['total_transactions'] ??
+          profile['total_tx'] ??
+          profile['tx_count'] ??
+          profile['performance']?['total_transactions'],
+      'number_clients': profile['number_clients'] ??
+          profile['clients_count'] ??
+          profile['performance']?['clients_count'],
+      'total_companies': profile['total_companies'] ??
+          profile['companies_count'] ??
+          profile['total_estates_sold'],
+    };
+
+    // coerce to ints
+    return {
+      'total_transactions': _toInt(candidate['total_transactions']),
+      'number_clients': _toInt(candidate['number_clients']),
+      'total_companies': _toInt(candidate['total_companies']),
+    };
+  }
+
+  /// Normalize `companies[]` or legacy parallel arrays into a predictable list
+  List<Map<String, dynamic>>? _normalizeCompaniesFromProfile(
+      Map<String, dynamic>? p) {
+    if (p == null) return null;
+    if (p['companies'] is List) {
+      return (p['companies'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map((e) {
+        return {
+          'company_id': e['company_id'] ?? e['id'],
+          'company_name': e['company_name'] ?? e['name'] ?? '',
+          'transactions': _toInt(e['transactions'] ?? e['tx'] ?? e['count']),
+          'company_logo': e['company_logo'] ?? e['logo'] ?? null,
+        };
+      }).toList();
+    }
+
+    if (p['company_names'] is List && p['company_transactions'] is List) {
+      final names =
+          (p['company_names'] as List).map((e) => e?.toString() ?? '').toList();
+      final txs =
+          (p['company_transactions'] as List).map((e) => _toInt(e)).toList();
+      final n = names.length < txs.length ? names.length : txs.length;
+      final out = <Map<String, dynamic>>[];
+      for (var i = 0; i < n; i++) {
+        out.add({
+          'company_id': null,
+          'company_name': names[i],
+          'transactions': txs[i],
+          'company_logo': null
+        });
+      }
+      return out;
+    }
+
+    return null;
+  }
+
   String formatCurrency(dynamic valueOrDouble,
       {int? decimalDigits, String locale = 'en_NG'}) {
     final double value =
@@ -115,7 +184,8 @@ class _MarketerProfileState extends State<MarketerProfile>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    // Reduced tabs to match server-rendered HTML: Details, Edit Profile, Password
+    _tabController = TabController(length: 3, vsync: this);
 
     _glowController = AnimationController(
       vsync: this,
@@ -126,8 +196,9 @@ class _MarketerProfileState extends State<MarketerProfile>
   }
 
   void _loadProfile() {
-    _profileFuture =
-        ApiService().getMarketerProfileByToken(token: widget.token).then((data) {
+    _profileFuture = ApiService()
+        .getMarketerProfileByToken(token: widget.token)
+        .then((data) {
       // hydrate header and cache
       final maybeHeader = (data['header_image'] ?? data['profile_image']);
       if (maybeHeader is String && maybeHeader.isNotEmpty) {
@@ -143,6 +214,12 @@ class _MarketerProfileState extends State<MarketerProfile>
       _addressController.text = _profileData['address'] ?? '';
       _phoneController.text = _profileData['phone'] ?? '';
       _emailController.text = _profileData['email'] ?? '';
+
+      // normalize canonical dashboard_summary and companies[] (server may return legacy shapes)
+      final ds = _getDashboardSummary(_profileData);
+      if (ds.isNotEmpty) _profileData['dashboard_summary'] = ds;
+      final comps = _normalizeCompaniesFromProfile(_profileData);
+      if (comps != null) _profileData['companies'] = comps;
 
       return data;
     });
@@ -169,6 +246,7 @@ class _MarketerProfileState extends State<MarketerProfile>
   // ---------------- image & API interactions ----------------
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (!mounted) return;
     if (picked != null) {
       setState(() => _imageFile = File(picked.path));
     }
@@ -188,21 +266,26 @@ class _MarketerProfileState extends State<MarketerProfile>
         profileImage: _imageFile,
       );
 
+      if (!mounted) return;
       // update local state
       setState(() {
         _profileData = Map<String, dynamic>.from(updated);
         _imageFile = null;
-        final maybeHeader = (updated['header_image'] ?? updated['profile_image']);
-        if (maybeHeader is String && maybeHeader.isNotEmpty) _headerImageUrl = maybeHeader;
+        final maybeHeader =
+            (updated['header_image'] ?? updated['profile_image']);
+        if (maybeHeader is String && maybeHeader.isNotEmpty)
+          _headerImageUrl = maybeHeader;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Profile updated successfully', style: GoogleFonts.sora(color: Colors.white)),
+        content: Text('Profile updated successfully',
+            style: GoogleFonts.sora(color: Colors.white)),
         backgroundColor: Colors.green,
       ));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error updating profile: $e', style: GoogleFonts.sora(color: Colors.white)),
+        content: Text('Error updating profile: $e',
+            style: GoogleFonts.sora(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     }
@@ -213,7 +296,8 @@ class _MarketerProfileState extends State<MarketerProfile>
 
     if (_newPasswordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Passwords do not match', style: GoogleFonts.sora(color: Colors.white)),
+        content: Text('Passwords do not match',
+            style: GoogleFonts.sora(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
       return;
@@ -226,17 +310,20 @@ class _MarketerProfileState extends State<MarketerProfile>
         newPassword: _newPasswordController.text,
       );
 
+      if (!mounted) return;
       _currentPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Password updated successfully', style: GoogleFonts.sora(color: Colors.white)),
+        content: Text('Password updated successfully',
+            style: GoogleFonts.sora(color: Colors.white)),
         backgroundColor: Colors.green,
       ));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error changing password: $e', style: GoogleFonts.sora(color: Colors.white)),
+        content: Text('Error changing password: $e',
+            style: GoogleFonts.sora(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     }
@@ -244,7 +331,9 @@ class _MarketerProfileState extends State<MarketerProfile>
 
   Future<void> _refreshProfile() async {
     try {
-      final data = await ApiService().getMarketerProfileByToken(token: widget.token);
+      final data =
+          await ApiService().getMarketerProfileByToken(token: widget.token);
+      if (!mounted) return;
       // update UI in one setState
       setState(() {
         _profileData = Map<String, dynamic>.from(data);
@@ -268,6 +357,12 @@ class _MarketerProfileState extends State<MarketerProfile>
         _phoneController.text = _profileData['phone'] ?? '';
         _emailController.text = _profileData['email'] ?? '';
 
+        // normalize dashboard summary + companies so the Performance tab can read them
+        final ds = _getDashboardSummary(_profileData);
+        if (ds.isNotEmpty) _profileData['dashboard_summary'] = ds;
+        final comps = _normalizeCompaniesFromProfile(_profileData);
+        if (comps != null) _profileData['companies'] = comps;
+
         // Clear any picked-but-not-saved image preview (optional)
         _imageFile = null;
       });
@@ -279,7 +374,6 @@ class _MarketerProfileState extends State<MarketerProfile>
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -295,8 +389,8 @@ class _MarketerProfileState extends State<MarketerProfile>
         child: Scaffold(
           extendBodyBehindAppBar: true,
           backgroundColor: Colors.transparent,
-          bottomNavigationBar:
-              MarketerBottomNav(currentIndex: 1, token: widget.token, chatBadge: 0),
+          bottomNavigationBar: MarketerBottomNav(
+              currentIndex: 1, token: widget.token, chatBadge: 0),
           body: NestedScrollView(
             floatHeaderSlivers: true,
             headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -318,7 +412,8 @@ class _MarketerProfileState extends State<MarketerProfile>
                   collapsedHeight: kToolbarHeight + topPadding,
                   flexibleSpace: LayoutBuilder(builder: (context, constraints) {
                     final double maxHeight = constraints.maxHeight;
-                    final double t = ((maxHeight - (kToolbarHeight + topPadding)) /
+                    final double t = ((maxHeight -
+                                (kToolbarHeight + topPadding)) /
                             (expandedHeight - (kToolbarHeight + topPadding)))
                         .clamp(0.0, 1.0);
 
@@ -351,23 +446,23 @@ class _MarketerProfileState extends State<MarketerProfile>
                     final double smallTitleLeft = smallTitleLeftCollapsed +
                         (smallTitleLeftExpanded - smallTitleLeftCollapsed) * t;
 
-                    final Widget backgroundImageWidget =
-                        (_headerImageUrl != null && _headerImageUrl!.isNotEmpty)
-                            ? Image.network(
-                                _headerImageUrl!,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                loadingBuilder: (c, child, progress) {
-                                  if (progress == null) return child;
-                                  return Container(color: Colors.grey[300]);
-                                },
-                                errorBuilder: (c, e, s) =>
-                                    Image.asset('assets/avater.webp',
-                                        fit: BoxFit.cover),
-                              )
-                            : Image.asset('assets/avater.webp',
-                                fit: BoxFit.cover);
+                    final Widget backgroundImageWidget = (_headerImageUrl !=
+                                null &&
+                            _headerImageUrl!.isNotEmpty)
+                        ? Image.network(
+                            _headerImageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            loadingBuilder: (c, child, progress) {
+                              if (progress == null) return child;
+                              return Container(color: Colors.grey[300]);
+                            },
+                            errorBuilder: (c, e, s) => Image.asset(
+                                'assets/avater.webp',
+                                fit: BoxFit.cover),
+                          )
+                        : Image.asset('assets/avater.webp', fit: BoxFit.cover);
 
                     final double glowScale =
                         0.85 + (_glowController.value) * (1.35 - 0.85);
@@ -441,8 +536,7 @@ class _MarketerProfileState extends State<MarketerProfile>
                                       .withOpacity(0.23 * glowFactor),
                                   blurRadius: 12.0 * glowFactor,
                                   spreadRadius: 1.5 * (glowFactor - 0.9),
-                                  offset:
-                                      Offset(0, 6 * (1.0 - t) + 2),
+                                  offset: Offset(0, 6 * (1.0 - t) + 2),
                                 ),
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.14 * t),
@@ -471,7 +565,8 @@ class _MarketerProfileState extends State<MarketerProfile>
                                             height: avatarSize,
                                             loadingBuilder:
                                                 (c, child, progress) {
-                                              if (progress == null) return child;
+                                              if (progress == null)
+                                                return child;
                                               return Container(
                                                   color: Colors.grey[300]);
                                             },
@@ -513,8 +608,6 @@ class _MarketerProfileState extends State<MarketerProfile>
                       ),
                       tabs: const [
                         Tab(text: 'Details'),
-                        Tab(text: 'Performance'),
-                        Tab(text: 'Top Performers'),
                         Tab(text: 'Edit Profile'),
                         Tab(text: 'Password'),
                       ],
@@ -527,8 +620,6 @@ class _MarketerProfileState extends State<MarketerProfile>
               controller: _tabController,
               children: [
                 _detailsTab(),
-                _performanceTab(),
-                _topPerformersTab(),
                 _editProfileTab(),
                 _passwordTab(),
               ],
@@ -551,7 +642,8 @@ class _MarketerProfileState extends State<MarketerProfile>
           return Center(child: Text('Error: ${snap.error}'));
         }
         final profile = snap.data!;
-        if (_profileData.isEmpty) _profileData = Map<String, dynamic>.from(profile);
+        if (_profileData.isEmpty)
+          _profileData = Map<String, dynamic>.from(profile);
 
         return RefreshIndicator(
           onRefresh: _refreshProfile,
@@ -577,507 +669,6 @@ class _MarketerProfileState extends State<MarketerProfile>
         );
       },
     );
-  
-  }
-
-  Widget _detailRow({required IconData icon, required String label, required String value}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            alignment: Alignment.center,
-            child: Icon(icon, color: const Color(0xFF2575FC)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: GoogleFonts.sora(fontWeight: FontWeight.w600))),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(value, textAlign: TextAlign.right, style: GoogleFonts.sora(fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- Performance Tab ----------------
-  Widget _performanceTab() {
-    // Use cached profile if available, else fallback to FutureBuilder to wait for initial load
-    if (_profileData.isEmpty) {
-      return FutureBuilder<Map<String, dynamic>>(
-        future: _profileFuture,
-        builder: (c, s) {
-          if (s.connectionState == ConnectionState.waiting) return _buildShimmerLoader();
-          if (s.hasError) return Center(child: Text('Error: ${s.error}'));
-          _profileData = Map<String, dynamic>.from(s.data!);
-          return _performanceContent(_profileData);
-        },
-      );
-    } else {
-      return _performanceContent(_profileData);
-    }
-  }
-
-  Widget _performanceContent(Map<String, dynamic> profile) {
-    final performance = (profile['performance'] as Map<String, dynamic>?) ?? {};
-    final currentYear = profile['current_year'] ?? DateTime.now().year;
-
-    final closedDeals = _toInt(performance['closed_deals']);
-    final commissionEarned = _toDouble(performance['commission_earned']);
-    final commissionRate = (_toDouble(performance['commission_rate']).clamp(0.0, 100.0));
-    final yearlyTargetAchievementRaw = performance['yearly_target_achievement'];
-    final yearlyTargetAchievement = yearlyTargetAchievementRaw != null ? _toDouble(yearlyTargetAchievementRaw).clamp(0.0, 100.0) : null;
-
-    // animation durations
-    const animDur = Duration(milliseconds: 900);
-    const delayShort = Duration(milliseconds: 120);
-
-    return LayoutBuilder(builder: (context, constraints) {
-      final isNarrow = constraints.maxWidth < 720;
-      // clamp sizes relative to available width
-      final circleSmall = (isNarrow ? 56.0 : 64.0).clamp(56.0, 80.0);
-      final circleBig = (isNarrow ? 96.0 : 120.0).clamp(80.0, 140.0);
-
-      Widget closedDealsCard() => TweenAnimationBuilder<double>(
-        duration: animDur,
-        tween: Tween(begin: 0.0, end: closedDeals.toDouble()),
-        builder: (context, value, child) {
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(colors: [Colors.white, Colors.white.withOpacity(0.95)]),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 10))],
-              border: Border.all(color: Colors.grey.withOpacity(0.06)),
-            ),
-            child: Row(
-              children: [
-                // icon + glow
-                Container(
-                  width: circleSmall,
-                  height: circleSmall,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: [const Color(0xFFE9FFF6), const Color(0xFFDFF7EF)]),
-                    boxShadow: [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.14), blurRadius: 16, spreadRadius: 1)],
-                  ),
-                  child: Center(child: Icon(Icons.check_circle_outline, size: circleSmall * 0.47, color: const Color(0xFF10B981))),
-                ),
-                const SizedBox(width: 12),
-                // allow text area to shrink properly
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Total Closed Deals', style: GoogleFonts.sora(fontSize: 13, color: Colors.grey[700])),
-                      const SizedBox(height: 6),
-                      Text('${value.toInt()}', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.sora(fontSize: 28, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      Widget commissionCard() => TweenAnimationBuilder<double>(
-        duration: animDur,
-        tween: Tween(begin: 0.0, end: commissionEarned),
-        builder: (context, value, child) {
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(colors: [const Color(0xFFEEF2FF), Colors.white]),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 10))],
-              border: Border.all(color: Colors.grey.withOpacity(0.04)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: circleSmall,
-                  height: circleSmall,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: [const Color(0xFFEFF6FF), const Color(0xFFE7F0FF)]),
-                    boxShadow: [BoxShadow(color: const Color(0xFF4154F1).withOpacity(0.12), blurRadius: 12)],
-                  ),
-                  child: Center(child: Icon(Icons.monetization_on, size: circleSmall * 0.48, color: const Color(0xFF4154F1))),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Total Commission Earned', style: GoogleFonts.sora(fontSize: 13, color: Colors.grey[700])),
-                    const SizedBox(height: 6),
-                    Text(formatCurrency(value, decimalDigits: 0), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w800)),
-                  ]),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      Widget topMetrics;
-      if (isNarrow) {
-        topMetrics = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            closedDealsCard(),
-            const SizedBox(height: 12),
-            commissionCard(),
-          ],
-        );
-      } else {
-        topMetrics = Row(
-          children: [
-            Expanded(child: closedDealsCard()),
-            const SizedBox(width: 12),
-            Expanded(child: commissionCard()),
-          ],
-        );
-      }
-
-      // large card (Yearly target + breakdown)
-      Widget largeCard = TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeOutCubic,
-        builder: (context, scale, child) {
-          return Transform.scale(scale: 0.98 + 0.02 * scale, child: Opacity(opacity: scale, child: child));
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            gradient: LinearGradient(colors: [Colors.white, Colors.white]),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 12))],
-          ),
-          child: isNarrow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // stacked: big circular then breakdown below
-                    Text('Yearly Target Achievement', style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      SizedBox(
-                        width: circleBig,
-                        height: circleBig,
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: yearlyTargetAchievement != null ? (yearlyTargetAchievement / 100.0).clamp(0.0, 1.0) : 0.0),
-                          duration: const Duration(milliseconds: 900),
-                          builder: (context, v, _) {
-                            final displayPct = yearlyTargetAchievement != null ? yearlyTargetAchievement.toStringAsFixed(0) : '—';
-                            return Stack(alignment: Alignment.center, children: [
-                              SizedBox(
-                                width: circleBig,
-                                height: circleBig,
-                                child: CircularProgressIndicator(
-                                  value: v,
-                                  strokeWidth: 10,
-                                  backgroundColor: Colors.grey.shade200,
-                                  valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF10B981)),
-                                ),
-                              ),
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                                Text(yearlyTargetAchievement != null ? '$displayPct%' : '—', style: GoogleFonts.sora(fontSize: 20, fontWeight: FontWeight.w800)),
-                                const SizedBox(height: 6),
-                                Text(yearlyTargetAchievement != null ? 'of target' : 'No target', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
-                              ]),
-                            ]);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // compact description for narrow screens
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Progress toward annual sales target', style: GoogleFonts.sora(fontSize: 13, color: Colors.grey[700])),
-                          const SizedBox(height: 12),
-                          Wrap(spacing: 10, runSpacing: 8, children: [
-                            _smallStatBox(title: 'Target Achievement', value: yearlyTargetAchievement != null ? '${yearlyTargetAchievement.toStringAsFixed(0)}%' : '—'),
-                            _smallStatBox(title: 'Commission Rate', value: '${commissionRate.toStringAsFixed(1)}%'),
-                          ]),
-                          const SizedBox(height: 12),
-                          Text('Legend', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
-                          const SizedBox(height: 6),
-                          Row(children: [
-                            _legendDot(color: const Color(0xFF10B981), label: 'Achieved'),
-                            const SizedBox(width: 8),
-                            _legendDot(color: Colors.grey.shade300, label: 'Remaining'),
-                          ]),
-                        ]),
-                      ),
-                    ]),
-                    const SizedBox(height: 14),
-                    Divider(),
-                    const SizedBox(height: 12),
-                    Text('Commission Breakdown', style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 12),
-                    _animatedMetricRow(label: 'Total Earned', value: formatCurrency(commissionEarned, decimalDigits: 0), delay: delayShort),
-                    const SizedBox(height: 10),
-                    _animatedMetricRow(label: 'Commission Rate', value: '${commissionRate.toStringAsFixed(1)}%'),
-                    const SizedBox(height: 10),
-                    _animatedMetricRow(label: 'Total Closed Deals', value: '$closedDeals'),
-                    const SizedBox(height: 18),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Yearly Target Achievement', style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 12),
-                        Row(children: [
-                          SizedBox(
-                            width: circleBig,
-                            height: circleBig,
-                            child: TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: yearlyTargetAchievement != null ? (yearlyTargetAchievement / 100.0).clamp(0.0, 1.0) : 0.0),
-                              duration: const Duration(milliseconds: 900),
-                              builder: (context, v, _) {
-                                final displayPct = yearlyTargetAchievement != null ? yearlyTargetAchievement.toStringAsFixed(0) : '—';
-                                return Stack(alignment: Alignment.center, children: [
-                                  SizedBox(
-                                    width: circleBig,
-                                    height: circleBig,
-                                    child: CircularProgressIndicator(
-                                      value: v,
-                                      strokeWidth: 10,
-                                      backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF10B981)),
-                                    ),
-                                  ),
-                                  Column(mainAxisSize: MainAxisSize.min, children: [
-                                    Text(yearlyTargetAchievement != null ? '$displayPct%' : '—', style: GoogleFonts.sora(fontSize: 22, fontWeight: FontWeight.w800)),
-                                    const SizedBox(height: 6),
-                                    Text(yearlyTargetAchievement != null ? 'of target' : 'No target', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
-                                  ]),
-                                ]);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('Progress toward annual sales target', style: GoogleFonts.sora(fontSize: 13, color: Colors.grey[700])),
-                              const SizedBox(height: 12),
-                              Row(children: [
-                                _smallStatBox(title: 'Target Achievement', value: yearlyTargetAchievement != null ? '${yearlyTargetAchievement.toStringAsFixed(0)}%' : '—'),
-                                const SizedBox(width: 10),
-                                _smallStatBox(title: 'Commission Rate', value: '${commissionRate.toStringAsFixed(1)}%'),
-                              ]),
-                              const SizedBox(height: 12),
-                              Text('Legend', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
-                              const SizedBox(height: 6),
-                              Row(children: [
-                                _legendDot(color: const Color(0xFF10B981), label: 'Achieved'),
-                                const SizedBox(width: 8),
-                                _legendDot(color: Colors.grey.shade300, label: 'Remaining'),
-                              ]),
-                            ]),
-                          ),
-                        ]),
-                      ]),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      flex: 4,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Commission Breakdown', style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 12),
-                        _animatedMetricRow(label: 'Total Earned', value: formatCurrency(commissionEarned, decimalDigits: 0), delay: delayShort),
-                        const SizedBox(height: 10),
-                        _animatedMetricRow(label: 'Commission Rate', value: '${commissionRate.toStringAsFixed(1)}%'),
-                        const SizedBox(height: 10),
-                        _animatedMetricRow(label: 'Total Closed Deals', value: '$closedDeals'),
-                        const SizedBox(height: 18),
-                      ]),
-                    ),
-                  ],
-                ),
-        ),
-      );
-
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Title + subtle subtitle
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Flexible(child: Text('Your Performance', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.w800))),
-            const SizedBox(width: 8),
-            const Spacer(),
-            // small last-updated chip
-            Chip(
-              label: Text('$currentYear', style: GoogleFonts.sora(fontSize: 12, color: Colors.white)),
-              backgroundColor: const Color(0xFF2DD4BF),
-              visualDensity: VisualDensity.compact,
-            )
-          ]),
-          const SizedBox(height: 18),
-          topMetrics,
-          const SizedBox(height: 18),
-          largeCard,
-        ]),
-      );
-    });
-  }
-
-  // helper widgets used by the design above
-  Widget _smallStatBox({required String title, required String value}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.withOpacity(0.06))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: GoogleFonts.sora(fontSize: 11, color: Colors.grey[600])),
-        const SizedBox(height: 6),
-        Text(value, style: GoogleFonts.sora(fontSize: 13, fontWeight: FontWeight.w800)),
-      ]),
-    );
-  }
-
-  Widget _legendDot({required Color color, required String label}) {
-    return Row(children: [
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
-      const SizedBox(width: 6),
-      Text(label, style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[700])),
-    ]);
-  }
-
-  Widget _animatedMetricRow({required String label, required String value, Duration delay = Duration.zero}) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOut,
-      builder: (context, t, _) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(offset: Offset(0, (1 - t) * 8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(label, style: GoogleFonts.roboto(fontSize: 13, color: Colors.grey[700])),
-            Text(value, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w800)),
-          ])),
-        );
-      },
-    );
-  }
-
-  // ---------------- Top performers Tab ----------------
-  Widget _topPerformersTab() {
-    if (_profileData.isEmpty) {
-      return FutureBuilder<Map<String, dynamic>>(
-        future: _profileFuture,
-        builder: (c, s) {
-          if (s.connectionState == ConnectionState.waiting) return _buildShimmerLoader();
-          if (s.hasError) return Center(child: Text('Error: ${s.error}'));
-          _profileData = Map<String, dynamic>.from(s.data!);
-          return _topPerformersContent(_profileData);
-        },
-      );
-    } else {
-      return _topPerformersContent(_profileData);
-    }
-  }
-
-  Widget _topPerformersContent(Map<String, dynamic> profile) {
-    final top3 = (profile['top3'] as List<dynamic>?) ?? [];
-    final userEntry = (profile['user_entry'] as Map<String, dynamic>?) ?? {};
-    final currentYear = profile['current_year'] ?? DateTime.now().year;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Top Performers', style: GoogleFonts.sora(fontSize: 20, fontWeight: FontWeight.bold)),
-          Chip(label: Text('$currentYear'), backgroundColor: Colors.green, labelStyle: TextStyle(color: Colors.white)),
-        ]),
-        const SizedBox(height: 16),
-        Text('Leaderboard', style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Column(children: [
-          for (var item in top3) _buildLeaderboardItem(Map<String, dynamic>.from(item)),
-          if (userEntry.isNotEmpty) ...[
-            const Divider(),
-            _buildLeaderboardItem(Map<String, dynamic>.from(userEntry), isCurrentUser: true),
-          ],
-        ]),
-      ]),
-    );
-  }
-
-  Widget _buildLeaderboardItem(Map<String, dynamic> item, {bool isCurrentUser = false}) {
-    final rank = _toInt(item['rank']);
-    final marketer = (item['marketer'] is Map) ? Map<String, dynamic>.from(item['marketer']) : <String, dynamic>{};
-    final hasTarget = item['has_target'] ?? false;
-    final diffPct = _toDouble(item['diff_pct']);
-    final category = item['category'] ?? '';
-
-    Color rankColor;
-    String rankLabel;
-
-    if (rank == 1) {
-      rankColor = Colors.amber;
-      rankLabel = 'Gold';
-    } else if (rank == 2) {
-      rankColor = Colors.grey;
-      rankLabel = 'Silver';
-    } else if (rank == 3) {
-      rankColor = Colors.brown;
-      rankLabel = 'Bronze';
-    } else {
-      rankColor = Colors.blue;
-      rankLabel = 'You';
-    }
-
-    // display rank (avoid showing 0)
-    final displayRank = rank > 0 ? '$rank' : '-';
-
-    // target text: API returns absolute diff_pct; we prefix "+" for display like the HTML.
-    final targetText = hasTarget ? '+${diffPct.toStringAsFixed(0)}% $category' : 'Target is yet to be set';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isCurrentUser ? Colors.blue[50] : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isCurrentUser ? Colors.blue : Colors.transparent, width: 1),
-      ),
-      child: Row(children: [
-        Container(width: 40, alignment: Alignment.center, child: Text(displayRank, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-        const SizedBox(width: 16),
-        Stack(children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: marketer['profile_image'] != null
-                ? NetworkImage(marketer['profile_image'])
-                : AssetImage('assets/avater.webp') as ImageProvider,
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: rankColor, borderRadius: BorderRadius.circular(12)),
-              child: Text(rankLabel, style: TextStyle(color: Colors.white, fontSize: 10)),
-            ),
-          ),
-        ]),
-        const SizedBox(width: 16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(marketer['full_name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(targetText, style: TextStyle(fontSize: 12, color: Colors.grey)),
-        ])),
-        // show Top N% if rank available
-        Text(rank > 0 ? 'Top $rank%' : '', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-      ]),
-    );
   }
 
   // ---------------- Edit Profile Tab ----------------
@@ -1085,14 +676,17 @@ class _MarketerProfileState extends State<MarketerProfile>
     return FutureBuilder<Map<String, dynamic>>(
       future: _profileFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return _buildShimmerLoader();
-        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return _buildShimmerLoader();
+        if (snapshot.hasError)
+          return Center(child: Text('Error: ${snapshot.error}'));
 
         final profile = snapshot.data!;
         // ensure controller text (prefill done in _loadProfile but double-check)
         _companyController.text = profile['company'] ?? _companyController.text;
         _jobController.text = profile['job'] ?? _jobController.text;
-        _fullNameController.text = profile['full_name'] ?? _fullNameController.text;
+        _fullNameController.text =
+            profile['full_name'] ?? _fullNameController.text;
         _aboutController.text = profile['about'] ?? _aboutController.text;
         _countryController.text = profile['country'] ?? _countryController.text;
         _addressController.text = profile['address'] ?? _addressController.text;
@@ -1132,14 +726,16 @@ class _MarketerProfileState extends State<MarketerProfile>
               filled: true,
               fillColor: fill,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.withOpacity(0.12)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF4154F1), width: 1.4),
+                borderSide:
+                    const BorderSide(color: Color(0xFF4154F1), width: 1.4),
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1153,7 +749,8 @@ class _MarketerProfileState extends State<MarketerProfile>
           color: Colors.white,
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // Header card
               Container(
                 width: double.infinity,
@@ -1161,7 +758,12 @@ class _MarketerProfileState extends State<MarketerProfile>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 10))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10))
+                  ],
                   border: Border.all(color: Colors.grey.withOpacity(0.06)),
                 ),
                 child: Row(children: [
@@ -1173,35 +775,76 @@ class _MarketerProfileState extends State<MarketerProfile>
                           ? FileImage(_imageFile!)
                           : (profile['profile_image'] != null
                               ? NetworkImage(profile['profile_image'] as String)
-                              : const AssetImage('assets/avater.webp')) as ImageProvider,
+                              : const AssetImage(
+                                  'assets/avater.webp')) as ImageProvider,
                     ),
                     Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF4154F1), Color(0xFF6C7BFF)]),
+                        gradient: const LinearGradient(
+                            colors: [Color(0xFF4154F1), Color(0xFF6C7BFF)]),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                        icon: const Icon(Icons.camera_alt,
+                            color: Colors.white, size: 18),
                         onPressed: _pickImage,
                         tooltip: 'Change profile picture',
                       ),
                     ),
                   ]),
                   const SizedBox(width: 16),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(_fullNameController.text.isNotEmpty ? _fullNameController.text : 'Your name', style: GoogleFonts.sora(fontSize: 20, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, runSpacing: 6, children: [
-                      if (_jobController.text.isNotEmpty)
-                        Chip(backgroundColor: Colors.grey.shade50, label: Text(_jobController.text, style: GoogleFonts.sora(fontSize: 12, color: Colors.grey.shade800))),
-                      if (_companyController.text.isNotEmpty)
-                        Chip(backgroundColor: Colors.grey.shade50, label: Text(_companyController.text, style: GoogleFonts.sora(fontSize: 12, color: Colors.grey.shade800))),
-                      Chip(backgroundColor: Colors.grey.shade50, label: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.location_on, size: 14, color: Colors.grey), const SizedBox(width: 6), Text(_countryController.text.isNotEmpty ? _countryController.text : 'Country', style: GoogleFonts.sora(fontSize: 12))])),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(_aboutController.text.isNotEmpty ? _aboutController.text : 'A short friendly bio will appear here.', style: GoogleFonts.sora(fontSize: 13, color: Colors.grey.shade700), maxLines: 3, overflow: TextOverflow.ellipsis),
-                  ])),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(
+                            _fullNameController.text.isNotEmpty
+                                ? _fullNameController.text
+                                : 'Your name',
+                            style: GoogleFonts.sora(
+                                fontSize: 20, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 8, runSpacing: 6, children: [
+                          if (_jobController.text.isNotEmpty)
+                            Chip(
+                                backgroundColor: Colors.grey.shade50,
+                                label: Text(_jobController.text,
+                                    style: GoogleFonts.sora(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade800))),
+                          if (_companyController.text.isNotEmpty)
+                            Chip(
+                                backgroundColor: Colors.grey.shade50,
+                                label: Text(_companyController.text,
+                                    style: GoogleFonts.sora(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade800))),
+                          Chip(
+                              backgroundColor: Colors.grey.shade50,
+                              label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.location_on,
+                                        size: 14, color: Colors.grey),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                        _countryController.text.isNotEmpty
+                                            ? _countryController.text
+                                            : 'Country',
+                                        style: GoogleFonts.sora(fontSize: 12))
+                                  ])),
+                        ]),
+                        const SizedBox(height: 8),
+                        Text(
+                            _aboutController.text.isNotEmpty
+                                ? _aboutController.text
+                                : 'A short friendly bio will appear here.',
+                            style: GoogleFonts.sora(
+                                fontSize: 13, color: Colors.grey.shade700),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis),
+                      ])),
                 ]),
               ),
               const SizedBox(height: 18),
@@ -1210,86 +853,172 @@ class _MarketerProfileState extends State<MarketerProfile>
                 key: _formKey,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 6))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 6))
+                    ],
                     border: Border.all(color: Colors.grey.withOpacity(0.04)),
                   ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('About Me', style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    _input(controller: _aboutController, label: 'Your Bio', icon: Icons.edit, enabled: true, maxLines: 5, hint: 'e.g. I build beautiful apps and love clean UI...'),
-                    const SizedBox(height: 14),
-                    LayoutBuilder(builder: (ctx, constraints) {
-                      final twoCol = constraints.maxWidth >= 680;
-                      if (twoCol) {
-                        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Expanded(child: Column(children: [
-                            _input(controller: _fullNameController, label: 'Full Name', icon: Icons.person, enabled: false),
-                            const SizedBox(height: 12),
-                            _input(controller: _companyController, label: 'Company', icon: Icons.business),
-                            const SizedBox(height: 12),
-                            _input(controller: _countryController, label: 'Country', icon: Icons.flag),
-                          ])),
-                          const SizedBox(width: 12),
-                          Expanded(child: Column(children: [
-                            _input(controller: _emailController, label: 'Email', icon: Icons.email, enabled: false, keyboardType: TextInputType.emailAddress),
-                            const SizedBox(height: 12),
-                            _input(controller: _jobController, label: 'Job Title', icon: Icons.work),
-                            const SizedBox(height: 12),
-                            _input(controller: _phoneController, label: 'Phone', icon: Icons.phone, enabled: false, keyboardType: TextInputType.phone),
-                          ])),
-                        ]);
-                      } else {
-                        return Column(children: [
-                          _input(controller: _fullNameController, label: 'Full Name', icon: Icons.person, enabled: false),
-                          const SizedBox(height: 12),
-                          _input(controller: _emailController, label: 'Email', icon: Icons.email, enabled: false, keyboardType: TextInputType.emailAddress),
-                          const SizedBox(height: 12),
-                          _input(controller: _companyController, label: 'Company', icon: Icons.business),
-                          const SizedBox(height: 12),
-                          _input(controller: _jobController, label: 'Job Title', icon: Icons.work),
-                          const SizedBox(height: 12),
-                          _input(controller: _phoneController, label: 'Phone', icon: Icons.phone, enabled: false, keyboardType: TextInputType.phone),
-                        ]);
-                      }
-                    }),
-                    const SizedBox(height: 14),
-                    _input(controller: _addressController, label: 'Address', icon: Icons.location_on, enabled: false),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _submitProfileUpdate,
-                        style: ButtonStyle(
-                          padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
-                          shape: MaterialStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          elevation: MaterialStateProperty.all(8),
-                          shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.18)),
-                          backgroundColor: MaterialStateProperty.resolveWith((states) {
-                            return Colors.transparent;
-                          }),
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF4A6DF5), Color(0xFF4154F1)]),
-                            borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('About Me',
+                            style: GoogleFonts.sora(
+                                fontSize: 14, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        _input(
+                            controller: _aboutController,
+                            label: 'Your Bio',
+                            icon: Icons.edit,
+                            enabled: true,
+                            maxLines: 5,
+                            hint:
+                                'e.g. I build beautiful apps and love clean UI...'),
+                        const SizedBox(height: 14),
+                        LayoutBuilder(builder: (ctx, constraints) {
+                          final twoCol = constraints.maxWidth >= 680;
+                          if (twoCol) {
+                            return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                      child: Column(children: [
+                                    _input(
+                                        controller: _fullNameController,
+                                        label: 'Full Name',
+                                        icon: Icons.person,
+                                        enabled: false),
+                                    const SizedBox(height: 12),
+                                    _input(
+                                        controller: _companyController,
+                                        label: 'Company',
+                                        icon: Icons.business),
+                                    const SizedBox(height: 12),
+                                    _input(
+                                        controller: _countryController,
+                                        label: 'Country',
+                                        icon: Icons.flag),
+                                  ])),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                      child: Column(children: [
+                                    _input(
+                                        controller: _emailController,
+                                        label: 'Email',
+                                        icon: Icons.email,
+                                        enabled: false,
+                                        keyboardType:
+                                            TextInputType.emailAddress),
+                                    const SizedBox(height: 12),
+                                    _input(
+                                        controller: _jobController,
+                                        label: 'Job Title',
+                                        icon: Icons.work),
+                                    const SizedBox(height: 12),
+                                    _input(
+                                        controller: _phoneController,
+                                        label: 'Phone',
+                                        icon: Icons.phone,
+                                        enabled: false,
+                                        keyboardType: TextInputType.phone),
+                                  ])),
+                                ]);
+                          } else {
+                            return Column(children: [
+                              _input(
+                                  controller: _fullNameController,
+                                  label: 'Full Name',
+                                  icon: Icons.person,
+                                  enabled: false),
+                              const SizedBox(height: 12),
+                              _input(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  icon: Icons.email,
+                                  enabled: false,
+                                  keyboardType: TextInputType.emailAddress),
+                              const SizedBox(height: 12),
+                              _input(
+                                  controller: _companyController,
+                                  label: 'Company',
+                                  icon: Icons.business),
+                              const SizedBox(height: 12),
+                              _input(
+                                  controller: _jobController,
+                                  label: 'Job Title',
+                                  icon: Icons.work),
+                              const SizedBox(height: 12),
+                              _input(
+                                  controller: _phoneController,
+                                  label: 'Phone',
+                                  icon: Icons.phone,
+                                  enabled: false,
+                                  keyboardType: TextInputType.phone),
+                            ]);
+                          }
+                        }),
+                        const SizedBox(height: 14),
+                        _input(
+                            controller: _addressController,
+                            label: 'Address',
+                            icon: Icons.location_on,
+                            enabled: false),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _submitProfileUpdate,
+                            style: ButtonStyle(
+                              padding: MaterialStateProperty.all(
+                                  const EdgeInsets.symmetric(vertical: 16)),
+                              shape: MaterialStateProperty.all(
+                                  RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12))),
+                              elevation: MaterialStateProperty.all(8),
+                              shadowColor: MaterialStateProperty.all(
+                                  Colors.black.withOpacity(0.18)),
+                              backgroundColor:
+                                  MaterialStateProperty.resolveWith((states) {
+                                return Colors.transparent;
+                              }),
+                            ),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [
+                                  Color(0xFF4A6DF5),
+                                  Color(0xFF4154F1)
+                                ]),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Container(
+                                alignment: Alignment.center,
+                                constraints:
+                                    const BoxConstraints(minHeight: 48),
+                                child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.save,
+                                          color: Colors.white, size: 18),
+                                      const SizedBox(width: 10),
+                                      Text('Save Changes',
+                                          style: GoogleFonts.sora(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white)),
+                                    ]),
+                              ),
+                            ),
                           ),
-                          child: Container(
-                            alignment: Alignment.center,
-                            constraints: const BoxConstraints(minHeight: 48),
-                            child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-                              const Icon(Icons.save, color: Colors.white, size: 18),
-                              const SizedBox(width: 10),
-                              Text('Save Changes', style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-                            ]),
-                          ),
                         ),
-                      ),
-                    ),
-                  ]),
+                      ]),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1307,16 +1036,27 @@ class _MarketerProfileState extends State<MarketerProfile>
       child: Form(
         key: _passwordFormKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('🔒 Change Password', style: GoogleFonts.sora(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF1A1D2E))),
+          Text('🔒 Change Password',
+              style: GoogleFonts.sora(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1D2E))),
           const SizedBox(height: 6),
-          Text('Keep your account secure by choosing a strong password.', style: GoogleFonts.sora(fontSize: 14, color: Colors.grey[600], height: 1.4)),
+          Text('Keep your account secure by choosing a strong password.',
+              style: GoogleFonts.sora(
+                  fontSize: 14, color: Colors.grey[600], height: 1.4)),
           const SizedBox(height: 28),
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4))
+              ],
             ),
             child: Column(children: [
               _buildPasswordField(
@@ -1324,9 +1064,11 @@ class _MarketerProfileState extends State<MarketerProfile>
                 label: 'Current Password',
                 icon: Icons.lock,
                 isVisible: _currentVisible,
-                toggleVisibility: () => setState(() => _currentVisible = !_currentVisible),
+                toggleVisibility: () =>
+                    setState(() => _currentVisible = !_currentVisible),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Please enter your current password';
+                  if (value == null || value.isEmpty)
+                    return 'Please enter your current password';
                   return null;
                 },
               ),
@@ -1336,10 +1078,13 @@ class _MarketerProfileState extends State<MarketerProfile>
                 label: 'New Password',
                 icon: Icons.lock_outline,
                 isVisible: _newVisible,
-                toggleVisibility: () => setState(() => _newVisible = !_newVisible),
+                toggleVisibility: () =>
+                    setState(() => _newVisible = !_newVisible),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Please enter a new password';
-                  if (value.length < 6) return 'Password must be at least 6 characters';
+                  if (value == null || value.isEmpty)
+                    return 'Please enter a new password';
+                  if (value.length < 6)
+                    return 'Password must be at least 6 characters';
                   return null;
                 },
               ),
@@ -1349,10 +1094,13 @@ class _MarketerProfileState extends State<MarketerProfile>
                 label: 'Confirm New Password',
                 icon: Icons.lock_reset,
                 isVisible: _confirmVisible,
-                toggleVisibility: () => setState(() => _confirmVisible = !_confirmVisible),
+                toggleVisibility: () =>
+                    setState(() => _confirmVisible = !_confirmVisible),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Please confirm your new password';
-                  if (value != _newPasswordController.text) return 'Passwords do not match';
+                  if (value == null || value.isEmpty)
+                    return 'Please confirm your new password';
+                  if (value != _newPasswordController.text)
+                    return 'Passwords do not match';
                   return null;
                 },
               ),
@@ -1364,8 +1112,16 @@ class _MarketerProfileState extends State<MarketerProfile>
             height: 54,
             child: ElevatedButton(
               onPressed: _submitPasswordChange,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4154F1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4),
-              child: Text('Change Password', style: GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4154F1),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 4),
+              child: Text('Change Password',
+                  style: GoogleFonts.sora(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white)),
             ),
           ),
         ]),
@@ -1387,11 +1143,17 @@ class _MarketerProfileState extends State<MarketerProfile>
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: const Color(0xFF4154F1)),
-        suffixIcon: IconButton(icon: Icon(isVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey), onPressed: toggleVisibility),
+        suffixIcon: IconButton(
+            icon: Icon(isVisible ? Icons.visibility : Icons.visibility_off,
+                color: Colors.grey),
+            onPressed: toggleVisibility),
         filled: true,
         fillColor: Colors.grey[50],
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
       ),
       validator: validator,
     );
@@ -1405,15 +1167,10 @@ class _MarketerProfileState extends State<MarketerProfile>
 
     final commissionRate = _toDouble(performance['commission_rate']);
     final closedDeals = _toInt(performance['closed_deals']);
-    final commissionEarned = _toDouble(performance['commission_earned']);
 
     final hasTarget = userEntry['has_target'] ?? false;
     final diffPct = _toDouble(userEntry['diff_pct']);
     final userCategory = userEntry['category'] ?? '';
-    final userRank = _toInt(userEntry['rank']);
-
-    final propertiesCount = _toInt(profile['properties_count']);
-    final totalValue = _toDouble(profile['total_value']);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
@@ -1431,8 +1188,14 @@ class _MarketerProfileState extends State<MarketerProfile>
             ],
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 12)),
-            BoxShadow(color: const Color(0xFF4154F1).withOpacity(0.04), blurRadius: 40, offset: const Offset(0, 8)),
+            BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 12)),
+            BoxShadow(
+                color: const Color(0xFF4154F1).withOpacity(0.04),
+                blurRadius: 40,
+                offset: const Offset(0, 8)),
           ],
           border: Border.all(color: Colors.white.withOpacity(0.6)),
         ),
@@ -1455,46 +1218,146 @@ class _MarketerProfileState extends State<MarketerProfile>
                         height: 96,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: LinearGradient(colors: [const Color(0xFF4154F1).withOpacity(0.12), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 6))],
+                          gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF4154F1).withOpacity(0.12),
+                                Colors.transparent
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6))
+                          ],
                         ),
                         child: ClipOval(
                           child: avatarUrl != null && avatarUrl.isNotEmpty
-                              ? FadeInImage.assetNetwork(placeholder: 'assets/avater.webp', image: avatarUrl, fit: BoxFit.cover)
-                              : Image.asset('assets/avater.webp', fit: BoxFit.cover),
+                              ? FadeInImage.assetNetwork(
+                                  placeholder: 'assets/avater.webp',
+                                  image: avatarUrl,
+                                  fit: BoxFit.cover)
+                              : Image.asset('assets/avater.webp',
+                                  fit: BoxFit.cover),
                         ),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(profile['full_name'] ?? 'Unnamed Marketer', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.sora(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
-                      const SizedBox(height: 6),
-                      Text(profile['job'] ?? profile['company'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.sora(fontSize: 13, color: Colors.grey[700])),
-                      const SizedBox(height: 8),
-                      
-                    ])),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(profile['full_name'] ?? 'Unnamed Marketer',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF111827))),
+                          const SizedBox(height: 6),
+                          Text(profile['job'] ?? profile['company'] ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                  fontSize: 13, color: Colors.grey[700])),
+                          const SizedBox(height: 8),
+                        ])),
                   ]),
                   const SizedBox(height: 18),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    decoration: BoxDecoration(color: const Color(0x0C2575FC), borderRadius: BorderRadius.circular(12)),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      // Commission Rate
-                      Column(children: [Text('${commissionRate.toStringAsFixed(1)}%', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF2575FC))), const SizedBox(height: 6), Text('Commission', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[700]))]),
-                      // Year target
-                      Column(children: [if (hasTarget) Text('+${diffPct.toStringAsFixed(0)}% $userCategory', style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black87)) else Text('Target not set', style: GoogleFonts.sora(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey[700])), const SizedBox(height: 6), Text('$currentYear Target', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[700]))]),
-                      // Closed deals
-                      Column(children: [Text('$closedDeals', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF111827))), const SizedBox(height: 6), Text('Deals', style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[700]))]),
-                    ]),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 12),
+                    decoration: BoxDecoration(
+                        color: const Color(0x0C2575FC),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Commission Rate
+                          Column(children: [
+                            Text('${commissionRate.toStringAsFixed(1)}%',
+                                style: GoogleFonts.sora(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF2575FC))),
+                            const SizedBox(height: 6),
+                            Text('Commission',
+                                style: GoogleFonts.sora(
+                                    fontSize: 12, color: Colors.grey[700]))
+                          ]),
+                          // Year target
+                          Column(children: [
+                            if (hasTarget)
+                              Text(
+                                  '+${diffPct.toStringAsFixed(0)}% $userCategory',
+                                  style: GoogleFonts.sora(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black87))
+                            else
+                              Text('Target not set',
+                                  style: GoogleFonts.sora(
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey[700])),
+                            const SizedBox(height: 6),
+                            Text('$currentYear Target',
+                                style: GoogleFonts.sora(
+                                    fontSize: 12, color: Colors.grey[700]))
+                          ]),
+                          // Closed deals
+                          Column(children: [
+                            Text('$closedDeals',
+                                style: GoogleFonts.sora(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF111827))),
+                            const SizedBox(height: 6),
+                            Text('Closed Deals (All Companies)',
+                                style: GoogleFonts.sora(
+                                    fontSize: 12, color: Colors.grey[700]))
+                          ]),
+                        ]),
                   ),
                   const SizedBox(height: 14),
                   Row(mainAxisAlignment: MainAxisAlignment.start, children: [
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]), borderRadius: BorderRadius.circular(20)), child: Text('Gold', style: GoogleFonts.sora(color: Colors.black, fontWeight: FontWeight.w600))),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text('Gold',
+                            style: GoogleFonts.sora(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600))),
                     const SizedBox(width: 8),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFC0C0C0), Color(0xFFA9A9A9)]), borderRadius: BorderRadius.circular(20)), child: Text('Silver', style: GoogleFonts.sora(color: Colors.black, fontWeight: FontWeight.w600))),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: [Color(0xFFC0C0C0), Color(0xFFA9A9A9)]),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text('Elite Marketer',
+                            style: GoogleFonts.sora(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600))),
                     const SizedBox(width: 8),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFCD7F32), Color(0xFF8B4513)]), borderRadius: BorderRadius.circular(20)), child: Text('Bronze', style: GoogleFonts.sora(color: Colors.white, fontWeight: FontWeight.w600))),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: [Color(0xFFCD7F32), Color(0xFF8B4513)]),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text('Consistent',
+                            style: GoogleFonts.sora(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600))),
                   ]),
                 ]),
               ),
@@ -1519,52 +1382,108 @@ class _MarketerProfileState extends State<MarketerProfile>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 12))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 12))
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 14.0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text('Contact Information', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Contact Information',
+                  style: GoogleFonts.sora(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
-              IconButton(tooltip: 'Message', onPressed: () {}, icon: const Icon(Icons.message_outlined, color: Color(0xFF4154F1))),
-              IconButton(tooltip: 'Call', onPressed: () {}, icon: const Icon(Icons.call_outlined, color: Color(0xFF10B981))),
+              IconButton(
+                  tooltip: 'Message',
+                  onPressed: () {},
+                  icon: const Icon(Icons.message_outlined,
+                      color: Color(0xFF4154F1))),
+              IconButton(
+                  tooltip: 'Call',
+                  onPressed: () {},
+                  icon: const Icon(Icons.call_outlined,
+                      color: Color(0xFF10B981))),
             ]),
             const SizedBox(height: 12),
-            _buildContactItem(icon: Icons.email_outlined, label: 'Email', value: email, onTap: () {
-              Clipboard.setData(ClipboardData(text: email));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email copied to clipboard')));
-            }),
-            _buildContactItem(icon: Icons.phone_outlined, label: 'Phone', value: phone, onTap: () {
-              Clipboard.setData(ClipboardData(text: phone));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone copied to clipboard')));
-            }),
-            _buildContactItem(icon: Icons.location_on_outlined, label: 'Address', value: address),
-            _buildContactItem(icon: Icons.business_outlined, label: 'Company', value: company),
+            _buildContactItem(
+                icon: Icons.email_outlined,
+                label: 'Email',
+                value: email,
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: email));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Email copied to clipboard')));
+                }),
+            _buildContactItem(
+                icon: Icons.phone_outlined,
+                label: 'Phone',
+                value: phone,
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: phone));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Phone copied to clipboard')));
+                }),
+            _buildContactItem(
+                icon: Icons.location_on_outlined,
+                label: 'Address',
+                value: address),
+            _buildContactItem(
+                icon: Icons.business_outlined,
+                label: 'Company',
+                value: company),
           ]),
         ),
       ),
     );
   }
 
-  Widget _buildContactItem({required IconData icon, required String label, required String value, GestureTapCallback? onTap}) {
+  Widget _buildContactItem(
+      {required IconData icon,
+      required String label,
+      required String value,
+      GestureTapCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Row(children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF4154F1).withOpacity(0.06), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: const Color(0xFF4154F1))),
+          Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF4154F1).withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 18, color: const Color(0xFF4154F1))),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])), const SizedBox(height: 2), Text(value, style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w600))])),
-          if (onTap != null) Padding(padding: const EdgeInsets.only(left: 8.0), child: Icon(Icons.copy, size: 16, color: Colors.grey[400])),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(label,
+                    style: GoogleFonts.sora(
+                        fontSize: 12, color: Colors.grey[600])),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: GoogleFonts.sora(
+                        fontSize: 14, fontWeight: FontWeight.w600))
+              ])),
+          if (onTap != null)
+            Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Icon(Icons.copy, size: 16, color: Colors.grey[400])),
         ]),
       ),
     );
   }
 
   Widget _buildProfileDetails(Map<String, dynamic> profile) {
-    final about = profile['about'] as String? ?? 'Share something about yourself...';
+    final about =
+        profile['about'] as String? ?? 'Share something about yourself...';
     final rawDate = profile['date_registered'];
     String dateRegistered = 'Not specified';
     if (rawDate != null) {
@@ -1590,22 +1509,66 @@ class _MarketerProfileState extends State<MarketerProfile>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
       child: Container(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 18, offset: const Offset(0, 12))]),
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 18,
+                  offset: const Offset(0, 12))
+            ]),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text('About You', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('About You',
+                  style: GoogleFonts.sora(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
-              IconButton(onPressed: () => _tabController.animateTo(3), icon: const Icon(Icons.edit_outlined, color: Color(0xFF4154F1))),
+              IconButton(
+                  onPressed: () => _tabController.animateTo(3),
+                  icon: const Icon(Icons.edit_outlined,
+                      color: Color(0xFF4154F1))),
             ]),
             const SizedBox(height: 8),
-            AnimatedCrossFade(firstChild: Text(preview, style: GoogleFonts.sora(fontStyle: FontStyle.italic, color: Colors.grey[700])), secondChild: Text(about, style: GoogleFonts.sora(fontStyle: FontStyle.italic, color: Colors.grey[800])), crossFadeState: isLong ? CrossFadeState.showFirst : CrossFadeState.showSecond, duration: const Duration(milliseconds: 450)),
+            AnimatedCrossFade(
+                firstChild: Text(preview,
+                    style: GoogleFonts.sora(
+                        fontStyle: FontStyle.italic, color: Colors.grey[700])),
+                secondChild: Text(about,
+                    style: GoogleFonts.sora(
+                        fontStyle: FontStyle.italic, color: Colors.grey[800])),
+                crossFadeState: isLong
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                duration: const Duration(milliseconds: 450)),
             if (isLong)
-              Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => showDialog(context: context, builder: (ctx) => AlertDialog(title: Text('About You', style: GoogleFonts.sora()), content: Text(about, style: GoogleFonts.sora()), actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('Close', style: GoogleFonts.sora()))])), child: Text('Read more', style: GoogleFonts.sora(color: const Color(0xFF4154F1))))),
-
+              Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                      onPressed: () => showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                                  title: Text('About You',
+                                      style: GoogleFonts.sora()),
+                                  content:
+                                      Text(about, style: GoogleFonts.sora()),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(),
+                                        child: Text('Close',
+                                            style: GoogleFonts.sora()))
+                                  ])),
+                      child: Text('Read more',
+                          style: GoogleFonts.sora(
+                              color: const Color(0xFF4154F1))))),
             const SizedBox(height: 12),
-            Text('Profile Details', style: GoogleFonts.sora(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Profile Details',
+                style: GoogleFonts.sora(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Wrap(spacing: 12, runSpacing: 12, children: [
               _buildInfoItem(label: 'Full Name', value: fullName),
@@ -1627,22 +1590,58 @@ class _MarketerProfileState extends State<MarketerProfile>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       constraints: const BoxConstraints(minWidth: 160, maxWidth: 320),
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFF), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.withOpacity(0.06))),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
+        Text(label,
+            style: GoogleFonts.sora(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 6),
-        Text(value, style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text(value,
+            style: GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w700)),
       ]),
     );
   }
 
   Widget _buildShimmerLoader() {
     return ListView(padding: const EdgeInsets.all(16), children: [
-      Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Container(height: 140, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+      Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+              height: 140,
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16)))),
       const SizedBox(height: 14),
-      Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Row(children: [Expanded(child: Container(height: 90, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)))), const SizedBox(width: 12), Expanded(child: Container(height: 90, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))))])),
+      Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Row(children: [
+            Expanded(
+                child: Container(
+                    height: 90,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12)))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Container(
+                    height: 90,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12))))
+          ])),
       const SizedBox(height: 14),
-      Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Container(height: 220, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
+      Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+              height: 220,
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16)))),
     ]);
   }
 }
@@ -1653,7 +1652,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate(this._tabBar);
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(color: Colors.white, child: _tabBar);
   }
 
