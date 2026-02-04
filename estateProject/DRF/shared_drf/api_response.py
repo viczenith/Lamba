@@ -131,12 +131,12 @@ class APIResponse:
         )
 
     @staticmethod
-    def not_found(message: str = "Resource not found") -> Response:
+    def not_found(message: str = "Resource not found", error_code: Optional[str] = None) -> Response:
         """404 Not Found error"""
         return APIResponse.error(
             message=message,
             status_code=http_status.HTTP_404_NOT_FOUND,
-            error_code="NOT_FOUND",
+            error_code=error_code or "NOT_FOUND",
         )
 
     @staticmethod
@@ -160,13 +160,13 @@ class APIResponse:
         )
 
     @staticmethod
-    def server_error(message: str = "Internal server error") -> Response:
+    def server_error(message: str = "Internal server error", error_code: Optional[str] = None) -> Response:
         """500 Internal Server Error"""
         logger.error(f"Internal server error: {message}")
         return APIResponse.error(
             message=message,
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            error_code="SERVER_ERROR",
+            error_code=error_code or "SERVER_ERROR",
         )
 
     @staticmethod

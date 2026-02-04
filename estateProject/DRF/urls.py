@@ -166,12 +166,12 @@ urlpatterns = [
     # =========================================================================
     # CLIENT DASHBOARD API ENDPOINTS - All use /api/ prefix for REST compliance
     # =========================================================================
-    path('api/client/dashboard/', ClientDashboardAPIView.as_view(), name='client-dashboard'),
-    path('api/price-update/<int:pk>/', PriceUpdateDetailAPIView.as_view(), name='api-price-update'),
-    path('api/estates/', EstateListAPIView.as_view(), name='estates-list'),
-    path('api/active-promotions/', ActivePromotionsListAPIView.as_view(), name='active-promotions-list'),
-    path('api/promotions/', PromotionsListAPIView.as_view(), name='promotions-list'),
-    path('api/promotion/<int:pk>/', PromotionDetailAPIView.as_view(), name='promotion-detail'),
+    path('client/dashboard/', ClientDashboardAPIView.as_view(), name='client-dashboard'),
+    path('price-update/<int:pk>/', PriceUpdateDetailAPIView.as_view(), name='api-price-update'),
+    path('estates/', EstateListAPIView.as_view(), name='estates-list'),
+    path('active-promotions/', ActivePromotionsListAPIView.as_view(), name='active-promotions-list'),
+    path('promotions/', PromotionsListAPIView.as_view(), name='promotions-list'),
+    path('promotion/<int:pk>/', PromotionDetailAPIView.as_view(), name='promotion-detail'),
 
     # =========================================================================
     # CLIENT PROFILE ENDPOINTS
@@ -203,27 +203,27 @@ urlpatterns = [
     # =========================================================================
     # NOTIFICATION LIST PAGE ENDPOINTS (notification.html) - All use /api/ prefix
     # =========================================================================
-    path('api/client/notifications/', ClientNotificationListPageAPIView.as_view(), name='client-notifications-page'),
-    path('api/client/notifications/list/', ClientNotificationListAPI.as_view(), name='notifications-list'),
-    path('api/client/notifications/unread-count/', ClientUnreadCountAPIView.as_view(), name='notifications-unread-count'),
-    path('api/client/notifications/<int:pk>/mark-read/', ClientMarkReadAPIView.as_view(), name='notifications-mark-read'),
-    path('api/client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
-    path('api/client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
+    path('client/notifications/', ClientNotificationListPageAPIView.as_view(), name='client-notifications-page'),
+    path('client/notifications/list/', ClientNotificationListAPI.as_view(), name='notifications-list'),
+    path('client/notifications/unread-count/', ClientUnreadCountAPIView.as_view(), name='notifications-unread-count'),
+    path('client/notifications/<int:pk>/mark-read/', ClientMarkReadAPIView.as_view(), name='notifications-mark-read'),
+    path('client/notifications/<int:pk>/mark-unread/', ClientMarkUnreadAPIView.as_view(), name='notifications-mark-unread'),
+    path('client/notifications/mark-all-read/', ClientMarkAllReadAPIView.as_view(), name='notifications-mark-all-read'),
 
     # Marketer page-style endpoint (page payload used by server-rendered `marketer_side/notification.html`)
-    path('api/marketer/notifications/', MarketerNotificationListPageAPIView.as_view(), name='marketer-notifications-page'),
+    path('marketer/notifications/', MarketerNotificationListPageAPIView.as_view(), name='marketer-notifications-page'),
 
     # Marketer My Companies page-style endpoint (page payload used by server-rendered `marketer_side/my_companies.html`)
-    path('api/marketer/my-companies/', MarketerMyCompaniesAPIView.as_view(), name='marketer-my-companies-page'),
+    path('marketer/my-companies/', MarketerMyCompaniesAPIView.as_view(), name='marketer-my-companies-page'),
     # Per-company portfolio (page payload used by server-side portfolio view)
-    path('api/marketer/company/<int:company_id>/portfolio/', MarketerCompanyPortfolioAPIView.as_view(), name='marketer-company-portfolio-page'),
+    path('marketer/company/<int:company_id>/portfolio/', MarketerCompanyPortfolioAPIView.as_view(), name='marketer-company-portfolio-page'),
 
     # =========================================================================
     # NOTIFICATION DETAIL PAGE ENDPOINTS (notification_detail.html) - All use /api/ prefix
     # =========================================================================
-    path('api/client/notifications/<int:pk>/detail/', ClientNotificationDetailPageAPIView.as_view(), name='client-notification-detail-page'),
-    path('api/client/notifications/<int:pk>/', ClientNotificationDetailAPI.as_view(), name='notifications-detail'),
-    path('api/client/notifications/<int:pk>/delete/', ClientNotificationDeleteAPIView.as_view(), name='client-notification-delete'),
+    path('client/notifications/<int:pk>/detail/', ClientNotificationDetailPageAPIView.as_view(), name='client-notification-detail-page'),
+    path('client/notifications/<int:pk>/', ClientNotificationDetailAPI.as_view(), name='notifications-detail'),
+    path('client/notifications/<int:pk>/delete/', ClientNotificationDeleteAPIView.as_view(), name='client-notification-delete'),
 
     path('marketers/notifications/', MarketerNotificationListAPI.as_view(), name='marketer-notifications-list'),
     path('marketers/notifications/unread-count/', MarketerUnreadCountAPI.as_view(), name='marketer-notifications-unread-count'),

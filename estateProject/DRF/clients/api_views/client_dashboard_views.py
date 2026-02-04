@@ -28,6 +28,7 @@ Last Updated: December 2024
 from rest_framework import permissions, status
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.views import APIView
+from rest_framework.response import Response
 
 from DRF.shared_drf import APIResponse
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -217,25 +218,15 @@ class ClientDashboardAPIView(APIView):
             
             # If no company affiliation, return empty response with template-compatible format
             if not affiliated_companies:
-                return APIResponse.success(
-                    data={
-                        "user": {
-                            "id": user.id,
-                            "full_name": sanitize_string(getattr(user, 'full_name', '')),
-                            "email": sanitize_string(user.email),
-                        },
-                        # Stats cards section - TEMPLATE FORMAT
-                        "total_properties": 0,
-                        "fully_paid_and_allocated": 0,
-                        "not_fully_paid": 0,
-                        "paid_complete_not_allocated": 0,
-                        # Promotions section
-                        "active_promotions": [],
-                        # Price updates section - organized by company
-                        "latest_value_by_company": [],
+                payload = {
+                    "user": {
+                        "id": user.id,
+                        "full_name": sanitize_string(getattr(user, 'full_name', '')),
+                        "email": sanitize_string(user.email),
                     },
-                    message="Dashboard data retrieved"
-                )
+                    # Stats cards section - TEMPLATE FORMAT
+                }
+                return Response(payload, status=status.HTTP_200_OK)
             
             # Aggregate stats across all companies
             total_properties_all = 0
@@ -333,33 +324,32 @@ class ClientDashboardAPIView(APIView):
                 company_price_updates[company.id] = {
                     "company_name": company_name,
                     "company_id": company.id,
-                    "company_logo": getattr(company, 'logo', None),
+                    # Ensure we return a serializable URL or None for file fields
+                    "company_logo": (getattr(company, 'logo').url if getattr(company, 'logo', None) and hasattr(getattr(company, 'logo'), 'url') else None),
                     "updates": latest_value_data,
                     "has_new": has_new,
                 }
             
             # Build final response with TEMPLATE-COMPATIBLE FORMAT
-            return APIResponse.success(
-                data={
-                    "user": {
-                        "id": user.id,
-                        "full_name": sanitize_string(getattr(user, 'full_name', '')),
-                        "email": sanitize_string(user.email),
-                    },
-                    # ===== STATS CARDS SECTION =====
-                    "total_properties": total_properties_all,
-                    "fully_paid_and_allocated": fully_paid_and_allocated_all,
-                    "not_fully_paid": not_fully_paid_all,
-                    "paid_complete_not_allocated": paid_complete_not_allocated_all,
-                    
-                    # ===== ACTIVE PROMOTIONS SECTION =====
-                    "active_promotions": all_active_promos,
-                    
-                    # ===== PRICE INCREMENTS SECTION (organized by company) =====
-                    "latest_value_by_company": list(company_price_updates.values()),
+            payload = {
+                "user": {
+                    "id": user.id,
+                    "full_name": sanitize_string(getattr(user, 'full_name', '')),
+                    "email": sanitize_string(user.email),
                 },
-                message="Dashboard data retrieved successfully"
-            )
+                # ===== STATS CARDS SECTION =====
+                "total_properties": total_properties_all,
+                "fully_paid_and_allocated": fully_paid_and_allocated_all,
+                "not_fully_paid": not_fully_paid_all,
+                "paid_complete_not_allocated": paid_complete_not_allocated_all,
+                
+                # ===== ACTIVE PROMOTIONS SECTION =====
+                "active_promotions": all_active_promos,
+                
+                # ===== PRICE INCREMENTS SECTION (organized by company) =====
+                "latest_value_by_company": list(company_price_updates.values()),
+            }
+            return Response(payload, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Dashboard API error for user {request.user.id}: {e}")
@@ -406,7 +396,7 @@ class PriceUpdateDetailAPIView(RetrieveAPIView):
                       company_id=instance.price.estate.company_id)
             
             serializer = self.get_serializer(instance)
-            return APIResponse.success(data=serializer.data, message="Price update retrieved")
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Price update detail error: {e}")
@@ -500,7 +490,7 @@ class EstateListAPIView(ListAPIView):
                 log_access(request.user, 'estate_detail', 'estate', estate_id, 
                           company_id=estate.company_id)
                 serializer = EstateDetailSerializer(estate, context={'request': request})
-                return APIResponse.success(data=serializer.data, message="Estate retrieved")
+                return Response(serializer.data, status=status.HTTP_200_OK)
 
             # List all estates for user's companies
             log_access(request.user, 'estate_list', 'estates')
@@ -538,14 +528,14 @@ class EstateListAPIView(ListAPIView):
                                 e.company.company_name if hasattr(e.company, 'company_name') else str(e.company)
                             ),
                             # Include company logo (may be relative/storage path); UI prefers absolute URL when available
-                            "company_logo": getattr(e.company, 'logo', None)
+                            "company_logo": (getattr(e.company, 'logo').url if getattr(e.company, 'logo', None) and hasattr(getattr(e.company, 'logo'), 'url') else None)
                         },
                         "promos_count": len(promo_preview),
                         "promotional_offers": promo_preview,
                     }
                     
                     data.append(estate_data)
-                return APIResponse.paginated_response(data, self.paginate_queryset(qs))
+                return self.get_paginated_response(data)
 
             # Fallback (no pagination)
             data = []
@@ -581,7 +571,7 @@ class EstateListAPIView(ListAPIView):
                     "promos_count": len(promo_preview),
                     "promotional_offers": promo_preview,
                 })
-            return APIResponse.success(data=data, message="Estates retrieved")
+            return Response({'results': data, 'count': len(data), 'next': None, 'previous': None}, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Estate list error: {e}")
@@ -620,7 +610,7 @@ class ActivePromotionsListAPIView(APIView):
             ).order_by('-discount')[:50]  # SECURITY: Limit results
             
             serializer = PromotionDashboardSerializer(promos, many=True, context={'request': request})
-            return APIResponse.success(data=serializer.data, message="Active promotions retrieved")
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Active promotions list error: {e}")
@@ -697,13 +687,10 @@ class PromotionsListAPIView(APIView):
             serialized_page = PromotionListItemSerializer(page, many=True, context={'request': request}).data
             paginated_response = paginator.get_paginated_response(serialized_page).data
 
-            return APIResponse.success(
-                data={
-                    "active_promotions": active_serialized,
-                    "promotions": paginated_response
-                },
-                message="Promotions retrieved successfully"
-            )
+            return Response({
+                "active_promotions": active_serialized,
+                "promotions": paginated_response
+            }, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Promotions list error: {e}")
@@ -758,7 +745,7 @@ class PromotionDetailAPIView(RetrieveAPIView):
             
             log_access(request.user, 'promotion_detail', 'promotion', pk)
             serializer = self.get_serializer(instance)
-            return APIResponse.success(data=serializer.data, message="Promotion retrieved")
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.exception(f"Promotion detail error: {e}")

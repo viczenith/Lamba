@@ -16,6 +16,10 @@ urlpatterns = [
     path('super-admin/', include('superAdmin.admin_urls', namespace='superadmin')),
     
     # Main App
+    # API Routes (include before main app so app-level catch-all routes don't shadow API paths)
+    path('api/', include('DRF.company_admin.api_urls.api_urls')),
+    path('api/', include('DRF.urls', namespace='drf')),
+
     path('', include('estateApp.urls')),
     
     # Admin Support
@@ -31,9 +35,7 @@ urlpatterns = [
     path('api/admin-support/custom-special-days/', admin_support_views.api_custom_special_days, name='adminsupport_custom_special_days'),
     path('api/admin-support/custom-special-days/<uuid:day_id>/', admin_support_views.api_custom_special_day_detail, name='adminsupport_custom_special_day_detail'),
     
-    # API Routes
-    path('api/', include('DRF.company_admin.api_urls.api_urls')),
-    path('api/', include('DRF.urls', namespace='drf')),
+    # (moved above)
 ]
 
 # Static and media files

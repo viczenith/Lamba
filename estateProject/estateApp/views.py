@@ -6352,7 +6352,7 @@ def calculate_portfolio_metrics(transactions):
 
 
 @login_required
-def client_profile(request, slug=None, pk=None, company_slug=None):
+def client_profile(request, slug=None, pk=None, company_slug=None, client_slug=None):
     """
     Display client profile with portfolio/transactions.
     
@@ -6369,6 +6369,10 @@ def client_profile(request, slug=None, pk=None, company_slug=None):
     # ============================================================
     # STEP 1: Determine and validate company context (FLEXIBLE)
     # ============================================================
+    # Backwards-compat: URLconf may provide `client_slug` kwarg for
+    # company-namespaced routes. Normalize it into `slug` used below.
+    if client_slug and not slug:
+        slug = client_slug
     company = None
     company_slug_param = None
     

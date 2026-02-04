@@ -1707,17 +1707,27 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchEstates(
       {required String token}) async {
     final url = Uri.parse('$baseUrl/estates/');
-    final response = await http.get(url, headers: {
+    final headers = {
       'Authorization': 'Token $token',
       'Content-Type': 'application/json',
-    });
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+    };
 
-    if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
-      return List<Map<String, dynamic>>.from(data);
-    } else {
-      throw Exception("Could not fetch estates. Please try again.");
+    final response = await http.get(url, headers: headers);
+    final parsed = await _handleResponse(response);
+
+    if (parsed is List) {
+      return List<Map<String, dynamic>>.from(parsed);
+    } else if (parsed is Map && parsed['results'] is List) {
+      return List<Map<String, dynamic>>.from(parsed['results']);
     }
+
+    throw ApiException(
+        message: 'Could not fetch estates',
+        details: 'Unexpected response shape',
+        statusCode: response.statusCode);
   }
 
   // Update/Edit Estate
@@ -1794,7 +1804,16 @@ class ApiService {
       }
 
       // Attempt JSON decode
-      final responseBody = json.decode(decodedBody);
+      var responseBody = json.decode(decodedBody);
+
+      // Some server endpoints return an envelope like:
+      // { success: true, status_code: 200, message: '', data: { ... } }
+      // Unwrap the common envelope so clients receive the actual payload directly.
+      if (responseBody is Map<String, dynamic>) {
+        if (responseBody.containsKey('data')) {
+          responseBody = responseBody['data'];
+        }
+      }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return responseBody;
@@ -2298,39 +2317,47 @@ class ApiService {
     final url = '$baseUrl/api/client/dashboard/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'Authorization': 'Token $token'
+      'Authorization': 'Token $token',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
     };
-    final resp = await http.get(Uri.parse(url), headers: headers);
-    if (resp.statusCode == 200) {
-      final Map<String, dynamic> data =
-          jsonDecode(resp.body) as Map<String, dynamic>;
 
-      // Normalize any promos in active_promotions
-      if (data['active_promotions'] is List) {
-        for (var i = 0; i < (data['active_promotions'] as List).length; i++) {
-          final item = data['active_promotions'][i];
-          if (item is Map<String, dynamic>) {
-            _normalizePromo(item);
-            // also normalize nested estates[].sizes if present
-            if (item.containsKey('estates') && item['estates'] is List) {
-              for (var e in item['estates']) {
-                if (e is Map<String, dynamic> &&
-                    e.containsKey('sizes') &&
-                    e['sizes'] is List) {
-                  for (var s in e['sizes']) {
-                    if (s is Map<String, dynamic>) {
-                      // ensure discount_pct on the size too if needed
-                      if (!s.containsKey('discount_pct') &&
-                          s.containsKey('current') &&
-                          item.containsKey('discount_pct')) {
-                        // compute discounted with server-provided discount_pct if missing
-                        final cur = s['current'];
-                        final disc = item['discount_pct'];
-                        if (cur != null && disc is num) {
-                          final promoPrice =
-                              (cur is num) ? (cur * (100 - disc) / 100) : null;
-                          s['promo_price'] = promoPrice;
-                        }
+    final resp = await http.get(Uri.parse(url), headers: headers);
+    final parsed = await _handleResponse(resp);
+    if (parsed is! Map<String, dynamic>) {
+      throw ApiException(
+          message: 'Unexpected dashboard response',
+          details: 'Expected object but received ${parsed.runtimeType}',
+          statusCode: resp.statusCode);
+    }
+    final Map<String, dynamic> data = parsed as Map<String, dynamic>;
+
+    // Normalize any promos in active_promotions
+    if (data['active_promotions'] is List) {
+      for (var i = 0; i < (data['active_promotions'] as List).length; i++) {
+        final item = data['active_promotions'][i];
+        if (item is Map<String, dynamic>) {
+          _normalizePromo(item);
+          // also normalize nested estates[].sizes if present
+          if (item.containsKey('estates') && item['estates'] is List) {
+            for (var e in item['estates']) {
+              if (e is Map<String, dynamic> &&
+                  e.containsKey('sizes') &&
+                  e['sizes'] is List) {
+                for (var s in e['sizes']) {
+                  if (s is Map<String, dynamic>) {
+                    // ensure discount_pct on the size too if needed
+                    if (!s.containsKey('discount_pct') &&
+                        s.containsKey('current') &&
+                        item.containsKey('discount_pct')) {
+                      // compute discounted with server-provided discount_pct if missing
+                      final cur = s['current'];
+                      final disc = item['discount_pct'];
+                      if (cur != null && disc is num) {
+                        final promoPrice =
+                            (cur is num) ? (cur * (100 - disc) / 100) : null;
+                        s['promo_price'] = promoPrice;
                       }
                     }
                   }
@@ -2340,27 +2367,23 @@ class ApiService {
           }
         }
       }
+    }
 
-      // Normalize promos in latest_value_by_company (organized by company for accordion)
-      if (data['latest_value_by_company'] is List) {
-        for (var companyGroup in data['latest_value_by_company']) {
-          if (companyGroup is Map<String, dynamic> &&
-              companyGroup['updates'] is List) {
-            for (var update in companyGroup['updates']) {
-              if (update is Map<String, dynamic> &&
-                  update.containsKey('promo')) {
-                update['promo'] = _normalizePromo(update['promo']);
-              }
+    // Normalize promos in latest_value_by_company (organized by company for accordion)
+    if (data['latest_value_by_company'] is List) {
+      for (var companyGroup in data['latest_value_by_company']) {
+        if (companyGroup is Map<String, dynamic> &&
+            companyGroup['updates'] is List) {
+          for (var update in companyGroup['updates']) {
+            if (update is Map<String, dynamic> && update.containsKey('promo')) {
+              update['promo'] = _normalizePromo(update['promo']);
             }
           }
         }
       }
-
-      return data;
-    } else {
-      throw Exception(
-          'Failed to load dashboard data: ${resp.statusCode} ${resp.body}');
     }
+
+    return data;
   }
 
   /// Fetch detailed price update by ID
@@ -2369,21 +2392,29 @@ class ApiService {
   Future<Map<String, dynamic>> getPriceUpdateById(int id,
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
     final url = '$baseUrl/api/price-update/$id/';
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+    };
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
     final resp =
         await http.get(Uri.parse(url), headers: headers).timeout(timeout);
-    if (resp.statusCode == 200) {
-      final Map<String, dynamic> data =
-          jsonDecode(resp.body) as Map<String, dynamic>;
+
+    final parsed = await _handleResponse(resp);
+    if (parsed is Map<String, dynamic>) {
+      final data = parsed;
       if (data.containsKey('promo'))
         data['promo'] = _normalizePromo(data['promo']);
       return data;
-    } else {
-      throw Exception(
-          'Failed to load price update: ${resp.statusCode} ${resp.body}');
     }
+
+    throw ApiException(
+        message: 'Unexpected price update response',
+        details: 'Expected object but received ${parsed.runtimeType}',
+        statusCode: resp.statusCode);
   }
 
   /// Fetch active promotional offers for user's affiliated companies
@@ -2392,37 +2423,42 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getActivePromotions(
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
     final url = '$baseUrl/api/active-promotions/';
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+    };
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
     final resp =
         await http.get(Uri.parse(url), headers: headers).timeout(timeout);
-    if (resp.statusCode == 200) {
-      final dynamic decoded = jsonDecode(resp.body);
-      if (decoded is List) {
-        final promos = <Map<String, dynamic>>[];
-        for (var p in decoded) {
-          if (p is Map<String, dynamic>) {
-            _normalizePromo(p);
-            promos.add(p);
-          }
+
+    final parsed = await _handleResponse(resp);
+    final promos = <Map<String, dynamic>>[];
+    if (parsed is List) {
+      for (var p in parsed) {
+        if (p is Map<String, dynamic>) {
+          _normalizePromo(p);
+          promos.add(p);
         }
-        return promos;
-      } else if (decoded is Map && decoded['data'] is List) {
-        final promos = <Map<String, dynamic>>[];
-        for (var p in decoded['data']) {
-          if (p is Map<String, dynamic>) {
-            _normalizePromo(p);
-            promos.add(p);
-          }
-        }
-        return promos;
       }
-      return [];
-    } else {
-      throw Exception(
-          'Failed to load active promotions: ${resp.statusCode} ${resp.body}');
+      return promos;
+    } else if (parsed is Map) {
+      final list = parsed['results'] ??
+          parsed['data'] ??
+          parsed['promotions'] ??
+          parsed['active_promotions'];
+      if (list is List) {
+        for (var p in list) {
+          if (p is Map<String, dynamic>) {
+            _normalizePromo(p);
+            promos.add(p);
+          }
+        }
+      }
     }
+    return promos;
   }
 
   /// Fetch paginated promotions with filtering
@@ -2439,14 +2475,20 @@ class ApiService {
         q != null && q.isNotEmpty ? '&q=${Uri.encodeQueryComponent(q)}' : '';
     final url =
         '$baseUrl/api/promotions/?filter=${Uri.encodeQueryComponent(filter)}&page=$page$qPart';
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+    };
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
     final resp =
         await http.get(Uri.parse(url), headers: headers).timeout(timeout);
-    if (resp.statusCode == 200) {
-      final Map<String, dynamic> data =
-          jsonDecode(resp.body) as Map<String, dynamic>;
+
+    final parsed = await _handleResponse(resp);
+    if (parsed is Map<String, dynamic>) {
+      final data = parsed;
 
       // Normalize active_promotions (list)
       if (data['active_promotions'] is List) {
@@ -2467,10 +2509,12 @@ class ApiService {
       }
 
       return data;
-    } else {
-      throw Exception(
-          'Failed to load promotions: ${resp.statusCode} ${resp.body}');
     }
+
+    throw ApiException(
+        message: 'Unexpected promotions response',
+        details: 'Expected object but received ${parsed.runtimeType}',
+        statusCode: resp.statusCode);
   }
 
   /// Fetch detailed promotion information
@@ -2479,14 +2523,20 @@ class ApiService {
   Future<Map<String, dynamic>> getPromotionDetail(int id,
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
     final url = '$baseUrl/api/promotion/$id/';
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+    };
     if (token != null && token.isNotEmpty)
       headers['Authorization'] = 'Token $token';
     final resp =
         await http.get(Uri.parse(url), headers: headers).timeout(timeout);
-    if (resp.statusCode == 200) {
-      final Map<String, dynamic> data =
-          jsonDecode(resp.body) as Map<String, dynamic>;
+
+    final parsed = await _handleResponse(resp);
+    if (parsed is Map<String, dynamic>) {
+      final data = parsed;
 
       // top-level promo object fields (depending on serializer shape)
       _normalizePromo(data);
