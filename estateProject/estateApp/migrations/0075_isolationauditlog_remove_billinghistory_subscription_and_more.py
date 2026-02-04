@@ -12,37 +12,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='IsolationAuditLog',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('action', models.CharField(choices=[('CREATE', 'Record Created'), ('READ', 'Record Accessed'), ('UPDATE', 'Record Modified'), ('DELETE', 'Record Deleted'), ('ACCESS_DENIED', 'Access Denied'), ('PERMISSION_ERROR', 'Permission Error')], max_length=20)),
-                ('model_name', models.CharField(max_length=100)),
-                ('object_id', models.IntegerField()),
-                ('description', models.TextField()),
-                ('ip_address', models.GenericIPAddressField()),
-                ('timestamp', models.DateTimeField(auto_now_add=True)),
-            ],
-            options={
-                'ordering': ['-timestamp'],
-            },
-        ),
+        # IsolationAuditLog creation moved to a dedicated migration (0077_create_isolation_auditlog)
+        # to avoid duplicate model creation and keep concerns separated.
         migrations.RemoveField(
             model_name='billinghistory',
             name='subscription',
         ),
-        migrations.RemoveField(
-            model_name='billingrecord',
-            name='company',
-        ),
-        migrations.RemoveField(
-            model_name='billingrecord',
-            name='invoice',
-        ),
-        migrations.RemoveField(
-            model_name='billingrecord',
-            name='subscription_plan',
-        ),
+        # Removed explicit field removals for BillingRecord (company, invoice, subscription_plan)
+        # because the BillingRecord model is deleted later in this migration. Keeping
+        # the DeleteModel operation is sufficient and prevents failures when fields
+        # are already absent in historical states during test DB creation.
         migrations.AlterUniqueTogether(
             name='companyusage',
             unique_together=None,
@@ -244,16 +223,7 @@ class Migration(migrations.Migration):
             name='period_end',
             field=models.DateField(blank=True, null=True, verbose_name='Period End Date'),
         ),
-        migrations.AddField(
-            model_name='isolationauditlog',
-            name='company',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='isolation_audit_logs', to='estateApp.company'),
-        ),
-        migrations.AddField(
-            model_name='isolationauditlog',
-            name='user',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='isolation_audit_logs', to=settings.AUTH_USER_MODEL),
-        ),
+
         migrations.DeleteModel(
             name='BillingHistory',
         ),
@@ -281,12 +251,5 @@ class Migration(migrations.Migration):
             model_name='plotallocation',
             name='company',
         ),
-        migrations.AddIndex(
-            model_name='isolationauditlog',
-            index=models.Index(fields=['company', 'timestamp'], name='estateApp_i_company_5b9cdc_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='isolationauditlog',
-            index=models.Index(fields=['user', 'timestamp'], name='estateApp_i_user_id_580353_idx'),
-        ),
+
     ]

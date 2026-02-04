@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 
@@ -8,10 +8,14 @@ from DRF.shared_drf.api_response import APIResponse
 
 
 class CustomAuthToken(APIView):
+    """Token authentication endpoint. Accepts login credentials and returns token + user data."""
+    permission_classes = [permissions.AllowAny]
+    
     def post(self, request, *args, **kwargs):
         serializer = CustomAuthTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user_or_match = serializer.validated_data["user"]
+        remember_me = serializer.validated_data.get("remember_me", False)
 
         # Multi-role flow: return candidates; client must POST again with selected_user_id
         if isinstance(user_or_match, MultipleUserMatch):
@@ -47,6 +51,7 @@ class CustomAuthToken(APIView):
         return APIResponse.success(
             data={
                 "token": token.key,
+                "remember_me": remember_me,
                 "user": {
                     "id": user.id,
                     "email": user.email,

@@ -674,6 +674,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/favicon.ico',
         '/robots.txt',
         '/api/health/',
+        '/api/api-token-auth/',  # Token auth endpoint - allow anonymous access for API clients
+        '/api/users/me/',        # Current user endpoint - allow token-based access
         '/health/',
         '/admin/login/',           # Django admin login
         '/admin/',                 # Django admin (has its own auth)
@@ -700,6 +702,8 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/api/auth/',
         '/api/login/',
         '/api/token/',
+        '/api/api-token-auth/',  # Token auth endpoint - apply sensitive protections (rate limiting, lockout)
+        '/api/users/me/',        # Current user endpoint - apply sensitive protections
         '/client/register/',
         '/marketer/register/',
         '/super-admin/login/',  # Super admin login

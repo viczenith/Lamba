@@ -487,6 +487,607 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  // -----------------------------
+  // Registration UI dialogs
+  // -----------------------------
+  Future<void> _showAccountTypeDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Create Your Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Choose your account type'),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.person),
+                label: const Text('Client'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showClientRegistrationDialog();
+                },
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.handshake),
+                label: const Text('Affiliate / Marketer'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showMarketerRegistrationDialog();
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel')),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showClientRegistrationDialog() async {
+    final _formKey = GlobalKey<FormState>();
+    final first = TextEditingController();
+    final last = TextEditingController();
+    final email = TextEditingController();
+    final phone = TextEditingController();
+    final address = TextEditingController();
+    DateTime? dob;
+    final password = TextEditingController();
+    final confirm = TextEditingController();
+    var loading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Client Registration'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: first,
+                      decoration:
+                          const InputDecoration(labelText: 'First Name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: last,
+                      decoration: const InputDecoration(labelText: 'Last Name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: email,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => (v == null ||
+                              !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v))
+                          ? 'Enter valid email'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: phone,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: address,
+                      decoration: const InputDecoration(labelText: 'Address'),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Text(dob == null
+                                ? 'Date of birth: Not set'
+                                : 'DOB: ${dob.toString().split(' ').first}')),
+                        TextButton(
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime(1990, 1, 1),
+                              firstDate: DateTime(1900),
+                              lastDate: DateTime.now(),
+                            );
+                            if (d != null) setStateDialog(() => dob = d);
+                          },
+                          child: const Text('Select'),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: password,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                      validator: (v) =>
+                          (v == null || v.length < 8) ? 'Min 8 chars' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: confirm,
+                      decoration:
+                          const InputDecoration(labelText: 'Confirm Password'),
+                      obscureText: true,
+                      validator: (v) => (v != password.text)
+                          ? 'Passwords do not match'
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        setStateDialog(() => loading = true);
+                        try {
+                          final payload = {
+                            'first_name': first.text.trim(),
+                            'last_name': last.text.trim(),
+                            'email': email.text.trim(),
+                            'phone': phone.text.trim(),
+                            'address': address.text.trim(),
+                            'date_of_birth': dob == null
+                                ? ''
+                                : dob!.toIso8601String().split('T').first,
+                            'password': password.text,
+                            'confirm_password': confirm.text,
+                            // security tracking fields
+                            'timezone': DateTime.now().timeZoneName,
+                            'screen_res':
+                                '${MediaQuery.of(context).size.width}x${MediaQuery.of(context).size.height}',
+                          };
+                          final resp =
+                              await ApiService().registerClient(payload);
+                          final message = resp['message'] ??
+                              'Client registered successfully';
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(this.context)
+                              .showSnackBar(SnackBar(content: Text(message)));
+                          // Pre-fill login email
+                          setState(
+                              () => _emailController.text = email.text.trim());
+                        } catch (e) {
+                          setStateDialog(() => loading = false);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Failed: ${e.toString()}')));
+                        }
+                      },
+                child: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Create Client Account'),
+              )
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _showMarketerRegistrationDialog() async {
+    final _formKey = GlobalKey<FormState>();
+    final first = TextEditingController();
+    final last = TextEditingController();
+    final email = TextEditingController();
+    final phone = TextEditingController();
+    final address = TextEditingController();
+    DateTime? dob;
+    final password = TextEditingController();
+    final confirm = TextEditingController();
+    var loading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Affiliate / Marketer Registration'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: first,
+                      decoration:
+                          const InputDecoration(labelText: 'First Name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: last,
+                      decoration: const InputDecoration(labelText: 'Last Name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: email,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => (v == null ||
+                              !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v))
+                          ? 'Enter valid email'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: phone,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: address,
+                      decoration: const InputDecoration(labelText: 'Address'),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Text(dob == null
+                                ? 'Date of birth: Not set'
+                                : 'DOB: ${dob.toString().split(' ').first}')),
+                        TextButton(
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime(1990, 1, 1),
+                              firstDate: DateTime(1900),
+                              lastDate: DateTime.now(),
+                            );
+                            if (d != null) setStateDialog(() => dob = d);
+                          },
+                          child: const Text('Select'),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: password,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                      validator: (v) =>
+                          (v == null || v.length < 8) ? 'Min 8 chars' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: confirm,
+                      decoration:
+                          const InputDecoration(labelText: 'Confirm Password'),
+                      obscureText: true,
+                      validator: (v) => (v != password.text)
+                          ? 'Passwords do not match'
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        setStateDialog(() => loading = true);
+                        try {
+                          final payload = {
+                            'first_name': first.text.trim(),
+                            'last_name': last.text.trim(),
+                            'email': email.text.trim(),
+                            'phone': phone.text.trim(),
+                            'address': address.text.trim(),
+                            'date_of_birth': dob == null
+                                ? ''
+                                : dob!.toIso8601String().split('T').first,
+                            'password': password.text,
+                            'confirm_password': confirm.text,
+                            // security tracking fields
+                            'timezone': DateTime.now().timeZoneName,
+                            'screen_res':
+                                '${MediaQuery.of(context).size.width}x${MediaQuery.of(context).size.height}',
+                          };
+                          final resp =
+                              await ApiService().registerMarketer(payload);
+                          final message = resp['message'] ??
+                              'Marketer registered successfully';
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(this.context)
+                              .showSnackBar(SnackBar(content: Text(message)));
+                          setState(
+                              () => _emailController.text = email.text.trim());
+                        } catch (e) {
+                          setStateDialog(() => loading = false);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Failed: ${e.toString()}')));
+                        }
+                      },
+                child: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Create Marketer Account'),
+              )
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _showCompanyRegistrationDialog() async {
+    final _formKey = GlobalKey<FormState>();
+    final companyName = TextEditingController();
+    final regNumber = TextEditingController();
+    DateTime? regDate;
+    final location = TextEditingController();
+    final ceoName = TextEditingController();
+    DateTime? ceoDob;
+    final email = TextEditingController();
+    final phone = TextEditingController();
+    String subscriptionTier = 'starter';
+    final password = TextEditingController();
+    final confirm = TextEditingController();
+    final secondaryEmail = TextEditingController();
+    final secondaryPhone = TextEditingController();
+    final secondaryName = TextEditingController();
+    var loading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Register Company'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: companyName,
+                      decoration:
+                          const InputDecoration(labelText: 'Company Name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: regNumber,
+                      decoration: const InputDecoration(
+                          labelText: 'Registration Number'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Text(regDate == null
+                                ? 'Registration date: Not set'
+                                : 'Date: ${regDate.toString().split(' ').first}')),
+                        TextButton(
+                            onPressed: () async {
+                              final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime.now());
+                              if (d != null) setStateDialog(() => regDate = d);
+                            },
+                            child: const Text('Select'))
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: location,
+                        decoration:
+                            const InputDecoration(labelText: 'Location')),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: ceoName,
+                        decoration:
+                            const InputDecoration(labelText: 'CEO Full Name')),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Text(ceoDob == null
+                                ? 'CEO DOB: Not set'
+                                : 'DOB: ${ceoDob.toString().split(' ').first}')),
+                        TextButton(
+                            onPressed: () async {
+                              final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime(1980, 1, 1),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime.now());
+                              if (d != null) setStateDialog(() => ceoDob = d);
+                            },
+                            child: const Text('Select'))
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: email,
+                      decoration:
+                          const InputDecoration(labelText: 'Company Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => (v == null ||
+                              !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v))
+                          ? 'Enter valid email'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: phone,
+                        decoration:
+                            const InputDecoration(labelText: 'Company Phone'),
+                        keyboardType: TextInputType.phone),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: subscriptionTier,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'starter', child: Text('Starter')),
+                        DropdownMenuItem(
+                            value: 'professional', child: Text('Professional')),
+                        DropdownMenuItem(
+                            value: 'enterprise', child: Text('Enterprise')),
+                      ],
+                      onChanged: (v) => setStateDialog(
+                          () => subscriptionTier = v ?? 'starter'),
+                      decoration:
+                          const InputDecoration(labelText: 'Subscription Plan'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: password,
+                        decoration:
+                            const InputDecoration(labelText: 'Password'),
+                        obscureText: true,
+                        validator: (v) =>
+                            (v == null || v.length < 8) ? 'Min 8 chars' : null),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: confirm,
+                        decoration: const InputDecoration(
+                            labelText: 'Confirm Password'),
+                        obscureText: true,
+                        validator: (v) => (v != password.text)
+                            ? 'Passwords do not match'
+                            : null),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text('Secondary Admin (optional)',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: secondaryName,
+                        decoration: const InputDecoration(
+                            labelText: 'Secondary Admin Name')),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: secondaryEmail,
+                        decoration: const InputDecoration(
+                            labelText: 'Secondary Admin Email')),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                        controller: secondaryPhone,
+                        decoration: const InputDecoration(
+                            labelText: 'Secondary Admin Phone')),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        setStateDialog(() => loading = true);
+                        try {
+                          final payload = {
+                            'company_name': companyName.text.trim(),
+                            'registration_number': regNumber.text.trim(),
+                            'registration_date': regDate == null
+                                ? ''
+                                : regDate!.toIso8601String().split('T').first,
+                            'location': location.text.trim(),
+                            'ceo_name': ceoName.text.trim(),
+                            'ceo_dob': ceoDob == null
+                                ? ''
+                                : ceoDob!.toIso8601String().split('T').first,
+                            'email': email.text.trim(),
+                            'phone': phone.text.trim(),
+                            'subscription_tier': subscriptionTier,
+                            // password fields
+                            'password': password.text,
+                            'confirm_password': confirm.text,
+                            // optional secondary admin
+                            'secondary_admin_email': secondaryEmail.text.trim(),
+                            'secondary_admin_phone': secondaryPhone.text.trim(),
+                            'secondary_admin_name': secondaryName.text.trim(),
+                            // security tracking fields
+                            'timezone': DateTime.now().timeZoneName,
+                            'screen_res':
+                                '${MediaQuery.of(context).size.width}x${MediaQuery.of(context).size.height}',
+                          };
+
+                          final resp =
+                              await ApiService().registerCompany(payload);
+                          Navigator.pop(context);
+                          final message = resp['message'] ??
+                              'Company registered successfully';
+                          ScaffoldMessenger.of(this.context)
+                              .showSnackBar(SnackBar(content: Text(message)));
+                          // Prefill login email
+                          setState(
+                              () => _emailController.text = email.text.trim());
+                        } catch (e) {
+                          setStateDialog(() => loading = false);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Failed: ${e.toString()}')));
+                        }
+                      },
+                child: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Create Company Account'),
+              )
+            ],
+          );
+        });
+      },
+    );
+  }
+
   Widget _buildAnimatedBackground(Size size) {
     return AnimatedBuilder(
       animation: _bgController,
@@ -761,326 +1362,460 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: Form(
                                     key: _formKey,
                                     child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        // Logo + text
-                                        Hero(
-                                          tag: 'app-logo',
-                                          child: Row(
-                                            children: [
-                                              Image.asset(
-                                                'assets/logo.png',
-                                                height: 62,
-                                                width: 62,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              const Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Welcome Back',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 22,
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                      ),
-                                                    ),
-                                                    SizedBox(height: 4),
-                                                    Text(
-                                                      'Sign in to continue to your dashboard',
-                                                      style: TextStyle(
-                                                        color: Colors.white70,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        const SizedBox(height: 12),
-
-                                        // If the server returned multiple user roles,
-                                        // show an inline role-selection UI.
-                                        if (_roleSelectionUsers != null) ...[
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              const Text(
-                                                'Multiple accounts found — select a role to continue',
-                                                style: TextStyle(
-                                                    color: Colors.white70,
-                                                    fontWeight:
-                                                        FontWeight.w700),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              ..._roleSelectionUsers!.map((u) {
-                                                final id = u['id'];
-                                                final role = (u['role'] ?? '')
-                                                    .toString();
-                                                final name = (u['full_name'] ?? '')
-                                                    .toString();
-                                                final company = u['company'];
-                                                String companyLabel = '';
-                                                if (company is Map) {
-                                                  final cname = (company['name'] ?? '')
-                                                      .toString();
-                                                  final slug = (company['slug'] ?? '')
-                                                      .toString();
-                                                  companyLabel = cname.isNotEmpty
-                                                      ? (slug.isNotEmpty
-                                                          ? '$cname ($slug)'
-                                                          : cname)
-                                                      : '';
-                                                }
-
-                                                return Card(
-                                                  color:
-                                                      _selectedUserId == id
-                                                          ? Colors.white.withOpacity(0.09)
-                                                          : Colors.white.withOpacity(0.03),
-                                                  shape: RoundedRectangleBorder(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          // Lamba logo box + header text (matches web)
+                                          Hero(
+                                            tag: 'app-logo',
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  height: 74,
+                                                  width: 74,
+                                                  decoration: BoxDecoration(
                                                     borderRadius:
-                                                        BorderRadius.circular(12),
-                                                    side: BorderSide(
-                                                      color: _selectedUserId == id
-                                                          ? Colors.cyan
-                                                          : Colors.transparent,
+                                                        BorderRadius.circular(
+                                                            18),
+                                                    gradient:
+                                                        const LinearGradient(
+                                                      colors: [
+                                                        Color(0xFF667EEA),
+                                                        Color(0xFF764BA2)
+                                                      ],
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
                                                     ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: const Color(
+                                                                0xFF667EEA)
+                                                            .withOpacity(0.25),
+                                                        blurRadius: 20,
+                                                        offset:
+                                                            const Offset(0, 8),
+                                                      )
+                                                    ],
                                                   ),
-                                                  child: RadioListTile<int>(
-                                                    value: (id is int)
-                                                        ? id
-                                                        : int.tryParse(id.toString()) ?? -1,
-                                                    groupValue: _selectedUserId,
-                                                    onChanged: (val) {
-                                                      setState(() {
-                                                        _selectedUserId = val;
-                                                      });
-                                                    },
-                                                    title: Text(
-                                                      role.isEmpty ? 'User' : role,
-                                                      style: const TextStyle(
-                                                          color: Colors.white),
-                                                    ),
-                                                    subtitle: Text(
-                                                      [name, companyLabel]
-                                                          .where((s) => s.isNotEmpty)
-                                                          .join(' • '),
-                                                      style: const TextStyle(
+                                                  child: const Center(
+                                                    child: Icon(Icons.shield,
+                                                        color: Colors.white,
+                                                        size: 28),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: const [
+                                                      Text(
+                                                        'Lamba Login',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 20,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                        ),
+                                                      ),
+                                                      SizedBox(height: 4),
+                                                      Text(
+                                                        'Secure access for Company Admins, Clients & Marketers',
+                                                        style: TextStyle(
                                                           color: Colors.white70,
-                                                          fontSize: 12),
-                                                    ),
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                );
-                                              }).toList(),
-                                              const SizedBox(height: 12),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: ElevatedButton(
-                                                      onPressed: _selectedUserId == null
-                                                          ? null
-                                                          : _continueWithSelectedRole,
-                                                      child: const Text('Continue'),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _roleSelectionUsers = null;
-                                                        _selectedUserId = null;
-                                                        _generalError = 'Login cancelled.';
-                                                      });
-                                                    },
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                            ],
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ],
-                                        if (_roleSelectionUsers == null) ...[
+
                                           const SizedBox(height: 12),
 
-                                          // General error banner
-                                          if (_generalError != null)
-                                            Container(
-                                              width: double.infinity,
-                                              padding: const EdgeInsets.symmetric(
-                                                  vertical: 10, horizontal: 12),
-                                              margin: const EdgeInsets.only(
-                                                  bottom: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.redAccent
-                                                    .withOpacity(0.12),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                border: Border.all(
-                                                  color: Colors.redAccent
-                                                      .withOpacity(0.2),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                _generalError!,
-                                                style: const TextStyle(
-                                                  color: Colors.redAccent,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-
-                                          const SizedBox(height: 10),
-
-                                          TextFormField(
-                                          controller: _emailController,
-                                          keyboardType:
-                                              TextInputType.emailAddress,
-                                          style: const TextStyle(
-                                              color: Colors.white),
-                                          decoration: InputDecoration(
-                                            filled: true,
-                                            fillColor:
-                                                Colors.white.withOpacity(0.03),
-                                            prefixIcon: const Icon(
-                                                Icons.email_outlined,
-                                                color: Colors.white70),
-                                            labelText: 'Email',
-                                            labelStyle: const TextStyle(
-                                                color: Colors.white70),
-                                            hintText: 'you@email.com',
-                                            hintStyle: const TextStyle(
-                                                color: Colors.white38),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            errorText: _emailError,
-                                          ),
-                                          validator: (v) {
-                                            if (v == null || v.trim().isEmpty)
-                                              return 'Please enter your email';
-                                            if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                                .hasMatch(v.trim()))
-                                              return 'Enter a valid email';
-                                            return null;
-                                          },
-                                        ),
-
-                                        const SizedBox(height: 16),
-
-                                        TextFormField(
-                                          controller: _passwordController,
-                                          obscureText: _obscurePassword,
-                                          style: const TextStyle(
-                                              color: Colors.white),
-                                          decoration: InputDecoration(
-                                            filled: true,
-                                            fillColor:
-                                                Colors.white.withOpacity(0.03),
-                                            prefixIcon: const Icon(
-                                                Icons.lock_outline,
-                                                color: Colors.white70),
-                                            labelText: 'Password',
-                                            labelStyle: const TextStyle(
-                                                color: Colors.white70),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            suffixIcon: IconButton(
-                                              onPressed: () {
-                                                setState(() {
-                                                  _obscurePassword =
-                                                      !_obscurePassword;
-                                                });
-                                              },
-                                              icon: Icon(
-                                                _obscurePassword
-                                                    ? Icons.visibility_outlined
-                                                    : Icons
-                                                        .visibility_off_outlined,
-                                                color: Colors.white70,
-                                              ),
-                                            ),
-                                            errorText: _passwordError,
-                                          ),
-                                          validator: (v) {
-                                            if (v == null || v.isEmpty)
-                                              return 'Please enter your password';
-                                            if (v.length < 6)
-                                              return 'Password must be at least 6 characters';
-                                            return null;
-                                          },
-                                        ),
-
-                                        const SizedBox(height: 12),
-
-                                        // remember + forgot
-                                        Row(
-                                          children: [
-                                            Checkbox(
-                                              value: _rememberMe,
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  _rememberMe = val ?? false;
-                                                });
-                                              },
-                                              activeColor: Color(0xFF5E35B1),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  _rememberMe = !_rememberMe;
-                                                });
-                                              },
-                                              child: const Text('Remember me',
-                                                  style: TextStyle(
-                                                      color: Colors.white70)),
-                                            ),
-                                            const Spacer(),
-                                            TextButton(
-                                              onPressed:
-                                                  _showForgotPasswordDialog,
-                                              child: const Text(
-                                                  'Forgot password?',
+                                          // If the server returned multiple user roles,
+                                          // show an inline role-selection UI.
+                                          if (_roleSelectionUsers != null) ...[
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                const Text(
+                                                  'Multiple accounts found — select a role to continue',
                                                   style: TextStyle(
                                                       color: Colors.white70,
                                                       fontWeight:
-                                                          FontWeight.w600)),
+                                                          FontWeight.w700),
+                                                ),
+                                                const SizedBox(height: 10),
+                                                ..._roleSelectionUsers!
+                                                    .map((u) {
+                                                  final id = u['id'];
+                                                  final role = (u['role'] ?? '')
+                                                      .toString();
+                                                  final name =
+                                                      (u['full_name'] ?? '')
+                                                          .toString();
+                                                  final company = u['company'];
+                                                  String companyLabel = '';
+                                                  if (company is Map) {
+                                                    final cname =
+                                                        (company['name'] ?? '')
+                                                            .toString();
+                                                    final slug =
+                                                        (company['slug'] ?? '')
+                                                            .toString();
+                                                    companyLabel = cname
+                                                            .isNotEmpty
+                                                        ? (slug.isNotEmpty
+                                                            ? '$cname ($slug)'
+                                                            : cname)
+                                                        : '';
+                                                  }
+
+                                                  return Card(
+                                                    color: _selectedUserId == id
+                                                        ? Colors.white
+                                                            .withOpacity(0.09)
+                                                        : Colors.white
+                                                            .withOpacity(0.03),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                      side: BorderSide(
+                                                        color: _selectedUserId ==
+                                                                id
+                                                            ? Colors.cyan
+                                                            : Colors
+                                                                .transparent,
+                                                      ),
+                                                    ),
+                                                    child: RadioListTile<int>(
+                                                      value: (id is int)
+                                                          ? id
+                                                          : int.tryParse(id
+                                                                  .toString()) ??
+                                                              -1,
+                                                      groupValue:
+                                                          _selectedUserId,
+                                                      onChanged: (val) {
+                                                        setState(() {
+                                                          _selectedUserId = val;
+                                                        });
+                                                      },
+                                                      title: Text(
+                                                        role.isEmpty
+                                                            ? 'User'
+                                                            : role,
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.white),
+                                                      ),
+                                                      subtitle: Text(
+                                                        [name, companyLabel]
+                                                            .where((s) =>
+                                                                s.isNotEmpty)
+                                                            .join(' • '),
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.white70,
+                                                            fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: ElevatedButton(
+                                                        onPressed:
+                                                            _selectedUserId ==
+                                                                    null
+                                                                ? null
+                                                                : _continueWithSelectedRole,
+                                                        child: const Text(
+                                                            'Continue'),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          _roleSelectionUsers =
+                                                              null;
+                                                          _selectedUserId =
+                                                              null;
+                                                          _generalError =
+                                                              'Login cancelled.';
+                                                        });
+                                                      },
+                                                      child:
+                                                          const Text('Cancel'),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 12),
+                                              ],
                                             ),
                                           ],
-                                        ),
+                                          if (_roleSelectionUsers == null) ...[
+                                            const SizedBox(height: 12),
 
-                                        const SizedBox(height: 16),
+                                            // General error banner
+                                            if (_generalError != null)
+                                              Container(
+                                                width: double.infinity,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 10,
+                                                        horizontal: 12),
+                                                margin: const EdgeInsets.only(
+                                                    bottom: 12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.redAccent
+                                                      .withOpacity(0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                    color: Colors.redAccent
+                                                        .withOpacity(0.2),
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  _generalError!,
+                                                  style: const TextStyle(
+                                                    color: Colors.redAccent,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
 
-                                        // Beautified sign-in button (removed sign-up row)
-                                        _animatedSignInButton(
-                                          onPressed: _handleLogin,
-                                          loading: _loading,
-                                        ),
+                                            const SizedBox(height: 10),
 
-                                        const SizedBox(height: 8),
-                                      ],
-                    ]),
+                                            TextFormField(
+                                              controller: _emailController,
+                                              keyboardType:
+                                                  TextInputType.emailAddress,
+                                              style: const TextStyle(
+                                                  color: Colors.white),
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: Colors.white
+                                                    .withOpacity(0.03),
+                                                prefixIcon: const Icon(
+                                                    Icons.email_outlined,
+                                                    color: Colors.white70),
+                                                labelText: 'Email',
+                                                labelStyle: const TextStyle(
+                                                    color: Colors.white70),
+                                                hintText: 'you@email.com',
+                                                hintStyle: const TextStyle(
+                                                    color: Colors.white38),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: BorderSide.none,
+                                                ),
+                                                errorText: _emailError,
+                                              ),
+                                              validator: (v) {
+                                                if (v == null ||
+                                                    v.trim().isEmpty)
+                                                  return 'Please enter your email';
+                                                if (!RegExp(
+                                                        r'^[^@]+@[^@]+\.[^@]+')
+                                                    .hasMatch(v.trim()))
+                                                  return 'Enter a valid email';
+                                                return null;
+                                              },
+                                            ),
+
+                                            const SizedBox(height: 16),
+
+                                            TextFormField(
+                                              controller: _passwordController,
+                                              obscureText: _obscurePassword,
+                                              style: const TextStyle(
+                                                  color: Colors.white),
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: Colors.white
+                                                    .withOpacity(0.03),
+                                                prefixIcon: const Icon(
+                                                    Icons.lock_outline,
+                                                    color: Colors.white70),
+                                                labelText: 'Password',
+                                                labelStyle: const TextStyle(
+                                                    color: Colors.white70),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: BorderSide.none,
+                                                ),
+                                                suffixIcon: IconButton(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _obscurePassword =
+                                                          !_obscurePassword;
+                                                    });
+                                                  },
+                                                  icon: Icon(
+                                                    _obscurePassword
+                                                        ? Icons
+                                                            .visibility_outlined
+                                                        : Icons
+                                                            .visibility_off_outlined,
+                                                    color: Colors.white70,
+                                                  ),
+                                                ),
+                                                errorText: _passwordError,
+                                              ),
+                                              validator: (v) {
+                                                if (v == null || v.isEmpty)
+                                                  return 'Please enter your password';
+                                                if (v.length < 6)
+                                                  return 'Password must be at least 6 characters';
+                                                return null;
+                                              },
+                                            ),
+
+                                            const SizedBox(height: 12),
+
+                                            // remember + forgot
+                                            Row(
+                                              children: [
+                                                Checkbox(
+                                                  value: _rememberMe,
+                                                  onChanged: (val) {
+                                                    setState(() {
+                                                      _rememberMe =
+                                                          val ?? false;
+                                                    });
+                                                  },
+                                                  activeColor:
+                                                      Color(0xFF5E35B1),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _rememberMe =
+                                                          !_rememberMe;
+                                                    });
+                                                  },
+                                                  child: const Text(
+                                                      'Remember me',
+                                                      style: TextStyle(
+                                                          color:
+                                                              Colors.white70)),
+                                                ),
+                                                const Spacer(),
+                                                TextButton(
+                                                  onPressed:
+                                                      _showForgotPasswordDialog,
+                                                  child: const Text(
+                                                      'Forgot password?',
+                                                      style: TextStyle(
+                                                          color: Colors.white70,
+                                                          fontWeight:
+                                                              FontWeight.w600)),
+                                                ),
+                                              ],
+                                            ),
+
+                                            const SizedBox(height: 16),
+
+                                            // Beautified sign-in button (removed sign-up row)
+                                            _animatedSignInButton(
+                                              onPressed: _handleLogin,
+                                              loading: _loading,
+                                            ),
+
+                                            const SizedBox(height: 8),
+                                          ],
+                                        ]),
                                   ),
                                 ),
                               ),
                             ),
                           ),
+                        ),
+                      ),
+
+                      // Sign-up link (Client / Marketer) and Company registration button placed below the card to match web layout
+                      const SizedBox(height: 12),
+                      Center(
+                        child: GestureDetector(
+                          onTap: _showAccountTypeDialog,
+                          child: RichText(
+                            text: const TextSpan(
+                              text: 'Create Client or Affiliate Account? ',
+                              style: TextStyle(color: Colors.white70),
+                              children: [
+                                TextSpan(
+                                  text: 'Sign up',
+                                  style: TextStyle(
+                                    color: Color(0xFF11998E),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      Center(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF11998E),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 18),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 6,
+                          ),
+                          onPressed: _showCompanyRegistrationDialog,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.business, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('Register Your Company',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            // Security badge
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 6.0, vertical: 6.0),
+                              child: Text('🔒 SSL 256-bit Encrypted',
+                                  style: TextStyle(color: Colors.white70)),
+                            ),
+                            SizedBox(height: 4),
+                            Text('© 2025 Lamba Real Estate Management',
+                                style: TextStyle(
+                                    color: Colors.white54, fontSize: 12)),
+                          ],
                         ),
                       ),
 

@@ -12,6 +12,7 @@ import 'services/notification_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/navigation_service.dart';
 import 'firebase_options.dart';
+import 'core/config.dart';
 
 // Shared pages
 import 'shared/onboarding.dart';
@@ -90,6 +91,10 @@ Future<void> main() async {
 
     // Initialize notifications
     await _initializeNotifications();
+
+    // Debug: show which backend the app will use at startup
+    debugPrint(
+        '⚙️ Startup Config.baseUrl = ${Config.baseUrl}  useProductionBackend=${Config.useProductionBackend}');
 
     runApp(
       MultiProvider(

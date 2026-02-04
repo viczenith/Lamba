@@ -30,19 +30,29 @@ class ApiService {
 
   ApiService() {
     baseUrl = Config.baseUrl;
+    // Debug: surface which backend the running app is using.
+    debugPrint(
+        '⚙️ Config.useProductionBackend = ${Config.useProductionBackend}');
+    debugPrint('⚙️ ApiService baseUrl = $baseUrl');
   }
 
   /// Login using username and password.
   Future<String> login(String email, String password) async {
-    final url = '$baseUrl/api-token-auth/';
-    debugPrint('🔐 Login URL: $url');
+    // Force-local testing: use the explicit dev base URL so requests hit localhost.
+    final url = '${Config.devBaseUrl}/api-token-auth/';
+    debugPrint('🔐 Login URL (dev forced): $url');
+    debugPrint('⚙️ Runtime Config.devBaseUrl = ${Config.devBaseUrl}');
     debugPrint('📧 Email: $email');
 
     try {
+      debugPrint('➡️ POST $url - payload: {"email":"•••", "password":"•••"}');
       final response = await http
           .post(
             Uri.parse(url),
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+            },
             body: jsonEncode({'email': email, 'password': password}),
           )
           .timeout(
@@ -56,34 +66,49 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        debugPrint('🎉 Login successful! Token: ${data['token']}');
-        return data['token'];
+        // Support backend that wraps payload in a {"success":..., "data": {...}} envelope
+        String? token;
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('data') &&
+              data['data'] is Map<String, dynamic>) {
+            final payload = data['data'] as Map<String, dynamic>;
+            token = payload['token']?.toString();
+          } else {
+            token = data['token']?.toString();
+          }
+        }
+        debugPrint('🎉 Login successful! Token: $token');
+        return token ?? '';
       } else {
         debugPrint('❌ Login failed with status ${response.statusCode}');
         throw Exception(
             'Login failed with status ${response.statusCode}: ${response.body}');
       }
+    } on SocketException catch (e, st) {
+      debugPrint('🔌 SocketException when connecting to $url: $e');
+      debugPrint(st.toString());
+      throw Exception('Network error: ${e.message}');
     } on TimeoutException catch (e) {
       debugPrint('⏱️ Timeout: $e');
       throw Exception('Login request timed out. Please check your connection.');
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('🔴 Login error: $e');
+      debugPrint(st.toString());
       rethrow;
     }
   }
 
   /// Unified login to support multi-role selection.
-  ///
-  /// Returns:
-  /// - HTTP 200: {token: string, user: {...}}
-  /// - HTTP 409: {requires_role_selection: true, multiple_users: [...]}
   Future<Map<String, dynamic>> loginUnified(
     String email,
     String password, {
     int? selectedUserId,
     String? loginSlug,
   }) async {
-    final url = '$baseUrl/api-token-auth/';
+    // Force-local testing: use the explicit dev base URL so requests hit localhost.
+    final url = '${Config.devBaseUrl}/api-token-auth/';
+    debugPrint('➡️ POST (unified) URL (dev forced): $url');
+    debugPrint('⚙️ Runtime Config.devBaseUrl = ${Config.devBaseUrl}');
 
     final body = <String, dynamic>{
       // Include both `email` and `username` for compatibility with different
@@ -97,26 +122,58 @@ class ApiService {
       body['login_slug'] = loginSlug.trim();
     }
 
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        )
-        .timeout(
-          const Duration(seconds: 30),
-          onTimeout: () => throw TimeoutException(
-              'Login request timed out after 30 seconds. Render backend may be slow to respond.'),
-        );
+    try {
+      debugPrint(
+          '➡️ POST (unified) $url - payload keys: ${body.keys.toList()}');
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json',
+              'User-Agent': 'RealEstateMSApp/1.0 (Android)'
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () => throw TimeoutException(
+                'Login request timed out after 60 seconds. Server may be slow to respond.'),
+          );
 
-    if (response.statusCode == 200 || response.statusCode == 409) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) return decoded;
-      throw Exception('Unexpected login response: ${response.body}');
+      debugPrint('✅ Response Status: ${response.statusCode}');
+      debugPrint('📦 Response Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 409) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          // Support backend that wraps payload in a {"success":..., "data": {...}} envelope
+          if (decoded.containsKey('data') &&
+              decoded['data'] is Map<String, dynamic>) {
+            return decoded['data'] as Map<String, dynamic>;
+          }
+
+          // Fallback: token/user at the top level
+          return decoded;
+        }
+        throw Exception('Unexpected login response: ${response.body}');
+      }
+
+      throw Exception(
+          'Login failed with status ${response.statusCode}: ${response.body}');
+    } on SocketException catch (e, st) {
+      debugPrint('🔌 SocketException (unified) when connecting to $url: $e');
+      debugPrint(st.toString());
+      throw Exception('Network error: ${e.message}');
+    } on TimeoutException catch (e) {
+      debugPrint('⏱️ Timeout (unified): $e');
+      throw Exception('Login request timed out. Please check your connection.');
+    } catch (e, st) {
+      debugPrint('🔴 LoginUnified error: $e');
+      debugPrint(st.toString());
+      rethrow;
     }
-
-    throw Exception(
-        'Login failed with status ${response.statusCode}: ${response.body}');
   }
 
   Future<Map<String, dynamic>> fetchSupportBirthdaySummary(String token) async {
@@ -322,6 +379,89 @@ class ApiService {
       // ignore parse errors
     }
     return null;
+  }
+
+  // -------------------------------
+  // Public registration endpoints
+  // These endpoints expect form-encoded POSTs and return JSON when
+  // the request contains the X-Requested-With: XMLHttpRequest header.
+  // -------------------------------
+  Future<Map<String, dynamic>> registerClient(
+      Map<String, String> payload) async {
+    final uri = Uri.parse('$baseUrl/client/register/');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      body: payload,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 || response.statusCode == 201)
+        return decoded;
+      throw Exception(_extractErrorMessage(response) ??
+          decoded['message'] ??
+          'Client registration failed: ${response.statusCode}');
+    } catch (_) {
+      throw Exception('Client registration failed: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> registerMarketer(
+      Map<String, String> payload) async {
+    final uri = Uri.parse('$baseUrl/marketer/register/');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      body: payload,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 || response.statusCode == 201)
+        return decoded;
+      throw Exception(_extractErrorMessage(response) ??
+          decoded['message'] ??
+          'Marketer registration failed: ${response.statusCode}');
+    } catch (_) {
+      throw Exception('Marketer registration failed: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> registerCompany(
+      Map<String, String> payload) async {
+    final uri = Uri.parse('$baseUrl/register/');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      body: payload,
+    );
+
+    try {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 || response.statusCode == 201)
+        return decoded;
+      throw Exception(_extractErrorMessage(response) ??
+          decoded['message'] ??
+          'Company registration failed: ${response.statusCode}');
+    } catch (_) {
+      throw Exception('Company registration failed: ${response.statusCode}');
+    }
   }
 
   Future<Map<String, dynamic>> deleteMarketerChatMessage({
@@ -1094,21 +1234,23 @@ class ApiService {
         'Authorization': 'Token $token',
       },
     );
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      final Map<String, dynamic> data = (decoded is Map<String, dynamic> &&
-              decoded.containsKey('data') &&
-              decoded['success'] == true &&
-              decoded['data'] is Map<String, dynamic>)
-          ? Map<String, dynamic>.from(decoded['data'])
-          : (decoded is Map<String, dynamic>
-              ? Map<String, dynamic>.from(decoded)
-              : <String, dynamic>{});
+
+    final parsed = await _handleResponse(response);
+    if (parsed is Map<String, dynamic>) {
+      final Map<String, dynamic> data = (parsed.containsKey('data') &&
+              parsed['success'] == true &&
+              parsed['data'] is Map<String, dynamic>)
+          ? Map<String, dynamic>.from(parsed['data'])
+          : Map<String, dynamic>.from(parsed);
 
       return data;
-    } else {
-      throw Exception('Failed to load user profile: ${response.body}');
     }
+
+    throw ApiException(
+      message: 'Unexpected user profile response',
+      details: 'Expected JSON object but received ${parsed.runtimeType}',
+      statusCode: response.statusCode,
+    );
   }
 
   /// Fetch Admin Dashboard Data from the dynamic JSON endpoint.
@@ -1121,11 +1263,18 @@ class ApiService {
         'Authorization': 'Token $token',
       },
     );
-    if (response.statusCode == 200) {
-      return AdminDashboardData.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to load dashboard data: ${response.body}');
+
+    final parsed = await _handleResponse(response);
+    if (parsed is Map<String, dynamic>) {
+      return AdminDashboardData.fromJson(parsed);
     }
+
+    throw ApiException(
+      message: 'Unexpected dashboard response',
+      details:
+          'Expected JSON object for dashboard data but received ${parsed.runtimeType}',
+      statusCode: response.statusCode,
+    );
   }
 
   /// - Allocation details
@@ -1617,6 +1766,34 @@ class ApiService {
     try {
       // Explicitly decode with UTF-8 to handle emojis and special characters correctly
       final decodedBody = utf8.decode(response.bodyBytes);
+
+      // If server returned HTML (e.g., an error page), surface a clear ApiException
+      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+      // Be more robust detecting HTML (allow for BOM/whitespace before the tag)
+      final bodySnippet = decodedBody.length > 1024
+          ? decodedBody.substring(0, 1024)
+          : decodedBody;
+      final looksLikeHtml = contentType.contains('text/html') ||
+          RegExp(r'^[\uFEFF\s]*<(?:!doctype|html)', caseSensitive: false)
+              .hasMatch(bodySnippet) ||
+          bodySnippet.toLowerCase().contains('<!doctype');
+
+      debugPrint('🔎 Response content-type: $contentType');
+      if (looksLikeHtml) {
+        final preview = bodySnippet.length > 512
+            ? bodySnippet.substring(0, 512) + '...'
+            : bodySnippet;
+        debugPrint(
+            '⚠️ Received non-JSON response (status ${response.statusCode}): $preview');
+        throw ApiException(
+          message: 'Received non-JSON (HTML) response from server',
+          details:
+              'Status: ${response.statusCode}. Response preview: ${preview.replaceAll('\n', ' ')}',
+          statusCode: response.statusCode,
+        );
+      }
+
+      // Attempt JSON decode
       final responseBody = json.decode(decodedBody);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -4028,6 +4205,8 @@ class ApiService {
       headers: {
         'Authorization': 'Token $token',
         'Content-Type': 'application/json',
+        'User-Agent': 'RealEstateMSApp/1.0 (Android)',
+        'X-Requested-With': 'XMLHttpRequest',
       },
     );
 
@@ -4364,8 +4543,6 @@ class ApiService {
   }
 
   /// Normalizes `companies[]` or legacy `company_names`/`company_transactions`
-  /// into a reliable List<Map> with keys: company_id, company_name,
-  /// transactions, company_logo
   List<Map<String, dynamic>>? _parseCompanies(Map<String, dynamic>? payload) {
     if (payload == null) return null;
 
@@ -4846,14 +5023,18 @@ class ApiService {
       headers: {
         'Authorization': 'Token $token',
         'Accept': 'application/json',
+        'User-Agent': 'RealEstateMSApp/1.0 (Android)',
+        'X-Requested-With': 'XMLHttpRequest',
       },
     );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to load marketer profile');
-    }
+    final parsed = await _handleResponse(response);
+    if (parsed is Map<String, dynamic>) return parsed;
+    throw ApiException(
+      message: 'Unexpected marketer profile response',
+      details: 'Expected JSON object but received: ${parsed.runtimeType}',
+      statusCode: response.statusCode,
+    );
   }
 
   Future<Map<String, dynamic>> updateMarketerProfileDetails({
@@ -4926,6 +5107,8 @@ class ApiService {
       'Content-Type': contentType,
       // DRF TokenAuthentication expects "Token <token>"
       'Authorization': 'Token ${token.trim()}',
+      'User-Agent': 'RealEstateMSApp/1.0 (Android)',
+      'X-Requested-With': 'XMLHttpRequest',
     };
   }
 
