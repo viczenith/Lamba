@@ -25,12 +25,11 @@ import 'package:intl/intl.dart';
 import 'package:real_estate_app/core/config.dart';
 
 class ApiService {
-  // Use Config for dynamic backend selection (Render or localhost)
   late String baseUrl;
 
   ApiService() {
     baseUrl = Config.baseUrl;
-    // Debug: surface which backend the running app is using.
+
     debugPrint(
         '⚙️ Config.useProductionBackend = ${Config.useProductionBackend}');
     debugPrint('⚙️ ApiService baseUrl = $baseUrl');
@@ -38,7 +37,6 @@ class ApiService {
 
   /// Login using username and password.
   Future<String> login(String email, String password) async {
-    // Force-local testing: use the explicit dev base URL so requests hit localhost.
     final url = '${Config.devBaseUrl}/api-token-auth/';
     debugPrint('🔐 Login URL (dev forced): $url');
     debugPrint('⚙️ Runtime Config.devBaseUrl = ${Config.devBaseUrl}');
@@ -2314,7 +2312,7 @@ class ApiService {
   /// Endpoint: GET /api/client/dashboard/
   /// Returns: user, stats (4 cards), active_promotions, latest_value_by_company organized by company
   Future<Map<String, dynamic>> getClientDashboardData(String token) async {
-    final url = '$baseUrl/api/client/dashboard/';
+    final url = '$baseUrl/client/dashboard/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Authorization': 'Token $token',
@@ -2391,7 +2389,7 @@ class ApiService {
   /// Returns: PriceHistory with estate, plot_unit, prices, percent_change, promo, dates
   Future<Map<String, dynamic>> getPriceUpdateById(int id,
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
-    final url = '$baseUrl/api/price-update/$id/';
+    final url = '$baseUrl/price-update/$id/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
@@ -2422,7 +2420,7 @@ class ApiService {
   /// Returns: List of active promotions with estates and pricing
   Future<List<Map<String, dynamic>>> getActivePromotions(
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
-    final url = '$baseUrl/api/active-promotions/';
+    final url = '$baseUrl/active-promotions/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
@@ -2474,7 +2472,7 @@ class ApiService {
     final qPart =
         q != null && q.isNotEmpty ? '&q=${Uri.encodeQueryComponent(q)}' : '';
     final url =
-        '$baseUrl/api/promotions/?filter=${Uri.encodeQueryComponent(filter)}&page=$page$qPart';
+        '$baseUrl/promotions/?filter=${Uri.encodeQueryComponent(filter)}&page=$page$qPart';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
@@ -2522,7 +2520,7 @@ class ApiService {
   /// Returns: Complete promotion with estates, sizes, pricing, and active status
   Future<Map<String, dynamic>> getPromotionDetail(int id,
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
-    final url = '$baseUrl/api/promotion/$id/';
+    final url = '$baseUrl/promotion/$id/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
@@ -2634,7 +2632,7 @@ class ApiService {
     final qPart =
         q != null && q.isNotEmpty ? '&q=${Uri.encodeQueryComponent(q)}' : '';
     final estatePart = estateId != null ? '&estate_id=$estateId' : '';
-    final url = '$baseUrl/api/estates/?page=$page$qPart$estatePart';
+    final url = '$baseUrl/estates/?page=$page$qPart$estatePart';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Token $token',
@@ -2732,7 +2730,7 @@ class ApiService {
   /// Fetch currently active promotional offers
   Future<List<dynamic>> listActivePromotions(
       {String? token, Duration timeout = const Duration(seconds: 15)}) async {
-    final url = '$baseUrl/api/active-promotions/';
+    final url = '$baseUrl/active-promotions/';
     final headers = <String, String>{
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Token $token',
@@ -3803,7 +3801,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/api/client/notifications/';
+    final url = '$baseUrl/client/notifications/';
     final headers = <String, String>{
       'Authorization': 'Token $token',
       'Content-Type': 'application/json',
@@ -3842,7 +3840,7 @@ class ApiService {
       params['since'] = since;
     }
 
-    final uri = Uri.parse('$baseUrl/api/client/notifications/list/')
+    final uri = Uri.parse('$baseUrl/client/notifications/list/')
         .replace(queryParameters: params);
 
     final headers = <String, String>{
@@ -3872,7 +3870,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/api/client/notifications/$userNotificationId/detail/';
+    final url = '$baseUrl/client/notifications/$userNotificationId/detail/';
 
     try {
       final resp = await http.get(
@@ -3898,7 +3896,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/api/client/notifications/unread-count/';
+    final url = '$baseUrl/client/notifications/unread-count/';
 
     try {
       final resp = await http.get(
@@ -3935,8 +3933,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url =
-        '$baseUrl/api/client/notifications/$userNotificationId/mark-read/';
+    final url = '$baseUrl/client/notifications/$userNotificationId/mark-read/';
 
     try {
       final resp = await http.post(
@@ -3965,7 +3962,7 @@ class ApiService {
     }
 
     final url =
-        '$baseUrl/api/client/notifications/$userNotificationId/mark-unread/';
+        '$baseUrl/client/notifications/$userNotificationId/mark-unread/';
 
     try {
       final resp = await http.post(
@@ -3992,7 +3989,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/api/client/notifications/mark-all-read/';
+    final url = '$baseUrl/client/notifications/mark-all-read/';
 
     try {
       final resp = await http.post(
@@ -4041,7 +4038,7 @@ class ApiService {
       throw Exception('Authentication token is required');
     }
 
-    final url = '$baseUrl/api/client/notifications/$userNotificationId/delete/';
+    final url = '$baseUrl/client/notifications/$userNotificationId/delete/';
 
     try {
       final resp = await http.post(
@@ -4108,7 +4105,7 @@ class ApiService {
   }) async {
     if (token.isEmpty) throw Exception('Authentication token is required');
 
-    final uri = Uri.parse('$baseUrl/api/marketer/notifications/');
+    final uri = Uri.parse('$baseUrl/marketer/notifications/');
     final headers = {
       'Authorization': 'Token $token',
       'Content-Type': 'application/json',
@@ -4644,7 +4641,7 @@ class ApiService {
     required String token,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final uri = Uri.parse('$baseUrl/api/marketer/my-companies/');
+    final uri = Uri.parse('$baseUrl/marketer/my-companies/');
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token.isNotEmpty) headers['Authorization'] = 'Token $token';
 
@@ -4764,8 +4761,7 @@ class ApiService {
     required String token,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final uri =
-        Uri.parse('$baseUrl/api/marketer/company/$companyId/portfolio/');
+    final uri = Uri.parse('$baseUrl/marketer/company/$companyId/portfolio/');
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (token.isNotEmpty) headers['Authorization'] = 'Token $token';
 
@@ -6251,7 +6247,7 @@ class ApiService {
     required String token,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final uri = Uri.parse('$baseUrl/api/clients/my-companies/');
+    final uri = Uri.parse('$baseUrl/clients/my-companies/');
 
     try {
       final response = await http.get(
@@ -6301,7 +6297,7 @@ class ApiService {
     required int companyId,
     Duration timeout = const Duration(seconds: 20),
   }) async {
-    final uri = Uri.parse('$baseUrl/api/clients/company/$companyId/portfolio/');
+    final uri = Uri.parse('$baseUrl/clients/company/$companyId/portfolio/');
 
     try {
       final response = await http.get(
@@ -6376,7 +6372,7 @@ class ApiService {
     Duration timeout = const Duration(seconds: 15),
   }) async {
     final uri =
-        Uri.parse('$baseUrl/api/clients/company/transaction/$transactionId/');
+        Uri.parse('$baseUrl/clients/company/transaction/$transactionId/');
 
     try {
       final response = await http.get(
@@ -6415,7 +6411,7 @@ class ApiService {
     required int transactionId,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final uri = Uri.parse('$baseUrl/api/clients/company/payment-history/')
+    final uri = Uri.parse('$baseUrl/clients/company/payment-history/')
         .replace(queryParameters: {'transaction_id': transactionId.toString()});
 
     try {
@@ -6462,7 +6458,7 @@ class ApiService {
     Duration timeout = const Duration(seconds: 15),
   }) async {
     final safeRef = Uri.encodeComponent(reference);
-    final uri = Uri.parse('$baseUrl/api/clients/company/receipt/$safeRef/');
+    final uri = Uri.parse('$baseUrl/clients/company/receipt/$safeRef/');
 
     try {
       final response = await http.get(

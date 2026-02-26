@@ -166,17 +166,26 @@ class _ClientDashboardState extends State<ClientDashboard>
         _data = resp;
         _activePromos =
             List<Map<String, dynamic>>.from(resp['active_promotions'] ?? []);
-        // Handle latest_value_by_company: {company_id: {company_name, logo, updates: [...]}}
+        // Handle latest_value_by_company – server returns a List of
+        // {company_name, company_id, company_logo, updates: [...], has_new}
         // Flatten to single list for UI price explorer
-        final latestByCompany =
-            resp['latest_value_by_company'] as Map<String, dynamic>? ?? {};
+        final rawByCompany = resp['latest_value_by_company'];
         final flatList = <Map<String, dynamic>>[];
-        latestByCompany.forEach((companyId, companyData) {
-          if (companyData is Map && companyData['updates'] is List) {
-            flatList.addAll(
-                List<Map<String, dynamic>>.from(companyData['updates']));
+        if (rawByCompany is List) {
+          for (var companyData in rawByCompany) {
+            if (companyData is Map && companyData['updates'] is List) {
+              flatList.addAll(
+                  List<Map<String, dynamic>>.from(companyData['updates']));
+            }
           }
-        });
+        } else if (rawByCompany is Map) {
+          rawByCompany.forEach((_, companyData) {
+            if (companyData is Map && companyData['updates'] is List) {
+              flatList.addAll(
+                  List<Map<String, dynamic>>.from(companyData['updates']));
+            }
+          });
+        }
         _latestValue = flatList;
       });
       _staggerController.forward();
@@ -196,8 +205,6 @@ class _ClientDashboardState extends State<ClientDashboard>
     }
   }
 
-  /// Filter and sort price history cards based on search, sort mode, and promo filter
-  /// Returns latest updates for each plot unit, sorted by user preference
   List<Map<String, dynamic>> _filteredPriceCards() {
     final q = _priceSearchCtr.text.trim().toLowerCase();
     List<Map<String, dynamic>> cards = List.from(_latestValue);

@@ -26,7 +26,9 @@ real_estate_app/android/firebase-app-distribution.json
 
 # Databases
 *.sqlite3
+*.sqlite3.*
 *.db
+*.bak
 
 # Logs
 *.log
@@ -50,3 +52,40 @@ pubspec.lock
 # Misc
 .DS_Store
 Thumbs.db
+
+# Backup / temp files
+*_backup*
+backup.*
+*.backup*
+build_log.txt
+build_output.txt
+registration_log.txt
+
+# Generated / preview HTML
+notification_preview.html
+rendered_chat.html
+reciepts.html
+tmp_root.html
+
+# Junk / accidental files
+_isLoading
+_PROJECT_STATUS.txt
+AlertDialog(
+
+# Sensitive
+passwords.txt
+.secret_key
+
+# One-off scripts & docs (keep README.md only)
+scripts/
+IMPORTANT/
+docs/
+src/
+check_plans.py
+check_tables.py
+create_superadmin.py
+migrate_plans.py
+BILLING_IMPLEMENTATION.md
+BILLING_SYSTEM_DOCUMENTATION.md
+multi-infra.md
+PROJECT_STATUS.txt

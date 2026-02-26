@@ -673,9 +673,7 @@ class AdvancedSecurityMiddleware(MiddlewareMixin):
         '/media/',
         '/favicon.ico',
         '/robots.txt',
-        '/api/health/',
-        '/api/api-token-auth/',  # Token auth endpoint - allow anonymous access for API clients
-        '/api/users/me/',        # Current user endpoint - allow token-based access
+        '/api/',                 # ALL DRF API endpoints – DRF handles its own Token auth & permissions
         '/health/',
         '/admin/login/',           # Django admin login
         '/admin/',                 # Django admin (has its own auth)
